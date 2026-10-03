@@ -1,0 +1,318 @@
+# Session Handoff v3 (2026-10-04, after Phase 4)
+
+## 1. Core Objective & Scope
+- **Product:** PlantOps, a multi-tenant SaaS for RO / packaged-drinking-water plants. The owner, Rocky
+  (super_admin), sells it to plants.
+- **Architecture:** a platform shell (identity, tenants, plans, launcher, SSO) plus independent module web apps.
+  Each module has its own URL, Docker image, DB schema and DB login.
+- **Batch ID**, owned by Lab Records, links the modules.
+
+**Phases** (finish and test each before the next; plan mode + approval at each start):
+
+| # | Phase | State |
+|---|---|---|
+| 1 | Platform | ✅ |
+| 2 | Launcher | ✅ |
+| 3 | Lab Records | ✅ |
+| 4 | Document Store | ✅ inserted by the owner 2026-10-04 |
+| 5 | Floor Stock | **NEXT** |
+| 6 | Preventive Mgmt | |
+| 7 | AMC | |
+| 8 | Attendance/Salary | |
+| 9 | Marketing Contacts | |
+| 10 | Website + dedicated-instance / move-tenant tooling | |
+
+**End state:** every module live per plant, running on one shared release, deployed in Docker (Mumbai), Shared or
+Dedicated hosting.
+
+**User:**
+- Not a full-time developer. Use plain language and small, explained changes.
+- Decisions go through AskUserQuestion. Report after each build step.
+- Repo: `/home/rocky/projects/plantops_platform`, GitHub `bluemins/plantops_platform`, branch `main`. The user
+  usually commits himself; ask before committing or pushing.
+- Environment: WSL2 Ubuntu on Windows, VS Code extension.
+
+**Sources of truth** (read first):
+
+| File | What it holds |
+|---|---|
+| `CLAUDE.md` | rules, token definitions, contracts, "Every module app must", phase list, dated Status log incl. Phase 3 and Phase 4 notes |
+| `BuildPrompt.md` | per-phase prompts; CRLF line endings, keep them; the Phase 3 prompt was rewritten this session |
+| `README.md` | user how-tos |
+| `apps/lab-records/NOTES.md`, `apps/document-store/NOTES.md` | module rules |
+| `refeDocs/sheets/FSSAI STI Forms.xlsx` | the 4 FSSAI forms Lab Records replaces |
+
+## 2. Current System State & Architecture
+**Stack:**
+- pnpm 12.8.1 + Turborepo; Node 22; TypeScript 5.9 (moduleResolution Bundler)
+- Next.js 16.3.8 (App Router; `proxy.ts` replaces middleware, Node runtime; route params / searchParams are
+  Promises; `cookies()` is async and only works inside a request scope)
+- React 19, Tailwind 4 (`bg-(--var)`), zod 4, Drizzle 0.45 + pg, jose 6 (EdDSA), Vitest 5
+- nodemailer 7.0.13 (Document Store only)
+
+**Apps and ports:**
+| App | Port | What |
+|---|---|---|
+| `apps/platform` | :3000 | platform shell |
+| `apps/lab-records` | :3001 | Phase 3 |
+| `apps/dev-module` | :3002 | dev-only placeholder, now serves only Floor Stock; never deploy |
+| `apps/document-store` | :3003 | Phase 4 |
+
+**Packages:**
+- `auth`: verifyToken / verifySummaryRequest / **verifySupportToken**; client: exchangeCode,
+  **exchangeSupportCode**, fetchUserStatus, fetchTenantPlan, fetchBranding, fetchLogo, **fetchAlertContacts**,
+  **fetchSkus**; session: startModuleSession (stores display_name from the status call), seal/open,
+  refreshModuleSession, **startSupportSession / sealSupportSession / openSupportSession** (audience
+  `module-support:<id>`)
+- `types`, `ui` (brandPalette / brandStyle), `db` (createDb, withTenant, migrate)
+- **`module-kit`** (new):
+  - `createModule({ moduleId, label, env: { platformUrl, clientSecret, sessionSecret, secureCookies } })`
+    returns: creds, keys, accountUrl, platformLoginUrl, cached branding / products / plan / contacts (60 s),
+    SESSION_COOKIE `plantops_<id>`, SUPPORT_COOKIE `plantops_<id>_support`, sealCookie / openCookie /
+    readSession / sessionCookie / seal-open-supportCookie / supportCookie, currentSession() (support wins),
+    messagePage, proxy, and routes `{ callback, support, logout, supportExit, plantLogo }`
+  - subpath exports: `/http` (HttpError, handle [JSON-only mutations], **handleUpload** [raw body, refuses
+    form / text types = CSRF-safe, size-capped], readJson, uuidParam, hiddenByPlan 410), `/pages` (orNotFound,
+    orHidden), `/csv` (csv with BOM, formula-neutralising, csvTime), `/format` (fmtDateTime / fmtDate / fmtAge,
+    IST), `/safe-next`
+  - Module pattern: `src/server/kit.ts` creates the kit; routes are thin
+    `export function GET(req){ return kit.routes.callback(req) }`; `src/proxy.ts` calls `kit.proxy` with a
+    literal matcher `["/((?!_next/static|_next/image|favicon.ico|sso/|api/plantops/|api/cron/|health).*)"]`.
+
+**Database:**
+- Local Postgres 18. DBs `plantops` (dev) and `plantops_test` (each app's tests drop and rebuild their schema).
+- Logins:
+
+| Login | Role |
+|---|---|
+| `plantops_owner` | owns all schemas, runs migrations, BYPASSRLS |
+| `platform_app` | RLS-enforced |
+| `platform_super` | BYPASSRLS, super routes only |
+| `lab_app` | schema `lab_records` |
+| `doc_app` | schema `document_store` |
+
+- Every tenant table: `tenant_id` + ENABLE + FORCE RLS, policy
+  `tenant_id = current_setting('app.tenant_id')::uuid`. Without a tenant it fails closed ("unrecognized
+  configuration parameter", or "invalid input syntax for type uuid" on a pooled connection).
+- Migrations:
+  - platform: 0001–0007 (`0005_lab_lead`, `0006_support_handoff`, `0007_document_store`)
+  - lab_records: 0001–0003 (`0003_daily_job` adds `lab_tenants()`, security definer, ids only)
+  - document_store: 0001 (includes `doc_tenants()`)
+
+**Platform additions in Phases 3–4:**
+- roles `lab_lead`, `document_keeper`; module `document_store`
+- `UserStatus.display_name`, `AlertContact { user_id, display_name, phone, email?, roles }`
+- routes:
+  - `GET /api/m/tenants/:tid/alert-contacts` (owners + the calling module's role holders)
+  - `GET /api/m/tenants/:tid/skus`
+  - `POST /api/super/tenants/:id/support/:module` (super_admin → one-time code → module `/sso/support?code=`)
+  - `POST /api/sso/support-exchange` (module credentials → support token)
+- plan screen: `MODULE_LIMIT_FIELDS` in `apps/platform/src/lib/plan-body.ts` (lab history_months, doc storage_mb)
+- dashboard `SUPPORT_READY = ["lab_records", "document_store"]`
+
+**Lab Records (`apps/lab-records`):**
+- 11 tables: parameters, batches, batch_events, entries, entry_versions, entry_results, verifications,
+  corrective_actions, alerts, support_views, audit_log.
+- Forms defined once in `src/lib/forms.ts`: daily, form1–form4.
+- Server: entries.ts, approval.ts, alerts.ts (WhatsApp outbox), reminders.ts (daily job), search.ts, history.ts,
+  print.ts, export.ts, support.ts, summary.ts.
+- Print pages `/print/[form]?from&to` and `/print/batch/[id]`.
+
+**Document Store (`apps/document-store`):**
+- Tables: files, documents, document_versions, reminders, support_views, audit_log.
+- Server: documents.ts, storage.ts (local disk `DOC_STORAGE_DIR` default `./.data/documents` [gitignored], or
+  S3 SigV4 path-style when `STORAGE_BUCKET` is set), mail.ts (SMTP), reminders.ts, export.ts, support.ts,
+  summary.ts.
+- `src/lib/expiry.ts` (expiryStatus, reminderStage).
+- Pages: `/` table, `/documents/new`, `/documents/[id]`, `/files/[id]`, `/support-access`.
+
+## 3. Decisions Made & Constraints
+**CLAUDE.md working rules:**
+- Plan mode at each phase start.
+- Ask before any schema / permission / tenant-isolation / token-content change.
+- Tests with every feature; never commit secrets.
+- A dated Status note after each phase.
+- Stop and ask on a conflict with CLAUDE.md.
+
+**Never:**
+- put a JWT in a URL
+- trust tile-hiding as access control
+- make customer forks
+- deploy dev-module
+- ask the user to paste passwords
+- print `.env` values
+- let an app import another app (shared code only via `packages/*`)
+
+**Tokens:**
+- SSO token is unchanged.
+- Summary token: `purpose:"summary"`.
+- **Support token** (built): `purpose:"support"`, tenant_id, super_admin_id, `read_only:true`, aud, 15 min. It
+  carries no name; owner logs say "PlantOps support".
+
+**Lab Records decisions:**
+- FSSAI Forms 1–4 + daily test log.
+- **Append-only**: save = submit + lock, no drafts; correction = new version with a reason (DB check);
+  retest = new entry; `lab_app` has no UPDATE / DELETE on result tables.
+- Limits are copied into each result.
+- **lab_lead** (approve / release / reject / verify / set limits) + owner (same, plus export; no data entry).
+- Batch status pending / on_hold / approved / **rejected** (final).
+- **"Still failing" is judged per parameter by the most recent result on the batch.**
+- **Print-ready HTML pages, not Puppeteer.**
+- History window by plan (hidden, never deleted).
+- Search inside the module.
+- Form 1 "tested at" (in-house / outside lab) + "Form 1 due".
+- WhatsApp outbox to owners + lab leads.
+- Daily reminder for holds > 24 h.
+
+**Document Store decisions:**
+- **Email** reminders (SMTP).
+- Responsible = a plant user (owner or document_keeper).
+- **Renewal keeps history.**
+- Reminders at 30 / 7 / 1 / 0 days (0 also covers 1–6 days after expiry), then weekly; unique
+  `(version_id, stage, recipient_user_id)`; one email per person per run.
+- Files: PDF / JPEG / PNG / WebP by magic bytes, ≤ 10 MB, plan `storage_mb`.
+
+**Redirect rule:** module callbacks use a **relative Location**. `req.url` is `0.0.0.0` in phone mode.
+
+## 4. Progress & Completed Work
+**Commits on main:**
+| Commit | Contents |
+|---|---|
+| `fa9207b` | phase 2 |
+| `2299dbf`, `1556b9f` | docs |
+| `e797d85` | "steps 1–3" (Phase 3 steps 1–3) |
+| `238a707` | "Max lab record" (Phase 3 steps 4–9) |
+
+- **Phase 4 is UNCOMMITTED (41 files):** apps/document-store/, packages/module-kit/,
+  apps/lab-records/src/server/kit.ts + Lab Records files switched to the kit, platform 0007 + types / sso /
+  plan-body / dashboard changes, scripts/setup-module-db.{sh,sql}, README, CLAUDE.md, .env.example, .gitignore
+  (`.data/`), pnpm-lock.
+- **Tests: 405 passing** (platform 187, auth 32, lab-records 111, document-store 75). `pnpm typecheck`: 9
+  packages clean. `next build` passes for all 3 apps.
+- **Verified live (`pnpm dev:lan`, plant 002):**
+  - Lab Records: login from PC and phone, batches / tests / corrections, forms, print PDFs (Form 1 / Form 2
+    rendered through headless Windows Chrome and matched the sheet), support view through the real exchange,
+    daily job, tile numbers.
+  - Document Store: health, login redirect, upload without a session → 401, a non-keeper (Atharv) blocked.
+- **Dev data:** DEMO-001 batch + demo Form 2 (created by Claude); Techno's Form 1 test record; support-view rows
+  from Claude's check visits in 002's Lab Records log.
+- The user enabled `document_store` for plant 002 and made Techno (1111) a document_keeper.
+
+## 5. Open Tasks & Immediate Next Steps
+1. **Ask the user to commit Phase 4** (or commit when asked; normalise file modes to 644 except `scripts/*.sh`).
+2. **User verification on screen (not done):**
+   - Document Store: add / renew a document with a real file as Techno or Sujata.
+   - Lab Records: owner / lab lead flow (limits → failing test → hold → note → retest → release → approve →
+     verify → export).
+   - super_admin: support buttons.
+   - Claude has no owner / super_admin passwords and must not ask for them.
+3. **User:** add emails to plant users (Users screen). No 002 user has one, so reminders are skipped.
+4. **User:**
+   - Start Meta WhatsApp Business verification + the template (one body variable `{{1}}`). Set
+     `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_ID` / `WHATSAPP_TEMPLATE`.
+   - Get an SMTP account (Amazon SES Mumbai) and set `SMTP_HOST` / `PORT` / `USER` / `PASS` / `MAIL_FROM`.
+5. **User (phone testing on 3003):** run as Windows admin:
+   `Set-NetFirewallRule -DisplayName "PlantOps dev" -LocalPort 3000-3003; Set-NetFirewallHyperVRule -Name PlantOpsDev -LocalPorts 3000-3003`
+6. **Phase 5 Floor Stock: start in plan mode.**
+   - `apps/floor-stock` on module-kit, port 3002 (dev-module currently serves floor_stock there; remove it as
+     lab_records was removed: `REAL_APPS` in `apps/dev-module/src/server.ts`).
+   - `./scripts/setup-module-db.sh floor_stock <login> <PREFIX> 3002`
+   - items, stock in/out, reorder alerts, stock-out linked to batch (SKUs via `kit.products`)
+   - **design the module-to-module batch lookup auth** (how Floor Stock proves who it is to Lab Records; ask
+     first)
+   - its support view; add to SUPPORT_READY
+   - also update BuildPrompt.md's Phase numbering if needed (it still has the old order)
+7. **Later:** deployment (Docker images never built, no Docker locally), a cron on the server for both daily
+   jobs, a real S3 bucket check, Hindi / Odia labels, open questions on the Lab Records sheet (Form 3 "Record of
+   Test Report" column empty; Form 4 header quirk).
+
+## 6. Known Issues, Blockers, or Edge Cases
+**Blockers outside the code:**
+- No Docker, no deployment.
+- WhatsApp waits for Meta; email waits for SMTP.
+- The super_admin password is unknown to Claude (the `SUPER_ADMIN_PASSWORD` in `.env` is stale; recovery is
+  `pnpm super:set-password`, run by the user).
+- Sujata's password in the old handoff is out of date. One failed attempt was made; she is not locked.
+
+**Gotchas:**
+- `cookies()` can't run in Vitest. Test routes that use the session through the proxy / kit, or call server
+  functions directly with a DocUser / LabUser.
+- Server functions validate via the zod schemas in API routes. Direct calls skip them, so test the schemas
+  directly (e.g. `RejectInput.safeParse`).
+- `createEntry` called directly needs `form`; use `createDailyEntry`.
+- A stale `tsc` error can appear right after `pnpm install` relinks; rerun.
+- `pnpm install --offline` fails (supply-chain metadata check); use `pnpm install`.
+- WSL flips modes to 755; normalise.
+- Use literal paths in `rm` (the safety hook blocks `rm $VAR/*`).
+- Dev servers that Claude started in the background (lab :3001 `pnpm dev:lan`, docs :3003 `pnpm dev:lan`) stop
+  on WSL restart; check with `ss -ltn | grep 300`. The platform :3000 was started by the user. Restart a module
+  server after `.env` changes (`.env` is read at start).
+- `.env` is in phone mode (`192.168.1.2`). Use that IP on the PC too, not localhost.
+- Next dev regenerates `apps/*/AGENTS.md` and `CLAUDE.md`; commit them.
+- In dev, the first request after a code change may render a page twice. That gives duplicate `support_views`
+  rows on the first hit only; normal requests write 1 row.
+
+## 7. Working State & Code Snippets
+**`.env` keys** (never print values):
+```
+DATABASE_URL_OWNER/_APP/_SUPER, TEST_DATABASE_URL_OWNER/_APP/_SUPER
+PLATFORM_URL=http://192.168.1.2:3000
+SSO_PRIVATE_JWK_B64, SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD(stale)
+MODULE_URL_LAB_RECORDS=…:3001  MODULE_SECRET_LAB_RECORDS
+MODULE_URL_FLOOR_STOCK=…:3002  MODULE_SECRET_FLOOR_STOCK
+LAB_DATABASE_URL_APP, TEST_LAB_DATABASE_URL_APP, LAB_SESSION_SECRET, CRON_SECRET
+DOC_DATABASE_URL_APP, TEST_DOC_DATABASE_URL_APP, DOC_SESSION_SECRET, MODULE_URL_DOCUMENT_STORE=…:3003, MODULE_SECRET_DOCUMENT_STORE
+(optional, unset) WHATSAPP_*, SMTP_*, MAIL_FROM, STORAGE_*, DOC_STORAGE_DIR
+```
+
+**Commands:**
+```bash
+pnpm dev | pnpm dev:lan        # all apps
+pnpm test && pnpm typecheck    # expect 405 tests, 9 packages
+pnpm db:migrate && pnpm db:seed   # migrate = platform + lab-records + document-store
+pnpm --filter @plantops/lab-records daily ; pnpm --filter @plantops/document-store daily
+./scripts/setup-module-db.sh <module_id> <db_login> <PREFIX> <port>   # user runs (sudo)
+psql via: set -a; . ./.env; set +a; psql "$DATABASE_URL_OWNER"
+```
+
+**Test accounts (plant 002 SAMPLEAQUA, brand #0e7490, plan lab_records + floor_stock + document_store):**
+| Username | Name | Roles | Secret |
+|---|---|---|---|
+| sujata | Sujata | tenant_admin | password unknown to Claude |
+| atharv | Atharv | lab_technician, store_keeper | PIN 482913 (used for curl checks) |
+| 1111 | Techno | lab_technician, document_keeper | user's own PIN; Claude doesn't log in as Techno |
+
+Plant 001 (Bluemins): msahu (owner); its lab user 1111 needs a PIN reset.
+
+**New-module skeleton** (copy `apps/document-store`):
+- `src/server/{env,kit,db,schema,session,http,pages}.ts`, `src/proxy.ts`
+- `src/app/{layout,header,page}.tsx`, `src/app/sso/{callback,support,logout,support-exit}/route.ts`,
+  `plant-logo`, `health`, `api/plantops/summary`, `api/cron/daily`
+- `test/{load-test-env,setup-env,global-setup,fake-platform,helpers}.ts`
+- Each new module also needs:
+  - `next.config.ts`: `transpilePackages` incl. `@plantops/module-kit`
+  - the root `db:migrate` chain extended
+  - `.env.example` lines
+  - the platform tile in `apps/platform/src/lib/modules.ts` and the label in the dev-module LABELS
+  - `MODULE_IDS` / `ROLE_IDS` / `ROLE_MODULE` in `packages/types` + a platform migration inserting the module and
+    role rows (ask first)
+
+**Every-tenant-table migration pattern:**
+```sql
+alter table <schema>.X enable row level security; alter table <schema>.X force row level security;
+create policy tenant_isolation on <schema>.X
+  using (tenant_id = current_setting('app.tenant_id')::uuid)
+  with check (tenant_id = current_setting('app.tenant_id')::uuid);
+grant select, insert on <schema>.X to <login>;      -- append-only; add column-level UPDATE only where needed; never DELETE
+```
+
+**Daily job pattern:**
+- `create function <schema>.<x>_tenants() returns setof uuid language sql stable security definer set search_path = pg_catalog, pg_temp as $$ select distinct tenant_id from … $$;`
+- grant execute to the login.
+- The route `POST /api/cron/daily` checks `x-cron-secret` against `CRON_SECRET` with `timingSafeEqual`; it
+  returns 503 if unset.
+
+**Reminder stage rule** (Document Store, `src/lib/expiry.ts`):
+```ts
+d>30→null; d>7→"d30"; d>1→"d7"; d===1→"d1"; d>-7→"d0"; else `expired_w${floor(-d/7)}`
+```

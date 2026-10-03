@@ -1,67 +1,17 @@
-// How this module talks to the platform: its credentials, the platform's public keys, and a short cache for
-// the plant's branding (name, colour, logo). Nothing here can mint tokens.
-import { fetchBranding, fetchSkus, fetchTenantPlan, type KeySource, type ModuleCredentials } from "@plantops/auth";
-import type { TenantBranding, TenantSku } from "@plantops/types";
-import { env } from "./env";
+// How Lab Records talks to the platform (credentials, keys, cached branding/products/plan) - from the module kit.
+import { productLabel } from "@plantops/module-kit";
+import { kit } from "./kit";
 
-export const MODULE_ID = "lab_records" as const;
-export const MODULE_LABEL = "Lab Records";
-
-export const creds = (): ModuleCredentials => ({ platformUrl: env.platformUrl, moduleId: MODULE_ID, clientSecret: env.clientSecret });
-export const keys = (): KeySource => ({ jwksUrl: new URL("/.well-known/jwks.json", env.platformUrl).toString() });
-
-/** The platform's "Account / PlantOps home" screen (launcher), always reachable from the module. */
-export const accountUrl = () => new URL("/home?launcher=1", env.platformUrl).toString();
-
-/** Platform login that returns the user here with a one-time code (CLAUDE.md flow step 6). */
-export const platformLoginUrl = (next: string) =>
-  new URL(`/sso/start?module=${MODULE_ID}&next=${encodeURIComponent(next)}`, env.platformUrl).toString();
-
-const g = globalThis as unknown as {
-  __labBranding?: Map<string, { at: number; value: TenantBranding }>;
-  __labSkus?: Map<string, { at: number; value: TenantSku[] }>;
-  __labHistory?: Map<string, { at: number; value: number | null }>;
-};
-const BRANDING_TTL_MS = 60_000;
-
-/** The plant's look, cached for a minute. Never breaks a page: null means default PlantOps colours. */
-export async function branding(tenantId: string): Promise<TenantBranding | null> {
-  const cache = (g.__labBranding ??= new Map());
-  const hit = cache.get(tenantId);
-  if (hit && Date.now() - hit.at < BRANDING_TTL_MS) return hit.value;
-  const value = await fetchBranding(creds(), tenantId).catch(() => null);
-  if (value) cache.set(tenantId, { at: Date.now(), value });
-  return value ?? hit?.value ?? null;
-}
-
-/** The plant's products (platform Business details), cached for a minute. Empty if the platform is unreachable. */
-export async function products(tenantId: string): Promise<TenantSku[]> {
-  const cache = (g.__labSkus ??= new Map());
-  const hit = cache.get(tenantId);
-  if (hit && Date.now() - hit.at < BRANDING_TTL_MS) return hit.value;
-  const value = await fetchSkus(creds(), tenantId).catch(() => null);
-  if (value) cache.set(tenantId, { at: Date.now(), value });
-  return value ?? hit?.value ?? [];
-}
-
-/** "500 ml × 24 (case)" - how a product is named on screens and records. */
-export function productLabel(s: TenantSku) {
-  const size = s.volume_ml >= 1000 ? `${s.volume_ml / 1000} L` : `${s.volume_ml} ml`;
-  return s.units_per_pack > 1 ? `${s.name} (${size} × ${s.units_per_pack})` : `${s.name} (${size})`;
-}
+export const MODULE_ID = kit.moduleId as "lab_records";
+export const MODULE_LABEL = kit.label;
+export const { creds, keys, accountUrl, platformLoginUrl, branding, products } = kit;
+export { productLabel };
 
 /**
- * The plan's Lab Records history window in months (super_admin sets it; blank = unlimited), cached for a
- * minute. Older records are never deleted - only hidden from screens, search and prints until an upgrade.
- * If the platform can't be reached, the last known value is used (or no limit).
+ * The plan's Lab Records history window in months (super_admin sets it; blank = unlimited). Older records are
+ * never deleted - only hidden from screens, search and prints until an upgrade. Platform unreachable: no limit.
  */
 export async function historyMonths(tenantId: string): Promise<number | null> {
-  const cache = (g.__labHistory ??= new Map());
-  const hit = cache.get(tenantId);
-  if (hit && Date.now() - hit.at < BRANDING_TTL_MS) return hit.value;
-  const plan = await fetchTenantPlan(creds(), tenantId).catch(() => null);
-  if (!plan) return hit?.value ?? null;
-  const months = plan.limits.modules.lab_records?.history_months ?? null;
-  cache.set(tenantId, { at: Date.now(), value: months });
-  return months;
+  const plan = await kit.plan(tenantId);
+  return plan?.limits.modules.lab_records?.history_months ?? null;
 }

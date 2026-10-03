@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Button, Card, ErrorText, TextField } from "@plantops/ui";
 import { api } from "@/lib/api";
 import { BusinessSections } from "@/lib/business-form";
-import { PlanFields, labHistoryMonths, planBody, type PlanFormValue } from "@/lib/plan-form";
+import { PlanFields, moduleLimitFormValues, planBody, type PlanFormValue } from "@/lib/plan-form";
 import { TempSecret, UserCard, type UserView } from "@/lib/user-form";
 
 type Tenant = {
@@ -37,7 +37,7 @@ export default function TenantPage() {
       enabled_modules: data.plan?.enabled_modules ?? [],
       max_users: String(data.plan?.limits.platform.max_users ?? ""),
       renews_on: data.plan?.renews_on ?? "",
-      lab_history_months: labHistoryMonths(data.plan?.limits.modules),
+      ...moduleLimitFormValues(data.plan?.limits.modules),
     });
   }, []);
 

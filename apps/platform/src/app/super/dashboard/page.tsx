@@ -13,7 +13,7 @@ type View = { plant: { name: string; code: string; brand_color: string | null; l
 
 const KEY = "plantops.super.dashboardPlant";
 /** Modules that already have the read-only support view (built per module from Phase 3). */
-const SUPPORT_READY: string[] = ["lab_records"];
+const SUPPORT_READY: string[] = ["lab_records", "document_store"];
 
 /** super_admin: pick a plant and see its tiles and plan exactly as its owner does (read-only). */
 export default function SuperDashboard() {

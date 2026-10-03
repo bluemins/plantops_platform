@@ -1,6 +1,7 @@
 // The owner's full export (CLAUDE.md: plants can export their data if they leave). Everything, ignoring
 // the plan's history window: every batch with its history, every record with every version and result.
 import { and, asc, eq } from "drizzle-orm";
+import { csv, csvTime } from "@plantops/module-kit/csv";
 import { FORMS } from "@/lib/forms";
 import { audit } from "./audit";
 import { schema, withTenant } from "./db";
@@ -11,18 +12,7 @@ import type { LabUser } from "./session";
 
 const { batches, batchEvents } = schema;
 
-const ist = (iso: string | Date) =>
-  new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
-    .format(new Date(iso))
-    .replace(",", "");
-
-/** One CSV cell: quoted when needed; a leading = + - @ is neutralised so spreadsheets never run it as a formula. */
-function cell(v: unknown) {
-  let s = v === null || v === undefined ? "" : String(v);
-  if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = `'${s}`;
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-const csv = (rows: unknown[][]) => "﻿" + rows.map((r) => r.map(cell).join(",")).join("\r\n") + "\r\n"; // BOM: Excel reads UTF-8 correctly
+const ist = csvTime;
 
 function requireOwner(user: LabUser) {
   if (!user.isOwner) throw forbidden("Only the plant owner can export all records");

@@ -8,6 +8,7 @@ One monorepo (pnpm workspaces + Turborepo) at ~/projects/plantops_platform. Each
 independently, with its own URL, Docker image and database schema.
 - `apps/platform` — platform shell (auth, tenants, plans, launcher, SSO)
 - `apps/lab-records`
+- `apps/document-store`
 - `apps/floor-stock`
 - `apps/preventive-mgmt`
 - `apps/amc`
@@ -95,7 +96,8 @@ working. Nothing is stored.
 `GET /api/m/tenants/:tid/branding` (`fetchBranding`/`fetchLogo` in `packages/auth`). super_admin and login
 screens stay PlantOps blue.
 
-**Every module app must** (all in `packages/auth`; `apps/dev-module` is a working example):
+**Every module app must** (all in `packages/auth`, wired up once by `createModule()` in `packages/module-kit`;
+`apps/lab-records` and `apps/document-store` use it):
 `startModuleSession` at `/sso/callback`, keep the session with `sealSession`/`openSession` (own
 `SESSION_SECRET`, ≥ 32 chars), call `refreshModuleSession` on every request (12 h shift, 5-min re-check,
 15-min grace if the platform is unreachable), send users without a session to
@@ -131,7 +133,7 @@ where the owner can see it. `apps/lab-records` is the reference module.
   They add migration and maintenance work without real extra isolation.
 - To keep Dedicated possible without building it now: every table keeps `tenant_id` (even in a dedicated copy),
   and nothing is hard-coded. The "move one tenant" tool (export one plant's data by `tenant_id` from Shared,
-  import into a Dedicated copy) is built in Phase 9, only when a paying plant needs it.
+  import into a Dedicated copy) is built in Phase 10 (website + provisioning), only when a paying plant needs it.
 - When a plant objects to Shared, first address the usual concerns: other plants cannot see their data (RLS),
   they can export their data if they leave, and data is stored in India (Mumbai region). Offer Dedicated only
   if that's not enough.
@@ -169,7 +171,9 @@ tenant_admin is a role in `user_roles` (no separate `tenant_admins` table). Each
 
 ## Prioritized build order (phases; finish and test each before the next)
 
-**Why this order:** Lab Records is the compliance wedge plants will pay for first. Floor Stock and Preventive
+**Why this order:** Lab Records is the compliance wedge plants will pay for first. Document Store comes next
+(decided 2026-10-04 by the owner): expired licences and certificates (FSSAI, BIS, pollution board, lab
+accreditations) are a compliance risk plants feel directly, and it needs no batch link. Floor Stock and Preventive
 Management are the next-closest operational needs and both link to the batch record. AMC is a revenue add-on
 that pairs naturally with Preventive Management. Attendance/Salary and Marketing Contacts are generic
 small-business tools (not RO-specific) — deprioritized until the RO-specific modules are proven with paying
@@ -178,12 +182,15 @@ pilots.
 1. **Platform core** — super_admin service, auth/roles, tenant registry with `tenant_plan`, SSO token issuance.
 2. **Launcher** — role-and-plan-filtered dashboard, handoff to module URLs.
 3. **Lab Records module** — batch log, tests, pass/fail, PDF report, failed-test flow, WhatsApp alert.
-4. **Floor Stock module** — items, stock in/out, reorder alerts, linked to batches.
-5. **Preventive Management module** — assets, PM schedules, task completion, history.
-6. **AMC module** — contracts, visit logs, renewals, invoicing (pairs with Preventive Management).
-7. **Attendance & Salary module.**
-8. **Digital Marketing Contact Management module.**
-9. **Website + dedicated-instance/tenant provisioning tooling.**
+4. **Document Store module** — plant documents/certificates with name, certificate, expiry, authority, support
+   contact, responsible person (a plant user); file upload stored on the server; renewal history kept;
+   expiry reminders by email to the owner and the responsible person.
+5. **Floor Stock module** — items, stock in/out, reorder alerts, linked to batches.
+6. **Preventive Management module** — assets, PM schedules, task completion, history.
+7. **AMC module** — contracts, visit logs, renewals, invoicing (pairs with Preventive Management).
+8. **Attendance & Salary module.**
+9. **Digital Marketing Contact Management module.**
+10. **Website + dedicated-instance/tenant provisioning tooling.**
 
 Plan each phase in detail only when you reach it — later phases will be shaped by what earlier ones actually
 produce. Do not start a phase's detailed design until the prior phase's status note (below) is written.
@@ -396,9 +403,82 @@ module SKU read endpoint for Floor Stock later (Phase 4).
 - Docker images: `apps/lab-records/Dockerfile` added, not built (no Docker on this machine).
 - Any real deployment.
 
-**Next — Phase 4 (Floor Stock):** a real module in `apps/floor-stock` built like `apps/lab-records`:
+**Next — Phase 4 (Document Store)**, inserted by the owner on 2026-10-04; Floor Stock moves to Phase 5.
+**Then Phase 5 (Floor Stock):** a real module in `apps/floor-stock` built like `apps/lab-records`:
 - items, stock in/out, reorder alerts
 - stock-out linked to a batch
 - design the module-to-module batch lookup (Floor Stock asks Lab Records whether a batch is approved; how a
   module proves who it is to another module)
+- its support view
+
+### 2026-10-04 — Phase 4: Document Store — complete
+**Built** (`apps/document-store` on :3003; module notes in `apps/document-store/NOTES.md`):
+- **Platform:**
+  - module `document_store` + role `document_keeper` (migration `0007_document_store.sql`)
+  - `AlertContact.email` in `alert-contacts`
+  - plan limit `limits.modules.document_store.storage_mb`; the plan screen's module limits are now one list
+    (`MODULE_LIMIT_FIELDS`)
+  - support button on the dashboard
+- **`packages/module-kit`** (new): `createModule({ moduleId, label, env })` gives:
+  - credentials / keys and the branding / products / plan / contacts caches
+  - user and support cookies, `currentSession()`, the proxy
+  - the standard routes: callback, support, logout, support-exit, plant logo
+  - `handle` / `handleUpload` / `readJson`, `orNotFound` / `orHidden`, CSV, date formats
+  
+  **Lab Records moved onto it** with its 111 tests unchanged. `scripts/setup-module-db.sh` sets up any
+  module's database login and `.env` lines.
+- **Document Store:**
+  - schema `document_store`, login `doc_app`; 6 tables with `tenant_id` + FORCE RLS; append-only (no DELETE;
+    UPDATE only on documents' status / responsible and reminders' status)
+  - documents with versions (initial / renewal / correction, reason required) and files that are never replaced
+  - upload checks: PDF / JPEG / PNG / WebP by content, ≤ 10 MB, raw body (CSRF-safe), plan storage limit
+  - storage: local disk, or S3-compatible (SigV4, no SDK) when `STORAGE_BUCKET` is set
+  - downloads checked per plant
+  - responsible person = an owner or document keeper from the platform
+  - documents table with expiry status, filters, search and the last reminder per row; cards on phones
+  - document page: renew, correct, change responsible, archive / restore, version history, reminder log
+  - owner CSV export; support view read-only, with page **and file** views logged
+- **Email reminders:**
+  - stages: 30 / 7 / 1 days before, on expiry (or the first run up to 6 days after), then weekly
+  - each sent once per version, stage and person; a renewal restarts the schedule
+  - to the owners + the responsible person, one email per person per run
+  - SMTP via nodemailer; "Email is not set up yet" until configured
+  - daily job `POST /api/cron/daily` + `CRON_SECRET`
+- **Tile:** expired / expiring soon / total.
+- **Tests: 405 passing** (platform 187, auth 32, Lab Records 111, Document Store 75), covering:
+  - append-only refusals (10 statements) and isolation, plus the FORCE RLS guard
+  - file type / size / storage-limit checks
+  - reminder stage boundaries, once-only, grouping, failures
+  - the fake-S3 round trip, the support view and the upload route
+
+**Key decisions (with the owner, 2026-10-04):**
+- Document Store inserted as **Phase 4** (Floor Stock → 5).
+- **Email** reminders.
+- Responsible = **plant user**.
+- **Keep renewal history.**
+- **Document keeper** role.
+- **30 / 7 / 1 / 0 + weekly.**
+- **PDF / photos ≤ 10 MB + plan storage limit.**
+- **Extract the module kit before building it.**
+
+**Verified on `pnpm dev` (2026-10-04):**
+- Document Store runs on :3003 and reaches its database.
+- Without a session → PlantOps login; an upload without a session → 401.
+- The owner switched it on for plant 002 and made Techno a document keeper. Atharv (no role) is sent to "no
+  access" and has no tile.
+- Lab Records still works on the kit (live login, pages, logout).
+
+**Not yet verified:**
+- **Adding / renewing a document with a real file in the browser**, as Techno or Sujata. The server side is fully
+  tested; nobody has done it on screen.
+- Real email: needs an SMTP account, and no plant 002 user has an email saved yet.
+- Real S3 bucket.
+- Docker images (Dockerfile added, not built).
+- Any real deployment.
+
+
+**Next — Phase 5 (Floor Stock):** a real module in `apps/floor-stock` on the module kit:
+- items, stock in/out, reorder alerts
+- stock-out linked to a batch
+- design the module-to-module batch lookup (Floor Stock asks Lab Records whether a batch is approved)
 - its support view

@@ -77,6 +77,7 @@ describe("tile rules (decideTiles / landingFor)", () => {
       ["lab_records", "open", undefined],
       ["floor_stock", "open", undefined],
       ["preventive_mgmt", "off", undefined],
+      ["document_store", "locked", "not_enabled"],
       ["amc", "locked", "addon"],
       ["attendance_salary", "locked", "not_enabled"],
       ["marketing_contacts", "locked", "not_enabled"],
@@ -117,12 +118,12 @@ describe("GET /api/launcher", () => {
     multi = await makeStaff(A, "multi", ["lab_technician", "store_keeper"]);
   });
 
-  it("owner: tiles + plan card (Growth, 3 of 6, users 3/10)", async () => {
+  it("owner: tiles + plan card (Growth, 3 of 7, users 3/10)", async () => {
     const res = await call(launcherRoute.GET as Handler, { cookie: A.adminCookie });
     expect(res.status).toBe(200);
     expect(res.body.landing).toBe("launcher");
-    expect(res.body.tiles.filter((t: { state: string }) => t.state === "locked")).toHaveLength(3);
-    expect(res.body.plan_summary).toMatchObject({ plan_name: "Growth", modules_enabled: 3, modules_total: 6, users_active: 3, max_users: 10 });
+    expect(res.body.tiles.filter((t: { state: string }) => t.state === "locked")).toHaveLength(4);
+    expect(res.body.plan_summary).toMatchObject({ plan_name: "Growth", modules_enabled: 3, modules_total: 7, users_active: 3, max_users: 10 });
     expect(res.body.plant).toMatchObject({ code: A.code, logo_url: null });
   });
 
@@ -244,9 +245,9 @@ describe("super_admin Modules screen", () => {
   });
   const patch = (id: string, body: unknown) => call(moduleRoute.PATCH as Handler, { cookie: sa.cookie, method: "PATCH", body, params: { id } });
 
-  it("lists all six modules with their state; owner/staff are refused", async () => {
+  it("lists all seven modules with their state; owner/staff are refused", async () => {
     const res = await call(modulesRoute.GET as Handler, { cookie: sa.cookie });
-    expect(res.body.map((m: { id: string }) => m.id)).toEqual(["lab_records", "floor_stock", "preventive_mgmt", "amc", "attendance_salary", "marketing_contacts"]);
+    expect(res.body.map((m: { id: string }) => m.id)).toEqual(["lab_records", "document_store", "floor_stock", "preventive_mgmt", "amc", "attendance_salary", "marketing_contacts"]);
     expect(res.body[0]).toMatchObject({ base_url: fakeUrl, secret_set: true, status: "active", ready: true });
     expect(JSON.stringify(res.body)).not.toContain(sha256(LAB_SECRET)); // never the hash
     expect((await call(modulesRoute.GET as Handler, { cookie: P.adminCookie })).status).toBe(401);

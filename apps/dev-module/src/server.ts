@@ -33,6 +33,7 @@ const platformUrl = process.env.PLATFORM_URL ?? "http://localhost:3000";
 
 const LABELS: Record<ModuleId, string> = {
   lab_records: "Lab Records",
+  document_store: "Document Store",
   floor_stock: "Floor Stock",
   preventive_mgmt: "Preventive Mgmt",
   amc: "AMC",

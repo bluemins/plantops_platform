@@ -8,7 +8,7 @@ Multi-tenant SaaS platform for RO / packaged-drinking-water plants. Project brie
 |---|---|---|---|
 | **super_admin** | PlantOps operator (you). Creates plants, sets each plant's plan and modules, creates plant owners. Sees all plants. | `/super/login` | Email + password |
 | **tenant_admin** (plant owner) | Owner of one plant. Adds and manages their own staff, sees read-only summaries of every module their plant has. | `/login` | Plant code + username + **password** |
-| **Staff** (lab technician, **lab lead**, store keeper, maintenance technician) | Work in their own module(s) only. A person can hold more than one role. A **lab lead** is a lab technician who can also approve batches, release holds, verify records and set test limits. | `/login`, or the module's own link | Plant code + username + **6-digit PIN** |
+| **Staff** (lab technician, **lab lead**, **document keeper**, store keeper, maintenance technician) | Work in their own module(s) only. A person can hold more than one role. A **lab lead** is a lab technician who can also approve batches, release holds, verify records and set test limits. A **document keeper** looks after the plant's licences and certificates in Document Store. | `/login`, or the module's own link | Plant code + username + **6-digit PIN** |
 
 Each plant only ever sees its own data. The database enforces this, not just the screens (see CLAUDE.md).
 
@@ -101,6 +101,7 @@ access within about 5 minutes. Users are never deleted, so the audit trail stays
 | Plant login (owners + staff) | http://localhost:3000/login |
 | super_admin | http://localhost:3000/super/login |
 | Lab Records | http://localhost:3001 |
+| Document Store | http://localhost:3003 |
 | Floor Stock (placeholder module) | http://localhost:3002 |
 
 | super_admin: Modules (URLs, secrets, on/off) | http://localhost:3000/super/modules |
@@ -131,8 +132,8 @@ These `localhost` links work only on this computer (including Windows browsers).
   their settings, so switching it on again restores everything.
 - **Dashboard** (`/super` → **Dashboard**): choose a plant and see its tiles and plan exactly as its owner does,
   in its colour. It is read-only.
-- **Support view**: on the Dashboard, **Open Lab Records (read-only)** opens that plant's real Lab Records
-  data for 15 minutes. You can look at everything and print, but you can't change anything. A yellow bar
+- **Support view**: on the Dashboard, **Open Lab Records (read-only)** / **Open Document Store (read-only)** opens
+  that plant's real module data for 15 minutes. You can look at everything and print, but you can't change anything. A yellow bar
   shows you are in support mode, and **Exit** brings you back. The plant owner sees every page you opened
   (Lab Records → **Support access**: "PlantOps support viewed Lab Records, 5 Oct 10:42").
 
@@ -170,6 +171,30 @@ Open it from the **Lab Records** tile, or straight at its own link (phones: add 
 - **WhatsApp**: until Meta approves the template, alerts are kept and shown as "not sent – WhatsApp is not set
   up yet". Setup steps: `apps/lab-records/NOTES.md` → Alerts.
 
+## Document Store (module)
+The plant's licences and certificates (FSSAI, BIS, pollution board, fire NOC, NABL…) with their files, and email
+reminders before they expire. **Owners** and **document keepers** manage it; super_admin switches it on in the
+plant's plan.
+
+- **Add document**: name, certificate / licence no., issued and expiry dates, authority, contact for renewal,
+  **who is responsible** (an owner or document keeper), and the file (PDF or photo up to 10 MB; phones can take
+  the photo). The plan can limit total storage ("Document Store storage (MB)" on the plan screen).
+- **The table** shows every document with its status: Valid, **Expires in 12 days** (amber), Expires today,
+  **Expired 3 days ago** (red) or No expiry. It also shows who is responsible and the last reminder. Filter and
+  search at the top; it shows as cards on a phone.
+- **Renew**: upload the new certificate with its new expiry. The old version and file stay on record.
+  **Correct details** fixes a typing mistake (with a reason). **Archive** hides a document that's no longer
+  needed (nothing is deleted).
+- **Reminders by email** go to the owners and the responsible person:
+  - 30, 7 and 1 days before expiry
+  - on the day
+  - then weekly while it stays expired
+  
+  **Save everyone's email in Users**: without one, the row says "No email saved". Until an email service is set
+  up (SMTP, e.g. Amazon SES), reminders show "not sent – Email is not set up yet". Setup:
+  `apps/document-store/NOTES.md`. Run the job by hand: `pnpm --filter @plantops/document-store daily`.
+- **Export** (owner): every document and version as a CSV file.
+
 ## Testing on your phone (same Wi-Fi)
 **One-time setup on Windows** (lets the phone reach the PlantOps apps running inside WSL):
 1. In Windows, open Notepad and save a file named `.wslconfig` in your user folder (`C:\Users\<you>\.wslconfig`)
@@ -181,8 +206,8 @@ Open it from the **Lab Records** tile, or straight at its own link (phones: add 
 2. Open **PowerShell as Administrator** and run:
    ```powershell
    wsl --shutdown
-   New-NetFirewallRule -DisplayName "PlantOps dev" -Direction Inbound -Protocol TCP -LocalPort 3000-3002 -Action Allow -Profile Private
-   New-NetFirewallHyperVRule -Name PlantOpsDev -DisplayName "PlantOps dev (WSL)" -Direction Inbound -VMCreatorId '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -Protocol TCP -LocalPorts 3000-3002
+   New-NetFirewallRule -DisplayName "PlantOps dev" -Direction Inbound -Protocol TCP -LocalPort 3000-3003 -Action Allow -Profile Private
+   New-NetFirewallHyperVRule -Name PlantOpsDev -DisplayName "PlantOps dev (WSL)" -Direction Inbound -VMCreatorId '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -Protocol TCP -LocalPorts 3000-3003
    ```
 3. Make sure your Wi-Fi is set to **Private network** in Windows settings. Then reopen VS Code / Ubuntu.
 
@@ -198,6 +223,8 @@ Follow what `pnpm lan:urls` prints: put the Wi-Fi addresses in `.env`, set the m
 ## Layout
 - `apps/platform`: platform shell (login, plants, plans, users/roles, SSO for modules)
 - `apps/lab-records`: Lab Records module (batches, tests, FSSAI forms, approval, printing) – see its `NOTES.md`
+- `apps/document-store`: Document Store module (licences, certificates, files, expiry emails) – see its `NOTES.md`
+- `packages/module-kit`: what every module app shares (platform login, sessions, support view, proxy, helpers)
 - `apps/dev-module`: development-only placeholder for modules without a real app yet (Floor Stock)
 - `packages/auth`: token verification + access rules, used by every module
 - `packages/db`: database helpers (`withTenant`, migrations)
@@ -212,17 +239,19 @@ corepack enable pnpm
 pnpm install
 ./scripts/setup-local-db.sh   # once: creates DB logins + databases, writes .env (asks for sudo)
 ./scripts/setup-lab-db.sh     # once: the Lab Records database login + its .env lines (asks for sudo)
-pnpm db:migrate               # creates/updates tables (platform + Lab Records)
+./scripts/setup-module-db.sh document_store doc_app DOC 3003   # once: Document Store's login + .env lines
+pnpm db:migrate               # creates/updates tables (platform + every module)
 pnpm db:seed                  # creates the first super_admin and registers modules from .env
 ```
 
 ## Everyday commands
 ```bash
-pnpm dev          # platform on :3000, Lab Records on :3001, placeholder Floor Stock on :3002
+pnpm dev          # platform :3000, Lab Records :3001, placeholder Floor Stock :3002, Document Store :3003
 pnpm dev:lan      # same, reachable from a phone on the same Wi-Fi (see "Testing on your phone")
 pnpm test         # all tests, against the separate plantops_test database
 pnpm typecheck
-pnpm --filter @plantops/lab-records daily   # run the Lab Records morning reminder job now
+pnpm --filter @plantops/lab-records daily      # run the Lab Records morning reminder job now
+pnpm --filter @plantops/document-store daily   # run the Document Store expiry reminders now
 ```
 
 ## Registering a module (for SSO)

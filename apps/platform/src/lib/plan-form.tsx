@@ -2,9 +2,9 @@
 
 import { TextField } from "@plantops/ui";
 import { MODULES } from "./modules";
-import type { PlanFormValue } from "./plan-body";
+import { MODULE_LIMIT_FIELDS, type PlanFormValue } from "./plan-body";
 
-export { emptyPlan, labHistoryMonths, planBody, type PlanFormValue } from "./plan-body";
+export { emptyPlan, labHistoryMonths, moduleLimitFormValues, planBody, type PlanFormValue } from "./plan-body";
 
 export function PlanFields({ value, onChange }: { value: PlanFormValue; onChange: (v: PlanFormValue) => void }) {
   return (
@@ -32,15 +32,16 @@ export function PlanFields({ value, onChange }: { value: PlanFormValue; onChange
           );
         })}
       </div>
-      {value.enabled_modules.includes("lab_records") && (
+      {MODULE_LIMIT_FIELDS.filter((f) => value.enabled_modules.includes(f.module)).map((f) => (
         <TextField
-          label="Lab Records history shown (months, blank = unlimited)"
+          key={f.field}
+          label={f.label}
           type="number"
           min={1}
-          value={value.lab_history_months}
-          onChange={(e) => onChange({ ...value, lab_history_months: e.target.value })}
+          value={value[f.field]}
+          onChange={(e) => onChange({ ...value, [f.field]: e.target.value })}
         />
-      )}
+      ))}
     </div>
   );
 }

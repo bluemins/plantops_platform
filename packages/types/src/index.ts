@@ -3,6 +3,7 @@ import { z } from "zod";
 /** Every PlantOps module. Adding a module = add it here + a row in platform.modules (seed). */
 export const MODULE_IDS = [
   "lab_records",
+  "document_store",
   "floor_stock",
   "preventive_mgmt",
   "amc",
@@ -13,7 +14,7 @@ export const ModuleId = z.enum(MODULE_IDS);
 export type ModuleId = z.infer<typeof ModuleId>;
 
 /** Roles a plant user can hold. A user may hold several. */
-export const ROLE_IDS = ["tenant_admin", "lab_technician", "lab_lead", "store_keeper", "maintenance_technician"] as const;
+export const ROLE_IDS = ["tenant_admin", "lab_technician", "lab_lead", "document_keeper", "store_keeper", "maintenance_technician"] as const;
 export const RoleId = z.enum(ROLE_IDS);
 export type RoleId = z.infer<typeof RoleId>;
 
@@ -22,6 +23,8 @@ export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin">, ModuleId> = {
   lab_technician: "lab_records",
   /** a lab technician who can also approve batches, release holds, verify entries and set limits */
   lab_lead: "lab_records",
+  /** adds, renews and archives the plant's licences and certificates */
+  document_keeper: "document_store",
   store_keeper: "floor_stock",
   maintenance_technician: "preventive_mgmt",
 };
@@ -116,6 +119,8 @@ export const AlertContact = z.object({
   user_id: z.uuid(),
   display_name: z.string(),
   phone: z.string().nullable(),
+  /** for email reminders (Document Store); optional so a module keeps working with an older platform */
+  email: z.string().nullable().optional(),
   roles: z.array(RoleId),
 });
 export type AlertContact = z.infer<typeof AlertContact>;

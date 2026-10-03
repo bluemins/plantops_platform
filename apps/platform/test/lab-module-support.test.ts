@@ -64,7 +64,7 @@ describe("alert contacts for modules", () => {
     expect(res.status).toBe(200);
     const byName = Object.fromEntries(res.body.map((c: { display_name: string }) => [c.display_name, c]));
     expect(Object.keys(byName).sort()).toEqual(["Owner", "lead", "tech"]);
-    expect(byName.Owner).toEqual({ user_id: A.adminUserId, display_name: "Owner", phone: "+919800000000", roles: ["tenant_admin"] });
+    expect(byName.Owner).toEqual({ user_id: A.adminUserId, display_name: "Owner", phone: "+919800000000", email: null, roles: ["tenant_admin"] });
     expect(byName.lead).toMatchObject({ phone: "+919800000001", roles: ["lab_lead"] });
     expect(byName.tech.phone).toBeNull();
     expect(JSON.stringify(res.body)).not.toMatch(/secret|hash/i);
@@ -118,5 +118,41 @@ describe("Lab Records history limit on the plan", () => {
     expect(put.status).toBe(200);
     const plan = await call(planRoute.GET as Handler, { headers: LAB, params: { id: A.tenantId } });
     expect(plan.body.limits.modules.lab_records).toEqual({ history_months: 12 });
+  });
+});
+
+describe("Phase 4: Document Store module and Document keeper role", () => {
+  const DOCS = basic("document_store", "doc-module-test-secret");
+  beforeAll(async () => {
+    await asOwner("update platform.modules set base_url = 'https://docs.example.test', client_secret_hash = $1 where id = 'document_store'", [sha256("doc-module-test-secret")]);
+  });
+
+  it("a document keeper opens Document Store only, and only when the plan includes it", async () => {
+    const P = await makePlant({ modules: ["lab_records", "document_store"] });
+    const keeper = await makeStaff(P, "docs", ["document_keeper"]);
+    const handoff = (module: string) => call(handoffRoute.POST as Handler, { cookie: keeper.cookie, body: { module } });
+    expect((await handoff("document_store")).status).toBe(200);
+    expect((await handoff("lab_records")).status).toBe(403);
+    const Q = await makePlant({ modules: ["lab_records"] });
+    const noPlan = await makeStaff(Q, "docs", ["document_keeper"]);
+    expect((await call(handoffRoute.POST as Handler, { cookie: noPlan.cookie, body: { module: "document_store" } })).status).toBe(403);
+  });
+
+  it("Document Store's contacts are owners + document keepers, with email for reminders", async () => {
+    const P = await makePlant({ modules: ["document_store"] });
+    const keeper = await makeStaff(P, "keeper", ["document_keeper"]);
+    await makeStaff(P, "labby", ["lab_technician"]);
+    await patchUser(P.adminCookie, keeper.userId, { email: "Keeper@Plant.example" });
+    const res = await call(alertContactsRoute.GET as Handler, { headers: DOCS, params: { tid: P.tenantId } });
+    expect(res.body.map((c: { display_name: string; email: string | null }) => [c.display_name, c.email]).sort()).toEqual([
+      ["Owner", null],
+      ["keeper", "keeper@plant.example"],
+    ]);
+  });
+
+  it("the plan screen sets the storage limit and keeps the Lab Records one", () => {
+    const v = { ...emptyPlan, enabled_modules: ["lab_records", "document_store"], lab_history_months: "12", doc_storage_mb: "1024" };
+    expect(planBody(v).limits.modules).toEqual({ lab_records: { history_months: 12 }, document_store: { storage_mb: 1024 } });
+    expect(planBody({ ...v, doc_storage_mb: "" }, { document_store: { storage_mb: 5 } }).limits.modules).toEqual({ lab_records: { history_months: 12 } });
   });
 });

@@ -16,6 +16,7 @@
   "dependencies": {
     "@plantops/auth": "workspace:*",
     "@plantops/db": "workspace:*",
+    "@plantops/module-kit": "workspace:*",
     "@plantops/types": "workspace:*",
     "@plantops/ui": "workspace:*",
     "drizzle-orm": "^0.45.0",

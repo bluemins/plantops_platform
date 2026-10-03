@@ -159,21 +159,21 @@ const moduleRoles = (moduleId: ModuleId) =>
   (Object.entries(ROLE_MODULE) as [RoleId, ModuleId][]).filter(([, m]) => m === moduleId).map(([r]) => r);
 
 /**
- * Who a module may alert (e.g. WhatsApp on a failed lab test): active owners plus active users holding one
- * of that module's roles. Only names, phones and roles - never secrets or other users.
+ * Who a module may alert (WhatsApp on a failed lab test, email before a licence expires): active owners plus
+ * active users holding one of that module's roles. Only names, phones, emails and roles - never secrets.
  */
 export async function getAlertContacts(moduleId: ModuleId, tenantId: string): Promise<AlertContact[]> {
   const wanted: RoleId[] = ["tenant_admin", ...moduleRoles(moduleId)];
   return withTenant(tenantId, async (tx) => {
     const rows = await tx
-      .select({ id: users.id, displayName: users.displayName, phone: users.phone, roleId: userRoles.roleId })
+      .select({ id: users.id, displayName: users.displayName, phone: users.phone, email: users.email, roleId: userRoles.roleId })
       .from(users)
       .innerJoin(userRoles, eq(userRoles.userId, users.id))
       .where(and(eq(users.status, "active"), inArray(userRoles.roleId, wanted)))
       .orderBy(asc(users.displayName));
     const byUser = new Map<string, AlertContact>();
     for (const r of rows) {
-      const c = byUser.get(r.id) ?? { user_id: r.id, display_name: r.displayName, phone: r.phone, roles: [] };
+      const c = byUser.get(r.id) ?? { user_id: r.id, display_name: r.displayName, phone: r.phone, email: r.email, roles: [] };
       c.roles.push(r.roleId as RoleId);
       byUser.set(r.id, c);
     }

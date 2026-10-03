@@ -7,22 +7,39 @@ export type PlanFormValue = {
   renews_on: string;
   /** Lab Records: how many months back the app shows/searches/prints. Blank = unlimited. Nothing is deleted. */
   lab_history_months: string;
+  /** Document Store: total file storage in MB. Blank = unlimited. */
+  doc_storage_mb: string;
 };
 
-export const emptyPlan: PlanFormValue = { plan_name: "Growth", enabled_modules: [], max_users: "10", renews_on: "", lab_history_months: "" };
+export const emptyPlan: PlanFormValue = { plan_name: "Growth", enabled_modules: [], max_users: "10", renews_on: "", lab_history_months: "", doc_storage_mb: "" };
 
 type ModuleLimits = Record<string, unknown>;
-const labLimits = (modules: ModuleLimits | undefined) => (modules?.lab_records ?? {}) as Record<string, number>;
 
-/** The form's value for an existing plan's limits. */
-export const labHistoryMonths = (modules: ModuleLimits | undefined) => String(labLimits(modules).history_months ?? "");
+/** Per-module plan limits edited on the plan screen: form field -> limits.modules.<module>.<key>. */
+export const MODULE_LIMIT_FIELDS = [
+  { field: "lab_history_months", module: "lab_records", key: "history_months", label: "Lab Records history shown (months, blank = unlimited)" },
+  { field: "doc_storage_mb", module: "document_store", key: "storage_mb", label: "Document Store storage (MB, blank = unlimited)" },
+] as const;
 
-/** Form value -> API body. Other per-module limits are kept as they are (edited per module phase). */
+const moduleLimits = (modules: ModuleLimits | undefined, module: string) => (modules?.[module] ?? {}) as Record<string, number>;
+
+/** The form's value for one limit of an existing plan. */
+export const limitValue = (modules: ModuleLimits | undefined, module: string, key: string) => String(moduleLimits(modules, module)[key] ?? "");
+export const labHistoryMonths = (modules: ModuleLimits | undefined) => limitValue(modules, "lab_records", "history_months");
+
+/** The form fields for an existing plan's module limits. */
+export const moduleLimitFormValues = (modules: ModuleLimits | undefined) =>
+  Object.fromEntries(MODULE_LIMIT_FIELDS.map((f) => [f.field, limitValue(modules, f.module, f.key)])) as Pick<PlanFormValue, (typeof MODULE_LIMIT_FIELDS)[number]["field"]>;
+
+/** Form value -> API body. Limits not on the form are kept as they are. */
 export function planBody(v: PlanFormValue, existingModuleLimits: ModuleLimits = {}) {
-  const { history_months: _old, ...labRest } = labLimits(existingModuleLimits);
-  const lab = v.lab_history_months ? { ...labRest, history_months: Number(v.lab_history_months) } : labRest;
-  const modules: ModuleLimits = { ...existingModuleLimits, lab_records: lab };
-  if (!Object.keys(lab).length) delete modules.lab_records;
+  const modules: ModuleLimits = { ...existingModuleLimits };
+  for (const f of MODULE_LIMIT_FIELDS) {
+    const { [f.key]: _old, ...rest } = moduleLimits(modules, f.module);
+    const next = v[f.field] ? { ...rest, [f.key]: Number(v[f.field]) } : rest;
+    if (Object.keys(next).length) modules[f.module] = next;
+    else delete modules[f.module];
+  }
   return {
     plan_name: v.plan_name,
     enabled_modules: v.enabled_modules,

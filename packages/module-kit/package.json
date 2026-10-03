@@ -1,0 +1,34 @@
+{
+  "name": "@plantops/module-kit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./http": "./src/http.ts",
+    "./format": "./src/format.ts",
+    "./csv": "./src/csv.ts",
+    "./pages": "./src/pages.ts",
+    "./safe-next": "./src/safe-next.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@plantops/auth": "workspace:*",
+    "@plantops/types": "workspace:*",
+    "zod": "^4.3.0"
+  },
+  "peerDependencies": {
+    "next": "^16.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "next": "^16.3.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^5.9.0"
+  }
+}
