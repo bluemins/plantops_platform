@@ -215,4 +215,5 @@ LAN setup — `localhost` links only work on this computer); real module apps (o
 **Next — Phase 2 (Launcher):** tile dashboard per the mockups; module summary-endpoint contract with an
 "unavailable" tile state; direct-link flow (`/sso/start`) for staff opening a module from their phone;
 single-module staff skip the launcher; module-side session helper in `packages/auth` (generalising what
-`apps/dev-module` does); a way to reach the dev setup from a phone for testing.
+`apps/dev-module` does); a way to reach the dev setup from a phone for testing; super_admin **Modules** screen
+(module URL, new client secret, switch a module off for all plants — replaces `.env` + `pnpm db:seed` setup).

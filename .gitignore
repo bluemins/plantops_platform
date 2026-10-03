@@ -8,3 +8,6 @@ coverage/
 .turbo/
 *.tsbuildinfo
 next-env.d.ts
+
+# Personal Claude Code settings (not shared)
+.claude/settings.local.json

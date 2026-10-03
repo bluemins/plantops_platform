@@ -54,9 +54,18 @@ Prompt:
 		  one shift (12 h) with the 5-minute status re-check from Phase 1.
 		- Owner's tiles read live numbers from each module's summary endpoint each time the dashboard is
 		  opened or refreshed (no copied data, no live push in v1)
+		- super_admin "Modules" screen (replaces editing .env + pnpm db:seed for module setup):
+		  - list every module with its status: set up (URL + secret) or not, active or switched off
+		  - set or change a module's URL (e.g. when it moves to a real domain)
+		  - generate a new client secret for a module, shown once (for setup or if the old one leaks)
+		  - switch a module off for ALL plants (e.g. it is broken) - blocks new handoffs to it; plant plans
+		    keep their settings, so switching it back on restores access
+		  - every change written to the audit log
+		  - a brand-new module still starts as code (module id + role in packages/types, a migration, the
+		    module app); the screen covers everything after that
 
-		Show me the screen layout, the API calls the launcher makes, and how it decides what to show per role,
-		before writing any code.
+		Show me the screen layout (launcher and Modules screen), the API calls the launcher makes, and how it
+		decides what to show per role, before writing any code.
 
 		Follow-up questions:
 
