@@ -2,20 +2,9 @@
 
 import { TextField } from "@plantops/ui";
 import { MODULES } from "./modules";
+import type { PlanFormValue } from "./plan-body";
 
-export type PlanFormValue = { plan_name: string; enabled_modules: string[]; max_users: string; renews_on: string };
-
-export const emptyPlan: PlanFormValue = { plan_name: "Growth", enabled_modules: [], max_users: "10", renews_on: "" };
-
-/** Form value -> API body. Per-module limits are kept as they are (edited later, per module phase). */
-export function planBody(v: PlanFormValue, existingModuleLimits: Record<string, unknown> = {}) {
-  return {
-    plan_name: v.plan_name,
-    enabled_modules: v.enabled_modules,
-    limits: { platform: v.max_users ? { max_users: Number(v.max_users) } : {}, modules: existingModuleLimits },
-    renews_on: v.renews_on || null,
-  };
-}
+export { emptyPlan, labHistoryMonths, planBody, type PlanFormValue } from "./plan-body";
 
 export function PlanFields({ value, onChange }: { value: PlanFormValue; onChange: (v: PlanFormValue) => void }) {
   return (
@@ -43,6 +32,15 @@ export function PlanFields({ value, onChange }: { value: PlanFormValue; onChange
           );
         })}
       </div>
+      {value.enabled_modules.includes("lab_records") && (
+        <TextField
+          label="Lab Records history shown (months, blank = unlimited)"
+          type="number"
+          min={1}
+          value={value.lab_history_months}
+          onChange={(e) => onChange({ ...value, lab_history_months: e.target.value })}
+        />
+      )}
     </div>
   );
 }

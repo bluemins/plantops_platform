@@ -1,4 +1,4 @@
-import { TenantBranding, TenantPlan, UserStatus, type ModuleId } from "@plantops/types";
+import { AlertContact, TenantBranding, TenantPlan, TenantSku, UserStatus, type ModuleId } from "@plantops/types";
 
 /** How a module app identifies itself to the platform (server-to-server only, never from the browser). */
 export interface ModuleCredentials {
@@ -50,6 +50,16 @@ export async function fetchTenantPlan(c: ModuleCredentials, tenantId: string) {
 /** Plant name, brand colour and logo path, so the module looks like the plant's other screens. Cache briefly. */
 export async function fetchBranding(c: ModuleCredentials, tenantId: string) {
   return TenantBranding.parse(await call(c, `/api/m/tenants/${tenantId}/branding`));
+}
+
+/** Owners + this module's staff with phone numbers, for alerts (e.g. WhatsApp on a failed test). */
+export async function fetchAlertContacts(c: ModuleCredentials, tenantId: string) {
+  return AlertContact.array().parse(await call(c, `/api/m/tenants/${tenantId}/alert-contacts`));
+}
+
+/** The plant's products (active and inactive). Store sku_id as a plain reference; cache briefly. */
+export async function fetchSkus(c: ModuleCredentials, tenantId: string) {
+  return TenantSku.array().parse(await call(c, `/api/m/tenants/${tenantId}/skus`));
 }
 
 /** The plant's logo image (logo_url from fetchBranding). Returns null if the plant has none. */

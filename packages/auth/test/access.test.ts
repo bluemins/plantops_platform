@@ -8,6 +8,8 @@ describe("canAccessModule", () => {
   it.each<[RoleId[], ModuleId, boolean]>([
     [["lab_technician"], "lab_records", true],
     [["lab_technician"], "floor_stock", false],
+    [["lab_lead"], "lab_records", true],
+    [["lab_lead"], "floor_stock", false],
     [["store_keeper"], "floor_stock", true],
     [["lab_technician", "store_keeper"], "floor_stock", true],
     [["maintenance_technician"], "preventive_mgmt", false], // role ok, module not enabled

@@ -1,6 +1,6 @@
-// DEVELOPMENT-ONLY placeholder for module apps (Lab Records, Floor Stock, ...), until the real modules are
-// built in Phase 3+. It does exactly what every real module must do on the platform side, using the shared
-// helpers in packages/auth:
+// DEVELOPMENT-ONLY placeholder for module apps (Floor Stock, ...) that don't have a real app yet
+// (Lab Records has one since Phase 3: apps/lab-records). It does exactly what every real module must do on
+// the platform side, using the shared helpers in packages/auth:
 //   no session          -> send the user to the platform: /sso/start?module=<id>&next=<path>
 //   /sso/callback?code  -> startModuleSession (exchange code, verify token, check access) -> session cookie
 //   every request       -> refreshModuleSession (12 h shift, 5-minute re-check with the platform)
@@ -187,7 +187,11 @@ function serveModule(moduleId: ModuleId, creds: ModuleCredentials) {
 }
 
 let started = 0;
+// Modules that now have a real app are served by that app, never by this placeholder.
+const REAL_APPS: ModuleId[] = ["lab_records"]; // apps/lab-records (Phase 3)
+
 for (const id of MODULE_IDS) {
+  if (REAL_APPS.includes(id)) continue;
   const key = id.toUpperCase();
   const moduleUrl = process.env[`MODULE_URL_${key}`];
   const secret = process.env[`MODULE_SECRET_${key}`];

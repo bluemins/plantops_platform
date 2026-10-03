@@ -10,7 +10,7 @@
     "build": "turbo run build",
     "test": "turbo run test --concurrency=1",
     "typecheck": "turbo run typecheck",
-    "db:migrate": "pnpm --filter @plantops/platform db:migrate",
+    "db:migrate": "pnpm --filter @plantops/platform db:migrate && pnpm --filter @plantops/lab-records db:migrate",
     "db:seed": "pnpm --filter @plantops/platform db:seed",
     "sso:keygen": "node scripts/generate-sso-key.mjs",
     "super:set-password": "pnpm --filter @plantops/platform super:set-password",

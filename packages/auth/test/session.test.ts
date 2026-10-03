@@ -81,8 +81,17 @@ const fresh = (now: number): ModuleSession => ({
 describe("startModuleSession", () => {
   it("swaps the code for a verified token and starts a session", async () => {
     nextToken = await loginToken();
+    status = { active: true, display_name: "Atharv", roles: ["lab_technician"], enabled_modules: ["lab_records"] };
     const s = await startModuleSession(creds, "code", { jwks }, 1000);
-    expect(s).toEqual({ tenant_id: tenant, user_id: user, roles: ["lab_technician"], enabled_modules: ["lab_records"], login_at: 1000, checked_at: 1000 });
+    expect(s).toEqual({
+      tenant_id: tenant,
+      user_id: user,
+      display_name: "Atharv", // from the status call: the token carries no name
+      roles: ["lab_technician"],
+      enabled_modules: ["lab_records"],
+      login_at: 1000,
+      checked_at: 1000,
+    });
   });
 
   it("refuses a user whose roles don't give this module, and a bad code", async () => {
@@ -129,6 +138,12 @@ describe("refreshModuleSession (5-minute re-check, 12-hour shift)", () => {
     const r = await refreshModuleSession(creds, fresh(t0), t0 + 6 * MIN);
     expect(r?.changed).toBe(true);
     expect(r?.session).toMatchObject({ roles: ["lab_technician", "store_keeper"], checked_at: t0 + 6 * MIN, login_at: t0 });
+  });
+
+  it("re-check picks up a changed name", async () => {
+    status = { active: true, display_name: "Atharv S.", roles: ["lab_technician"], enabled_modules: ["lab_records"] };
+    const r = await refreshModuleSession(creds, { ...fresh(t0), display_name: "Atharv" }, t0 + 6 * MIN);
+    expect(r?.session.display_name).toBe("Atharv S.");
   });
 
   it.each<[string, UserStatus | number]>([

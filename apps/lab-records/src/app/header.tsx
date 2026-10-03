@@ -1,0 +1,42 @@
+import Link from "next/link";
+import type { TenantBranding } from "@plantops/types";
+import { accountUrl } from "@/server/platform";
+import type { LabUser } from "@/server/session";
+
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("");
+
+const ROLE_NAMES: Record<string, string> = { tenant_admin: "Owner", lab_lead: "Lab lead", lab_technician: "Lab technician" };
+
+/** Top bar on every Lab Records screen: plant logo + name, who is logged in, and the way back to PlantOps. */
+export function Header({ user, plant }: { user: LabUser; plant: TenantBranding | null }) {
+  const roles = user.roles.filter((r) => ROLE_NAMES[r]).map((r) => ROLE_NAMES[r]);
+  return (
+    <header className="flex items-center justify-between gap-3">
+      <Link href="/" className="flex min-w-0 items-center gap-2">
+        {plant?.logo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- served by this module from the platform
+          <img src="/plant-logo" alt="" className="h-10 w-10 rounded-full border border-slate-200 bg-white object-contain" />
+        ) : null}
+        <span className="min-w-0">
+          <span className="block truncate text-lg font-bold">
+            Lab <span className="text-(--brand)">Records</span>
+          </span>
+          <span className="block truncate text-sm text-slate-500">{plant?.name ?? ""}</span>
+        </span>
+      </Link>
+      <a href={accountUrl()} className="flex items-center gap-2 text-right" title="Account / PlantOps home">
+        <span className="hidden sm:block">
+          <span className="block font-semibold">{user.name}</span>
+          <span className="block text-sm text-slate-500">{roles.join(" · ")}</span>
+        </span>
+        <span className="grid h-11 w-11 place-items-center rounded-full bg-(--brand-soft) font-bold text-(--brand)">{initials(user.name)}</span>
+      </a>
+    </header>
+  );
+}

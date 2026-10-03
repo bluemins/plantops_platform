@@ -15,6 +15,7 @@ export async function api<T = any>(path: string, opts: { method?: string; body?:
 export const ROLE_LABELS: Record<string, string> = {
   tenant_admin: "Owner",
   lab_technician: "Lab technician",
+  lab_lead: "Lab lead",
   store_keeper: "Store keeper",
   maintenance_technician: "Maintenance technician",
 };

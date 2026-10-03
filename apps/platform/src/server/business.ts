@@ -267,6 +267,9 @@ export const getBranding = (tenantId: string) =>
 
 export const getLogoForModule = (tenantId: string) => withTenant(tenantId, (tx) => readLogo(tx, tenantId));
 
+/** All of the plant's products (active and inactive: old records still point at inactive ones). */
+export const getSkusForModule = (tenantId: string) => withTenant(tenantId, (tx) => listSkusTx(tx, tenantId));
+
 /** Sends a stored logo as an image. Locked down so the browser only ever treats it as a picture. */
 export function logoResponse(logo: { data: Buffer; type: string }) {
   return new Response(new Uint8Array(logo.data), {

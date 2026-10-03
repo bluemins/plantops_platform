@@ -13,13 +13,15 @@ export const ModuleId = z.enum(MODULE_IDS);
 export type ModuleId = z.infer<typeof ModuleId>;
 
 /** Roles a plant user can hold. A user may hold several. */
-export const ROLE_IDS = ["tenant_admin", "lab_technician", "store_keeper", "maintenance_technician"] as const;
+export const ROLE_IDS = ["tenant_admin", "lab_technician", "lab_lead", "store_keeper", "maintenance_technician"] as const;
 export const RoleId = z.enum(ROLE_IDS);
 export type RoleId = z.infer<typeof RoleId>;
 
 /** The working module each staff role operates. tenant_admin is not tied to one module. */
 export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin">, ModuleId> = {
   lab_technician: "lab_records",
+  /** a lab technician who can also approve batches, release holds, verify entries and set limits */
+  lab_lead: "lab_records",
   store_keeper: "floor_stock",
   maintenance_technician: "preventive_mgmt",
 };
@@ -60,6 +62,8 @@ export type TokenPayload = z.infer<typeof TokenPayload>;
 /** Response of GET /api/m/tenants/:tid/users/:uid/status (module re-check every few minutes). */
 export const UserStatus = z.object({
   active: z.boolean(),
+  /** shown as "Sign" / "Verified By" in module records; optional so a module keeps working with an older platform */
+  display_name: z.string().optional(),
   roles: z.array(RoleId),
   enabled_modules: z.array(ModuleId),
 });
@@ -103,3 +107,29 @@ export const TenantBranding = z.object({
   logo_url: z.string().nullable(),
 });
 export type TenantBranding = z.infer<typeof TenantBranding>;
+
+/**
+ * GET /api/m/tenants/:tid/alert-contacts - active owners plus users holding one of the calling module's
+ * roles, for alerts (e.g. WhatsApp on a failed lab test). The module picks whom to alert.
+ */
+export const AlertContact = z.object({
+  user_id: z.uuid(),
+  display_name: z.string(),
+  phone: z.string().nullable(),
+  roles: z.array(RoleId),
+});
+export type AlertContact = z.infer<typeof AlertContact>;
+
+/** GET /api/m/tenants/:tid/skus - the plant's products. Modules store sku_id as a plain reference. */
+export const TenantSku = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  sku_code: z.string().nullable(),
+  /** size of ONE bottle/jar */
+  volume_ml: z.number().int(),
+  /** 1 = single unit; e.g. 24 for a case of 24 */
+  units_per_pack: z.number().int(),
+  pack_type: z.string(),
+  status: z.enum(["active", "inactive"]),
+});
+export type TenantSku = z.infer<typeof TenantSku>;

@@ -1,15 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { importJWK, SignJWT, type JWK } from "jose";
 import { canAccessModule } from "@plantops/auth";
-import { ModuleId, TOKEN_ISSUER, type TokenPayload, type UserStatus } from "@plantops/types";
+import { ModuleId, ROLE_MODULE, TOKEN_ISSUER, type AlertContact, type RoleId, type TokenPayload, type UserStatus } from "@plantops/types";
 import { loadRoles, type CurrentUser } from "./auth";
 import { randomToken, safeEqual, sha256 } from "./crypto";
 import { appDb, schema, withTenant, type PlatformTx } from "./db";
 import { env } from "./env";
 import { badRequest, conflict, forbidden, HttpError, notFound } from "./http";
 
-const { modules, tenants, tenantPlans, users, ssoHandoffCodes } = schema;
+const { modules, tenants, tenantPlans, users, userRoles, ssoHandoffCodes } = schema;
 
 export const HANDOFF_CODE_SECONDS = 60;
 export const TOKEN_MINUTES = 15;
@@ -140,15 +140,43 @@ export async function exchangeHandoffCode(moduleId: ModuleId, code: string) {
 export async function getUserStatus(tenantId: string, userId: string): Promise<UserStatus> {
   return withTenant(tenantId, async (tx) => {
     const [row] = await tx
-      .select({ userStatus: users.status, tenantStatus: tenants.status })
+      .select({ userStatus: users.status, tenantStatus: tenants.status, displayName: users.displayName })
       .from(users)
       .innerJoin(tenants, eq(tenants.id, users.tenantId))
       .where(eq(users.id, userId));
     if (!row) throw notFound("User not found");
     return {
       active: row.userStatus === "active" && row.tenantStatus === "active",
+      display_name: row.displayName,
       roles: await loadRoles(tx, userId),
       enabled_modules: await enabledModules(tx, tenantId),
     };
+  });
+}
+
+/** Roles that work in one module (e.g. lab_records -> lab_technician, lab_lead). */
+const moduleRoles = (moduleId: ModuleId) =>
+  (Object.entries(ROLE_MODULE) as [RoleId, ModuleId][]).filter(([, m]) => m === moduleId).map(([r]) => r);
+
+/**
+ * Who a module may alert (e.g. WhatsApp on a failed lab test): active owners plus active users holding one
+ * of that module's roles. Only names, phones and roles - never secrets or other users.
+ */
+export async function getAlertContacts(moduleId: ModuleId, tenantId: string): Promise<AlertContact[]> {
+  const wanted: RoleId[] = ["tenant_admin", ...moduleRoles(moduleId)];
+  return withTenant(tenantId, async (tx) => {
+    const rows = await tx
+      .select({ id: users.id, displayName: users.displayName, phone: users.phone, roleId: userRoles.roleId })
+      .from(users)
+      .innerJoin(userRoles, eq(userRoles.userId, users.id))
+      .where(and(eq(users.status, "active"), inArray(userRoles.roleId, wanted)))
+      .orderBy(asc(users.displayName));
+    const byUser = new Map<string, AlertContact>();
+    for (const r of rows) {
+      const c = byUser.get(r.id) ?? { user_id: r.id, display_name: r.displayName, phone: r.phone, roles: [] };
+      c.roles.push(r.roleId as RoleId);
+      byUser.set(r.id, c);
+    }
+    return [...byUser.values()].map((c) => ({ ...c, roles: c.roles.sort() }));
   });
 }

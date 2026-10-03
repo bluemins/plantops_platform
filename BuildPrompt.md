@@ -78,27 +78,69 @@ Prompt:
 
 		"What does the launcher show if a module's app is down or unreachable?"
 		"How do I add a brand-new module to the system later — what exactly do I need to configure?"
-		Phase 3 — Lab Records module
+
+Phase 3 — Lab Records module
 
 Prompt:
 
 		Read CLAUDE.md. Phases 1 and 2 are complete — see the Status log.
+		Also read refeDocs/sheets/FSSAI STI Forms.xlsx — the four FSSAI record forms this module replaces.
 
 		Plan Phase 3: Lab Records module app (apps/lab-records in the monorepo). It owns the batch record.
 
-		- Verifies the SSO token from the platform; enforces lab-technician-only test entry, tenant_admin
-		  read-only
-		- Batch log, test entry with configurable parameters and limits, automatic pass/fail
-		- Failed test: batch goes on hold, requires a corrective-action note, WhatsApp alert to tenant_admin,
-		  retest logged as a new entry
-		- Append-only lab results (edits create a new version, never overwrite)
-		- PDF report per batch and an audit-pack export for a date range
+		- Built on the packages/auth module helpers ("Every module app must" in CLAUDE.md), replacing
+		  apps/dev-module for lab_records: SSO callback, 12 h session with 5-min re-check, own schema + own
+		  DB login + FORCE RLS, plant colour/logo, "Account" link, summary endpoint
+		- The four FSSAI forms, entered by the lab technician in the app:
+		  - Form 1 — Report for Monthly Testing: per batch (production date, batch no.) the parameter results
+		    (Barium, Copper, Iron, Manganese, Nitrate, Nitrite, Aluminium, Calcium, Sulphide, Magnesium,
+		    Antimony, Borate, Phenolic Compound, Mineral Oil, Zinc, Anionic Surface-Active Agent), remark
+		  - Form 2 — Testing at an FSSAI-notified NABL lab (ISO/IEC 17025): batch no., manufacturing date,
+		    type of packing, date sample sent, lab name, test report no. and date, remark
+		  - Form 3 — Source Water Testing: source of water, lab name, sample sent on, test report no. and date,
+		    results, remark
+		  - Form 4 — Plastic Containers Used for Packaging Water: type of packaging, supplier, quantity
+		    received, lab name, date samples sent, overall migration result, remaining parameters as per FSS
+		    Packaging Regulation 2018, remark
+		  Each row records who entered it ("Sign") and who verified it ("Verified By"), with date/time.
+		- Daily in-house test log (besides the four forms): routine checks per batch / per day (e.g. TDS, pH,
+		  turbidity), parameters chosen by each plant. This is where most failed tests come from.
+		- Parameters and limits are configurable per plant (sample limits are placeholders); pass/fail is
+		  computed automatically wherever a result has a limit
+		- Append-only: lab technicians add and "update" entries, but an update creates a new version with
+		  who/when/why; the old version stays on record. Enforced by DB grants (no UPDATE/DELETE on result
+		  tables). Entries lock on submit.
+		- Batch approval for production: a batch stays pending until approved. It can be approved by the
+		  tenant_admin or by a new "lab lead" role (a lab technician who can also approve batches), which the
+		  owner ticks per user like the other roles. Adding the role touches roles/permissions — show me the
+		  exact change and ask first.
+		- Failed test: batch goes on hold, cannot be approved or dispatched, requires a corrective-action note,
+		  WhatsApp alert to tenant_admin; a retest is a new entry and the failed one stays on record
+		- Owner (tenant_admin) views all forms and batches, approves/verifies; otherwise read-only
+		- Search screen inside Lab Records: owner opens the Lab Records tile and finds data by date range,
+		  batch no., form, status (pending / approved / on hold), pass/fail. super_admin sees the same screen
+		  read-only through the support view. The platform dashboard tile shows only the summary numbers.
+		- History by plan: nothing is ever deleted. The tenant_plan limits JSON sets how many months back the
+		  app shows, searches and prints (e.g. basic 12 months, premium longer or unlimited); older data stays
+		  stored and comes back on upgrade; the owner can always export everything. New plan limit key — ask
+		  first.
+		- Printing: each form prints in the same layout as its sheet (FORM n title, plant name, same columns in
+		  the same order, landscape, Sign / Verified By filled in, room for handwritten signatures) for a chosen
+		  date range. The paper copy is submitted to the government office; the soft copy stays in the app.
+		  Also a PDF report per batch.
+		- Owner tile badges from the summary endpoint (e.g. "2 awaiting approval", "1 on hold")
+		- Support view: super_admin reads one plant's lab data read-only via the support token
+		  (verifySupportToken), every view written to an audit trail the owner can see
+		- Batch lookup API for other modules (Floor Stock will reference batch_id)
+		- apps/lab-records/NOTES.md with module-specific notes
 
-		Show me the schema, the permission checks, the failed-test flow, and the test plan before writing code.
+		Show me the schema, the screens (technician entry, owner approval, print layout), the permission checks,
+		the versioning and failed-test flow, and the test plan before writing code.
 
 		Follow-up questions:
 
 		"Walk me through exactly what's stored when a retest happens — show me the actual rows."
 		"How does this module know which parameter limits apply to which product, and who sets them?"
 		"What happens to a batch that's on hold if nobody logs a retest for a week?"
-
+		"Show me a printed Form 1 next to the Excel sheet — what differs?"
+		"Which Form 1 parameters are tested in-house every batch, and which only monthly or by the NABL lab?"

@@ -211,6 +211,7 @@ describe("module re-checks (status + plan)", () => {
     const s = await makeStaff(plant, "changing", ["lab_technician", "store_keeper"]);
     expect((await status(plant.tenantId, s.userId)).body).toEqual({
       active: true,
+      display_name: "changing", // makeStaff uses the username as the name
       roles: ["lab_technician", "store_keeper"],
       enabled_modules: ["lab_records", "floor_stock", "preventive_mgmt"],
     });

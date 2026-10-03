@@ -21,6 +21,8 @@ const MINUTE = 60_000;
 export interface ModuleSession {
   tenant_id: string;
   user_id: string;
+  /** the user's name for "Sign" / "Verified By"; refreshed with every status re-check */
+  display_name?: string;
   roles: RoleId[];
   enabled_modules: ModuleId[];
   /** ms since epoch */
@@ -34,7 +36,17 @@ export async function startModuleSession(creds: ModuleCredentials, code: string,
   const token = await exchangeCode(creds, code);
   const p = await verifyToken(token, { audience: creds.moduleId, keys });
   if (!canAccessModule(p.roles, p.enabled_modules, creds.moduleId)) throw new AccessDeniedError(`No access to module ${creds.moduleId}`);
-  return { tenant_id: p.tenant_id, user_id: p.user_id, roles: p.roles, enabled_modules: p.enabled_modules, login_at: now, checked_at: now };
+  // The token carries no name (CLAUDE.md fixes its contents); the status call supplies it.
+  const status = await fetchUserStatus(creds, p.tenant_id, p.user_id);
+  return {
+    tenant_id: p.tenant_id,
+    user_id: p.user_id,
+    display_name: status.display_name,
+    roles: p.roles,
+    enabled_modules: p.enabled_modules,
+    login_at: now,
+    checked_at: now,
+  };
 }
 
 function sessionKey(secret: string) {
@@ -56,6 +68,7 @@ const SessionShape = (moduleId: ModuleId) => ({
     const s = v as ModuleSession;
     if (!s || typeof s.tenant_id !== "string" || typeof s.user_id !== "string") return null;
     if (typeof s.login_at !== "number" || typeof s.checked_at !== "number") return null;
+    if (s.display_name !== undefined && typeof s.display_name !== "string") return null;
     const roles = RoleId.array().safeParse(s.roles);
     const mods = ModuleId.array().safeParse(s.enabled_modules);
     if (!roles.success || !mods.success || !mods.data.includes(moduleId)) return null;
@@ -92,7 +105,8 @@ export async function refreshModuleSession(
   try {
     const status = await fetchUserStatus(creds, session.tenant_id, session.user_id);
     if (!status.active || !canAccessModule(status.roles, status.enabled_modules, creds.moduleId)) return null;
-    return { session: { ...session, roles: status.roles, enabled_modules: status.enabled_modules, checked_at: now }, changed: true };
+    const display_name = status.display_name ?? session.display_name;
+    return { session: { ...session, display_name, roles: status.roles, enabled_modules: status.enabled_modules, checked_at: now }, changed: true };
   } catch (err) {
     // The platform said no (unknown user, module switched off, wrong secret): log out now.
     if (err instanceof PlatformRequestError && err.status < 500) return null;
