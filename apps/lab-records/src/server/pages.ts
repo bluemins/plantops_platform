@@ -10,3 +10,13 @@ export async function orNotFound<T>(p: Promise<T>): Promise<T> {
     throw err;
   }
 }
+
+/** Like orNotFound, but a record outside the plan's history window comes back as a message to show. */
+export async function orHidden<T>(p: Promise<T>): Promise<T | { hidden: string }> {
+  try {
+    return await orNotFound(p);
+  } catch (err) {
+    if (err instanceof HttpError && err.status === 410) return { hidden: err.message };
+    throw err;
+  }
+}

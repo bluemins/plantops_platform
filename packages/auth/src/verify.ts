@@ -1,5 +1,5 @@
 import { createLocalJWKSet, createRemoteJWKSet, jwtVerify, type JSONWebKeySet, type JWTVerifyGetKey } from "jose";
-import { SummaryRequestPayload, TOKEN_ISSUER, TokenPayload, type ModuleId } from "@plantops/types";
+import { SummaryRequestPayload, SupportTokenPayload, TOKEN_ISSUER, TokenPayload, type ModuleId } from "@plantops/types";
 
 export class InvalidTokenError extends Error {
   constructor(message: string) {
@@ -64,6 +64,28 @@ export async function verifySummaryRequest(authorization: string | null | undefi
     });
     const parsed = SummaryRequestPayload.safeParse(payload);
     if (!parsed.success) throw new InvalidTokenError("Not a summary request token");
+    return parsed.data;
+  } catch (err) {
+    if (err instanceof InvalidTokenError) throw err;
+    throw new InvalidTokenError(err instanceof Error ? err.message : "Invalid token");
+  }
+}
+
+/**
+ * Verifies a super_admin support token (read-only view of one plant). Rejects login and summary tokens,
+ * tokens for another module, anything not marked read_only, and anything older than its 15 minutes.
+ */
+export async function verifySupportToken(token: string, opts: { audience: ModuleId; keys: KeySource }) {
+  try {
+    const { payload } = await jwtVerify(token, keyGetter(opts.keys), {
+      algorithms: ["EdDSA"],
+      issuer: TOKEN_ISSUER,
+      audience: opts.audience,
+      requiredClaims: ["exp", "iat", "jti"],
+      maxTokenAge: "16m",
+    });
+    const parsed = SupportTokenPayload.safeParse(payload);
+    if (!parsed.success) throw new InvalidTokenError("Not a support token");
     return parsed.data;
   } catch (err) {
     if (err instanceof InvalidTokenError) throw err;

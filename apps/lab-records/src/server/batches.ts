@@ -1,11 +1,14 @@
 // Batches: Lab Records owns the batch record (CLAUDE.md). Other modules store batch_id as a plain reference.
 // Status: pending -> (on_hold) -> approved | rejected. Holds, approval and rejection arrive in step 4.
-import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { pgCode } from "./audit";
 import { schema, withTenant } from "./db";
 import { requireEnter } from "./guards";
-import { badRequest, conflict, notFound } from "./http";
+import { badRequest, conflict, hiddenByPlan, notFound } from "./http";
+import { historyCutoff, visible } from "./history";
+import { batchAlerts, type AlertView } from "./alerts";
+import { approvalCheck, listCorrective, type ApprovalCheck } from "./approval";
 import { loadEntries, type EntryView } from "./entries";
 import { productLabel, products } from "./platform";
 import type { BatchStatus } from "./schema";
@@ -25,7 +28,15 @@ export type BatchSummary = {
 };
 
 export type BatchEventView = { event: string; by_name: string; note: string | null; at: string };
-export type BatchDetail = BatchSummary & { created_at: string; events: BatchEventView[]; entries: EntryView[] };
+export type CorrectiveView = { id: string; note: string; by_name: string; at: string };
+export type BatchDetail = BatchSummary & {
+  created_at: string;
+  events: BatchEventView[];
+  entries: EntryView[];
+  check: ApprovalCheck;
+  corrective: CorrectiveView[];
+  alerts: AlertView[];
+};
 
 const summary = (b: typeof batches.$inferSelect, tests: number): BatchSummary => ({
   id: b.id,
@@ -85,9 +96,11 @@ export function createBatch(user: LabUser, input: z.infer<typeof CreateBatchInpu
 }
 
 /** Recent batches (newest production date first), with how many tests each has. */
-export function listBatches(user: LabUser, opts: { limit?: number; statuses?: BatchStatus[] } = {}) {
+export async function listBatches(user: LabUser, opts: { limit?: number; statuses?: BatchStatus[] } = {}) {
+  const cutoff = await historyCutoff(user.tenantId);
   return withTenant(user.tenantId, async (tx) => {
     const conds = [eq(batches.tenantId, user.tenantId)];
+    if (cutoff) conds.push(gte(batches.productionDate, cutoff));
     if (opts.statuses?.length) conds.push(inArray(batches.status, opts.statuses));
     const rows = await tx
       .select({ b: batches, tests: count(entries.id) })
@@ -101,23 +114,28 @@ export function listBatches(user: LabUser, opts: { limit?: number; statuses?: Ba
   });
 }
 
-export function getBatch(user: LabUser, id: string): Promise<BatchDetail> {
+export async function getBatch(user: LabUser, id: string): Promise<BatchDetail> {
+  const cutoff = await historyCutoff(user.tenantId);
   return withTenant(user.tenantId, async (tx) => {
     const [b] = await tx.select().from(batches).where(and(eq(batches.tenantId, user.tenantId), eq(batches.id, id)));
     if (!b) throw notFound("Batch not found");
+    if (!visible(cutoff, b.productionDate)) throw hiddenByPlan();
     const events = await tx
       .select()
       .from(batchEvents)
       .where(and(eq(batchEvents.tenantId, user.tenantId), eq(batchEvents.batchId, id)))
       .orderBy(asc(batchEvents.at), asc(batchEvents.id));
     const list = await loadEntries(tx, user.tenantId, { batchId: id });
+    const notes = await listCorrective(tx, user.tenantId, id);
     return {
       ...summary(b, list.length),
       created_at: b.createdAt.toISOString(),
       events: events.map((e) => ({ event: e.event, by_name: e.byName, note: e.note, at: e.at.toISOString() })),
       entries: list,
+      check: await approvalCheck(tx, user.tenantId, b, list),
+      corrective: notes.map((n) => ({ id: n.id, note: n.note, by_name: n.byName, at: n.at.toISOString() })),
     };
-  });
+  }).then(async (d) => ({ ...d, alerts: await batchAlerts(user.tenantId, id) }));
 }
 
 /** Tests entered today (India time), newest first, with the batch number if any - for the home screen. */

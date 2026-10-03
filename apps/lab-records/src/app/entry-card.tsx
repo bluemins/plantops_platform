@@ -1,4 +1,5 @@
 import { fmtDateTime } from "@/lib/format";
+import { FORMS as DEFS, fieldText } from "@/lib/forms";
 import { VerdictBadge, verdictText } from "@/lib/ui";
 import { limitText } from "@/lib/verdict";
 import type { EntryView, VersionView } from "@/server/entries";
@@ -32,7 +33,8 @@ export function EntryCard({ entry }: { entry: EntryView }) {
     <a href={`/entries/${entry.id}`} className="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between gap-2">
         <span className="font-semibold">
-          {FORM_NAMES[entry.form]} · {fmtDateTime(v.tested_at)}
+          {FORM_NAMES[entry.form]}
+          {entry.batch_no && entry.form !== "daily" ? ` · ${entry.batch_no}` : ""} · {entry.form === "daily" ? fmtDateTime(v.tested_at) : fmtDateTime(v.tested_at).split(",")[0]}
         </span>
         <VerdictBadge verdict={v.verdict} />
       </div>
@@ -40,8 +42,19 @@ export function EntryCard({ entry }: { entry: EntryView }) {
         {v.entered_by_name}
         {v.version > 1 && <span className="ml-1 rounded bg-amber-100 px-1.5 text-amber-800">corrected · v{v.version}</span>}
       </p>
-      <ResultsTable version={v} />
+      {v.results.length > 0 ? (
+        <ResultsTable version={v} />
+      ) : (
+        <p className="mt-1 text-sm text-slate-700">
+          {DEFS[entry.form].fields
+            .filter((f) => f.key !== "remark" && !f.main && v.data[f.key])
+            .slice(0, 3)
+            .map((f) => fieldText(f, v.data[f.key]))
+            .join(" · ")}
+        </p>
+      )}
       {v.remark && <p className="mt-2 text-sm text-slate-600">Remark: {v.remark}</p>}
+      {v.verified && <p className="mt-1 text-xs font-semibold text-emerald-700">✓ Verified by {v.verified.by}</p>}
     </a>
   );
 }

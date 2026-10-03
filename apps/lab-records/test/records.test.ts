@@ -254,11 +254,12 @@ describe("launcher tile numbers", () => {
     await createBatch(C.tech, { batch_no: "C-2", production_date: daysAgo(0) });
     await createDailyEntry(C.tech, { batch_id: b1.id, results: [{ parameter_id: cTds, value: "100" }] });
     await asOwner("update lab_records.batches set status = 'on_hold' where id = $1", [b1.id]);
+    // at most 3 badges, most urgent first (no Form 1 recorded this month yet)
     expect((await summaryFor(C.tenantId, "owner")).badges).toEqual([
       { text: "1 on hold", tone: "danger" },
       { text: "1 awaiting approval", tone: "warn" },
-      { text: "1 test today", tone: "ok" },
+      { text: "Form 1 due this month", tone: "warn" },
     ]);
-    expect((await summaryFor(C.tenantId, "staff")).badges.map((b) => b.text)).toEqual(["1 on hold", "1 test today"]);
+    expect((await summaryFor(C.tenantId, "staff")).badges.map((b) => b.text)).toEqual(["1 on hold", "Form 1 due this month", "1 test today"]);
   });
 });

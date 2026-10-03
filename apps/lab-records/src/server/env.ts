@@ -24,4 +24,26 @@ export const env = {
   get secureCookies() {
     return (process.env.MODULE_URL_LAB_RECORDS ?? "").startsWith("https://");
   },
+  // ---------- optional ----------
+  /** WhatsApp Cloud API (Meta). Until all three are set, alerts are recorded as "WhatsApp not set up yet". */
+  get whatsappToken() {
+    return process.env.WHATSAPP_TOKEN ?? "";
+  },
+  get whatsappPhoneId() {
+    return process.env.WHATSAPP_PHONE_ID ?? "";
+  },
+  /** name of the Meta-approved message template with one body variable ({{1}} = the alert text) */
+  get whatsappTemplate() {
+    return process.env.WHATSAPP_TEMPLATE ?? "";
+  },
+  get whatsappLanguage() {
+    return process.env.WHATSAPP_TEMPLATE_LANG ?? "en";
+  },
+  get whatsappApiUrl() {
+    return process.env.WHATSAPP_API_URL ?? "https://graph.facebook.com/v21.0";
+  },
+  /** shared secret the scheduler sends to POST /api/cron/daily; the endpoint is off without it */
+  get cronSecret() {
+    return process.env.CRON_SECRET ?? "";
+  },
 };

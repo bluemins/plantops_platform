@@ -17,6 +17,8 @@ export const unauthorized = (m = "Please log in") => new HttpError(401, m);
 export const forbidden = (m = "You don't have permission to do this") => new HttpError(403, m);
 export const notFound = (m = "Not found") => new HttpError(404, m);
 export const conflict = (m: string) => new HttpError(409, m);
+/** Older than the plan's history window: kept, but not shown until the plant upgrades. */
+export const hiddenByPlan = () => new HttpError(410, "This record is older than your plan's history window. It is kept safely; ask PlantOps to extend the plan to see it.");
 
 export function json(data: unknown, init?: ResponseInit) {
   return Response.json(data, init);

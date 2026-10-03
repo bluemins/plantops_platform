@@ -10,7 +10,8 @@
     "start": "next start --port 3001",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "db:migrate": "tsx db/migrate.ts"
+    "db:migrate": "tsx db/migrate.ts",
+    "daily": "tsx db/run-daily.ts"
   },
   "dependencies": {
     "@plantops/auth": "workspace:*",

@@ -7,6 +7,10 @@ import type { ModuleId, RoleId, UserStatus } from "@plantops/types";
 import {
   InvalidTokenError,
   openSession,
+  openSupportSession,
+  sealSupportSession,
+  startSupportSession,
+  verifySupportToken,
   refreshModuleSession,
   sealSession,
   startModuleSession,
@@ -48,6 +52,10 @@ beforeAll(async () => {
   key = pair.privateKey;
   jwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "EdDSA" }] };
   server = createServer((req, res) => {
+    if (req.url === "/api/sso/support-exchange") {
+      res.writeHead(nextToken ? 200 : 400, { "content-type": "application/json" });
+      return res.end(JSON.stringify(nextToken ? { token: nextToken } : { error: "bad code" }));
+    }
     if (req.url === "/api/sso/exchange") {
       res.writeHead(nextToken ? 200 : 400, { "content-type": "application/json" });
       return res.end(JSON.stringify(nextToken ? { token: nextToken } : { error: "bad code" }));
@@ -193,5 +201,44 @@ describe("summary request vs login token", () => {
 
   it("verifyToken refuses a summary token as a login", async () => {
     await expect(verifyToken(await summaryToken(), { audience: "lab_records", keys: { jwks } })).rejects.toThrow(/Not a login token/);
+  });
+});
+
+describe("support view (super_admin, read-only)", () => {
+  const superAdmin = randomUUID();
+  const supportToken = (over: Record<string, unknown> = {}, aud: ModuleId = "lab_records") =>
+    sign({ purpose: "support", tenant_id: tenant, super_admin_id: superAdmin, read_only: true, ...over }, aud);
+  const opts = { secret: SECRET, moduleId: "lab_records" as const };
+
+  it("swaps the code for a verified support token and a session that ends with the token", async () => {
+    nextToken = await supportToken();
+    const s = await startSupportSession(creds, "code", { jwks });
+    expect(s).toMatchObject({ tenant_id: tenant, super_admin_id: superAdmin, read_only: true });
+    expect(s.expires_at - Date.now()).toBeGreaterThan(14 * MIN);
+    expect(await openSupportSession(await sealSupportSession(s, opts), opts)).toEqual(s);
+  });
+
+  it("verifySupportToken refuses a login token, a token not marked read-only, and another module's", async () => {
+    const o = { audience: "lab_records" as const, keys: { jwks } };
+    await expect(verifySupportToken(await loginToken(), o)).rejects.toThrow(/Not a support token/);
+    await expect(verifySupportToken(await supportToken({ read_only: false }), o)).rejects.toThrow(/Not a support token/);
+    await expect(verifySupportToken(await supportToken({}, "floor_stock"), o)).rejects.toThrow(InvalidTokenError);
+    await expect(verifyToken(await supportToken(), o)).rejects.toThrow(/Not a login token/); // never a login
+  });
+
+  it("a support cookie is never read as a user session, and a user cookie never as support", async () => {
+    nextToken = await supportToken();
+    const support = await sealSupportSession(await startSupportSession(creds, "code", { jwks }), opts);
+    expect(await openSession(support, opts)).toBeNull();
+    const user = await sealSession(fresh(Date.now()), opts);
+    expect(await openSupportSession(user, opts)).toBeNull();
+    expect(await openSupportSession(support, { ...opts, moduleId: "floor_stock" })).toBeNull();
+  });
+
+  it("an expired support session is refused", async () => {
+    const old = await sealSupportSession({ tenant_id: tenant, super_admin_id: superAdmin, read_only: true, expires_at: Date.now() + 1000 }, opts);
+    expect(await openSupportSession(old, opts)).not.toBeNull();
+    const gone = { tenant_id: tenant, super_admin_id: superAdmin, read_only: true as const, expires_at: Date.now() - 1000 };
+    await expect(sealSupportSession(gone, opts).then((v) => openSupportSession(v, opts))).resolves.toBeNull();
   });
 });

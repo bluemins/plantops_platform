@@ -6,9 +6,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { refreshModuleSession } from "@plantops/auth";
 import { creds, platformLoginUrl } from "./server/platform";
-import { openCookie, sealCookie, SESSION_COOKIE, sessionCookie } from "./server/session-cookie";
+import { openCookie, openSupportCookie, sealCookie, SESSION_COOKIE, sessionCookie, SUPPORT_COOKIE } from "./server/session-cookie";
 
 export async function proxy(req: NextRequest) {
+  // PlantOps support (super_admin, read-only, 15 minutes): may look, never change anything.
+  const support = await openSupportCookie(req.cookies.get(SUPPORT_COOKIE)?.value);
+  if (support) {
+    if (req.method !== "GET" && req.method !== "HEAD") return NextResponse.json({ error: "PlantOps support view is read-only" }, { status: 403 });
+    return NextResponse.next();
+  }
+
   const cookie = req.cookies.get(SESSION_COOKIE)?.value;
   const opened = await openCookie(cookie);
   const refreshed = opened && (await refreshModuleSession(creds(), opened));

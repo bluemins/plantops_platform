@@ -1,6 +1,6 @@
 // How this module talks to the platform: its credentials, the platform's public keys, and a short cache for
 // the plant's branding (name, colour, logo). Nothing here can mint tokens.
-import { fetchBranding, fetchSkus, type KeySource, type ModuleCredentials } from "@plantops/auth";
+import { fetchBranding, fetchSkus, fetchTenantPlan, type KeySource, type ModuleCredentials } from "@plantops/auth";
 import type { TenantBranding, TenantSku } from "@plantops/types";
 import { env } from "./env";
 
@@ -20,6 +20,7 @@ export const platformLoginUrl = (next: string) =>
 const g = globalThis as unknown as {
   __labBranding?: Map<string, { at: number; value: TenantBranding }>;
   __labSkus?: Map<string, { at: number; value: TenantSku[] }>;
+  __labHistory?: Map<string, { at: number; value: number | null }>;
 };
 const BRANDING_TTL_MS = 60_000;
 
@@ -47,4 +48,20 @@ export async function products(tenantId: string): Promise<TenantSku[]> {
 export function productLabel(s: TenantSku) {
   const size = s.volume_ml >= 1000 ? `${s.volume_ml / 1000} L` : `${s.volume_ml} ml`;
   return s.units_per_pack > 1 ? `${s.name} (${size} × ${s.units_per_pack})` : `${s.name} (${size})`;
+}
+
+/**
+ * The plan's Lab Records history window in months (super_admin sets it; blank = unlimited), cached for a
+ * minute. Older records are never deleted - only hidden from screens, search and prints until an upgrade.
+ * If the platform can't be reached, the last known value is used (or no limit).
+ */
+export async function historyMonths(tenantId: string): Promise<number | null> {
+  const cache = (g.__labHistory ??= new Map());
+  const hit = cache.get(tenantId);
+  if (hit && Date.now() - hit.at < BRANDING_TTL_MS) return hit.value;
+  const plan = await fetchTenantPlan(creds(), tenantId).catch(() => null);
+  if (!plan) return hit?.value ?? null;
+  const months = plan.limits.modules.lab_records?.history_months ?? null;
+  cache.set(tenantId, { at: Date.now(), value: months });
+  return months;
 }

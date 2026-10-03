@@ -15,3 +15,18 @@ body {
   background: #f4f6fb;
   color: #0f172a;
 }
+
+/* Print pages (step 7) use the full page width, not the app's phone-width column. */
+main:has(.print-sheet) {
+  max-width: none;
+  padding: 0;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

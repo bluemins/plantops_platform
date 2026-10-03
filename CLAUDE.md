@@ -35,8 +35,9 @@ through the Lab Records API.
   built into each module from Phase 3.
 - **tenant_admin** (plant owner): owner of one plant/tenant; manages their plant's users/roles; gets read-only
   summaries for modules they don't operate directly; can export reports.
-- Module-level operational roles (examples): lab technician (Lab Records), store keeper (Floor Stock),
-  maintenance technician (Preventive Management). Each sees only the module(s)/data it's entitled to.
+- Module-level operational roles (examples): lab technician (Lab Records), lab lead (Lab Records: a lab
+  technician who can also approve batches, release holds, verify records and set limits), store keeper (Floor
+  Stock), maintenance technician (Preventive Management). Each sees only the module(s)/data it's entitled to.
 - A user can hold **more than one role** (e.g. lab technician AND store keeper in a small plant). tenant_admin
   is a role in `users`/`user_roles`, not a separate account type.
 - Login: plant users log in with **plant code + username + secret**. Staff use a 6-digit **PIN**; anyone holding
@@ -76,8 +77,8 @@ or removed role loses access within ~5 minutes.
 `user_id`/`roles`; `verifyToken` rejects anything with `purpose`):
 - **Summary request** (built, Phase 2): `purpose: "summary"`, `tenant_id`, `view` ("owner" | "staff"), `aud`
   = one module, `exp` 60 s. Modules check it with `verifySummaryRequest` (`packages/auth`).
-- **Support token** (decided, built per module from Phase 3): super_admin opens one plant's module data
-  read-only. One-time code like a user handoff → token with `purpose: "support"`, `tenant_id`,
+- **Support token** (built in Phase 3; Lab Records is the first module to accept it): super_admin opens one
+  plant's module data read-only. One-time code like a user handoff → token with `purpose: "support"`, `tenant_id`,
   `super_admin_id`, `read_only: true`, `aud` = one module, `exp` 15 min. Modules accept it only through a
   `verifySupportToken`, refuse every write with it, and log each view in an audit trail the plant owner can
   see ("PlantOps support viewed Lab Records, 5 Oct 10:42").
@@ -99,7 +100,9 @@ screens stay PlantOps blue.
 `SESSION_SECRET`, ≥ 32 chars), call `refreshModuleSession` on every request (12 h shift, 5-min re-check,
 15-min grace if the platform is unreachable), send users without a session to
 `<PLATFORM_URL>/sso/start?module=<id>&next=<path>`, serve the summary endpoint, and link "Account" to
-`<PLATFORM_URL>/home?launcher=1`.
+`<PLATFORM_URL>/home?launcher=1`. For the support view: `startSupportSession` at `/sso/support`, a separate
+support cookie (`sealSupportSession`/`openSupportSession`), refuse every write with it, and log each page view
+where the owner can see it. `apps/lab-records` is the reference module.
 
 ## Plans and limits (centralized)
 - Central `tenant_plan` record per tenant: enabled modules + limits as flexible JSON. Limits are both
@@ -312,3 +315,90 @@ straight into Lab Records (single-module skip). Windows side reaches all three p
 schema with append-only lab results; batch log, tests, pass/fail, failed-test flow, PDF, WhatsApp alert
 (start Meta verification now if not done); summary badges ("3 held today"); support view (support token);
 module SKU read endpoint for Floor Stock later (Phase 4).
+
+### 2026-10-04 — Phase 3: Lab Records — complete
+**Built** (`apps/lab-records` on :3001, Next.js 16; module notes in `apps/lab-records/NOTES.md`):
+- **Own database section and login:** schema `lab_records`, login `lab_app` (`scripts/setup-lab-db.sh`), 11
+  tables, all with `tenant_id` + FORCE RLS. Migrations `0001`–`0003`; `0003` adds `lab_tenants()`, which gives
+  the daily job plant ids only.
+- **Batches:** status pending → on_hold → approved / rejected, with a full event history. Products come from the
+  platform.
+- **Daily tests:** each plant chooses its checks and limits. Automatic pass/fail; the limit is copied into every
+  result.
+- **FSSAI Forms 1–4** from `refeDocs/sheets/FSSAI STI Forms.xlsx`, defined once in `src/lib/forms.ts`:
+  - Form 1 has 16 fixed parameters and "tested at" (in-house or outside lab).
+  - Forms 2–4 hold the sheet's columns.
+  - "Verified By" by the owner or a lab lead.
+- **Append-only, enforced by the database:**
+  - Saving creates version 1, locked; there are no drafts.
+  - A correction is a new version with a required reason (also a database check).
+  - A retest is a new entry.
+  - `lab_app` has no UPDATE/DELETE on result tables.
+- **Failed test:** the batch goes ON HOLD in the same transaction, even if it was already approved. Release
+  needs a corrective note and a passing retest; failures are judged per parameter by the most recent result.
+  Approve and Reject (final, with a reason) by the owner or a lab lead.
+- **WhatsApp outbox:** owners + lab leads, through the WhatsApp Cloud API template when `WHATSAPP_*` is set.
+  Until then alerts are recorded as "not set up yet".
+- **Daily reminder job:** `POST /api/cron/daily` + `CRON_SECRET`. It covers holds older than 24 h and, from the
+  25th, a missing Form 1. At most once per plant per day.
+- **Tile badges:** on hold, awaiting approval, Form 1 due, tests today.
+- **Search;** the plan **history window** `limits.modules.lab_records.history_months` (hidden, never deleted);
+  the **owner's full CSV export**, with formulas neutralised.
+- **Print-ready registers** in the sheet layout (A4 landscape) for any date range, plus a **batch report**
+  (portrait). The browser prints or saves as PDF; there is no Puppeteer.
+- **Support view:**
+  - Platform: migration `0005_lab_lead.sql` and `0006_support_handoff.sql` (one-time code →
+    `purpose:"support"` token, exactly as defined above).
+  - `packages/auth`: `verifySupportToken` and `startSupportSession`.
+  - Module: read-only in both the proxy and the server guards; every page view is logged; the owner's
+    "Support access" page lists them.
+- **Platform additions:**
+  - role `lab_lead`
+  - `display_name` in the status re-check
+  - `GET /api/m/tenants/:tid/alert-contacts` and `/skus` (SKUs moved up from Phase 4)
+  - "Lab Records history" field on the plan screen
+  - "Open … (read-only)" on the super_admin dashboard
+  - `apps/dev-module` no longer serves lab_records
+- **Tests: 327 passing** (platform 184, auth 32, Lab Records 111), covering:
+  - append-only refusals (13 statements refused for `lab_app`)
+  - isolation and the FORCE RLS guard on every table
+  - pass/fail boundaries and the role matrix
+  - the full hold → release → approve story
+  - WhatsApp against a fake server
+  - the daily job, Forms 1–4, verification, search, history window, export and printing
+  - support read-only and logging
+
+**Key decisions (with the owner, 2026-10-03):**
+- **Lab lead** role: a technician who can also approve.
+- **Print-ready pages, no server PDF.**
+- **Owner + lab lead set limits.**
+- **Saving submits and locks.**
+- **Search lives inside the module.**
+- **History limited by plan, never deleted.**
+- **Rejected status.**
+- **Hold age + daily reminder.**
+- **Form 1 "tested at" + "Form 1 due".**
+- The support token carries no name; the owner's log says "PlantOps support".
+
+**Verified on `pnpm dev` (2026-10-04, plant 002):**
+- Login through PlantOps from PC and phone. The login callback now redirects with a relative URL: it had been
+  sending phones to `0.0.0.0`.
+- Batches, daily tests and corrections; technician refused owner actions.
+- Forms 2/4 saved.
+- Tile numbers.
+- Daily job run.
+- Form 1 and Form 2 rendered to PDF through headless Chrome and compared with the sheet: same columns, same order.
+- Support view through the real platform exchange: read-only, logged, Exit back to the dashboard.
+
+**Not yet verified:**
+- Owner and lab lead clicks on the live app. I don't have the owner and super_admin passwords; tests cover them.
+- Real WhatsApp sending: waiting for Meta approval.
+- Docker images: `apps/lab-records/Dockerfile` added, not built (no Docker on this machine).
+- Any real deployment.
+
+**Next — Phase 4 (Floor Stock):** a real module in `apps/floor-stock` built like `apps/lab-records`:
+- items, stock in/out, reorder alerts
+- stock-out linked to a batch
+- design the module-to-module batch lookup (Floor Stock asks Lab Records whether a batch is approved; how a
+  module proves who it is to another module)
+- its support view

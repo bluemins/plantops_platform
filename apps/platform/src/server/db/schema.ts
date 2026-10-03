@@ -137,6 +137,16 @@ export const ssoHandoffCodes = platform.table("sso_handoff_codes", {
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 
+export const supportHandoffCodes = platform.table("support_handoff_codes", {
+  codeHash: text("code_hash").primaryKey(),
+  superAdminId: uuid("super_admin_id").notNull(),
+  tenantId: uuid("tenant_id").notNull(),
+  moduleId: text("module_id").notNull(),
+  expiresAt: ts("expires_at").notNull(),
+  usedAt: ts("used_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
 export const auditLog = platform.table("audit_log", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
   tenantId: uuid("tenant_id"),

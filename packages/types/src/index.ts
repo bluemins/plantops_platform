@@ -133,3 +133,24 @@ export const TenantSku = z.object({
   status: z.enum(["active", "inactive"]),
 });
 export type TenantSku = z.infer<typeof TenantSku>;
+
+// ---------- support view (CLAUDE.md "Support token") ----------
+
+/**
+ * super_admin opens one plant's module data READ-ONLY. Same signing key as the SSO token, but a `purpose`
+ * and no user/roles, so it can never be used as a login. Modules accept it only via verifySupportToken,
+ * refuse every write with it and log each view where the plant owner can see it.
+ */
+export const SUPPORT_TOKEN_SECONDS = 15 * 60;
+export const SupportTokenPayload = z.object({
+  iss: z.literal(TOKEN_ISSUER),
+  aud: ModuleId,
+  iat: z.number(),
+  exp: z.number(),
+  jti: z.uuid(),
+  purpose: z.literal("support"),
+  tenant_id: z.uuid(),
+  super_admin_id: z.uuid(),
+  read_only: z.literal(true),
+});
+export type SupportTokenPayload = z.infer<typeof SupportTokenPayload>;

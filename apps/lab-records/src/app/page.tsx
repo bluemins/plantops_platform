@@ -1,6 +1,7 @@
 import { Card } from "@plantops/ui";
 import { listBatches, todaysTests } from "@/server/batches";
 import { branding } from "@/server/platform";
+import { form1DueFor } from "@/server/reminders";
 import { requirePageUser } from "@/server/session";
 import { fmtAge, fmtDate, fmtDateTime } from "@/lib/format";
 import { LinkButton, SectionTitle, StatusChip, VerdictBadge } from "@/lib/ui";
@@ -14,8 +15,15 @@ function greeting() {
 /** Lab Records home: what needs attention, quick actions for this user's role, recent batches and today's tests. */
 export default async function HomePage() {
   const user = await requirePageUser("/");
-  const [plant, batches, tests] = await Promise.all([branding(user.tenantId), listBatches(user, { limit: 20 }), todaysTests(user)]);
-  const onHold = batches.filter((b) => b.status === "on_hold");
+  const [plant, batches, tests, held, waiting, form1Due] = await Promise.all([
+    branding(user.tenantId),
+    listBatches(user, { limit: 20 }),
+    todaysTests(user),
+    listBatches(user, { statuses: ["on_hold"], limit: 50 }),
+    user.canApprove ? listBatches(user, { statuses: ["pending"], limit: 50 }) : Promise.resolve([]),
+    form1DueFor(user.tenantId),
+  ]);
+  const onHold = held;
 
   return (
     <div className="space-y-5">
@@ -24,14 +32,41 @@ export default async function HomePage() {
         <h1 className="text-2xl font-bold">
           {greeting()}, {user.name.split(" ")[0]}
         </h1>
-        <p className="text-slate-500">{user.canEnter ? "Enter today's tests, or open a batch." : "View this plant's batches and tests."}</p>
+        <p className="text-slate-500">{user.isSupport ? "Read-only support view." : user.canEnter ? "Enter today's tests, or open a batch." : "View this plant's batches and tests."}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
         {user.canEnter && <LinkButton href="/tests/new">+ Daily test</LinkButton>}
         {user.canEnter && <LinkButton href="/batches/new" variant="secondary">+ New batch</LinkButton>}
+        <LinkButton href="/forms" variant="secondary">FSSAI forms</LinkButton>
+        <LinkButton href="/search" variant="secondary">Search</LinkButton>
         {user.canApprove && <LinkButton href="/settings" variant="secondary">Tests &amp; limits</LinkButton>}
+        {user.isOwner && <LinkButton href="/support-access" variant="secondary">Support access</LinkButton>}
       </div>
+
+      {form1Due && (
+        <a href={user.canEnter ? "/forms/form1/new" : "/forms"} className="block rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 font-semibold text-amber-900">
+          Form 1 (monthly testing) is due this month →
+        </a>
+      )}
+
+      {waiting.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50">
+          <p className="font-semibold text-amber-900">
+            {waiting.length} batch{waiting.length === 1 ? "" : "es"} awaiting your approval
+          </p>
+          <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+            {waiting.map((b) => (
+              <li key={b.id}>
+                <a href={`/batches/${b.id}`} className="font-semibold text-amber-900 underline">
+                  {b.batch_no}
+                </a>
+                <span className="text-sm text-amber-800"> ({b.tests} test{b.tests === 1 ? "" : "s"})</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {onHold.length > 0 && (
         <Card className="border-red-200 bg-red-50">

@@ -37,6 +37,12 @@ export async function exchangeCode(c: ModuleCredentials, code: string): Promise<
   return body.token as string;
 }
 
+/** Support view: swap super_admin's one-time code for a read-only support token. */
+export async function exchangeSupportCode(c: ModuleCredentials, code: string): Promise<string> {
+  const body = await call(c, "/api/sso/support-exchange", { method: "POST", body: JSON.stringify({ code }) });
+  return body.token as string;
+}
+
 /** Re-check (every few minutes) that the user is still active and still has the same roles. */
 export async function fetchUserStatus(c: ModuleCredentials, tenantId: string, userId: string) {
   return UserStatus.parse(await call(c, `/api/m/tenants/${tenantId}/users/${userId}/status`));

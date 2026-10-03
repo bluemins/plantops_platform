@@ -3,14 +3,17 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { brandStyle, ErrorText } from "@plantops/ui";
+import { brandStyle, Button, ErrorText } from "@plantops/ui";
 import { api } from "@/lib/api";
 import { LauncherTiles, PlanCard, type PlanSummary, type Tile } from "@/lib/launcher-tiles";
+import { MODULES } from "@/lib/modules";
 
 type Plant = { id: string; code: string; name: string; status: string };
 type View = { plant: { name: string; code: string; brand_color: string | null; logo_url: string | null }; tiles: Tile[]; plan_summary: PlanSummary };
 
 const KEY = "plantops.super.dashboardPlant";
+/** Modules that already have the read-only support view (built per module from Phase 3). */
+const SUPPORT_READY: string[] = ["lab_records"];
 
 /** super_admin: pick a plant and see its tiles and plan exactly as its owner does (read-only). */
 export default function SuperDashboard() {
@@ -42,6 +45,12 @@ export default function SuperDashboard() {
     api<View>(`/api/super/tenants/${id}/launcher`).then((r) => (r.ok ? setView(r.data) : setError(r.error)));
   }, [id]);
 
+  async function openSupport(module: string) {
+    const r = await api<{ redirect_url: string }>(`/api/super/tenants/${id}/support/${module}`, { body: {} });
+    if (!r.ok) return setError(r.error);
+    window.location.assign(r.data.redirect_url); // "Exit" in the module brings you back here
+  }
+
   if (!plants) return <ErrorText>{error}</ErrorText>;
   return (
     <div className="space-y-4">
@@ -63,6 +72,20 @@ export default function SuperDashboard() {
         <div className="space-y-4" style={brandStyle(view.plant.brand_color) as CSSProperties}>
           <p className="text-sm text-slate-500">Live numbers from each module, as the owner of {view.plant.name} sees them. Read-only.</p>
           <LauncherTiles tiles={view.tiles} summaryUrl={(m) => `/api/super/tenants/${id}/summary/${m}`} openHref={null} />
+          {view.tiles.some((t) => t.state === "open" && SUPPORT_READY.includes(t.module)) && (
+            <div className="space-y-2">
+              <p className="text-sm text-slate-500">Support view: open a module&apos;s data read-only. The plant owner sees every page you open.</p>
+              <div className="flex flex-wrap gap-2">
+                {view.tiles
+                  .filter((t) => t.state === "open" && SUPPORT_READY.includes(t.module))
+                  .map((t) => (
+                    <Button key={t.module} variant="secondary" onClick={() => openSupport(t.module)}>
+                      Open {MODULES[t.module].label} (read-only)
+                    </Button>
+                  ))}
+              </div>
+            </div>
+          )}
           <PlanCard plan={view.plan_summary} />
         </div>
       )}

@@ -7,8 +7,8 @@
 import { jwtVerify, SignJWT } from "jose";
 import { ModuleId, RoleId } from "@plantops/types";
 import { AccessDeniedError, canAccessModule } from "./access";
-import { exchangeCode, fetchUserStatus, PlatformRequestError, type ModuleCredentials } from "./client";
-import { verifyToken, type KeySource } from "./verify";
+import { exchangeCode, exchangeSupportCode, fetchUserStatus, PlatformRequestError, type ModuleCredentials } from "./client";
+import { verifySupportToken, verifyToken, type KeySource } from "./verify";
 
 export const SESSION_HOURS = 12;
 export const RECHECK_MINUTES = 5;
@@ -112,6 +112,45 @@ export async function refreshModuleSession(
     if (err instanceof PlatformRequestError && err.status < 500) return null;
     // Platform unreachable or failing: keep going briefly, then fail closed.
     if (now - session.checked_at < RECHECK_GRACE_MINUTES * MINUTE) return { session, changed: false };
+    return null;
+  }
+}
+
+// ---------- support view (super_admin, read-only) ----------
+
+/** A super_admin looking at one plant, read-only, until the support token expires (15 minutes). */
+export interface SupportSession {
+  tenant_id: string;
+  super_admin_id: string;
+  read_only: true;
+  /** ms since epoch */
+  expires_at: number;
+}
+
+/** At /sso/support?code=...: code -> verified support token -> support session. */
+export async function startSupportSession(creds: ModuleCredentials, code: string, keys: KeySource): Promise<SupportSession> {
+  const token = await exchangeSupportCode(creds, code);
+  const p = await verifySupportToken(token, { audience: creds.moduleId, keys });
+  return { tenant_id: p.tenant_id, super_admin_id: p.super_admin_id, read_only: true, expires_at: p.exp * 1000 };
+}
+
+/** Its own cookie value and audience, so a support session can never be read as a user session (or back). */
+export async function sealSupportSession(s: SupportSession, opts: { secret: string; moduleId: ModuleId }) {
+  return new SignJWT({ s })
+    .setProtectedHeader({ alg: "HS256" })
+    .setAudience(`module-support:${opts.moduleId}`)
+    .setExpirationTime(Math.floor(s.expires_at / 1000))
+    .sign(sessionKey(opts.secret));
+}
+
+export async function openSupportSession(value: string | undefined, opts: { secret: string; moduleId: ModuleId }): Promise<SupportSession | null> {
+  if (!value) return null;
+  try {
+    const { payload } = await jwtVerify(value, sessionKey(opts.secret), { algorithms: ["HS256"], audience: `module-support:${opts.moduleId}` });
+    const s = payload.s as SupportSession;
+    if (!s || typeof s.tenant_id !== "string" || typeof s.super_admin_id !== "string" || s.read_only !== true || typeof s.expires_at !== "number") return null;
+    return s.expires_at > Date.now() ? s : null;
+  } catch {
     return null;
   }
 }

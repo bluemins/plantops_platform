@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import { exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
-import type { ModuleId, RoleId, UserStatus } from "@plantops/types";
+import type { AlertContact, ModuleId, RoleId, UserStatus } from "@plantops/types";
 
 export const TENANT = randomUUID();
 export const USER = randomUUID();
@@ -21,9 +21,14 @@ export interface FakePlatform {
   /** what the status re-check returns (a number = that HTTP error) */
   status: UserStatus | number;
   statusCalls: number;
+  /** who GET alert-contacts returns (null = platform error) */
+  contacts: AlertContact[] | null;
+  /** history_months on the plan, per tenant id (missing = unlimited) */
+  historyMonths: Record<string, number>;
   sign(claims: Record<string, unknown>, aud?: ModuleId, ttl?: string): Promise<string>;
   loginToken(roles?: RoleId[]): Promise<string>;
   summaryToken(aud?: ModuleId): Promise<string>;
+  supportToken(superAdminId?: string): Promise<string>;
   close(): Promise<void>;
 }
 
@@ -35,6 +40,13 @@ export async function startFakePlatform(): Promise<FakePlatform> {
     nextToken: "",
     status: { active: true, display_name: "Atharv", roles: ["lab_technician"], enabled_modules: ["lab_records"] } as UserStatus | number,
     statusCalls: 0,
+    contacts: [
+      { user_id: randomUUID(), display_name: "Sujata", phone: "+91 98765 43210", roles: ["tenant_admin"] },
+      { user_id: randomUUID(), display_name: "Priya", phone: "9876500000", roles: ["lab_lead"] },
+      { user_id: randomUUID(), display_name: "Atharv", phone: "9876511111", roles: ["lab_technician"] },
+      { user_id: randomUUID(), display_name: "Ravi", phone: null, roles: ["tenant_admin"] },
+    ] as AlertContact[] | null,
+    historyMonths: {} as Record<string, number>,
   };
   const send = (res: import("node:http").ServerResponse, code: number, body: unknown) => {
     res.writeHead(code, { "content-type": "application/json" });
@@ -43,12 +55,25 @@ export async function startFakePlatform(): Promise<FakePlatform> {
   const server: Server = createServer((req, res) => {
     const url = req.url ?? "";
     if (url === "/.well-known/jwks.json") return send(res, 200, jwks);
+    if (url === "/api/sso/support-exchange") return fake.nextToken ? send(res, 200, { token: fake.nextToken }) : send(res, 400, { error: "bad code" });
     if (url === "/api/sso/exchange") return fake.nextToken ? send(res, 200, { token: fake.nextToken }) : send(res, 400, { error: "bad code" });
     if (/^\/api\/m\/tenants\/[^/]+\/users\/[^/]+\/status$/.test(url)) {
       fake.statusCalls++;
       return typeof fake.status === "number" ? send(res, fake.status, {}) : send(res, 200, fake.status);
     }
     if (/^\/api\/m\/tenants\/[^/]+\/skus$/.test(url)) return send(res, 200, SKUS);
+    if (/^\/api\/m\/tenants\/[^/]+\/alert-contacts$/.test(url)) return fake.contacts ? send(res, 200, fake.contacts) : send(res, 503, {});
+    const plan = /^\/api\/tenants\/([^/]+)\/plan$/.exec(url);
+    if (plan) {
+      const months = fake.historyMonths[plan[1]!];
+      return send(res, 200, {
+        tenant_id: plan[1],
+        plan_name: "Growth",
+        enabled_modules: ["lab_records"],
+        limits: { platform: {}, modules: months ? { lab_records: { history_months: months } } : {} },
+        renews_on: null,
+      });
+    }
     if (/^\/api\/m\/tenants\/[^/]+\/branding$/.test(url)) {
       return send(res, 200, { tenant_id: TENANT, name: "Sample Aqua", brand_color: "#0e7490", logo_url: null });
     }
@@ -71,6 +96,7 @@ export async function startFakePlatform(): Promise<FakePlatform> {
     url,
     sign,
     loginToken: (roles: RoleId[] = ["lab_technician"]) => sign({ tenant_id: TENANT, user_id: USER, roles, enabled_modules: ["lab_records"] }),
+    supportToken: (superAdminId = randomUUID()) => sign({ purpose: "support", tenant_id: TENANT, super_admin_id: superAdminId, read_only: true }),
     summaryToken: (aud: ModuleId = "lab_records") => sign({ purpose: "summary", tenant_id: TENANT, view: "owner" }, aud, "60s"),
     close: () => new Promise<void>((r) => server.close(() => r())),
   });

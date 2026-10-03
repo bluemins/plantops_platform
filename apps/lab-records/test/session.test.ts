@@ -148,7 +148,10 @@ describe("tile numbers for the launcher", () => {
   it("answers the platform's signed ticket", async () => {
     const res = await ask(`Bearer ${await platform.summaryToken()}`);
     expect(res.status).toBe(200);
-    expect((await res.json()).badges).toEqual([{ text: "0 tests today", tone: "info" }]);
+    expect((await res.json()).badges).toEqual([
+      { text: "Form 1 due this month", tone: "warn" },
+      { text: "0 tests today", tone: "info" },
+    ]);
   });
 
   it("refuses no ticket, a login token, and a ticket for another module", async () => {

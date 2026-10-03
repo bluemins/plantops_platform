@@ -1,11 +1,12 @@
 // Launcher tile numbers (CLAUDE.md "Launcher tiles"): read live each time a launcher opens, never stored.
-import { and, count, eq, sql } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 import type { ModuleSummary, SummaryView } from "@plantops/types";
 import { schema, withTenant } from "./db";
+import { form1Due } from "./reminders";
 
 const { batches, entries, entryVersions } = schema;
 
-/** Up to 3 badges: on hold (red), awaiting approval (owner), tests today. */
+/** Up to 3 badges, most urgent first: on hold, awaiting approval (owner), Form 1 due, tests today. */
 export function summaryFor(tenantId: string, view: SummaryView): Promise<ModuleSummary> {
   return withTenant(tenantId, async (tx) => {
     const byStatus = await tx
@@ -21,6 +22,7 @@ export function summaryFor(tenantId: string, view: SummaryView): Promise<ModuleS
       .where(
         and(
           eq(entries.tenantId, tenantId),
+          inArray(entries.form, ["daily", "form1"]), // tests, not lab dispatch records (Forms 2-4)
           sql`(${entryVersions.testedAt} at time zone 'Asia/Kolkata')::date = (now() at time zone 'Asia/Kolkata')::date`,
         ),
       );
@@ -28,7 +30,8 @@ export function summaryFor(tenantId: string, view: SummaryView): Promise<ModuleS
     const badges: ModuleSummary["badges"] = [];
     if (n("on_hold")) badges.push({ text: `${n("on_hold")} on hold`, tone: "danger" });
     if (view === "owner" && n("pending")) badges.push({ text: `${n("pending")} awaiting approval`, tone: "warn" });
+    if (await form1Due(tx, tenantId)) badges.push({ text: "Form 1 due this month", tone: "warn" });
     badges.push({ text: `${today?.n ?? 0} test${today?.n === 1 ? "" : "s"} today`, tone: today?.n ? "ok" : "info" });
-    return { badges };
+    return { badges: badges.slice(0, 3) };
   });
 }

@@ -15,8 +15,17 @@ const ROLE_NAMES: Record<string, string> = { tenant_admin: "Owner", lab_lead: "L
 
 /** Top bar on every Lab Records screen: plant logo + name, who is logged in, and the way back to PlantOps. */
 export function Header({ user, plant }: { user: LabUser; plant: TenantBranding | null }) {
-  const roles = user.roles.filter((r) => ROLE_NAMES[r]).map((r) => ROLE_NAMES[r]);
+  const roles = user.isSupport ? ["Read-only"] : user.roles.filter((r) => ROLE_NAMES[r]).map((r) => ROLE_NAMES[r]);
   return (
+    <>
+    {user.isSupport && (
+      <div className="no-print -mx-4 -mt-6 mb-4 flex items-center justify-between gap-2 bg-amber-300 px-4 py-2 text-sm font-semibold text-amber-950">
+        <span>PlantOps support · read-only view of {plant?.name ?? "this plant"} · every page is logged for the owner</span>
+        <a href="/sso/support-exit" className="underline">
+          Exit
+        </a>
+      </div>
+    )}
     <header className="flex items-center justify-between gap-3">
       <Link href="/" className="flex min-w-0 items-center gap-2">
         {plant?.logo_url ? (
@@ -30,7 +39,7 @@ export function Header({ user, plant }: { user: LabUser; plant: TenantBranding |
           <span className="block truncate text-sm text-slate-500">{plant?.name ?? ""}</span>
         </span>
       </Link>
-      <a href={accountUrl()} className="flex items-center gap-2 text-right" title="Account / PlantOps home">
+      <a href={user.isSupport ? "/sso/support-exit" : accountUrl()} className="flex items-center gap-2 text-right" title={user.isSupport ? "Exit support view" : "Account / PlantOps home"}>
         <span className="hidden sm:block">
           <span className="block font-semibold">{user.name}</span>
           <span className="block text-sm text-slate-500">{roles.join(" · ")}</span>
@@ -38,5 +47,6 @@ export function Header({ user, plant }: { user: LabUser; plant: TenantBranding |
         <span className="grid h-11 w-11 place-items-center rounded-full bg-(--brand-soft) font-bold text-(--brand)">{initials(user.name)}</span>
       </a>
     </header>
+    </>
   );
 }

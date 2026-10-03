@@ -7,7 +7,8 @@ import type { ModuleSession } from "@plantops/auth";
 import type { RoleId } from "@plantops/types";
 import { HttpError } from "./http";
 import { platformLoginUrl } from "./platform";
-import { readSession, SESSION_COOKIE } from "./session-cookie";
+import { schema, withTenant } from "./db";
+import { openSupportCookie, readSession, SESSION_COOKIE, SUPPORT_COOKIE } from "./session-cookie";
 
 /** What a Lab Records screen needs to know about the person using it. */
 export interface LabUser {
@@ -23,6 +24,8 @@ export interface LabUser {
   canEnter: boolean;
   /** may approve batches, release holds, verify entries, set limits (owner or lab lead) */
   canApprove: boolean;
+  /** PlantOps support (super_admin) looking read-only: every write is refused */
+  isSupport: boolean;
 }
 
 export function toLabUser(s: ModuleSession): LabUser {
@@ -37,20 +40,45 @@ export function toLabUser(s: ModuleSession): LabUser {
     isLead,
     canEnter: isLead || s.roles.includes("lab_technician"),
     canApprove: isOwner || isLead,
+    isSupport: false,
   };
 }
 
+/** super_admin's support view: sees what the plant sees, can change nothing. */
+export const supportUser = (tenantId: string, superAdminId: string): LabUser => ({
+  tenantId,
+  userId: superAdminId,
+  name: "PlantOps support",
+  roles: [],
+  isOwner: false,
+  isLead: false,
+  canEnter: false,
+  canApprove: false,
+  isSupport: true,
+});
+
 /** Current user or null (layout: never throws). */
 export async function currentUser(): Promise<LabUser | null> {
-  const s = await readSession((await cookies()).get(SESSION_COOKIE)?.value);
+  const jar = await cookies();
+  const support = await openSupportCookie(jar.get(SUPPORT_COOKIE)?.value);
+  if (support) return supportUser(support.tenant_id, support.super_admin_id);
+  const s = await readSession(jar.get(SESSION_COOKIE)?.value);
   return s ? toLabUser(s) : null;
 }
 
-/** Pages: the current user, or off to the platform login (which brings them back to `path`). */
+/** Pages: the current user, or off to the platform login (which brings them back to `path`). Support views are logged. */
 export async function requirePageUser(path: string): Promise<LabUser> {
   const user = await currentUser();
   if (!user) redirect(platformLoginUrl(path));
+  if (user.isSupport) await logSupportView(user, path);
   return user;
+}
+
+/** "PlantOps support viewed Lab Records, 5 Oct 10:42" - one row per page, shown to the plant owner. */
+async function logSupportView(user: LabUser, path: string) {
+  await withTenant(user.tenantId, (tx) =>
+    tx.insert(schema.supportViews).values({ tenantId: user.tenantId, superAdminId: user.userId, superAdminName: user.name, path: path.slice(0, 300) }),
+  );
 }
 
 /** API routes: the current user, or 401. */

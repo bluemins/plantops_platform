@@ -8,7 +8,7 @@ Multi-tenant SaaS platform for RO / packaged-drinking-water plants. Project brie
 |---|---|---|---|
 | **super_admin** | PlantOps operator (you). Creates plants, sets each plant's plan and modules, creates plant owners. Sees all plants. | `/super/login` | Email + password |
 | **tenant_admin** (plant owner) | Owner of one plant. Adds and manages their own staff, sees read-only summaries of every module their plant has. | `/login` | Plant code + username + **password** |
-| **Staff** (lab technician, store keeper, maintenance technician) | Work in their own module(s) only. A person can hold more than one role. | `/login`, or the module's own link | Plant code + username + **6-digit PIN** |
+| **Staff** (lab technician, **lab lead**, store keeper, maintenance technician) | Work in their own module(s) only. A person can hold more than one role. A **lab lead** is a lab technician who can also approve batches, release holds, verify records and set test limits. | `/login`, or the module's own link | Plant code + username + **6-digit PIN** |
 
 Each plant only ever sees its own data. The database enforces this, not just the screens (see CLAUDE.md).
 
@@ -100,16 +100,16 @@ access within about 5 minutes. Users are never deleted, so the audit trail stays
 |---|---|
 | Plant login (owners + staff) | http://localhost:3000/login |
 | super_admin | http://localhost:3000/super/login |
-| Lab Records (placeholder module) | http://localhost:3001 |
+| Lab Records | http://localhost:3001 |
 | Floor Stock (placeholder module) | http://localhost:3002 |
 
 | super_admin: Modules (URLs, secrets, on/off) | http://localhost:3000/super/modules |
 | super_admin: Plant dashboard | http://localhost:3000/super/dashboard |
 
-The module links are served by `apps/dev-module`, a **development-only placeholder** that does everything a real
-module must do (login handover, 12-hour session, tile numbers, plant colour). The real modules replace it from
-Phase 3. Opening a module link without being logged in sends you through the PlantOps login and straight back
-into the module.
+Lab Records is the real module (`apps/lab-records`). Floor Stock is still served by `apps/dev-module`, a
+**development-only placeholder** that does everything a real module must do (login handover, 12-hour session,
+tile numbers, plant colour) until its phase. Opening a module link without being logged in sends you through
+the PlantOps login and straight back into the module.
 
 These `localhost` links work only on this computer (including Windows browsers). For a phone, see
 **Testing on your phone** below.
@@ -130,8 +130,45 @@ These `localhost` links work only on this computer (including Windows browsers).
   Switching off blocks opening it, and people inside it are logged out within about 5 minutes. Plant plans keep
   their settings, so switching it on again restores everything.
 - **Dashboard** (`/super` → **Dashboard**): choose a plant and see its tiles and plan exactly as its owner does,
-  in its colour. It is read-only. Opening a plant's actual module data ("support view") comes with each module
-  from Phase 3.
+  in its colour. It is read-only.
+- **Support view**: on the Dashboard, **Open Lab Records (read-only)** opens that plant's real Lab Records
+  data for 15 minutes. You can look at everything and print, but you can't change anything. A yellow bar
+  shows you are in support mode, and **Exit** brings you back. The plant owner sees every page you opened
+  (Lab Records → **Support access**: "PlantOps support viewed Lab Records, 5 Oct 10:42").
+
+## Lab Records (module)
+Open it from the **Lab Records** tile, or straight at its own link (phones: add it to the home screen).
+
+| Who | Can do |
+|---|---|
+| Lab technician | Create batches, enter daily tests and FSSAI Forms 1–4, correct mistakes (with a reason), write corrective notes, search, print |
+| Lab lead | Everything a technician does, plus approve batches, release holds, reject, verify records ("Verified By"), set test limits |
+| Owner | View and search everything, approve / release / reject, verify, set limits, print, **export all records**; does not enter test data |
+
+- **Set limits first** (owner or lab lead → **Tests & limits**): the lowest/highest allowed value per check.
+  A value outside it is marked **FAIL** automatically. Limit changes apply to new tests only.
+- **Daily test** (+ Daily test): pick the batch, type the values (each turns green/red), save. Saved records
+  **can't be edited or deleted**. **Correct a mistake…** adds a new version with a reason, and the old one stays.
+- **A failed test puts the batch ON HOLD** (it can't be approved or dispatched) and alerts the owner and lab
+  leads on WhatsApp (once WhatsApp is set up). To clear it:
+  1. Write a **corrective note** (what was done).
+  2. Add a passing **retest**.
+  3. Owner or lab lead taps **Release hold**, then **Approve for production**.
+  
+  A batch that will never pass can be **Rejected** with a reason (final).
+- **FSSAI forms**: Form 1 (monthly testing, per batch), Form 2 (NABL lab, per batch), Form 3 (source water),
+  Form 4 (plastic containers). The owner or a lab lead taps **✓ Verify** on each record.
+- **Print**: FSSAI forms → **Print FORM n** → choose the dates → **Print / Save as PDF** (choose Landscape,
+  turn off "Headers and footers"). It prints in the same layout as the Excel sheet. Each batch also has
+  **Print batch report**.
+- **Search**: by dates, batch no., status, form, pass/fail. Owners also get **Export everything** (Excel CSV
+  files with every version, including records older than the plan shows).
+- **History window**: super_admin can limit how many months back a plant sees (plan screen → "Lab Records
+  history shown"). Older records are kept, never deleted, and come back when the limit is raised.
+- **Reminders**: a daily job reminds owners and lab leads on WhatsApp about batches on hold for more than a day,
+  and from the 25th about a missing Form 1. Run it by hand: `pnpm --filter @plantops/lab-records daily`.
+- **WhatsApp**: until Meta approves the template, alerts are kept and shown as "not sent – WhatsApp is not set
+  up yet". Setup steps: `apps/lab-records/NOTES.md` → Alerts.
 
 ## Testing on your phone (same Wi-Fi)
 **One-time setup on Windows** (lets the phone reach the PlantOps apps running inside WSL):
@@ -160,7 +197,8 @@ Follow what `pnpm lan:urls` prints: put the Wi-Fi addresses in `.env`, set the m
 
 ## Layout
 - `apps/platform`: platform shell (login, plants, plans, users/roles, SSO for modules)
-- `apps/dev-module`: development-only placeholder modules (SSO receiver)
+- `apps/lab-records`: Lab Records module (batches, tests, FSSAI forms, approval, printing) – see its `NOTES.md`
+- `apps/dev-module`: development-only placeholder for modules without a real app yet (Floor Stock)
 - `packages/auth`: token verification + access rules, used by every module
 - `packages/db`: database helpers (`withTenant`, migrations)
 - `packages/types`: shared types (roles, modules, plan, token)
@@ -173,16 +211,18 @@ Needs Node 22+ and a local PostgreSQL.
 corepack enable pnpm
 pnpm install
 ./scripts/setup-local-db.sh   # once: creates DB logins + databases, writes .env (asks for sudo)
-pnpm db:migrate               # creates/updates tables
+./scripts/setup-lab-db.sh     # once: the Lab Records database login + its .env lines (asks for sudo)
+pnpm db:migrate               # creates/updates tables (platform + Lab Records)
 pnpm db:seed                  # creates the first super_admin and registers modules from .env
 ```
 
 ## Everyday commands
 ```bash
-pnpm dev          # platform on :3000 + placeholder modules on :3001 / :3002
+pnpm dev          # platform on :3000, Lab Records on :3001, placeholder Floor Stock on :3002
 pnpm dev:lan      # same, reachable from a phone on the same Wi-Fi (see "Testing on your phone")
 pnpm test         # all tests, against the separate plantops_test database
 pnpm typecheck
+pnpm --filter @plantops/lab-records daily   # run the Lab Records morning reminder job now
 ```
 
 ## Registering a module (for SSO)
