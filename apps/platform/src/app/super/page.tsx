@@ -64,9 +64,11 @@ export default function SuperHome() {
   if (!tenants) return <ErrorText>{error}</ErrorText>;
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">Plants</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Link href="/super/dashboard"><Button variant="secondary">Dashboard</Button></Link>
+          <Link href="/super/modules"><Button variant="secondary">Modules</Button></Link>
           <Link href="/super/change-password"><Button variant="secondary">Change password</Button></Link>
           <Button variant="secondary" onClick={logout}>Log out</Button>
         </div>
@@ -82,7 +84,7 @@ export default function SuperHome() {
       <ErrorText>{error}</ErrorText>
       {tenants.map((t) => (
         <Link key={t.id} href={`/super/tenants/${t.id}`} className="block">
-          <Card className="hover:border-blue-400">
+          <Card className="hover:border-(--brand-ring)">
             <p className="text-lg font-semibold">{t.name} <span className="text-sm text-slate-500">({t.code})</span></p>
             <p className="text-sm text-slate-600">
               {t.status === "suspended" ? "Suspended · " : ""}

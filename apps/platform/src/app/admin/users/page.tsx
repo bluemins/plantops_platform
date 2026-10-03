@@ -47,7 +47,7 @@ export default function UsersPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Users</h1>
-        <Link href="/home" className="text-blue-700">Back</Link>
+        <Link href="/home" className="text-(--brand) font-medium">Back</Link>
       </div>
       {temp && <TempSecret info={temp} onClose={() => setTemp(undefined)} />}
       <ErrorText>{error}</ErrorText>

@@ -30,7 +30,7 @@ export function RolePicker({ value, onChange }: { value: string[]; onChange: (ro
             key={r}
             type="button"
             onClick={() => onChange(on ? value.filter((x) => x !== r) : [...value, r])}
-            className={`min-h-11 rounded-full border px-4 text-sm font-medium ${on ? "border-blue-700 bg-blue-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}
+            className={`min-h-11 rounded-full border px-4 text-sm font-medium ${on ? "border-(--brand) bg-(--brand) text-(--brand-contrast)" : "border-slate-300 bg-white text-slate-700"}`}
           >
             {ROLE_LABELS[r]}
           </button>

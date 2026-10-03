@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { Button, Card, ErrorText, PinInput, TextField } from "@plantops/ui";
 import { api } from "@/lib/api";
+import { safeNext } from "@/lib/safe-next";
 
 const PLANT_KEY = "plantops.plantCode";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [plantCode, setPlantCode] = useState("");
   const [username, setUsername] = useState("");
   const [secret, setSecret] = useState("");
@@ -35,7 +34,11 @@ export default function LoginPage() {
     try {
       localStorage.setItem(PLANT_KEY, plantCode.trim().toUpperCase());
     } catch {}
-    router.push(res.data.must_change_secret ? "/change-secret" : "/home");
+    // Back to where the user was going (e.g. a module link on their phone), else the launcher.
+    // Full page load so the plant's brand colour applies.
+    const next = safeNext(new URLSearchParams(window.location.search).get("next"));
+    if (res.data.must_change_secret) return window.location.assign(`/change-secret${next ? `?next=${encodeURIComponent(next)}` : ""}`);
+    window.location.assign(next ?? "/home");
   }
 
   return (

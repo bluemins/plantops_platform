@@ -106,7 +106,7 @@ export function ProfileFields({
           onChange={set("description")}
           maxLength={500}
           rows={3}
-          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)"
         />
       </label>
       <TextField label="Address" value={value.address} onChange={set("address")} maxLength={200} />

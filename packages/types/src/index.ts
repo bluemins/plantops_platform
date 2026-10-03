@@ -64,3 +64,42 @@ export const UserStatus = z.object({
   enabled_modules: z.array(ModuleId),
 });
 export type UserStatus = z.infer<typeof UserStatus>;
+
+// ---------- launcher tile numbers (CLAUDE.md "Launcher tiles") ----------
+
+/**
+ * Summary request token: the platform asks a module for a plant's tile numbers. Signed with the same key as
+ * the SSO token but a different purpose and no user - it can never be used as a login.
+ */
+export const SUMMARY_TOKEN_SECONDS = 60;
+export const SummaryView = z.enum(["owner", "staff"]);
+export type SummaryView = z.infer<typeof SummaryView>;
+export const SummaryRequestPayload = z.object({
+  iss: z.literal(TOKEN_ISSUER),
+  aud: ModuleId,
+  iat: z.number(),
+  exp: z.number(),
+  jti: z.uuid(),
+  purpose: z.literal("summary"),
+  tenant_id: z.uuid(),
+  view: SummaryView,
+});
+export type SummaryRequestPayload = z.infer<typeof SummaryRequestPayload>;
+
+/** What a module answers at GET <base_url>/api/plantops/summary. */
+export const BadgeTone = z.enum(["ok", "info", "warn", "danger"]);
+export const ModuleSummary = z.object({
+  badges: z.array(z.object({ text: z.string().trim().min(1).max(40), tone: BadgeTone })).max(3),
+});
+export type ModuleSummary = z.infer<typeof ModuleSummary>;
+export const MODULE_SUMMARY_PATH = "/api/plantops/summary";
+
+/** GET /api/m/tenants/:tid/branding - what a module needs to show the plant's look. */
+export const TenantBranding = z.object({
+  tenant_id: z.uuid(),
+  name: z.string(),
+  brand_color: z.string().nullable(),
+  /** platform path; fetch it with module credentials */
+  logo_url: z.string().nullable(),
+});
+export type TenantBranding = z.infer<typeof TenantBranding>;

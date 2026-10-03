@@ -1,7 +1,7 @@
 "use client";
 
 import { TextField } from "@plantops/ui";
-import { MODULE_LABELS } from "./api";
+import { MODULES } from "./modules";
 
 export type PlanFormValue = { plan_name: string; enabled_modules: string[]; max_users: string; renews_on: string };
 
@@ -27,7 +27,7 @@ export function PlanFields({ value, onChange }: { value: PlanFormValue; onChange
       <TextField label="Renews on" type="date" value={value.renews_on} onChange={(e) => onChange({ ...value, renews_on: e.target.value })} />
       <p className="text-sm font-medium text-slate-700">Enabled modules</p>
       <div className="flex flex-wrap gap-2">
-        {Object.entries(MODULE_LABELS).map(([id, label]) => {
+        {Object.entries(MODULES).map(([id, { label }]) => {
           const on = value.enabled_modules.includes(id);
           return (
             <button
@@ -36,7 +36,7 @@ export function PlanFields({ value, onChange }: { value: PlanFormValue; onChange
               onClick={() =>
                 onChange({ ...value, enabled_modules: on ? value.enabled_modules.filter((m) => m !== id) : [...value.enabled_modules, id] })
               }
-              className={`min-h-11 rounded-full border px-4 text-sm font-medium ${on ? "border-blue-700 bg-blue-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}
+              className={`min-h-11 rounded-full border px-4 text-sm font-medium ${on ? "border-(--brand) bg-(--brand) text-(--brand-contrast)" : "border-slate-300 bg-white text-slate-700"}`}
             >
               {label}
             </button>

@@ -26,7 +26,7 @@ export default function SuperChangePasswordPage() {
     <div className="mx-auto max-w-sm">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Change password</h1>
-        <Link href="/super" className="text-blue-700">Back</Link>
+        <Link href="/super" className="text-(--brand) font-medium">Back</Link>
       </div>
       <Card>
         <form onSubmit={submit} className="space-y-4">

@@ -13,7 +13,9 @@
     "db:migrate": "pnpm --filter @plantops/platform db:migrate",
     "db:seed": "pnpm --filter @plantops/platform db:seed",
     "sso:keygen": "node scripts/generate-sso-key.mjs",
-    "super:set-password": "pnpm --filter @plantops/platform super:set-password"
+    "super:set-password": "pnpm --filter @plantops/platform super:set-password",
+    "dev:lan": "turbo run dev:lan",
+    "lan:urls": "bash scripts/lan-urls.sh"
   },
   "devDependencies": {
     "turbo": "^2.5.0",

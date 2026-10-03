@@ -27,10 +27,11 @@ export default function BusinessPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Business details</h1>
-        <Link href="/home" className="text-blue-700">Back</Link>
+        <Link href="/home" className="text-(--brand) font-medium">Back</Link>
       </div>
       <p className="text-sm text-slate-500">Plant code and usernames can only be changed by PlantOps support.</p>
-      <BusinessSections businessUrl="/api/admin/business" skusUrl="/api/admin/skus" />
+      {/* refresh re-renders the layout, so a new brand colour shows at once */}
+      <BusinessSections businessUrl="/api/admin/business" skusUrl="/api/admin/skus" onSaved={() => router.refresh()} />
     </div>
   );
 }

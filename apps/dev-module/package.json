@@ -6,11 +6,13 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:lan": "tsx watch src/server.ts"
   },
   "dependencies": {
     "@plantops/auth": "workspace:*",
-    "@plantops/types": "workspace:*"
+    "@plantops/types": "workspace:*",
+    "@plantops/ui": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

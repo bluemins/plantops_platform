@@ -61,7 +61,7 @@ export default function TenantPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{t.name} <span className="text-base text-slate-500">({t.code})</span></h1>
-        <Link href="/super" className="text-blue-700">All plants</Link>
+        <Link href="/super" className="text-(--brand) font-medium">All plants</Link>
       </div>
       <ErrorText>{error}</ErrorText>
       {notice && <Card className="border-amber-300 bg-amber-50 font-mono">{notice}</Card>}

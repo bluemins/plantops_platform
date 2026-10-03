@@ -35,16 +35,23 @@ export function publicJwks() {
   return { keys };
 }
 
-async function signToken(claims: Omit<TokenPayload, "iss" | "iat" | "exp" | "jti" | "aud">, audience: ModuleId) {
+/** Signs a platform token for one module (iss, aud, iat, exp, jti are added here). */
+export async function signPlatformToken(claims: Record<string, unknown>, audience: ModuleId, lifetimeSeconds: number) {
   const { key, kid } = await getSigningKey();
-  return new SignJWT({ tenant_id: claims.tenant_id, user_id: claims.user_id, roles: claims.roles, enabled_modules: claims.enabled_modules })
+  return new SignJWT(claims)
     .setProtectedHeader({ alg: "EdDSA", kid, typ: "JWT" })
     .setIssuer(TOKEN_ISSUER)
     .setAudience(audience)
     .setIssuedAt()
-    .setExpirationTime(`${TOKEN_MINUTES}m`)
+    .setExpirationTime(Math.floor(Date.now() / 1000) + lifetimeSeconds)
     .setJti(randomUUID())
     .sign(key);
+}
+
+/** The SSO login token. Contents fixed by CLAUDE.md - ask before changing. */
+function signToken(claims: Omit<TokenPayload, "iss" | "iat" | "exp" | "jti" | "aud">, audience: ModuleId) {
+  const { tenant_id, user_id, roles, enabled_modules } = claims;
+  return signPlatformToken({ tenant_id, user_id, roles, enabled_modules }, audience, TOKEN_MINUTES * 60);
 }
 
 // ---------- module authentication (server-to-server) ----------
@@ -68,7 +75,7 @@ export async function authenticateModule(req: Request): Promise<ModuleId> {
 
 // ---------- handoff + exchange ----------
 
-async function enabledModules(tx: PlatformTx, tenantId: string): Promise<ModuleId[]> {
+export async function enabledModules(tx: PlatformTx, tenantId: string): Promise<ModuleId[]> {
   const [plan] = await tx.select({ m: tenantPlans.enabledModules }).from(tenantPlans).where(eq(tenantPlans.tenantId, tenantId));
   return (plan?.m ?? []).filter((m): m is ModuleId => ModuleId.safeParse(m).success);
 }

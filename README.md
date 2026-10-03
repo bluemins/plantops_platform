@@ -103,13 +103,60 @@ access within about 5 minutes. Users are never deleted, so the audit trail stays
 | Lab Records (placeholder module) | http://localhost:3001 |
 | Floor Stock (placeholder module) | http://localhost:3002 |
 
-The module links are served by `apps/dev-module`, a **development-only placeholder** that does the SSO side
-exactly like a real module will. The real modules replace it from Phase 3. Opened directly without logging in, a
-module shows a "go to PlantOps login" page. Automatic login when opening a module link directly comes in
-Phase 2.
+| super_admin: Modules (URLs, secrets, on/off) | http://localhost:3000/super/modules |
+| super_admin: Plant dashboard | http://localhost:3000/super/dashboard |
 
-These `localhost` links work in this computer's browser, including Windows browsers on the same machine. They
-do not work from a phone. Phone access needs the app deployed to a real address, or a local network setup.
+The module links are served by `apps/dev-module`, a **development-only placeholder** that does everything a real
+module must do (login handover, 12-hour session, tile numbers, plant colour). The real modules replace it from
+Phase 3. Opening a module link without being logged in sends you through the PlantOps login and straight back
+into the module.
+
+These `localhost` links work only on this computer (including Windows browsers). For a phone, see
+**Testing on your phone** below.
+
+## After login: the launcher
+- **Owners** see a tile for every module: working tiles with live numbers (e.g. "3 held today"), locked tiles
+  for modules not in their plan (AMC shows "Add-on service"), and a **Plan summary** card.
+- **Staff** see only their own module(s). Staff with **one** module skip the tile screen and go straight into
+  it. The module's **Account** link brings them back to PlantOps (change PIN, log out).
+- If a module is down, its tile says **"Numbers unavailable right now"**. The rest of the screen keeps working.
+  If PlantOps switched it off, the tile says **"Temporarily unavailable"**.
+- A plant's screens use its **brand colour** from Business details. Light colours get dark button text
+  automatically.
+
+## super_admin: Modules and Plant dashboard
+- **Modules** (`/super` → **Modules**): for each module app, set its **URL**, create a **new secret** (shown once:
+  put it in that module's settings; the old one stops working at once), or **switch it off for all plants**.
+  Switching off blocks opening it, and people inside it are logged out within about 5 minutes. Plant plans keep
+  their settings, so switching it on again restores everything.
+- **Dashboard** (`/super` → **Dashboard**): choose a plant and see its tiles and plan exactly as its owner does,
+  in its colour. It is read-only. Opening a plant's actual module data ("support view") comes with each module
+  from Phase 3.
+
+## Testing on your phone (same Wi-Fi)
+**One-time setup on Windows** (lets the phone reach the PlantOps apps running inside WSL):
+1. In Windows, open Notepad and save a file named `.wslconfig` in your user folder (`C:\Users\<you>\.wslconfig`)
+   with exactly:
+   ```
+   [wsl2]
+   networkingMode=mirrored
+   ```
+2. Open **PowerShell as Administrator** and run:
+   ```powershell
+   wsl --shutdown
+   New-NetFirewallRule -DisplayName "PlantOps dev" -Direction Inbound -Protocol TCP -LocalPort 3000-3002 -Action Allow -Profile Private
+   New-NetFirewallHyperVRule -Name PlantOpsDev -DisplayName "PlantOps dev (WSL)" -Direction Inbound -VMCreatorId '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -Protocol TCP -LocalPorts 3000-3002
+   ```
+3. Make sure your Wi-Fi is set to **Private network** in Windows settings. Then reopen VS Code / Ubuntu.
+
+**Each time you want to test on the phone:**
+```bash
+pnpm lan:urls     # prints this PC's Wi-Fi address and exactly what to change
+pnpm dev:lan      # like pnpm dev, but reachable from the phone
+```
+Follow what `pnpm lan:urls` prints: put the Wi-Fi addresses in `.env`, set the module URLs on the Modules screen
+(or `pnpm db:seed`), then open `http://<address>:3000` on the phone. To go back to this-computer-only, put the
+`localhost` addresses back.
 
 ## Layout
 - `apps/platform`: platform shell (login, plants, plans, users/roles, SSO for modules)
@@ -133,16 +180,22 @@ pnpm db:seed                  # creates the first super_admin and registers modu
 ## Everyday commands
 ```bash
 pnpm dev          # platform on :3000 + placeholder modules on :3001 / :3002
+pnpm dev:lan      # same, reachable from a phone on the same Wi-Fi (see "Testing on your phone")
 pnpm test         # all tests, against the separate plantops_test database
 pnpm typecheck
 ```
 
 ## Registering a module (for SSO)
-Add to `.env`, then run `pnpm db:seed`:
+Normally: super_admin → **Modules** → set the module's URL and create its secret, then put the secret in the
+module's own settings.
+
+Shortcut for this computer (also what the placeholder modules read): add to `.env`, then run `pnpm db:seed`:
 ```
 MODULE_URL_LAB_RECORDS=http://localhost:3001
 MODULE_SECRET_LAB_RECORDS=<long random string, e.g. openssl rand -hex 32>
 ```
+What every module app must do (login handover, 12-hour session, tile numbers, plant colour) is listed in
+CLAUDE.md ("Every module app must"); `apps/dev-module/src/server.ts` is a working example.
 To check the full handoff against `pnpm dev` (login → one-time code → exchange → verify → reused code refused):
 ```bash
 scripts/sso-smoke.sh PLANTCODE username PIN-or-password lab_records

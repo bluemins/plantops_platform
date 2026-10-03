@@ -11,7 +11,8 @@
     "test": "vitest run",
     "db:migrate": "tsx db/migrate.ts",
     "db:seed": "tsx db/seed.ts",
-    "super:set-password": "tsx db/set-super-password.ts"
+    "super:set-password": "tsx db/set-super-password.ts",
+    "dev:lan": "next dev --port 3000 --hostname 0.0.0.0"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.0",

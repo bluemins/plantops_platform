@@ -1,6 +1,9 @@
 // Shared, mobile-first building blocks (big touch targets, CLAUDE.md "UX"). Styled with Tailwind classes;
 // each app's Tailwind setup must scan this package (see apps/platform/src/app/globals.css @source).
+// Colours come from the plant's brand (CSS variables from brandStyle(); defaults in each app's global CSS).
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
+
+export { brandPalette, brandStyle, DEFAULT_BRAND, type BrandPalette } from "./brand";
 
 const cx = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(" ");
 
@@ -14,7 +17,7 @@ export function Button({
       {...props}
       className={cx(
         "min-h-12 rounded-xl px-5 text-base font-semibold transition disabled:opacity-50",
-        variant === "primary" && "bg-blue-700 text-white hover:bg-blue-800",
+        variant === "primary" && "bg-(--brand) text-(--brand-contrast) hover:bg-(--brand-hover)",
         variant === "secondary" && "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50",
         variant === "danger" && "border border-red-300 bg-white text-red-700 hover:bg-red-50",
         className,
@@ -33,7 +36,7 @@ export function TextField({ label, className, ...props }: InputHTMLAttributes<HT
       <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
       <input
         {...props}
-        className="min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-200"
+        className="min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-900 focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)"
       />
     </label>
   );

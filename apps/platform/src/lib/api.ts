@@ -18,12 +18,3 @@ export const ROLE_LABELS: Record<string, string> = {
   store_keeper: "Store keeper",
   maintenance_technician: "Maintenance technician",
 };
-
-export const MODULE_LABELS: Record<string, string> = {
-  lab_records: "Lab Records",
-  floor_stock: "Floor Stock",
-  preventive_mgmt: "Preventive Mgmt",
-  amc: "AMC",
-  attendance_salary: "Attendance & Salary",
-  marketing_contacts: "Marketing Contacts",
-};

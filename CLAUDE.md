@@ -72,9 +72,34 @@ through the Lab Records API.
 to one shift (12 h) and re-checks `GET /api/m/tenants/:tid/users/:uid/status` every 5 minutes, so a disabled user
 or removed role loses access within ~5 minutes.
 
-**Launcher tiles:** each module exposes a small summary endpoint (e.g. "3 held today", "2 overdue") that the
-launcher calls. If a module is down, its tile shows an "unavailable" state instead of breaking the launcher.
-Exact contract is designed in Phase 2.
+**Other platform-signed tokens** (same key, never accepted as a login: they carry `purpose` and no
+`user_id`/`roles`; `verifyToken` rejects anything with `purpose`):
+- **Summary request** (built, Phase 2): `purpose: "summary"`, `tenant_id`, `view` ("owner" | "staff"), `aud`
+  = one module, `exp` 60 s. Modules check it with `verifySummaryRequest` (`packages/auth`).
+- **Support token** (decided, built per module from Phase 3): super_admin opens one plant's module data
+  read-only. One-time code like a user handoff → token with `purpose: "support"`, `tenant_id`,
+  `super_admin_id`, `read_only: true`, `aud` = one module, `exp` 15 min. Modules accept it only through a
+  `verifySupportToken`, refuse every write with it, and log each view in an audit trail the plant owner can
+  see ("PlantOps support viewed Lab Records, 5 Oct 10:42").
+
+**Launcher tiles (contract, Phase 2):** the platform calls `GET <module base_url>/api/plantops/summary` with
+`Authorization: Bearer <summary request token>` (3 s timeout) whenever a launcher opens. The module answers
+`{ "badges": [{ "text": "3 held today", "tone": "ok" | "info" | "warn" | "danger" }] }` (max 3 badges, 40
+characters each). A timeout, error or bad answer shows "Numbers unavailable right now"; the launcher keeps
+working. Nothing is stored.
+
+**Plant look:** each plant's screens use its brand colour (Business details). `brandPalette()` in
+`packages/ui` turns it into CSS variables (`--brand`, `--brand-hover`, `--brand-contrast`, `--brand-soft`,
+`--brand-ring`), with dark text automatically on light colours. Modules get the colour and logo from
+`GET /api/m/tenants/:tid/branding` (`fetchBranding`/`fetchLogo` in `packages/auth`). super_admin and login
+screens stay PlantOps blue.
+
+**Every module app must** (all in `packages/auth`; `apps/dev-module` is a working example):
+`startModuleSession` at `/sso/callback`, keep the session with `sealSession`/`openSession` (own
+`SESSION_SECRET`, ≥ 32 chars), call `refreshModuleSession` on every request (12 h shift, 5-min re-check,
+15-min grace if the platform is unreachable), send users without a session to
+`<PLATFORM_URL>/sso/start?module=<id>&next=<path>`, serve the summary endpoint, and link "Account" to
+`<PLATFORM_URL>/home?launcher=1`.
 
 ## Plans and limits (centralized)
 - Central `tenant_plan` record per tenant: enabled modules + limits as flexible JSON. Limits are both
@@ -245,10 +270,42 @@ LAN setup — `localhost` links only work on this computer); real module apps (o
 - Tests: 137 passing (platform 128, auth 9). Verified over HTTP on `pnpm dev` (plant `002`: business details,
   logo, SKUs, user edit/reset, module branding with Lab Records' credentials).
 
-**Next — Phase 2 (Launcher):** tile dashboard per the mockups; module summary-endpoint contract with an
-"unavailable" tile state; direct-link flow (`/sso/start`) for staff opening a module from their phone;
-single-module staff skip the launcher; module-side session helper in `packages/auth` (generalising what
-`apps/dev-module` does); a way to reach the dev setup from a phone for testing; super_admin **Modules** screen
-(module URL, new client secret, switch a module off for all plants — replaces `.env` + `pnpm db:seed` setup);
-super_admin **plant dashboard** (plant drop-down → that plant's module summary tiles) and the design for
-super_admin read-only access into each module's data (needs an SSO-token decision — ask first).
+### 2026-10-03 — Phase 2: Launcher — complete
+**Built:**
+- **Launcher** `/home` per the mockups: greeting, plant name/logo, tiles in 2 columns, plan summary card
+  (owner only). `GET /api/launcher` (tiles from `decideTiles`/`landingFor` in `src/server/launcher.ts`);
+  each tile loads its own numbers from `GET /api/launcher/summary/:module`. Tile states: open, off
+  (module switched off or not set up), locked ("Not enabled" / AMC "Add-on service", owner only).
+- **Single-module staff skip the launcher** (straight into their module); `?launcher=1` shows it anyway (the
+  module's "Account" link).
+- **Direct links for phones:** `GET /sso/start?module=<id>&next=<path>` → module with a one-time code, or
+  login first (`/login?next=`, also through first-login PIN change), or `/sso/blocked` with a plain reason.
+  `safeNext()` only allows same-site paths (no open redirects).
+- **Module session helper** in `packages/auth/src/session.ts` (+ `verifySummaryRequest`, `fetchBranding`,
+  `fetchLogo`, `PlatformRequestError`); `apps/dev-module` rewritten on it (12 h session, 5-min re-check,
+  summary endpoint, plant colour + logo, Account link).
+- **super_admin Modules** `/super/modules`: URL (http(s) origin only), new client secret shown once (old one
+  stops at once), switch off/on for all plants; audited. Migration `0004_modules_admin.sql` grants
+  `platform_super` UPDATE on `modules (base_url, client_secret_hash, status)` only.
+- **super_admin Plant dashboard** `/super/dashboard`: plant drop-down → that plant's owner tiles with live
+  numbers + plan card, in the plant's colour, read-only.
+- **Plant brand colour** on all plant screens (root layout reads the session server-side; `/super` layout
+  resets to PlantOps blue).
+- **Phone testing:** `pnpm dev:lan` (listens on all addresses), `pnpm lan:urls` (prints the Wi-Fi addresses
+  to use), `allowedDevOrigins` from `PLATFORM_URL`. Needs WSL mirrored networking (README).
+- Tests: 193 passing (platform 168, auth 25): tile rules per role, live numbers incl. module error/junk/slow,
+  token separation, `/sso/start`, `safeNext`, Modules screen (URL rules, secret rotation, switch off),
+  dashboard, session helper with fake clock, brand palette.
+
+**Verified end to end (2026-10-03, `pnpm dev`):** owner Sujata (002) sees 2 open + 4 locked tiles (AMC
+add-on), plan card and live placeholder numbers in plant colour #0e7490; Atharv sees 2 tiles, no plan;
+opening `http://localhost:3001/` without a session → platform login → back into Lab Records with a 12 h
+session, plant name and colour; reused code refused; super pages stay blue (20/20 checks).
+
+**Not yet verified:** on a real phone (waits for the Windows mirrored-networking step); Dockerfile.
+`next build` passes.
+
+**Next — Phase 3 (Lab Records):** real module app in `apps/lab-records` built on the helpers above; its own
+schema with append-only lab results; batch log, tests, pass/fail, failed-test flow, PDF, WhatsApp alert
+(start Meta verification now if not done); summary badges ("3 held today"); support view (support token);
+module SKU read endpoint for Floor Stock later (Phase 4).

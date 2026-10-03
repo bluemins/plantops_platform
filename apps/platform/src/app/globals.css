@@ -1,6 +1,16 @@
 @import "tailwindcss";
 @source "../../../../packages/ui/src";
 
+/* Brand colour variables (see packages/ui/src/brand.ts). Defaults = PlantOps blue; a logged-in plant user's
+   screens get their plant's brand colour from the root layout. */
+:root {
+  --brand: #1d4ed8;
+  --brand-hover: #1942b8;
+  --brand-contrast: #ffffff;
+  --brand-soft: #e8edfb;
+  --brand-ring: #bbcaf3;
+}
+
 body {
   background: #f4f6fb;
   color: #0f172a;

@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, ErrorText, PinInput, TextField } from "@plantops/ui";
 import { api } from "@/lib/api";
+import { safeNext } from "@/lib/safe-next";
 
 export default function ChangeSecretPage() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function ChangeSecretPage() {
     if (next !== confirm) return setError("The two new entries don't match");
     const res = await api("/api/auth/change-secret", { body: { current, next } });
     if (!res.ok) return setError(res.error);
-    router.push("/home");
+    window.location.assign(safeNext(new URLSearchParams(window.location.search).get("next")) ?? "/home");
   }
 
   if (!kind) return null;

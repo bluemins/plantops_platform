@@ -1,5 +1,5 @@
 import { createLocalJWKSet, createRemoteJWKSet, jwtVerify, type JSONWebKeySet, type JWTVerifyGetKey } from "jose";
-import { TOKEN_ISSUER, TokenPayload, type ModuleId } from "@plantops/types";
+import { SummaryRequestPayload, TOKEN_ISSUER, TokenPayload, type ModuleId } from "@plantops/types";
 
 export class InvalidTokenError extends Error {
   constructor(message: string) {
@@ -36,8 +36,34 @@ export async function verifyToken(token: string, opts: { audience: ModuleId; key
       audience: opts.audience,
       requiredClaims: ["exp", "iat", "jti"],
     });
+    // Other platform-signed tokens (e.g. summary requests) carry a `purpose`; a login token never does.
+    if ("purpose" in payload) throw new InvalidTokenError("Not a login token");
     const parsed = TokenPayload.safeParse(payload);
     if (!parsed.success) throw new InvalidTokenError("Token payload has an unexpected shape");
+    return parsed.data;
+  } catch (err) {
+    if (err instanceof InvalidTokenError) throw err;
+    throw new InvalidTokenError(err instanceof Error ? err.message : "Invalid token");
+  }
+}
+
+/**
+ * Verifies the platform's request for tile numbers (module's summary endpoint). Pass the Authorization header.
+ * Rejects login tokens, tokens for another module, and anything older than 60 seconds.
+ */
+export async function verifySummaryRequest(authorization: string | null | undefined, opts: { audience: ModuleId; keys: KeySource }) {
+  const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : "";
+  if (!token) throw new InvalidTokenError("Missing summary request token");
+  try {
+    const { payload } = await jwtVerify(token, keyGetter(opts.keys), {
+      algorithms: ["EdDSA"],
+      issuer: TOKEN_ISSUER,
+      audience: opts.audience,
+      requiredClaims: ["exp", "iat", "jti"],
+      maxTokenAge: "70s",
+    });
+    const parsed = SummaryRequestPayload.safeParse(payload);
+    if (!parsed.success) throw new InvalidTokenError("Not a summary request token");
     return parsed.data;
   } catch (err) {
     if (err instanceof InvalidTokenError) throw err;
