@@ -1,0 +1,22 @@
+{
+  "name": "plantops",
+  "private": true,
+  "packageManager": "pnpm@12.8.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test --concurrency=1",
+    "typecheck": "turbo run typecheck",
+    "db:migrate": "pnpm --filter @plantops/platform db:migrate",
+    "db:seed": "pnpm --filter @plantops/platform db:seed",
+    "sso:keygen": "node scripts/generate-sso-key.mjs",
+    "super:set-password": "pnpm --filter @plantops/platform super:set-password"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "typescript": "^5.9.0"
+  }
+}

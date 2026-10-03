@@ -7,17 +7,21 @@ Prompt to paste into Claude Code:
 		We're starting Phase 1: Platform core.
 
 		Plan (do not write code yet):
-		- super_admin service: create/manage tenants and tenant_admins
-		- Auth and roles shared across all future module apps
-		- Tenant registry with tenant_plan (enabled modules + limits as JSON)
-		- SSO token issuance (JWT: tenant_id, user_id, role, enabled_modules)
-		- Postgres row-level security so tenant A can never read tenant B
+		- Monorepo setup (pnpm + Turborepo): apps/platform plus packages/auth, packages/types, packages/ui
+		- super_admin service: create/manage tenants and their tenant_admin users (tenant_admin is a role,
+		  no separate tenant_admins table)
+		- Auth and roles shared across all future module apps; users can hold multiple roles; staff log in
+		  with username + PIN set by the tenant_admin
+		- Tenant registry with tenant_plan (enabled modules + platform-wide and per-module limits as JSON)
+		- SSO token issuance (JWT: tenant_id, user_id, roles[], enabled_modules, exp), asymmetric signing,
+		  handed to modules via a one-time code exchange
+		- Postgres row-level security so tenant A can never read tenant B (rules in CLAUDE.md)
 
 		Show me:
 		1. The database schema (tables, columns, keys, RLS policy approach)
 		2. The permission/role model
-		3. The SSO token structure and how a module app would verify it
-		4. The folder/file structure you'll create
+		3. The SSO token structure, the one-time-code handoff, and how a module app would verify it
+		4. The folder/file structure you'll create in the monorepo
 		5. The test plan for tenant isolation and role access
 
 		Wait for my approval before writing any code.
@@ -40,8 +44,16 @@ Prompt:
 		- A dashboard shown after login, filtered by the user's role and the tenant's enabled modules
 		- Owner (tenant_admin) sees read-only summary tiles for every enabled module, plus locked tiles for
 		  modules not enabled
-		- Staff roles (lab technician, store keeper, maintenance technician) see only their one working module
+		- Staff roles (lab technician, store keeper, maintenance technician) see only their working module(s)
+		- Single-module staff skip the launcher: after login they go straight into their one module.
+		  Multi-role staff and owners see the tile screen.
 		- Clicking an unlocked tile hands off to that module's URL using the SSO token from Phase 1
+		- Direct-link flow: staff open a module's own URL (home-screen icon on their phone) without going through
+		  the launcher. Module with no session -> platform /sso/start?module=<id> -> if logged in, straight back
+		  with a one-time code; if not, platform login first, then back into the module. Module session lasts
+		  one shift (12 h) with the 5-minute status re-check from Phase 1.
+		- Owner's tiles read live numbers from each module's summary endpoint each time the dashboard is
+		  opened or refreshed (no copied data, no live push in v1)
 
 		Show me the screen layout, the API calls the launcher makes, and how it decides what to show per role,
 		before writing any code.
@@ -56,7 +68,7 @@ Prompt:
 
 		Read CLAUDE.md. Phases 1 and 2 are complete — see the Status log.
 
-		Plan Phase 3: Lab Records module app (new repo: plantops_lab_records).
+		Plan Phase 3: Lab Records module app (apps/lab-records in the monorepo). It owns the batch record.
 
 		- Verifies the SSO token from the platform; enforces lab-technician-only test entry, tenant_admin
 		  read-only
