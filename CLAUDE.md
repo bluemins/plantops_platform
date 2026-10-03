@@ -302,8 +302,11 @@ add-on), plan card and live placeholder numbers in plant colour #0e7490; Atharv 
 opening `http://localhost:3001/` without a session → platform login → back into Lab Records with a 12 h
 session, plant name and colour; reused code refused; super pages stay blue (20/20 checks).
 
-**Not yet verified:** on a real phone (waits for the Windows mirrored-networking step); Dockerfile.
-`next build` passes.
+**Verified on a real phone (2026-10-03):** WSL mirrored networking + `hostAddressLoopback`, app on
+`http://192.168.1.2` (`pnpm dev:lan`); new lab user `002`/`1111` logged in from the phone, set own PIN and went
+straight into Lab Records (single-module skip). Windows side reaches all three ports.
+
+**Not yet verified:** Dockerfile. `next build` passes.
 
 **Next — Phase 3 (Lab Records):** real module app in `apps/lab-records` built on the helpers above; its own
 schema with append-only lab results; batch log, tests, pass/fail, failed-test flow, PDF, WhatsApp alert
