@@ -4,65 +4,20 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card, ErrorText, TextField } from "@plantops/ui";
-import { api, ROLE_LABELS } from "@/lib/api";
+import { api } from "@/lib/api";
+import { RolePicker, TempSecret, UserCard, type UserView } from "@/lib/user-form";
 
-type User = {
-  id: string;
-  username: string;
-  display_name: string;
-  phone: string | null;
-  roles: string[];
-  status: "active" | "disabled";
-  secret_kind: "pin" | "password";
-  locked: boolean;
-};
-
-const ROLES = Object.keys(ROLE_LABELS);
-
-function RolePicker({ value, onChange }: { value: string[]; onChange: (roles: string[]) => void }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {ROLES.map((r) => {
-        const on = value.includes(r);
-        return (
-          <button
-            key={r}
-            type="button"
-            onClick={() => onChange(on ? value.filter((x) => x !== r) : [...value, r])}
-            className={`min-h-11 rounded-full border px-4 text-sm font-medium ${on ? "border-blue-700 bg-blue-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}
-          >
-            {ROLE_LABELS[r]}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Shown once: a temporary PIN/password the owner passes on to the user. */
-function TempSecret({ info, onClose }: { info: { who: string; secret: string; kind: string }; onClose: () => void }) {
-  return (
-    <Card className="border-amber-300 bg-amber-50">
-      <p className="text-slate-800">
-        Temporary {info.kind === "pin" ? "PIN" : "password"} for <b>{info.who}</b>:
-      </p>
-      <p className="my-2 font-mono text-3xl font-bold tracking-widest">{info.secret}</p>
-      <p className="text-sm text-slate-600">Give this to them now - it will not be shown again. They must change it when they first log in.</p>
-      <Button variant="secondary" className="mt-3" onClick={onClose}>Done</Button>
-    </Card>
-  );
-}
+const emptyForm = { username: "", display_name: "", phone: "", email: "", roles: [] as string[] };
 
 export default function UsersPage() {
   const router = useRouter();
-  const [users, setUsers] = useState<User[]>();
+  const [users, setUsers] = useState<UserView[]>();
   const [error, setError] = useState<string>();
   const [temp, setTemp] = useState<{ who: string; secret: string; kind: string }>();
-  const [editing, setEditing] = useState<string>();
-  const [form, setForm] = useState({ username: "", display_name: "", phone: "", roles: [] as string[] });
+  const [form, setForm] = useState(emptyForm);
 
   const load = useCallback(async () => {
-    const r = await api<User[]>("/api/admin/users");
+    const r = await api<UserView[]>("/api/admin/users");
     if (r.status === 401) return router.replace("/login");
     if (!r.ok) return setError(r.error);
     setUsers(r.data);
@@ -72,19 +27,19 @@ export default function UsersPage() {
   async function create(e: FormEvent) {
     e.preventDefault();
     setError(undefined);
-    const r = await api("/api/admin/users", { body: { ...form, phone: form.phone || undefined } });
+    const r = await api("/api/admin/users", { body: form });
     if (!r.ok) return setError(r.error);
     setTemp({ who: form.display_name, secret: r.data.temporary_secret, kind: r.data.secret_kind });
-    setForm({ username: "", display_name: "", phone: "", roles: [] });
+    setForm(emptyForm);
     load();
   }
 
-  async function act(path: string, method: string, body: unknown, after?: (data: any) => void) {
-    setError(undefined);
+  /** Runs an API call for one user; returns the error message (if any) and reloads the list on success. */
+  async function act(path: string, method: string, body: unknown) {
     const r = await api(path, { method, body });
-    if (!r.ok) return setError(r.error);
-    after?.(r.data);
+    if (!r.ok) return { error: r.error, data: r.data };
     load();
+    return { data: r.data };
   }
 
   if (!users) return <ErrorText>{error}</ErrorText>;
@@ -98,45 +53,17 @@ export default function UsersPage() {
       <ErrorText>{error}</ErrorText>
 
       {users.map((u) => (
-        <Card key={u.id} className={u.status === "disabled" ? "opacity-60" : ""}>
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <div>
-              <p className="text-lg font-semibold">{u.display_name}</p>
-              <p className="text-sm text-slate-500">
-                {u.username} · {u.roles.map((r) => ROLE_LABELS[r] ?? r).join(", ")}
-                {u.status === "disabled" && " · disabled"}
-                {u.locked && <span className="ml-1 rounded bg-red-100 px-2 text-red-700">locked</span>}
-              </p>
-            </div>
-          </div>
-          {editing === u.id ? (
-            <div className="mt-3 space-y-3">
-              <RolePicker value={u.roles} onChange={(roles) => act(`/api/admin/users/${u.id}`, "PATCH", { roles })} />
-              <Button variant="secondary" onClick={() => setEditing(undefined)}>Close</Button>
-            </div>
-          ) : (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button variant="secondary" onClick={() => setEditing(u.id)}>Roles</Button>
-              <Button
-                variant="secondary"
-                onClick={() =>
-                  act(`/api/admin/users/${u.id}/reset-secret`, "POST", {}, (d) =>
-                    setTemp({ who: u.display_name, secret: d.temporary_secret, kind: d.secret_kind }),
-                  )
-                }
-              >
-                Reset {u.secret_kind === "pin" ? "PIN" : "password"}
-              </Button>
-              {u.locked && <Button variant="secondary" onClick={() => act(`/api/admin/users/${u.id}/unlock`, "POST", {})}>Unlock</Button>}
-              <Button
-                variant={u.status === "active" ? "danger" : "secondary"}
-                onClick={() => act(`/api/admin/users/${u.id}`, "PATCH", { status: u.status === "active" ? "disabled" : "active" })}
-              >
-                {u.status === "active" ? "Disable" : "Enable"}
-              </Button>
-            </div>
-          )}
-        </Card>
+        <UserCard
+          key={u.id}
+          user={u}
+          onTemp={setTemp}
+          patch={async (body) => (await act(`/api/admin/users/${u.id}`, "PATCH", body)).error}
+          reset={async (secret) => {
+            const r = await act(`/api/admin/users/${u.id}/reset-secret`, "POST", { secret });
+            return { error: r.error, ...r.data };
+          }}
+          unlock={async () => (await act(`/api/admin/users/${u.id}/unlock`, "POST", {})).error}
+        />
       ))}
 
       <Card>
@@ -145,6 +72,7 @@ export default function UsersPage() {
           <TextField label="Name" value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} required />
           <TextField label="Username (for login)" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} autoCapitalize="none" required />
           <TextField label="Mobile (for WhatsApp alerts, optional)" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <TextField label="Email (optional)" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoCapitalize="none" />
           <RolePicker value={form.roles} onChange={(roles) => setForm({ ...form, roles })} />
           <Button type="submit" className="w-full">Add user</Button>
         </form>

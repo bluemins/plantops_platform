@@ -52,7 +52,10 @@ export default function HomePage() {
       </Card>
       <div className="flex flex-wrap gap-2">
         {me.roles.includes("tenant_admin") && (
-          <Link href="/admin/users"><Button>Manage users</Button></Link>
+          <>
+            <Link href="/admin/users"><Button>Manage users</Button></Link>
+            <Link href="/admin/business"><Button>Business details</Button></Link>
+          </>
         )}
         <Link href="/change-secret"><Button variant="secondary">Change PIN / password</Button></Link>
         <Button variant="secondary" onClick={logout}>Log out</Button>

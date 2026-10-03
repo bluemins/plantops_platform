@@ -30,7 +30,9 @@ through the Lab Records API.
 
 ## Users and roles
 - **super_admin** (Rocky): creates/manages tenant_admin accounts; enables modules per tenant; sets plan/limits;
-  sees all tenants.
+  sees all tenants. super_admin can also **see every module's data for every plant** (pick a plant from a
+  drop-down): read-only and audited, so the plant can see when PlantOps support looked. Planned in Phase 2,
+  built into each module from Phase 3.
 - **tenant_admin** (plant owner): owner of one plant/tenant; manages their plant's users/roles; gets read-only
   summaries for modules they don't operate directly; can export reports.
 - Module-level operational roles (examples): lab technician (Lab Records), store keeper (Floor Stock),
@@ -39,8 +41,10 @@ through the Lab Records API.
   is a role in `users`/`user_roles`, not a separate account type.
 - Login: plant users log in with **plant code + username + secret**. Staff use a 6-digit **PIN**; anyone holding
   tenant_admin uses a **password** (min 10 chars). New users get a random temporary PIN/password (shown once to
-  whoever created them) and must replace it at first login. tenant_admin creates staff and resets their PINs;
-  super_admin creates owners and resets owner passwords. super_admin logs in separately (email + password).
+  whoever created them) and must replace it at first login. tenant_admin creates staff, edits their details
+  (name, mobile, email, roles) and resets their PINs; super_admin creates owners and can see/edit any user of any
+  plant (including username) and reset anyone's PIN/password. A reset is always temporary (typed by the admin or
+  random) and must be replaced at next login. super_admin logs in separately (email + password).
 - Enforce all of this on the SERVER in every module, not only in the platform UI.
 
 ## Login and launcher flow
@@ -126,7 +130,8 @@ Exact contract is designed in Phase 2.
 - Stock-out links to a batch where possible, so a failure can be traced back to material lots.
 
 ## Core platform tables (Phase 1)
-`super_admins`, `tenants`, `tenant_plans` (enabled modules + limits JSON), `users`, `roles`, `user_roles`.
+`super_admins`, `tenants`, `tenant_plans` (enabled modules + limits JSON), `users`, `roles`, `user_roles`,
+`tenant_profiles` (business details), `tenant_skus` (products).
 tenant_admin is a role in `user_roles` (no separate `tenant_admins` table). Each module app owns its own tables.
 
 ## UX
@@ -212,8 +217,38 @@ local dev uses the machine's Postgres (`scripts/setup-local-db.sh`) because Dock
 **Not yet verified:** Dockerfile (no Docker on the dev machine); access from a phone (needs a deployed address or
 LAN setup — `localhost` links only work on this computer); real module apps (only the placeholder exists).
 
+### 2026-10-03 — Phase 1 additions: business details, products, user editing — complete
+**Built** (migrations `0002_business_details.sql`, `0003_sku_units_per_pack.sql`; `src/server/business.ts`):
+- **Business details** (`tenant_profiles`, one row per plant): logo stored in the database (PNG/JPEG/WebP
+  ≤ 300 KB, type checked by its first bytes, never SVG), brand color `#rrggbb`, description,
+  address/city/state/PIN code, phone. The owner edits them at `/admin/business`. super_admin can fill them in
+  when creating a plant and edit them on the plant page. Any plant user can load the logo
+  (`/api/business/logo`).
+- **Products (SKUs)** (`tenant_skus`): name, optional SKU code (unique per plant), `volume_ml` = size of ONE
+  bottle/jar, `units_per_pack` (1 = single; e.g. 24 for a case of 24 × 500 ml), pack type, active/inactive.
+  No DELETE grant, so products are made inactive, never deleted. SKUs live in the platform. Modules (Floor
+  Stock) will store `sku_id` as a plain reference, like `batch_id`. A module read endpoint for SKUs is still
+  to add (Phase 4).
+- **Plant code and usernames: super_admin only.** `PATCH /api/super/tenants/:id {code}` (open sessions stay)
+  and `PATCH /api/super/tenants/:id/users/:userId {username}` (that user is logged out). The database enforces
+  this: `platform_app` has column-level UPDATE on `tenants (name, updated_at)` only, so the owner can rename the
+  plant but not change its code or status.
+- **User details after creation:** the owner edits name, mobile, email, roles and status, and resets a
+  PIN/password with a typed or random **temporary** value (`POST .../reset-secret {secret?}`; must be replaced
+  at next login). super_admin does the same for any user of any plant, plus the username. Both use the same
+  `applyUserUpdate` / `applySecretReset`, so the rules are identical: max users, keep one active owner, and
+  PIN↔password when the owner role is added or removed. This replaced the owner-only
+  `admins/:userId/reset-password` route. Secrets are never written to the audit log.
+- **Branding for modules:** `GET /api/m/tenants/:tid/branding` (name, brand_color, logo_url) +
+  `/api/m/tenants/:tid/logo`, module credentials required. The SSO token is unchanged.
+- Both new tables have `tenant_id` + FORCE RLS (covered by the guard test). Every change is audited.
+- Tests: 137 passing (platform 128, auth 9). Verified over HTTP on `pnpm dev` (plant `002`: business details,
+  logo, SKUs, user edit/reset, module branding with Lab Records' credentials).
+
 **Next — Phase 2 (Launcher):** tile dashboard per the mockups; module summary-endpoint contract with an
 "unavailable" tile state; direct-link flow (`/sso/start`) for staff opening a module from their phone;
 single-module staff skip the launcher; module-side session helper in `packages/auth` (generalising what
 `apps/dev-module` does); a way to reach the dev setup from a phone for testing; super_admin **Modules** screen
-(module URL, new client secret, switch a module off for all plants — replaces `.env` + `pnpm db:seed` setup).
+(module URL, new client secret, switch a module off for all plants — replaces `.env` + `pnpm db:seed` setup);
+super_admin **plant dashboard** (plant drop-down → that plant's module summary tiles) and the design for
+super_admin read-only access into each module's data (needs an SSO-token decision — ask first).

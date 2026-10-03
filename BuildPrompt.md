@@ -64,7 +64,14 @@ Prompt:
 		  - a brand-new module still starts as code (module id + role in packages/types, a migration, the
 		    module app); the screen covers everything after that
 
-		Show me the screen layout (launcher and Modules screen), the API calls the launcher makes, and how it
+		- super_admin plant dashboard: choose a plant from a drop-down -> that plant's module tiles with live
+		  summaries (same summary endpoints as the owner's tiles), read-only
+		- Design (build per module from Phase 3): super_admin opens any plant's module data read-only
+		  ("support view"). Decide how the platform proves to a module that the caller is super_admin acting on
+		  one chosen plant (SSO token change - ask first), how modules enforce read-only, and how each view is
+		  written to an audit log the plant owner can see
+
+		Show me the screen layout (launcher, Modules screen and super_admin plant dashboard), the API calls the launcher makes, and how it
 		decides what to show per role, before writing any code.
 
 		Follow-up questions:

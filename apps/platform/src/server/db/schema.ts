@@ -1,9 +1,10 @@
 // Drizzle table definitions mirroring db/migrations/*.sql (the SQL files are the source of truth).
 import { sql } from "drizzle-orm";
-import { bigint, boolean, date, integer, jsonb, pgSchema, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, customType, date, integer, jsonb, pgSchema, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const platform = pgSchema("platform");
 const ts = (name: string) => timestamp(name, { withTimezone: true });
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
 
 export const modules = platform.table("modules", {
   id: text("id").primaryKey(),
@@ -56,6 +57,36 @@ export const tenantPlans = platform.table("tenant_plans", {
   renewsOn: date("renews_on"),
   updatedAt: ts("updated_at").notNull().defaultNow(),
   updatedBy: text("updated_by").notNull(),
+});
+
+export const tenantProfiles = platform.table("tenant_profiles", {
+  tenantId: uuid("tenant_id").primaryKey(),
+  logo: bytea("logo"),
+  logoType: text("logo_type"),
+  logoUpdatedAt: ts("logo_updated_at"),
+  brandColor: text("brand_color"),
+  description: text("description"),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  pincode: text("pincode"),
+  phone: text("phone"),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+  updatedBy: text("updated_by").notNull(),
+});
+
+export const tenantSkus = platform.table("tenant_skus", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  name: text("name").notNull(),
+  skuCode: text("sku_code"),
+  volumeMl: integer("volume_ml").notNull(),
+  unitsPerPack: integer("units_per_pack").notNull().default(1),
+  packType: text("pack_type").notNull(),
+  status: text("status").$type<"active" | "inactive">().notNull().default("active"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  createdBy: text("created_by").notNull(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
 });
 
 export const users = platform.table("users", {

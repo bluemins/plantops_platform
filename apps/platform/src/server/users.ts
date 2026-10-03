@@ -2,9 +2,9 @@ import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { PlanLimits, RoleId } from "@plantops/types";
 import { audit, type Actor } from "./audit";
-import { hashSecret, temporarySecret, type SecretKind } from "./crypto";
+import { hashSecret, temporarySecret, validateSecret, type SecretKind } from "./crypto";
 import { schema, withTenant, type PlatformTx } from "./db";
-import { conflict, notFound } from "./http";
+import { badRequest, conflict, notFound } from "./http";
 import type { CurrentUser } from "./auth";
 import { loadRoles } from "./auth";
 
@@ -15,15 +15,22 @@ export const Roles = z
   .min(1, "Choose at least one role")
   .refine((r) => new Set(r).size === r.length, "Roles must not repeat");
 
+export const Username = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9._-]{2,40}$/, "Username: 2-40 letters, digits, dot, dash or underscore");
+
+/** Optional field: blank means "not set". */
+const blankToNull = (v: unknown) => (typeof v === "string" && v.trim() === "" ? null : v);
+const Phone = z.string().trim().regex(/^\+?[0-9][0-9 -]{6,18}$/, "Phone: digits only, e.g. +91 98765 43210");
+const Email = z.email("Email address is not valid").trim().toLowerCase();
+
 export const NewUserInput = z.object({
-  username: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(/^[a-z0-9._-]{2,40}$/, "Username: 2-40 letters, digits, dot, dash or underscore"),
+  username: Username,
   display_name: z.string().trim().min(1).max(80),
-  phone: z.string().trim().max(20).optional(),
-  email: z.email().trim().toLowerCase().optional(),
+  phone: z.preprocess((v) => blankToNull(v) ?? undefined, Phone.optional()),
+  email: z.preprocess((v) => blankToNull(v) ?? undefined, Email.optional()),
   roles: Roles,
 });
 export type NewUserInput = z.infer<typeof NewUserInput>;
@@ -31,11 +38,16 @@ export type NewUserInput = z.infer<typeof NewUserInput>;
 export const UpdateUserInput = z
   .object({
     display_name: z.string().trim().min(1).max(80),
-    phone: z.string().trim().max(20).nullable(),
+    phone: z.preprocess(blankToNull, Phone.nullable()),
+    email: z.preprocess(blankToNull, Email.nullable()),
     roles: Roles,
     status: z.enum(["active", "disabled"]),
   })
   .partial();
+export type UpdateUserInput = z.infer<typeof UpdateUserInput>;
+
+/** Leave `secret` blank for a random one. Either way it is temporary: the user replaces it at next login. */
+export const ResetSecretInput = z.object({ secret: z.preprocess(blankToNull, z.string().nullable()).optional() });
 
 /** tenant_admins (and anyone who is also a tenant_admin) use a password; staff use a 6-digit PIN. */
 export function secretKindFor(roles: readonly RoleId[]): SecretKind {
@@ -116,7 +128,7 @@ async function assertAnotherAdmin(tx: PlatformTx, tenantId: string, exceptUserId
   if (count === 0) throw conflict("A plant must keep at least one active owner (tenant_admin)");
 }
 
-function toView(u: typeof users.$inferSelect, roles: RoleId[]) {
+export function toView(u: typeof users.$inferSelect, roles: RoleId[]) {
   return {
     id: u.id,
     username: u.username,
@@ -132,8 +144,9 @@ function toView(u: typeof users.$inferSelect, roles: RoleId[]) {
   };
 }
 
-async function getUserRow(tx: PlatformTx, userId: string) {
-  const [row] = await tx.select().from(users).where(eq(users.id, userId));
+async function getUserRow(tx: PlatformTx, tenantId: string, userId: string) {
+  // tenant filter matters for the super_admin login, which is not limited by row-level security
+  const [row] = await tx.select().from(users).where(and(eq(users.tenantId, tenantId), eq(users.id, userId)));
   if (!row) throw notFound("User not found");
   return row;
 }
@@ -153,7 +166,7 @@ export function listUsers(admin: CurrentUser) {
 }
 
 export function getUser(admin: CurrentUser, userId: string) {
-  return withTenant(admin.tenantId, async (tx) => toView(await getUserRow(tx, userId), await loadRoles(tx, userId)));
+  return withTenant(admin.tenantId, async (tx) => toView(await getUserRow(tx, admin.tenantId, userId), await loadRoles(tx, userId)));
 }
 
 export function createUser(admin: CurrentUser, input: NewUserInput) {
@@ -163,57 +176,72 @@ export function createUser(admin: CurrentUser, input: NewUserInput) {
   });
 }
 
-export function updateUser(admin: CurrentUser, userId: string, input: z.infer<typeof UpdateUserInput>) {
-  const actor = `user:${admin.userId}` as const;
-  return withTenant(admin.tenantId, async (tx) => {
-    await lockTenantUsers(tx, admin.tenantId);
-    const user = await getUserRow(tx, userId);
-    const currentRoles = await loadRoles(tx, userId);
-    const isAdminNow = currentRoles.includes("tenant_admin") && user.status === "active";
-    const nextRoles = input.roles ?? currentRoles;
-    const nextStatus = input.status ?? user.status;
-    if (isAdminNow && (!nextRoles.includes("tenant_admin") || nextStatus !== "active")) {
-      await assertAnotherAdmin(tx, admin.tenantId, userId);
-    }
-    if (user.status === "disabled" && nextStatus === "active") await assertUserLimit(tx, admin.tenantId);
+/**
+ * Changes a user's details, roles or status. Shared by the plant owner and super_admin, so the same rules apply:
+ * plan user limit, at least one active owner, PIN <-> password when the owner role is added or removed.
+ */
+export async function applyUserUpdate(tx: PlatformTx, tenantId: string, userId: string, input: UpdateUserInput, actor: Actor) {
+  await lockTenantUsers(tx, tenantId);
+  const user = await getUserRow(tx, tenantId, userId);
+  const currentRoles = await loadRoles(tx, userId);
+  const isAdminNow = currentRoles.includes("tenant_admin") && user.status === "active";
+  const nextRoles = input.roles ?? currentRoles;
+  const nextStatus = input.status ?? user.status;
+  if (isAdminNow && (!nextRoles.includes("tenant_admin") || nextStatus !== "active")) {
+    await assertAnotherAdmin(tx, tenantId, userId);
+  }
+  if (user.status === "disabled" && nextStatus === "active") await assertUserLimit(tx, tenantId);
 
-    const changes: Partial<typeof users.$inferInsert> = {};
-    if (input.display_name !== undefined) changes.displayName = input.display_name;
-    if (input.phone !== undefined) changes.phone = input.phone;
-    if (input.status !== undefined) changes.status = input.status;
-    // Becoming (or no longer being) an owner switches PIN <-> password; they set the new one at next login.
-    const kind = secretKindFor(nextRoles);
-    if (kind !== user.secretKind) Object.assign(changes, { secretKind: kind, mustChangeSecret: true });
-    if (Object.keys(changes).length) await tx.update(users).set(changes).where(eq(users.id, userId));
+  const changes: Partial<typeof users.$inferInsert> = {};
+  if (input.display_name !== undefined) changes.displayName = input.display_name;
+  if (input.phone !== undefined) changes.phone = input.phone;
+  if (input.email !== undefined) changes.email = input.email;
+  if (input.status !== undefined) changes.status = input.status;
+  // Becoming (or no longer being) an owner switches PIN <-> password; they set the new one at next login.
+  const kind = secretKindFor(nextRoles);
+  if (kind !== user.secretKind) Object.assign(changes, { secretKind: kind, mustChangeSecret: true });
+  if (Object.keys(changes).length) await tx.update(users).set(changes).where(eq(users.id, userId));
 
-    if (input.roles) {
-      await tx.delete(userRoles).where(eq(userRoles.userId, userId));
-      await tx.insert(userRoles).values(input.roles.map((roleId) => ({ tenantId: admin.tenantId, userId, roleId, grantedBy: actor })));
-    }
-    if (nextStatus === "disabled") await revokeSessions(tx, userId);
-    await audit(tx, { tenantId: admin.tenantId, actor, action: "user.updated", target: userId, details: input });
-    return toView(await getUserRow(tx, userId), await loadRoles(tx, userId));
-  });
+  if (input.roles) {
+    await tx.delete(userRoles).where(eq(userRoles.userId, userId));
+    await tx.insert(userRoles).values(input.roles.map((roleId) => ({ tenantId, userId, roleId, grantedBy: actor })));
+  }
+  if (nextStatus === "disabled") await revokeSessions(tx, userId);
+  await audit(tx, { tenantId, actor, action: "user.updated", target: userId, details: input });
+  return toView(await getUserRow(tx, tenantId, userId), await loadRoles(tx, userId));
 }
 
-/** New temporary PIN/password (shown once to the admin). Also unlocks and logs the user out everywhere. */
-export function resetUserSecret(admin: CurrentUser, userId: string) {
-  return withTenant(admin.tenantId, async (tx) => {
-    const user = await getUserRow(tx, userId);
-    const temporary = temporarySecret(user.secretKind);
-    await tx
-      .update(users)
-      .set({ secretHash: await hashSecret(temporary), mustChangeSecret: true, failedAttempts: 0, lockedUntil: null })
-      .where(eq(users.id, userId));
-    await revokeSessions(tx, userId);
-    await audit(tx, { tenantId: admin.tenantId, actor: `user:${admin.userId}`, action: "user.secret_reset", target: userId });
-    return { temporary_secret: temporary, secret_kind: user.secretKind };
-  });
+/**
+ * New temporary PIN/password: typed by the admin, or random if left blank. The user must replace it at their
+ * next login. Also unlocks them and logs them out everywhere. The secret itself is never written to the audit log.
+ */
+export async function applySecretReset(tx: PlatformTx, tenantId: string, userId: string, chosen: string | null | undefined, actor: Actor) {
+  const user = await getUserRow(tx, tenantId, userId);
+  if (chosen) {
+    const problem = validateSecret(user.secretKind, chosen);
+    if (problem) throw badRequest(problem);
+  }
+  const temporary = chosen || temporarySecret(user.secretKind);
+  await tx
+    .update(users)
+    .set({ secretHash: await hashSecret(temporary), mustChangeSecret: true, failedAttempts: 0, lockedUntil: null })
+    .where(eq(users.id, userId));
+  await revokeSessions(tx, userId);
+  await audit(tx, { tenantId, actor, action: "user.secret_reset", target: userId, details: { chosen_by_admin: !!chosen } });
+  return { temporary_secret: temporary, secret_kind: user.secretKind };
+}
+
+export function updateUser(admin: CurrentUser, userId: string, input: UpdateUserInput) {
+  return withTenant(admin.tenantId, (tx) => applyUserUpdate(tx, admin.tenantId, userId, input, `user:${admin.userId}`));
+}
+
+export function resetUserSecret(admin: CurrentUser, userId: string, chosen?: string | null) {
+  return withTenant(admin.tenantId, (tx) => applySecretReset(tx, admin.tenantId, userId, chosen, `user:${admin.userId}`));
 }
 
 export function unlockUser(admin: CurrentUser, userId: string) {
   return withTenant(admin.tenantId, async (tx) => {
-    await getUserRow(tx, userId);
+    await getUserRow(tx, admin.tenantId, userId);
     await tx.update(users).set({ failedAttempts: 0, lockedUntil: null }).where(eq(users.id, userId));
     await audit(tx, { tenantId: admin.tenantId, actor: `user:${admin.userId}`, action: "user.unlocked", target: userId });
   });

@@ -2,10 +2,10 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { ModuleId, PlanLimits, type RoleId } from "@plantops/types";
 import { audit } from "./audit";
-import { hashSecret, temporarySecret } from "./crypto";
+import { ProfileInput, writeProfile } from "./business";
 import { schema, superDb, withTenant, type PlatformTx } from "./db";
 import { conflict, notFound } from "./http";
-import { insertUser, lockTenantUsers, NewUserInput } from "./users";
+import { applySecretReset, applyUserUpdate, insertUser, lockTenantUsers, NewUserInput, toView, UpdateUserInput, Username } from "./users";
 import type { CurrentSuperAdmin } from "./super-auth";
 
 const { tenants, tenantPlans, users, userRoles, sessions } = schema;
@@ -20,20 +20,34 @@ export type PlanInput = z.infer<typeof PlanInput>;
 
 export const TenantAdminInput = NewUserInput.omit({ roles: true });
 
+const PlantCode = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z0-9_-]{3,32}$/, "Plant code: 3-32 letters, digits, dash or underscore");
+
 export const CreateTenantInput = z.object({
-  code: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^[A-Z0-9_-]{3,32}$/, "Plant code: 3-32 letters, digits, dash or underscore"),
+  code: PlantCode,
   name: z.string().trim().min(1).max(120),
   plan: PlanInput,
   admin: TenantAdminInput,
+  business: ProfileInput.optional(),
 });
 
+/** Only super_admin may change the plant code (plant users type it at every login). */
 export const UpdateTenantInput = z
-  .object({ name: z.string().trim().min(1).max(120), status: z.enum(["active", "suspended"]) })
+  .object({ code: PlantCode, name: z.string().trim().min(1).max(120), status: z.enum(["active", "suspended"]) })
   .partial();
+
+/** super_admin may also change the username (the owner may not). */
+export const SuperUpdateUserInput = UpdateUserInput.extend({ username: Username }).partial();
+
+const duplicateCode = (code: string) => conflict(`Plant code ${code} is already used`);
+
+function isUniqueViolation(err: unknown): boolean {
+  const e = err as { code?: string; cause?: { code?: string } };
+  return e?.code === "23505" || e?.cause?.code === "23505";
+}
 
 function planView(p: typeof tenantPlans.$inferSelect | undefined) {
   if (!p) return null;
@@ -84,13 +98,7 @@ export async function getTenant(tenantId: string) {
     status: row.tenants.status,
     hosting: row.tenants.hosting,
     plan: planView(row.tenant_plans ?? undefined),
-    users: userRows.map((u) => ({
-      id: u.id,
-      username: u.username,
-      display_name: u.displayName,
-      status: u.status,
-      roles: roleRows.filter((r) => r.userId === u.id).map((r) => r.roleId as RoleId).sort(),
-    })),
+    users: userRows.map((u) => toView(u, roleRows.filter((r) => r.userId === u.id).map((r) => r.roleId as RoleId).sort())),
   };
 }
 
@@ -103,12 +111,12 @@ export async function createTenant(admin: CurrentSuperAdmin, input: z.infer<type
       const [row] = await tx.insert(tenants).values({ code: input.code, name: input.name }).returning({ id: tenants.id });
       tenantId = row!.id;
     } catch (err) {
-      const e = err as { code?: string; cause?: { code?: string } };
-      if (e.code === "23505" || e.cause?.code === "23505") throw conflict(`Plant code ${input.code} is already used`);
+      if (isUniqueViolation(err)) throw duplicateCode(input.code);
       throw err;
     }
     await writePlan(tx, tenantId, input.plan, actor);
     await audit(tx, { tenantId, actor, action: "tenant.created", target: tenantId, details: { code: input.code } });
+    if (input.business) await writeProfile(tx, tenantId, input.business, actor);
     const created = await insertUser(tx, tenantId, { ...input.admin, roles: ["tenant_admin"] }, actor);
     return { id: tenantId, code: input.code, admin_user_id: created.id, admin_temporary_password: created.temporary_secret };
   });
@@ -139,14 +147,23 @@ export async function updatePlan(admin: CurrentSuperAdmin, tenantId: string, pla
   return getTenant(tenantId);
 }
 
-/** Rename or suspend/reactivate a plant. Suspending logs everyone in that plant out. */
+/**
+ * Rename, change the plant code, or suspend/reactivate a plant. Suspending logs everyone in that plant out.
+ * A new plant code applies from the next login; people already logged in stay logged in.
+ */
 export async function updateTenant(admin: CurrentSuperAdmin, tenantId: string, input: z.infer<typeof UpdateTenantInput>) {
   await superDb().transaction(async (tx) => {
-    const [t] = await tx
-      .update(tenants)
-      .set({ ...input, updatedAt: new Date() })
-      .where(eq(tenants.id, tenantId))
-      .returning({ id: tenants.id });
+    let t: { id: string } | undefined;
+    try {
+      [t] = await tx
+        .update(tenants)
+        .set({ ...input, updatedAt: new Date() })
+        .where(eq(tenants.id, tenantId))
+        .returning({ id: tenants.id });
+    } catch (err) {
+      if (isUniqueViolation(err) && input.code) throw duplicateCode(input.code);
+      throw err;
+    }
     if (!t) throw notFound("Plant not found");
     if (input.status === "suspended") {
       await tx.update(sessions).set({ revokedAt: new Date() }).where(and(eq(sessions.tenantId, tenantId), isNull(sessions.revokedAt)));
@@ -165,23 +182,33 @@ export async function createTenantAdmin(admin: CurrentSuperAdmin, tenantId: stri
   });
 }
 
-/** Super_admin may reset only a tenant_admin's password (staff PINs are the plant owner's job). */
-export async function resetTenantAdminPassword(admin: CurrentSuperAdmin, tenantId: string, userId: string) {
-  return superDb().transaction(async (tx) => {
-    const [role] = await tx
-      .select()
-      .from(userRoles)
-      .where(and(eq(userRoles.tenantId, tenantId), eq(userRoles.userId, userId), eq(userRoles.roleId, "tenant_admin")));
-    if (!role) throw notFound("Plant owner not found");
-    const temporary = temporarySecret("password");
-    await tx
-      .update(users)
-      .set({ secretHash: await hashSecret(temporary), secretKind: "password", mustChangeSecret: true, failedAttempts: 0, lockedUntil: null })
-      .where(eq(users.id, userId));
-    await tx.update(sessions).set({ revokedAt: new Date() }).where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)));
-    await audit(tx, { tenantId, actor: actorOf(admin), action: "user.secret_reset", target: userId });
-    return { temporary_password: temporary };
+/**
+ * super_admin edits any user of a plant: the same details/roles/status rules as the owner, plus the username.
+ * A new username logs that user out; they log in again with the new name.
+ */
+export async function superUpdateUser(admin: CurrentSuperAdmin, tenantId: string, userId: string, input: z.infer<typeof SuperUpdateUserInput>) {
+  const { username, ...details } = input;
+  await superDb().transaction(async (tx) => {
+    const [user] = await tx.select().from(users).where(and(eq(users.tenantId, tenantId), eq(users.id, userId)));
+    if (!user) throw notFound("User not found");
+    if (username !== undefined && username !== user.username) {
+      try {
+        await tx.update(users).set({ username }).where(eq(users.id, userId));
+      } catch (err) {
+        if (isUniqueViolation(err)) throw conflict(`Username "${username}" is already taken in this plant`);
+        throw err;
+      }
+      await tx.update(sessions).set({ revokedAt: new Date() }).where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)));
+      await audit(tx, { tenantId, actor: actorOf(admin), action: "user.renamed", target: userId, details: { from: user.username, to: username } });
+    }
+    if (Object.keys(details).length) await applyUserUpdate(tx, tenantId, userId, details, actorOf(admin));
   });
+  return getTenant(tenantId);
+}
+
+/** super_admin resets any user's PIN/password (typed or random; temporary either way). */
+export function superResetSecret(admin: CurrentSuperAdmin, tenantId: string, userId: string, chosen?: string | null) {
+  return superDb().transaction((tx) => applySecretReset(tx, tenantId, userId, chosen, actorOf(admin)));
 }
 
 /** The plan as seen by a module (GET /api/tenants/:id/plan). Read through RLS on the app login. */

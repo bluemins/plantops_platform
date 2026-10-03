@@ -7,7 +7,7 @@ import * as superTenantsRoute from "@/app/api/super/tenants/route";
 import * as superTenantRoute from "@/app/api/super/tenants/[id]/route";
 import * as superPlanRoute from "@/app/api/super/tenants/[id]/plan/route";
 import * as superAdminsRoute from "@/app/api/super/tenants/[id]/admins/route";
-import * as superResetRoute from "@/app/api/super/tenants/[id]/admins/[userId]/reset-password/route";
+import * as superResetRoute from "@/app/api/super/tenants/[id]/users/[userId]/reset-secret/route";
 import * as meRoute from "@/app/api/auth/me/route";
 import { superDb } from "@/server/db";
 import { call, cookieFrom, login, makePlant, makeStaff, makeSuperAdmin, type Handler } from "./helpers";
@@ -151,7 +151,7 @@ describe("super_admin", () => {
     expect(res.body.plan).toMatchObject({ plan_name: "Growth", renews_on: "2027-01-12", limits: { platform: { max_users: 10 } } });
   });
 
-  it("can add an owner and reset an owner's password, but not a staff member's PIN", async () => {
+  it("can add an owner and reset an owner's password and a staff member's PIN", async () => {
     const added = await call(superAdminsRoute.POST as Handler, {
       cookie: sa.cookie,
       body: { username: "owner3", display_name: "Owner 3" },
@@ -162,8 +162,11 @@ describe("super_admin", () => {
       call(superResetRoute.POST as Handler, { cookie: sa.cookie, body: {}, params: { id: plant.tenantId, userId } });
     const ok = await reset(added.body.id);
     expect(ok.status).toBe(200);
-    expect((await login(plant.code, "owner3", ok.body.temporary_password)).status).toBe(200);
-    expect((await reset(staff.userId)).status).toBe(404);
+    expect(ok.body.secret_kind).toBe("password");
+    expect((await login(plant.code, "owner3", ok.body.temporary_secret)).status).toBe(200);
+    const pin = await reset(staff.userId);
+    expect(pin.body.secret_kind).toBe("pin");
+    expect((await login(plant.code, "ramesh", pin.body.temporary_secret)).status).toBe(200);
   });
 
   it("unknown or malformed plant ids are 404", async () => {

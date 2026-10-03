@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card, ErrorText, TextField } from "@plantops/ui";
 import { api } from "@/lib/api";
+import { emptyProfile, ProfileFields, profileBody, type LogoChange } from "@/lib/business-form";
 import { emptyPlan, PlanFields, planBody } from "@/lib/plan-form";
 
 type Tenant = {
@@ -23,6 +24,8 @@ export default function SuperHome() {
   const [created, setCreated] = useState<{ code: string; username: string; password: string }>();
   const [form, setForm] = useState({ code: "", name: "", admin_name: "", admin_username: "", admin_phone: "" });
   const [plan, setPlan] = useState(emptyPlan);
+  const [profile, setProfile] = useState(emptyProfile);
+  const [logo, setLogo] = useState<LogoChange>();
 
   const load = useCallback(async () => {
     const r = await api<Tenant[]>("/api/super/tenants");
@@ -41,12 +44,15 @@ export default function SuperHome() {
         name: form.name,
         plan: planBody(plan),
         admin: { username: form.admin_username, display_name: form.admin_name, phone: form.admin_phone || undefined },
+        business: logo || Object.values(profile).some((v) => v.trim()) ? profileBody(profile, logo) : undefined,
       },
     });
     if (!r.ok) return setError(r.error);
     setCreated({ code: r.data.code, username: form.admin_username.toLowerCase(), password: r.data.admin_temporary_password });
     setForm({ code: "", name: "", admin_name: "", admin_username: "", admin_phone: "" });
     setPlan(emptyPlan);
+    setProfile(emptyProfile);
+    setLogo(undefined);
     load();
   }
 
@@ -100,6 +106,12 @@ export default function SuperHome() {
             <TextField label="Owner username" value={form.admin_username} onChange={(e) => setForm({ ...form, admin_username: e.target.value })} autoCapitalize="none" required />
           </div>
           <TextField label="Owner mobile (optional)" type="tel" value={form.admin_phone} onChange={(e) => setForm({ ...form, admin_phone: e.target.value })} />
+          <details className="rounded-xl border border-slate-200 p-3">
+            <summary className="cursor-pointer text-sm font-medium text-slate-700">Business details (optional - the owner can fill these in later)</summary>
+            <div className="pt-3">
+              <ProfileFields value={profile} onChange={setProfile} logo={logo} onLogo={setLogo} />
+            </div>
+          </details>
           <Button type="submit" className="w-full">Create plant</Button>
         </form>
       </Card>
