@@ -135,7 +135,8 @@ where the owner can see it. `apps/lab-records` is the reference module.
   and nothing is hard-coded. The "move one tenant" tool (export one plant's data by `tenant_id` from Shared,
   import into a Dedicated copy) is built in Phase 10 (website + provisioning), only when a paying plant needs it.
 - When a plant objects to Shared, first address the usual concerns: other plants cannot see their data (RLS),
-  they can export their data if they leave, and data is stored in India (Mumbai region). Offer Dedicated only
+  they can export their data if they leave, and where data is stored: Singapore (Railway) for now; India hosting
+  later if a plant needs it. Offer Dedicated only
   if that's not enough.
 - Containerized (Docker). Config via environment variables (DATABASE_URL, STORAGE_BUCKET, WHATSAPP_TOKEN,
   APP_DOMAIN, BRAND_NAME, BRAND_LOGO, BRAND_COLOR, MODE, ENABLED_MODULES).
@@ -145,7 +146,10 @@ where the owner can see it. `apps/lab-records` is the reference module.
 ## Stack
 - Next.js (React) + Tailwind, mobile-first PWA. No native app, no offline mode in v1.
 - Node.js + TypeScript backend, clean REST API per app (platform + each module).
-- PostgreSQL, managed hosting, Mumbai region preferred.
+- PostgreSQL, managed hosting. Hosting: Railway, Singapore region, one project (decided 2026-10-04 for low
+  cost); India hosting later if a plant needs it. Public addresses: `app.bluemins.life` (platform),
+  `lab.bluemins.life` (Lab Records), `docs.bluemins.life` (Document Store); `bluemins.life` itself stays a
+  static site on GitHub Pages, DNS at WordPress.com.
 - S3-compatible storage for documents/reports. PDF reports via Puppeteer or react-pdf.
 - Scheduler for daily checks; alerts via WhatsApp Cloud API.
 

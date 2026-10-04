@@ -1,6 +1,9 @@
-node_modules
-**/node_modules
-**/.next
+# Never copy local secrets or build output into an image (the Dockerfiles do `COPY . .` from the repo root).
 .env
 .env.*
+**/node_modules
+**/.next
+**/.turbo
+**/.data
+coverage
 .git
