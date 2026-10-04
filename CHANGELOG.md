@@ -6,6 +6,13 @@ deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
 ## Unreleased
 
+**What's in it (in progress)**
+- **Floor Stock (Phase 5)** started: its own database section `floor_stock` and login `stock_app`, set up with
+  `./scripts/setup-module-db.sh floor_stock stock_app STOCK 3002`. The app itself is not built yet.
+
+**Migrations:** `apps/floor-stock/db/migrations/0001_floor_stock.sql` (new schema `floor_stock`). A hosted copy
+needs the `stock_app` login first.
+
 ## v0.5.1 — 2026-10-04 — Document Store email through Brevo's API
 
 **What's in it**

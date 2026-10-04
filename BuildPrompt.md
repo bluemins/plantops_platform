@@ -144,3 +144,72 @@ Prompt:
 		"What happens to a batch that's on hold if nobody logs a retest for a week?"
 		"Show me a printed Form 1 next to the Excel sheet — what differs?"
 		"Which Form 1 parameters are tested in-house every batch, and which only monthly or by the NABL lab?"
+
+Phase 5 — Floor Stock module
+
+Prompt:
+
+		Read CLAUDE.md. Phases 1–4 are complete — see the Status log, including the Phase 5 design note.
+		Read apps/document-store (the newest module on packages/module-kit) as the pattern to follow.
+
+		Plan Phase 5: Floor Stock module app (apps/floor-stock, port 3002), replacing apps/dev-module for floor_stock.
+
+		What it replaces: every evening staff send a WhatsApp message with today's production and the closing
+		stock of everything in the plant. Sales happen during the same day, so the stock figure is the
+		closing count at the end of the day.
+
+		- Built on packages/module-kit (createModule): SSO callback, 12 h session with 5-min re-check, own
+		  schema floor_stock + own DB login stock_app + FORCE RLS, plant colour/logo, "Account" link, summary
+		  endpoint, support view (read-only, every view logged where the owner can see it)
+		- The plant's own sections and items (each tenant configures its own; nothing shared between plants):
+		  - configured in Floor Stock's "Sections & items" screen; the owner's dashboard tile has a
+		    "Set up sections" link straight to it (small launcher change, no platform database change)
+		  - sections are owner-only (add, rename, re-order, switch off); owner and store keeper add items to any
+		    section and edit them; sections and items are switched off, never deleted
+		  - a section is "finished goods" (its items appear in Today production AND closing stock) or "stock"
+		  - each item: name, main unit (box, pcs, pkt, bundle...), optional second number (labels: bundle +
+		    count; returnables: good + damaged), optional link to a platform product (sku_id), optional limit
+		  - "Hotel room" is a section (no separate location setting)
+		  - a new plant is offered a generic template (owner edits or skips; no plant-specific code):
+		    Today production + Finished goods closing stock (from the plant's own products), Raw
+		    material (empty bottle packets per product), Consumable (caps, stickers, labels per product,
+		    filters, roll, dosing chemicals, inkjet, ring, tap), Returnable items (20 L jar, jerry can,
+		    chiller jar, battery dispenser, pump dispenser)
+		- Daily count (store keeper or owner, one URL on the phone):
+		  - one count per plant per day, for today or yesterday only
+		  - Today production starts empty; closing stock is pre-filled from the last count
+		  - several lines per item, each with a free-text remark (usually a party name); decimals allowed
+		  - submit locks it; a correction is a new version with a reason; append-only enforced by DB grants
+		    (no UPDATE/DELETE on counts)
+		  - "Copy as WhatsApp message" in the familiar format, for the switch-over
+		- Calculated when a screen opens, never stored:
+		  - Sold = previous closing + today's production − today's closing (negative → "check the count")
+		  - Used = previous − today for materials; a rise shows as "received (calculated)"
+		  - below limit = today's count < the item's limit
+		- Limits and alerts:
+		  - only the owner sets limits (server-side check); a blank limit never alerts
+		  - only the owner may switch off an item that has a limit (no hiding a shortage by switching it off)
+		  - only the owner may move an item to another section (a store keeper picks the section only when adding)
+		  - every setup change is audited and shown to the owner as a "Recent changes" list
+		  - below the limit → email to the owners on submit, once per item per day (move the Document Store
+		    mail sender into packages/module-kit and share it); store keepers are not emailed
+		  - red tile badge "N items low"
+		- Owner views: today vs previous count with changes highlighted, sold/used, low-stock list, history by
+		  date (with corrections) and by item, CSV export (owner only)
+		- Tile badges: "Today's count not done" / "Counted 6:40 pm", "N items low", "Made N box"
+		- No platform database change: module floor_stock and role store_keeper already exist
+		- Not in v1: dispatch entries with the Lab Records batch check (a held batch must never be
+		  dispatched), the module-to-module batch lookup, purchases, a party list, Hindi/Odia screens
+		- apps/floor-stock/NOTES.md with module-specific notes
+
+		Show me the schema, the screens as mockups (staff daily count, owner today view, item setup, low-stock
+		email), the permission checks, the correction flow and the test plan before writing code. Explain each
+		step in plain language; don't just write code.
+
+		Follow-up questions:
+
+		"Show me the rows stored when a count is submitted and then corrected."
+		"How is Sold worked out when yesterday's count is missing?"
+		"What happens to old counts when I rename or switch off an item?"
+		"What stops a store keeper from lowering a limit to hide a shortage?"
+		"How will dispatch and the batch check fit in later without changing the counts?"

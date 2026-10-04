@@ -191,7 +191,9 @@ pilots.
 4. **Document Store module** — plant documents/certificates with name, certificate, expiry, authority, support
    contact, responsible person (a plant user); file upload stored on the server; renewal history kept;
    expiry reminders by email to the owner and the responsible person.
-5. **Floor Stock module** — items, stock in/out, reorder alerts, linked to batches.
+5. **Floor Stock module** — the plant's daily end-of-day count (today's production + closing stock of every
+   item) replacing the staff's WhatsApp message; plant-defined sections and items; owner-set limits with
+   low-stock email; sold / used worked out from the counts. Dispatch entries with the batch check come later.
 6. **Preventive Management module** — assets, PM schedules, task completion, history.
 7. **AMC module** — contracts, visit logs, renewals, invoicing (pairs with Preventive Management).
 8. **Attendance & Salary module.**
@@ -497,8 +499,93 @@ module SKU read endpoint for Floor Stock later (Phase 4).
 - Tests: 81 Document Store tests pass; `typecheck` and production `build` pass.
 
 
-**Next — Phase 5 (Floor Stock):** a real module in `apps/floor-stock` on the module kit:
-- items, stock in/out, reorder alerts
-- stock-out linked to a batch
-- design the module-to-module batch lookup (Floor Stock asks Lab Records whether a batch is approved)
-- its support view
+### 2026-10-04 — Phase 5: Floor Stock — design approved, build starting
+Full design: `/home/rocky/.claude/plans/hidden-marinating-pelican.md`; the module notes go into
+`apps/floor-stock/NOTES.md` when it is built.
+
+**What it replaces:** staff send a WhatsApp message every evening with today's production and the closing stock of
+everything in the plant. Sales happen during the same day, so the stock figure is the **closing count at the end of
+the day**.
+
+**Decided with the owner (2026-10-04):**
+- **Version 1 has the daily count only.** There are no stock in/out or dispatch entries yet. The app works out:
+  - **Sold** = previous closing + today's production − today's closing, per finished product. A negative result
+    is flagged "check the count".
+  - **Used** = previous − today, per material. A rise is shown as "received (calculated)".
+  - Nothing calculated is stored.
+- **One count per plant per day**, for today or yesterday only:
+  - It is pre-filled from the last count.
+  - It locks on submit.
+  - A correction is a new version with a reason.
+  - It is append-only, enforced by the database (no UPDATE / DELETE on counts).
+- **Sections and items are the plant's own:** each plant (tenant) configures its own list; nothing is shared
+  between plants.
+  - Configured in Floor Stock's **Sections & items** screen (the module owns the data). The owner reaches it
+    from the dashboard through a "Set up sections" link on the Floor Stock tile. This is a small platform
+    launcher change (a per-module setup path in `apps/platform/src/lib/modules.ts`), with no database change.
+  - The owner can add a new section at any time. Owner and store keeper can add a new item to any section, and
+    edit items.
+  - Sections and items are switched off, never deleted.
+  - "Hotel room" is a section; there is no separate location setting.
+- **Finished-goods sections:** every finished product appears in both *Today production* and closing stock.
+  Items link to platform products (`sku_id`).
+- **Each item has:**
+  - a main unit and an optional second number: labels as bundle + count, returnables as good + damaged
+  - several lines per item, each with a free-text remark (usually a party name)
+  - decimals allowed
+- **Limits:**
+  - Only the owner sets an item's limit; a blank limit never alerts. The server checks this; the database cannot
+    tell owner from store keeper.
+  - **Only the owner may switch off an item that has a limit**, so a shortage can't be hidden by switching the
+    item off. Renaming or moving an item keeps its limit.
+  - **Sections are owner-only:** add, rename, re-order, switch off.
+  - **Only the owner may move an item to another section.** A store keeper picks the section when adding an
+    item, but can't move it afterwards.
+  - Every setup change (item, section, limit, on/off) is audited and shown to the owner in a **"Recent changes"**
+    list on the Floor Stock screen.
+  - Below the limit → an **email to the owners on submit**, once per item per day (same email service as
+    Document Store), plus a **red tile badge**.
+  - Store keepers are not emailed.
+- **Returnable items** (20 L jar, jerry can, chiller jar, dispensers) are counted in the plant only. Who holds
+  them comes later.
+- **First start:** a new plant is offered a **generic template**: the 5 sections below with common RO-plant
+  items, with finished goods filled from that plant's own products. The owner can edit it or skip it. Nothing
+  is plant-specific in code.
+- **Plant 002's own list** (entered through the screens, not code):
+  1. Today production
+  2. Finished goods closing stock (9 products)
+  3. Raw material (empty bottle packets per product)
+  4. Consumable (caps, stickers, labels per product, filters, roll, dosing chemicals, inkjet, ring, tap)
+  5. Returnable items
+- **Tile:** "Today's count not done" / "Counted 6:40 pm", "N items low", "Made N box".
+- **"Copy as WhatsApp message"** during the switch-over.
+- **Owner CSV export.**
+- **Support view** read-only and logged.
+- **No platform database change:** module `floor_stock` and role `store_keeper` already exist.
+
+**Build steps:**
+1. ✅ (2026-10-04) Schema `floor_stock` + login `stock_app` (`./scripts/setup-module-db.sh floor_stock stock_app
+   STOCK 3002`). Migration `apps/floor-stock/db/migrations/0001_floor_stock.sql` is applied to dev + test. The
+   checks were run by hand as `stock_app`: no plant → refused; plant B sees 0 of A's rows and cannot write A's;
+   8 edits / deletes of counts and setup rows refused; second count per day, correction without reason and a
+   negative qty refused; rename, limit and correction with reason allowed. The checks become automated tests in
+   step 7.
+2. App `apps/floor-stock` (:3002) on the module kit, replacing `apps/dev-module` for floor_stock.
+3. Sections / items screens + generic template + dashboard "Set up sections" link.
+4. Daily count screen.
+5. Owner views (today vs previous, sold / used, low stock, history, Recent changes, CSV); "unit changed: not
+   compared" on the day an item's unit changes.
+6. Tile + low-stock email (move the mail sender into `packages/module-kit`).
+7. Tests (isolation, roles, append-only refusals, sold arithmetic, once-a-day email, support read-only).
+8. NOTES, status note, Dockerfile, deploy (`stock.bluemins.life`).
+
+**Later:**
+- dispatch entries with the Lab Records batch check (a held batch must never be dispatched)
+- the module-to-module batch lookup
+- purchases
+- a party list
+- Hindi / Odia screens
+- **Long-term idea (owner, 2026-10-04):** general godown stock management for any material. It would add several
+  godowns with transfers, a stock in/out ledger, suppliers, and optionally rates and value. Keep the v1 design
+  generic (free-text units, optional product link, no RO-only rules in code) so that this stays an addition and
+  not a rewrite.
