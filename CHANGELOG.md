@@ -4,6 +4,12 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## Unreleased
+
+- Deployment: Railway's `railway.json` is deprecated, and new services can't use it. The `apps/*/railway.json`
+  files are removed. Settings are now made in the dashboard, following `docs/DEPLOY.md`, and the Dockerfile is
+  set by `RAILWAY_DOCKERFILE_PATH`, which `setup-railway-db.sh` now writes. **Migrations:** none.
+
 ## v0.4.0 — 2026-10-04 — first deployable release (Phases 1–4)
 
 **What's in it**

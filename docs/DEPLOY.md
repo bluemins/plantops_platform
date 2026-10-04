@@ -1,5 +1,8 @@
 # Deploying PlantOps (Railway)
 
+The exact setup steps. For the overview and day-to-day running (local vs production, new plants, own domains,
+password resets, troubleshooting), see [HANDBOOK.md](HANDBOOK.md).
+
 One recipe for every hosted copy of PlantOps:
 - **`shared`**: the normal copy at bluemins.life that every plant uses.
 - **Dedicated copies**: one per paying plant, set up only when needed (CLAUDE.md, "Multi-tenancy and deployment").
@@ -14,12 +17,18 @@ Every copy runs the **same code and the same release**. Only its settings differ
 
 One Railway project in the **Singapore** region (lowest cost; data location is noted in CLAUDE.md), holding:
 
-| Railway service | Built from | Address (shared copy) | Notes |
-|---|---|---|---|
-| `Postgres` | Railway's PostgreSQL template | private only | Keep the name `Postgres`: the settings refer to it |
-| `platform` | `apps/platform/railway.json` | `app.bluemins.life` | login, launcher, super_admin, SSO |
-| `lab-records` | `apps/lab-records/railway.json` | `lab.bluemins.life` | |
-| `document-store` | `apps/document-store/railway.json` | `docs.bluemins.life` | + a volume at `/data` for uploaded files |
+| Railway service | Built from | Health check path | Address (shared copy) | Notes |
+|---|---|---|---|---|
+| `Postgres` | Railway's PostgreSQL template | | private only | Keep the name `Postgres`: the settings refer to it |
+| `platform` | `apps/platform/Dockerfile` | `/.well-known/jwks.json` | `app.bluemins.life` | login, launcher, super_admin, SSO |
+| `lab-records` | `apps/lab-records/Dockerfile` | `/health` | `lab.bluemins.life` | |
+| `document-store` | `apps/document-store/Dockerfile` | `/health` | `docs.bluemins.life` | + a volume at `/data` for uploaded files |
+
+Service settings are set in the Railway dashboard, following this page. The Dockerfile is chosen by the
+`RAILWAY_DOCKERFILE_PATH` variable, which is in each service's pasted block. Railway's old `railway.json`
+("Config as Code") stops working on 2026-12-01, and new services can't use it. Its replacement,
+"Infrastructure as Code" (`.railway/railway.ts`, applied with the Railway CLI), is worth adopting only if
+Dedicated copies become frequent.
 
 The daily reminder jobs run from GitHub (`.github/workflows/daily.yml`), so they add nothing to Railway's bill.
 `apps/dev-module` is development-only and is never deployed.
@@ -51,13 +60,22 @@ tag you are deploying.
    - `.env.railway.<copy>`: **keep it**, and save a copy in your password manager.
    - `.env.railway.<copy>.paste`: the settings for step 4. Delete it once pasted.
 3. **App services.** Do this three times, for `platform`, `lab-records` and `document-store`:
-   - Railway → New → *GitHub Repo* → `bluemins/plantops_platform`.
-   - Rename the service (Settings → name).
-   - Settings → *Config-as-code* → Railway config file: `/apps/<app>/railway.json`.
-   - Leave *Root directory* empty: the Dockerfiles build from the repo root.
-   - Settings → Region → **Singapore**.
+   - Railway → *+ Create* → *GitHub Repo* → `bluemins/plantops_platform`. If the repo isn't listed, use
+     *Configure GitHub App* and give Railway access to it. The build that starts by itself may fail; ignore it.
+   - Rename the service if Railway lets you (the name is only a label).
+   - In Settings:
+     - Source → *Root Directory*: leave **empty**. The Dockerfiles build from the repo root.
+     - Source → *Branch*: **`production`**. Railway deploys only that branch. `main` is everyday work and
+       never goes live by itself.
+     - Source → *Watch Paths* (optional; saves build minutes): `apps/<app>/**`, `packages/**`,
+       `pnpm-lock.yaml`.
+     - Config-as-code: leave it alone.
+     - Deploy → *Healthcheck Path*: from the table above.
+     - Scale → *Regions*: **Southeast Asia (Singapore)**, 1 replica.
+   - Click *Deploy* in the "Apply changes" bar at the top of the canvas.
 4. **Settings.** For each service, go to Variables → *Raw Editor* and paste that service's block from the
-   `.paste` file. Then deploy.
+   `.paste` file. The block includes `RAILWAY_DOCKERFILE_PATH`. Then click *Deploy*. Afterwards, Settings →
+   Build should show the Dockerfile builder.
 5. **Files volume.** On `document-store`, add a volume (right-click the service → *Attach volume*) mounted at
    `/data`. 1 GB is plenty to start.
 6. **Addresses.** For each app service: Settings → Networking → *Custom Domain*. Enter its address and port
@@ -80,15 +98,30 @@ tag you are deploying.
 
 ## Releasing an update
 
+Branches: **`main`** is everyday work. Pushing it is only a backup on GitHub; nothing goes live. **`production`**
+is what Railway runs, and pushing to it deploys.
+
 1. Write the release in `CHANGELOG.md`: what changed in plain words, and **which migrations it adds**.
 2. Commit, then tag the release: `git tag v0.5.0 && git push origin main --tags`.
 3. For **each copy** in `docs/deployments/`:
    1. If the release adds migrations, run them **before** the new code goes live:
       `./scripts/railway-migrate.sh <copy>`. This is safe because migrations are always backward-compatible
       (CLAUDE.md), so the old code keeps working on the new database.
-   2. Deploy. The shared copy redeploys by itself when `main` changes. Railway rebuilds only the services
-      whose files changed.
+   2. Go live: `git push origin v0.5.0:production`. Railway rebuilds only the services whose files changed
+      (if Watch Paths are set).
    3. Run the checks below, then update "Runs release" in that copy's record.
+
+**Going back** to the previous release, if something is wrong:
+- `git push --force origin v0.4.0:production`.
+- Or in Railway → service → Deployments, pick the previous deployment → *Redeploy*.
+
+Migrations stay; the older code works with them because they are backward-compatible.
+
+**What is local and what is on Railway:**
+- **Code** reaches Railway only by pushing to `production`.
+- **Settings:** the local `.env` and Railway's Variables are separate.
+- **Database commands** (`pnpm db:migrate`, `db:seed`, `super:set-password`) touch the **local** database,
+  unless they go through `scripts/railway-migrate.sh <copy>` or `PLANTOPS_ENV_FILE=$PWD/.env.railway.<copy>`.
 
 ## Checks after a deploy
 

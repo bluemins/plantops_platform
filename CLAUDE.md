@@ -149,7 +149,9 @@ where the owner can see it. `apps/lab-records` is the reference module.
 - PostgreSQL, managed hosting. Hosting: Railway, Singapore region, one project (decided 2026-10-04 for low
   cost); India hosting later if a plant needs it. Public addresses: `app.bluemins.life` (platform),
   `lab.bluemins.life` (Lab Records), `docs.bluemins.life` (Document Store); `bluemins.life` itself stays a
-  static site on GitHub Pages, DNS at WordPress.com.
+  static site on GitHub Pages, DNS at WordPress.com. Railway deploys the git branch `production` only (`main`
+  never deploys). Running it: `docs/HANDBOOK.md`; setup steps: `docs/DEPLOY.md`; per-copy records:
+  `docs/deployments/`.
 - S3-compatible storage for documents/reports. PDF reports via Puppeteer or react-pdf.
 - Scheduler for daily checks; alerts via WhatsApp Cloud API.
 

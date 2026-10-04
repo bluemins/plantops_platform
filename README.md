@@ -1,6 +1,8 @@
 # PlantOps
 
 Multi-tenant SaaS platform for RO / packaged-drinking-water plants. Project brief and rules: [CLAUDE.md](CLAUDE.md).
+Running it on Railway (local vs production, releases, new plants, Dedicated copies, resets):
+[docs/HANDBOOK.md](docs/HANDBOOK.md).
 
 ## Who is who
 

@@ -68,6 +68,7 @@ cat > "$PASTE" <<ENV
 
 ##### platform  (domain: $APP_HOST, port 3000)
 PORT=3000
+RAILWAY_DOCKERFILE_PATH=apps/platform/Dockerfile
 PLATFORM_URL=https://$APP_HOST
 DATABASE_URL_APP=$(inner platform_app "$APP_PW")
 DATABASE_URL_SUPER=$(inner platform_super "$SUPER_PW")
@@ -75,6 +76,7 @@ SSO_PRIVATE_JWK_B64=$SSO_KEY
 
 ##### lab-records  (domain: $LAB_HOST, port 3001)
 PORT=3001
+RAILWAY_DOCKERFILE_PATH=apps/lab-records/Dockerfile
 PLATFORM_URL=https://$APP_HOST
 MODULE_URL_LAB_RECORDS=https://$LAB_HOST
 MODULE_SECRET_LAB_RECORDS=$LAB_SECRET
@@ -84,6 +86,7 @@ CRON_SECRET=$CRON
 
 ##### document-store  (domain: $DOC_HOST, port 3003; volume mounted at /data)
 PORT=3003
+RAILWAY_DOCKERFILE_PATH=apps/document-store/Dockerfile
 PLATFORM_URL=https://$APP_HOST
 MODULE_URL_DOCUMENT_STORE=https://$DOC_HOST
 MODULE_SECRET_DOCUMENT_STORE=$DOC_SECRET
