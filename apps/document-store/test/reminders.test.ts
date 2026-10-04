@@ -133,15 +133,20 @@ describe("queueing and sending", () => {
     expect((await rowsFor(d.id)).find((r) => r.recipient_name === "Ravi")).toBeTruthy();
   });
 
-  it("no email service yet: kept as 'not set up'; a mail server failure: kept with its reason", async () => {
+  it("keeps unsent reminders pending until SMTP is configured; records mail server failures", async () => {
     const P = plant();
     const d = await addDoc(P, "Pollution consent", 7);
     await queueReminders(P.tenantId);
     await deliverReminders(P.tenantId, { configured: false, send: async () => ({ ok: false, error: "x" }) });
     expect((await rowsFor(d.id)).filter((r) => r.email).map((r) => [r.status, r.error])).toEqual([
-      ["skipped", "Email is not set up yet"],
-      ["skipped", "Email is not set up yet"],
+      ["pending", "Email is not set up yet"],
+      ["pending", "Email is not set up yet"],
     ]);
+    await asOwner("update document_store.reminders set status = 'skipped' where document_id = $1 and email is not null", [d.id]);
+    const { mailer, sent } = fakeMailer();
+    await deliverReminders(P.tenantId, mailer);
+    expect(sent).toHaveLength(2);
+    expect((await rowsFor(d.id)).filter((r) => r.email).every((r) => r.status === "sent")).toBe(true);
     const Q = plant();
     const e = await addDoc(Q, "Lab accreditation", 1);
     await queueReminders(Q.tenantId);

@@ -21,8 +21,12 @@ module kit (`packages/module-kit`), like Lab Records.
   - Sorted by the soonest expiry
 - **Who:**
   - Owner and **Document keeper** manage documents.
-  - Only the owner exports (`/api/export`, CSV of every version) and sees `/support-access`.
+  - Only the owner exports (`/api/export`, CSV of every version; `/api/export/files`, ZIP of the manifest and
+    every original version file) and sees `/support-access`.
   - super_admin's support view is read-only, and every page **and file** opened is logged.
+- **Languages:** English, Hindi and Odia are selectable from the header. The selection is a protected,
+  HTTP-only browser preference; no user or tenant schema changed. Expiry reminder emails remain English until
+  the platform stores a language preference per recipient.
 - **Tile:** "N expired" (red), "N expiring soon" (amber), "N documents".
 
 ## Rules that are easy to get wrong
@@ -66,8 +70,8 @@ module kit (`packages/module-kit`), like Lab Records.
 | `DOC_DATABASE_URL_APP` | `doc_app` login | yes |
 | `MODULE_URL_DOCUMENT_STORE` | https → secure cookies; also the link in emails | no |
 | `DOC_STORAGE_DIR` | local files (default `./.data/documents`, gitignored) | no |
-| `STORAGE_BUCKET` + `STORAGE_ENDPOINT` / `STORAGE_REGION` / `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` | S3-compatible storage (path-style, AWS SigV4, no SDK); used when the bucket is set | no |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `MAIL_FROM` | email reminders. Amazon SES (Mumbai) SMTP works. Until set, reminders read "Email is not set up yet" | no |
+| `STORAGE_BUCKET` + `STORAGE_ENDPOINT` / `STORAGE_REGION` / `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` | S3-compatible storage (path-style, AWS SigV4, no SDK); a bucket requires both keys | no |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `MAIL_FROM` | email reminders. Amazon SES (Mumbai) SMTP works; `SMTP_USER` and `SMTP_PASS` must be set together | no |
 | `CRON_SECRET` | turns on the daily job: `POST /api/cron/daily` with `x-cron-secret`; dev: `pnpm --filter @plantops/document-store daily` | no |
 
 Local setup: `./scripts/setup-module-db.sh document_store doc_app DOC 3003`, then
@@ -83,11 +87,16 @@ Local setup: `./scripts/setup-module-db.sh document_store doc_app DOC 3003`, the
 | `reminders.test.ts` | stages, recipients, once-only, grouping, failures |
 | `session.test.ts` | login, support view, upload route, tile |
 | `storage.test.ts` | local and S3 drivers, file types |
+| `mail.test.ts` | SMTP transport using a local fake server and incomplete settings |
+| `language.test.ts` | translations and same-origin language preference |
 
 ## Open / later
-- **The S3 driver** is tested against a fake S3 server (`test/storage.test.ts`: signing and round trip). Verify
-  against the real bucket at deployment.
-- **Real email sending:** needs an SMTP account. Nobody in plant 002 has an email address saved yet, so add them
-  in Users.
-- **The export lists details, not the files.** A zip of all files for a leaving plant is a later step if asked.
-- Hindi / Odia labels: not done.
+- **Real S3:** SigV4 and a round trip pass against a fake server (`test/storage.test.ts`); a real bucket and its
+  credentials are still required for the live check. Setting `STORAGE_BUCKET` switches all reads and writes to
+  S3 immediately; it does not copy files off the local volume. Do not switch an existing deployment until every
+  stored object has been copied and verified.
+- **Live email:** SMTP sending passes against a local fake SMTP server (`test/mail.test.ts`), and the GitHub
+  daily workflow is configured in the repository. Recent Actions run records reported failures without exposing
+  job details through the available API, so confirm the workflow in GitHub before relying on it. A real SMTP
+  account, its service variables, and saved recipient emails are still needed. Reminders created before SMTP is
+  configured remain pending (and old "Email is not set up yet" skipped rows are retried once SMTP is configured).

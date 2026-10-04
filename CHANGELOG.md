@@ -6,9 +6,21 @@ deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
 ## Unreleased
 
+## v0.5.0 — 2026-10-04 — Document Store follow-ups
+
+**What's in it**
+- **Document Store:**
+  - owner-only ZIP download (`/api/export/files`): the CSV list plus the original file of every version; audited
+  - English / Hindi / Odia screens, chosen from the header (a browser preference; emails stay English)
+  - email reminders wait as "pending" until SMTP is set up and are then sent; old "Email is not set up yet"
+    rows are retried once SMTP works
+  - incomplete SMTP or storage settings now stop with a clear error instead of failing quietly
 - Deployment: Railway's `railway.json` is deprecated, and new services can't use it. The `apps/*/railway.json`
   files are removed. Settings are now made in the dashboard, following `docs/DEPLOY.md`, and the Dockerfile is
-  set by `RAILWAY_DOCKERFILE_PATH`, which `setup-railway-db.sh` now writes. **Migrations:** none.
+  set by `RAILWAY_DOCKERFILE_PATH`, which `setup-railway-db.sh` now writes.
+- New package: `archiver` (Document Store, for the ZIP).
+
+**Migrations:** none.
 
 ## v0.4.0 — 2026-10-04 — first deployable release (Phases 1–4)
 

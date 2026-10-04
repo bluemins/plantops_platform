@@ -1,6 +1,7 @@
 // Documents, files, renewals and corrections; append-only history (also at database level); who may do
 // what; plant isolation; the plan's storage limit.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { inflateRawSync } from "node:zlib";
 import {
   correctDocument,
   createDocument,
@@ -12,7 +13,7 @@ import {
   setResponsible,
   uploadFile,
 } from "@/server/documents";
-import { exportDocuments } from "@/server/export";
+import { exportDocumentBundle, exportDocuments } from "@/server/export";
 import { supportUser } from "@/server/session";
 import { expiryStatus } from "@/lib/expiry";
 import { KEEPER_ID, NOMAIL_ID, OWNER_ID, startFakePlatform, type FakePlatform } from "./fake-platform";
@@ -90,6 +91,51 @@ describe("files", () => {
     expect((await refused(() => readFile(plant().owner, f.id))).status).toBe(404);
     expect((await refused(() => upload(P.storeKeeper))).status).toBe(403);
     expect((await refused(() => upload(supportUser(P.tenantId, OWNER_ID)))).status).toBe(403);
+  });
+
+  it("downloads a ZIP with the manifest and every original version file; only the owner can export it", async () => {
+    expect((await refused(() => exportDocumentBundle(P.keeper))).status).toBe(403);
+    const d = await addDoc({ name: "ZIP export test" });
+    const next = await upload(P.keeper, PNG, "renewed.png");
+    await renewDocument(P.keeper, d.id, { file_id: next.id, expires_on: inDays(370), issued_on: inDays(0), certificate_no: "ZIP-2", remark: null, reason: "Renewed" });
+
+    const { stream, files } = await exportDocumentBundle(P.owner);
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+    const zip = Buffer.concat(chunks);
+    expect(zip.readUInt32LE(0)).toBe(0x04034b50);
+
+    const end = zip.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+    expect(end).toBeGreaterThan(0);
+    const count = zip.readUInt16LE(end + 10);
+    let offset = zip.readUInt32LE(end + 16);
+    const entries = new Map<string, Buffer>();
+    for (let i = 0; i < count; i++) {
+      expect(zip.readUInt32LE(offset)).toBe(0x02014b50);
+      const method = zip.readUInt16LE(offset + 10);
+      const compressedSize = zip.readUInt32LE(offset + 20);
+      const nameLength = zip.readUInt16LE(offset + 28);
+      const extraLength = zip.readUInt16LE(offset + 30);
+      const commentLength = zip.readUInt16LE(offset + 32);
+      const name = zip.toString("utf8", offset + 46, offset + 46 + nameLength);
+      const local = zip.readUInt32LE(offset + 42);
+      const localNameLength = zip.readUInt16LE(local + 26);
+      const localExtraLength = zip.readUInt16LE(local + 28);
+      const start = local + 30 + localNameLength + localExtraLength;
+      const compressed = zip.subarray(start, start + compressedSize);
+      entries.set(name, method === 0 ? compressed : inflateRawSync(compressed));
+      offset += 46 + nameLength + extraLength + commentLength;
+    }
+
+    expect(files).toBe(2);
+    expect(entries.get("documents.csv")?.toString()).toContain("ZIP export test");
+    expect([...entries.values()].some((data) => data.equals(PDF))).toBe(true);
+    expect([...entries.values()].some((data) => data.equals(PNG))).toBe(true);
+    const audit = await asOwner<{ details: { files: number } }>(
+      "select details from document_store.audit_log where tenant_id = $1 and action = 'export.documents_bundle' order by at desc limit 1",
+      [P.tenantId],
+    );
+    expect(audit.rows[0]?.details.files).toBeGreaterThanOrEqual(2);
   });
 });
 

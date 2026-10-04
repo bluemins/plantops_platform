@@ -7,7 +7,10 @@ export type MailResult = { ok: true } | { ok: false; error: string };
 export type Mailer = { configured: boolean; send: (to: string, subject: string, text: string) => Promise<MailResult> };
 
 export function smtpMailer(): Mailer {
-  if (!env.smtpHost || !env.mailFrom) return { configured: false, send: async () => ({ ok: false, error: "Email is not set up yet" }) };
+  const provided = [env.smtpHost, env.smtpUser, env.smtpPass, env.mailFrom].some(Boolean);
+  if (!provided) return { configured: false, send: async () => ({ ok: false, error: "Email is not set up yet" }) };
+  const missing = [!env.smtpHost && "SMTP_HOST", !env.mailFrom && "MAIL_FROM", (!!env.smtpUser !== !!env.smtpPass) && "SMTP_USER and SMTP_PASS together"].filter(Boolean);
+  if (missing.length) throw new Error(`Incomplete SMTP configuration: set ${missing.join(", ")}`);
   const transport = nodemailer.createTransport({
     host: env.smtpHost,
     port: env.smtpPort,

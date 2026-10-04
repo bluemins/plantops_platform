@@ -443,19 +443,21 @@ module SKU read endpoint for Floor Stock later (Phase 4).
   - responsible person = an owner or document keeper from the platform
   - documents table with expiry status, filters, search and the last reminder per row; cards on phones
   - document page: renew, correct, change responsible, archive / restore, version history, reminder log
-  - owner CSV export; support view read-only, with page **and file** views logged
+  - owner CSV export and ZIP bundle of the manifest plus all version files; support view read-only, with page
+    **and file** views logged
+  - English / Hindi / Odia interface language selector, saved as an HTTP-only browser preference (no schema change)
 - **Email reminders:**
   - stages: 30 / 7 / 1 days before, on expiry (or the first run up to 6 days after), then weekly
   - each sent once per version, stage and person; a renewal restarts the schedule
   - to the owners + the responsible person, one email per person per run
-  - SMTP via nodemailer; "Email is not set up yet" until configured
+  - SMTP via nodemailer; pending reminders retry after setup, including old rows marked "Email is not set up yet"
   - daily job `POST /api/cron/daily` + `CRON_SECRET`
 - **Tile:** expired / expiring soon / total.
-- **Tests: 405 passing** (platform 187, auth 32, Lab Records 111, Document Store 75), covering:
+- **Tests: 411 passing** (platform 187, auth 32, Lab Records 111, Document Store 81), covering:
   - append-only refusals (10 statements) and isolation, plus the FORCE RLS guard
   - file type / size / storage-limit checks
   - reminder stage boundaries, once-only, grouping, failures
-  - the fake-S3 round trip, the support view and the upload route
+  - the fake-S3 round trip, the support view, upload route, SMTP transport, language preference and ZIP export
 
 **Key decisions (with the owner, 2026-10-04):**
 - Document Store inserted as **Phase 4** (Floor Stock → 5).
@@ -477,10 +479,22 @@ module SKU read endpoint for Floor Stock later (Phase 4).
 **Not yet verified:**
 - **Adding / renewing a document with a real file in the browser**, as Techno or Sujata. The server side is fully
   tested; nobody has done it on screen.
-- Real email: needs an SMTP account, and no plant 002 user has an email saved yet.
-- Real S3 bucket.
+- Live email: no SMTP settings are configured; an account and recipient email addresses are still required.
+- Real S3 bucket and a safe copy of existing volume files (setting `STORAGE_BUCKET` does not migrate them).
+- The latest GitHub Actions daily-workflow run records show failures but no job details through the available
+  API, so the live scheduler still needs to be checked in GitHub before being relied on.
 - Docker images (Dockerfile added, not built).
 - Any real deployment.
+
+### 2026-10-04 — Phase 4 follow-ups
+- Added owner-only ZIP export with a CSV manifest and all version files; export is audited.
+- Added English / Hindi / Odia interface selection. Reminder email language remains English until per-recipient
+  preferences are supported.
+- SMTP transport is tested against a local SMTP server. Reminders now stay pending when SMTP is unconfigured and
+  retry when it becomes available.
+- Real SMTP delivery and real-bucket verification remain deployment tasks requiring provider accounts. Do not
+  switch the shared service to S3 until its existing volume files have been copied and verified.
+- Tests: 81 Document Store tests pass; `typecheck` and production `build` pass.
 
 
 **Next — Phase 5 (Floor Stock):** a real module in `apps/floor-stock` on the module kit:

@@ -4,8 +4,10 @@ import { useState, type FormEvent } from "react";
 import { Button, Card, ErrorText } from "@plantops/ui";
 import { api, uploadFile } from "@/lib/api";
 import { DocumentFields, emptyFields, fieldsBody, FilePicker, PersonPicker } from "../../document-fields";
+import { useTranslation } from "../../language-provider";
 
 export function DocumentForm({ people, me }: { people: { user_id: string; name: string; email: string | null }[]; me: string }) {
+  const { t } = useTranslation();
   const [fields, setFields] = useState(emptyFields);
   const [responsible, setResponsible] = useState(people.some((p) => p.user_id === me) ? me : "");
   const [file, setFile] = useState<File | null>(null);
@@ -14,7 +16,7 @@ export function DocumentForm({ people, me }: { people: { user_id: string; name: 
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!file) return setError("Choose the file (PDF or photo)");
+    if (!file) return setError(t("chooseFile"));
     setBusy(true);
     setError(undefined);
     const up = await uploadFile(file);
@@ -33,14 +35,14 @@ export function DocumentForm({ people, me }: { people: { user_id: string; name: 
       <form onSubmit={submit} className="space-y-4">
         <DocumentFields value={fields} onChange={setFields} />
         <PersonPicker people={people} value={responsible} onChange={setResponsible} />
-        <FilePicker label="The document (file)" file={file} onChange={setFile} required />
+        <FilePicker label={t("uploadDocument")} file={file} onChange={setFile} required />
         <ErrorText>{error}</ErrorText>
         <div className="flex gap-2">
           <Button type="submit" className="flex-1" disabled={busy}>
-            {busy ? "Saving…" : "Save document"}
+            {busy ? t("saving") : t("saveDocument")}
           </Button>
           <a href="/" className="inline-flex min-h-12 items-center rounded-xl border border-slate-300 bg-white px-5 font-semibold">
-            Cancel
+            {t("cancel")}
           </a>
         </div>
       </form>

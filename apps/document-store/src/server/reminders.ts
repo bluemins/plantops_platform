@@ -50,6 +50,14 @@ export async function queueReminders(tenantId: string, today = todayIst()) {
 
 /** Send this plant's waiting reminders: one email per person, listing all their documents. */
 export async function deliverReminders(tenantId: string, mailer: Mailer = smtpMailer()) {
+  if (mailer.configured) {
+    await withTenant(tenantId, (tx) =>
+      tx
+        .update(reminders)
+        .set({ status: "pending", error: null })
+        .where(and(eq(reminders.tenantId, tenantId), eq(reminders.status, "skipped"), eq(reminders.error, "Email is not set up yet"))),
+    );
+  }
   const waiting = await withTenant(tenantId, (tx) => tx.select().from(reminders).where(and(eq(reminders.tenantId, tenantId), eq(reminders.status, "pending"))));
   if (!waiting.length) return { sent: 0 };
   const docs = await listDocuments(systemReader(tenantId), { filter: "all" });
@@ -76,7 +84,7 @@ export async function deliverReminders(tenantId: string, mailer: Mailer = smtpMa
     const text = `Hello ${list[0]!.recipientName},\n\nThese licences / certificates of ${plant} need attention:\n\n${lines.filter(Boolean).join("\n\n")}${link}\n\n– PlantOps (reminders ${list.map((r) => stageText(r.stage)).filter((v, i, a) => a.indexOf(v) === i).join(", ")})`;
     const r = mailer.configured ? await mailer.send(email, subject, text) : ({ ok: false, error: "Email is not set up yet" } as const);
     if (r.ok) sent++;
-    const status = r.ok ? "sent" : mailer.configured ? "failed" : "skipped";
+    const status = r.ok ? "sent" : mailer.configured ? "failed" : "pending";
     await withTenant(tenantId, (tx) =>
       tx
         .update(reminders)
@@ -102,4 +110,3 @@ export async function runDaily(now = new Date(), mailer: Mailer = smtpMailer()) 
   }
   return { plants: rows.length, queued, sent };
 }
-

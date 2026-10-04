@@ -5,7 +5,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { localStorage, newStorageKey, s3Storage, sniffType } from "@/server/storage";
+import { fileStorage, localStorage, newStorageKey, s3Storage, sniffType } from "@/server/storage";
 import { PDF, PNG } from "./helpers";
 
 describe("local disk", () => {
@@ -54,6 +54,26 @@ describe("S3-compatible", () => {
     ]);
     expect(seen[0]!.sha).toMatch(/^[0-9a-f]{64}$/);
     await expect(store.get(newStorageKey(crypto.randomUUID()))).rejects.toThrow(/404/);
+  });
+
+  it("rejects incomplete S3 settings instead of silently falling back to local storage", () => {
+    const keys = ["STORAGE_BUCKET", "STORAGE_ACCESS_KEY_ID", "STORAGE_SECRET_ACCESS_KEY"] as const;
+    const before = new Map(keys.map((key) => [key, process.env[key]]));
+    try {
+      process.env.STORAGE_BUCKET = "plantops-docs";
+      delete process.env.STORAGE_ACCESS_KEY_ID;
+      delete process.env.STORAGE_SECRET_ACCESS_KEY;
+      expect(() => fileStorage()).toThrow(/STORAGE_ACCESS_KEY_ID and STORAGE_SECRET_ACCESS_KEY/);
+      delete process.env.STORAGE_BUCKET;
+      process.env.STORAGE_ACCESS_KEY_ID = "configured";
+      expect(() => fileStorage()).toThrow(/Set STORAGE_BUCKET/);
+    } finally {
+      for (const key of keys) {
+        const value = before.get(key);
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
   });
 });
 

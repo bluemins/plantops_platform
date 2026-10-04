@@ -71,8 +71,12 @@ export function s3Storage(o: { endpoint: string; region: string; bucket: string;
 /** The storage this server is set up for. */
 export function fileStorage(): FileStorage {
   if (env.storageBucket) {
+    if (!env.storageAccessKey || !env.storageSecretKey) {
+      throw new Error("S3 storage needs STORAGE_ACCESS_KEY_ID and STORAGE_SECRET_ACCESS_KEY when STORAGE_BUCKET is set");
+    }
     return s3Storage({ endpoint: env.storageEndpoint, region: env.storageRegion, bucket: env.storageBucket, accessKey: env.storageAccessKey, secretKey: env.storageSecretKey });
   }
+  if (env.storageAccessKey || env.storageSecretKey) throw new Error("Set STORAGE_BUCKET to enable the configured S3 storage credentials");
   return localStorage(env.storageDir);
 }
 

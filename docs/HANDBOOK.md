@@ -266,23 +266,31 @@ A reset is always temporary: the person picks their own at the next login. More 
 
 ## 10. Daily jobs, email and WhatsApp
 
-**Daily jobs.** GitHub Actions runs **Daily jobs** (`.github/workflows/daily.yml`) every day at **07:00 India
-time**, for each copy listed in it:
+**Daily jobs.** The repository configures GitHub Actions **Daily jobs** (`.github/workflows/daily.yml`) to run
+every day at **07:00 India time**, for each copy listed in it:
 - Lab Records: reminders about holds older than 24 h, and Form 1 due from the 25th
 - Document Store: expiry emails
 
-To check or run it: GitHub → **Actions** → *Daily jobs*. Click **Run workflow** to run it now. A failed run
-sends GitHub's failure email.
+To check or run it: GitHub → **Actions** → *Daily jobs*. Confirm a successful run before relying on reminders;
+click **Run workflow** to run it now. A failed run sends GitHub's failure email. Recent run records checked on
+2026-10-04 reported failures but exposed no job details through the available API, so inspect the Actions page.
 
 Its settings live in GitHub → Settings → **Environments** → `shared`: variables `LAB_URL` and `DOCS_URL`,
 and the secret `CRON_SECRET`. If the repo is ever made public, GitHub pauses schedules after 60 days without
 commits.
 
-**Email (Document Store reminders): not set up yet.** Until it is, reminders show "Email is not set up yet".
+**Email (Document Store reminders): code and daily schedule are ready; the real SMTP account is not configured.**
+Delivery is exercised in tests against a local SMTP server. Until the account is configured, due reminders stay
+pending and the daily job retries them once the schedule is confirmed working. Old reminder rows previously
+marked "Email is not set up yet" are also retried after SMTP is configured.
 To set it up:
 1. Get an SMTP account (Brevo or Resend have free tiers; Zoho or Amazon SES also work).
 2. Add `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` and `MAIL_FROM` to **document-store** → Variables.
-3. Make sure owners and responsible users have an email saved.
+   If the provider does not use authentication, leave both `SMTP_USER` and `SMTP_PASS` empty.
+3. Make sure owners and responsible users have an email saved in PlantOps → **Manage users**.
+4. Use GitHub → Actions → **Daily jobs** → **Run workflow** to exercise the live delivery. Check the document's
+   reminder log for sent / failed status and check the provider's delivery logs. Do not use the production
+   workflow as a test until valid plant recipients are configured.
 
 **WhatsApp (Lab Records alerts): waiting for Meta approval.** Alerts are kept as "WhatsApp not set up yet".
 When approved, add `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_TEMPLATE` and `WHATSAPP_TEMPLATE_LANG` to
@@ -299,12 +307,12 @@ When approved, add `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_TEMPLATE` an
     ```bash
     pg_dump "$(grep ^DATABASE_URL_OWNER= .env.railway.shared | cut -d= -f2-)" -Fc -f plantops-$(date +%F).dump
     ```
-- **Later, move the files to S3-compatible storage** (e.g. Cloudflare R2 or AWS S3) with built-in backups:
-  1. Set `STORAGE_BUCKET`, `STORAGE_ENDPOINT`, `STORAGE_REGION`, `STORAGE_ACCESS_KEY_ID` and
-     `STORAGE_SECRET_ACCESS_KEY` on document-store.
-  2. Remove the volume and `RAILWAY_RUN_UID`.
-
-  The code already supports this.
+- **S3-compatible storage** (e.g. Cloudflare R2 or AWS S3) is supported and its signed read/write round trip is
+  tested locally. A real bucket is still needed for the live check. Important: setting `STORAGE_BUCKET`
+  immediately changes the app to use S3, but does **not** move existing files from `/data`. Keep the current
+  volume attached and do not set the bucket on the running service until a safe copy of all stored objects has
+  been made and verified. After configuration, upload and download a test document and verify it survives a
+  redeploy before considering removal of the volume.
 - **Data location:** Singapore (Railway has no India region). Don't tell plants their data is in India.
   If a plant needs it in India, move PlantOps (or that plant's Dedicated copy) to a host with a Mumbai
   region, such as AWS Lightsail Mumbai or DigitalOcean Bangalore.
@@ -383,7 +391,9 @@ Example: Floor Stock, Phase 5. It becomes **one more Railway service** and **one
   - the support view
 - [ ] Delete `.env.railway.shared.paste` once everything is pasted (GitHub environment included).
 - [ ] Switch on Postgres backups (and volume backups if available) before real plant data.
-- [ ] Set up SMTP email for Document Store.
+- [ ] Set up a real SMTP account and save plant owners' / responsible users' email addresses. See section 10.
+- [ ] Confirm GitHub Actions **Daily jobs** completes successfully before relying on expiry reminders.
+- [ ] Choose and configure a real S3 bucket only after safely copying and verifying the existing document files.
 - [ ] WhatsApp, when Meta approves.
 - [ ] Optional: set Watch Paths on each service.
 - [ ] Optional: turn off the Postgres TCP Proxy between releases (switch it on again to run migrations or
