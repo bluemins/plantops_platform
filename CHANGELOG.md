@@ -6,6 +6,17 @@ deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
 ## Unreleased
 
+## v0.5.1 — 2026-10-04 — Document Store email through Brevo's API
+
+**What's in it**
+- **Document Store:**
+  - reminder emails can go through Brevo's HTTPS API (`BREVO_API_KEY` + `MAIL_FROM`). Railway's Hobby plan blocks
+    outgoing SMTP, so SMTP sends timed out. SMTP still works where the host allows it.
+  - a failed reminder email is tried again by each daily run for 7 days, then left as failed
+- Daily jobs workflow: fixed invalid YAML; it had never run before.
+
+**Migrations:** none.
+
 ## v0.5.0 — 2026-10-04 — Document Store follow-ups
 
 **What's in it**

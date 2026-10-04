@@ -57,6 +57,13 @@ export const env = {
   get smtpPass() {
     return process.env.SMTP_PASS ?? "";
   },
+  /** Brevo's HTTPS email API (used instead of SMTP when set: Railway Hobby blocks outgoing SMTP). */
+  get brevoApiKey() {
+    return process.env.BREVO_API_KEY ?? "";
+  },
+  get brevoApiUrl() {
+    return process.env.BREVO_API_URL || "https://api.brevo.com/v3/smtp/email";
+  },
   /** e.g. "PlantOps <reminders@plantops.in>" */
   get mailFrom() {
     return process.env.MAIL_FROM ?? "";

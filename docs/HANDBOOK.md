@@ -281,16 +281,25 @@ Its settings live in GitHub → Settings → **Environments** → `shared`: vari
 and the secret `CRON_SECRET`. If the repo is ever made public, GitHub pauses schedules after 60 days without
 commits.
 
-**Email (Document Store reminders): code and daily schedule are ready; the real SMTP account is not configured.**
-Delivery is exercised in tests against a local SMTP server. Until the account is configured, due reminders stay
-pending and the daily job retries them once the schedule is confirmed working. Old reminder rows previously
-marked "Email is not set up yet" are also retried after SMTP is configured.
-To set it up:
-1. Get an SMTP account (Brevo or Resend have free tiers; Zoho or Amazon SES also work).
-2. Add `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` and `MAIL_FROM` to **document-store** → Variables.
-   If the provider does not use authentication, leave both `SMTP_USER` and `SMTP_PASS` empty.
-3. Make sure owners and responsible users have an email saved in PlantOps → **Manage users**.
-4. Use GitHub → Actions → **Daily jobs** → **Run workflow** to exercise the live delivery. Check the document's
+**Email (Document Store reminders): Brevo, through its HTTPS API.** Railway's Hobby plan blocks all outgoing
+SMTP (ports 25 / 465 / 587 / 2525): SMTP settings there end in "Email failed: Connection timeout". So the shared
+copy uses Brevo's API, which is ordinary HTTPS.
+- Until email is set up, due reminders stay pending and are sent once it works (old "Email is not set up yet"
+  rows too).
+- A failed send (wrong key, provider down) is tried again by each daily run for 7 days, then left as failed.
+
+To set it up (done for `shared` on 2026-10-04):
+1. Brevo → *Senders, Domains* → authenticate the sending domain (DKIM + DMARC records at WordPress.com) and
+   verify the sender address.
+2. Brevo → *SMTP & API* → **API Keys** → generate a key (not the SMTP key).
+3. **document-store** → Variables: `BREVO_API_KEY` = that key, `MAIL_FROM` = `PlantOps <contact@bluemins.life>`
+   (an address Brevo has verified). `SMTP_*` are ignored while `BREVO_API_KEY` is set.
+   - On a host that allows SMTP (or Railway Pro) you can use `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
+     instead; leave `BREVO_API_KEY` unset.
+   - If you later restrict Brevo API keys to certain IP addresses, Railway's changing addresses will be refused.
+     Leave that restriction off.
+4. Make sure owners and responsible users have an email saved in PlantOps → **Manage users**.
+5. Use GitHub → Actions → **Daily jobs** → **Run workflow** to exercise the live delivery. Check the document's
    reminder log for sent / failed status and check the provider's delivery logs. Do not use the production
    workflow as a test until valid plant recipients are configured.
 
@@ -393,7 +402,8 @@ Example: Floor Stock, Phase 5. It becomes **one more Railway service** and **one
   - the support view
 - [ ] Delete `.env.railway.shared.paste` once everything is pasted (GitHub environment included).
 - [ ] Switch on Postgres backups (and volume backups if available) before real plant data.
-- [ ] Set up a real SMTP account and save plant owners' / responsible users' email addresses. See section 10.
+- [ ] Confirm the first real reminder email arrives (Brevo API) and save plant owners' / responsible users'
+  email addresses. See section 10.
 - [ ] Confirm GitHub Actions **Daily jobs** completes successfully before relying on expiry reminders.
 - [ ] Choose and configure a real S3 bucket only after safely copying and verifying the existing document files.
 - [ ] WhatsApp, when Meta approves.

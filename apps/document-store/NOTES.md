@@ -71,7 +71,8 @@ module kit (`packages/module-kit`), like Lab Records.
 | `MODULE_URL_DOCUMENT_STORE` | https → secure cookies; also the link in emails | no |
 | `DOC_STORAGE_DIR` | local files (default `./.data/documents`, gitignored) | no |
 | `STORAGE_BUCKET` + `STORAGE_ENDPOINT` / `STORAGE_REGION` / `STORAGE_ACCESS_KEY_ID` / `STORAGE_SECRET_ACCESS_KEY` | S3-compatible storage (path-style, AWS SigV4, no SDK); a bucket requires both keys | no |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `MAIL_FROM` | email reminders. Amazon SES (Mumbai) SMTP works; `SMTP_USER` and `SMTP_PASS` must be set together | no |
+| `BREVO_API_KEY` + `MAIL_FROM` | email reminders through Brevo's HTTPS API; wins over SMTP when set. Needed on Railway Hobby, which blocks outgoing SMTP | no |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `MAIL_FROM` | email reminders by SMTP (hosts that allow it). Amazon SES (Mumbai) SMTP works; `SMTP_USER` and `SMTP_PASS` must be set together | no |
 | `CRON_SECRET` | turns on the daily job: `POST /api/cron/daily` with `x-cron-secret`; dev: `pnpm --filter @plantops/document-store daily` | no |
 
 Local setup: `./scripts/setup-module-db.sh document_store doc_app DOC 3003`, then
@@ -87,7 +88,7 @@ Local setup: `./scripts/setup-module-db.sh document_store doc_app DOC 3003`, the
 | `reminders.test.ts` | stages, recipients, once-only, grouping, failures |
 | `session.test.ts` | login, support view, upload route, tile |
 | `storage.test.ts` | local and S3 drivers, file types |
-| `mail.test.ts` | SMTP transport using a local fake server and incomplete settings |
+| `mail.test.ts` | SMTP and Brevo API senders against local fake servers; incomplete settings |
 | `language.test.ts` | translations and same-origin language preference |
 
 ## Open / later
@@ -95,8 +96,9 @@ Local setup: `./scripts/setup-module-db.sh document_store doc_app DOC 3003`, the
   credentials are still required for the live check. Setting `STORAGE_BUCKET` switches all reads and writes to
   S3 immediately; it does not copy files off the local volume. Do not switch an existing deployment until every
   stored object has been copied and verified.
-- **Live email:** SMTP sending passes against a local fake SMTP server (`test/mail.test.ts`). The shared copy
-  uses Brevo (2026-10-04); the first live send is still to be confirmed. The daily workflow had never run until
+- **Live email:** the shared copy uses Brevo's HTTPS API (2026-10-04): Brevo SMTP from Railway Hobby timed out
+  because Railway blocks outgoing SMTP. The first live send is still to be confirmed. A failed send is retried
+  by each daily run for 7 days (by `created_at`), then stays failed. The daily workflow had never run until
   2026-10-04: GitHub rejected `daily.yml` because an unquoted `run:` line contained `x-cron-secret: ` (fixed with
   `run: |`). Reminders created before SMTP is configured remain pending (and old "Email is not set up yet"
   skipped rows are retried once SMTP is configured).

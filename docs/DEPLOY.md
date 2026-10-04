@@ -148,7 +148,8 @@ Migrations stay; the older code works with them because they are backward-compat
 - **Backups.** Before real plant data goes in, turn on Railway's backups for the Postgres and document-store
   volumes if your plan has them. Otherwise take a weekly `pg_dump` from this computer, using
   `DATABASE_URL_OWNER` from `.env.railway.<copy>`.
-- **Email and WhatsApp** stay off until set up. Add the `SMTP_*` settings to `document-store` and the
+- **Email and WhatsApp** stay off until set up. Add `BREVO_API_KEY` + `MAIL_FROM` to `document-store` (Railway Hobby blocks
+  SMTP; `SMTP_*` only on hosts that allow it) and the
   `WHATSAPP_*` settings to `lab-records` (see `.env.example`). Until then the apps show "not set up yet".
 - **Changing a secret.**
   - Module client secret: super_admin → Modules → new secret, then update `MODULE_SECRET_*` on that

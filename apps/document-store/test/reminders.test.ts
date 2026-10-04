@@ -154,6 +154,38 @@ describe("queueing and sending", () => {
     expect((await rowsFor(e.id)).filter((r) => r.email).every((r) => r.status === "failed" && /535/.test(r.error))).toBe(true);
   });
 
+  it("retries a failed send on later runs for up to 7 days", async () => {
+    const P = plant();
+    const d = await addDoc(P, "Pollution board consent", 7);
+    await queueReminders(P.tenantId);
+    await deliverReminders(P.tenantId, fakeMailer(true).mailer);
+    const emailed = async () => (await rowsFor(d.id)).filter((r) => r.email);
+    expect((await emailed()).every((r) => r.status === "failed")).toBe(true);
+
+    // next day: still failing → still failed, with the new error
+    await deliverReminders(P.tenantId, fakeMailer(true).mailer);
+    expect((await emailed()).every((r) => r.status === "failed")).toBe(true);
+
+    // email works again → sent once, and not again on the run after
+    const ok = fakeMailer();
+    await deliverReminders(P.tenantId, ok.mailer);
+    expect(ok.sent).toHaveLength(2);
+    expect((await emailed()).every((r) => r.status === "sent" && r.error === null)).toBe(true);
+    const again = fakeMailer();
+    await deliverReminders(P.tenantId, again.mailer);
+    expect(again.sent).toHaveLength(0);
+
+    // a failure older than 7 days is left alone
+    const Q = plant();
+    const e = await addDoc(Q, "BIS licence", 7);
+    await queueReminders(Q.tenantId);
+    await deliverReminders(Q.tenantId, fakeMailer(true).mailer);
+    const later = fakeMailer();
+    await deliverReminders(Q.tenantId, later.mailer, new Date(Date.now() + 8 * 86_400_000));
+    expect(later.sent).toHaveLength(0);
+    expect((await rowsFor(e.id)).filter((r) => r.email).every((r) => r.status === "failed")).toBe(true);
+  });
+
   it("each row in the table shows its last reminder", async () => {
     const P = plant();
     const d = await addDoc(P, "Trade licence", 0);

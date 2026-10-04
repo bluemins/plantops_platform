@@ -16,7 +16,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | super_admin login | contact@bluemins.life (password in the password manager) |
 | Secrets | Railway variables + password manager entry "PlantOps railway shared"; `.env.railway.shared` on Rocky's computer |
 | Daily jobs | GitHub environment `shared` (`.github/workflows/daily.yml`); first successful run 2026-10-04 (#8) |
-| Email (SMTP) | Brevo (`smtp-relay.brevo.com`), sender `contact@bluemins.life`; domain DKIM + DMARC records at WordPress.com (2026-10-04). Live sending not yet confirmed |
+| Email | Brevo HTTPS API (`BREVO_API_KEY`; Railway Hobby blocks SMTP), sender `contact@bluemins.life`; domain DKIM + DMARC records at WordPress.com (2026-10-04). Live sending not yet confirmed |
 | WhatsApp | not set up (waiting for Meta approval) |
 | File storage | Railway volume (move to S3-compatible storage + backups before real plant documents) |
 | Backups | to switch on (Postgres → Backups) before real plant data |
