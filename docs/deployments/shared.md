@@ -15,15 +15,16 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | DNS | WordPress.com (bluemins.life itself stays on GitHub Pages) |
 | super_admin login | contact@bluemins.life (password in the password manager) |
 | Secrets | Railway variables + password manager entry "PlantOps railway shared"; `.env.railway.shared` on Rocky's computer |
-| Daily jobs | GitHub environment `shared` (`.github/workflows/daily.yml`) |
+| Daily jobs | GitHub environment `shared` (`.github/workflows/daily.yml`); first successful run 2026-10-04 (#8) |
 | Email (SMTP) | Brevo (`smtp-relay.brevo.com`), sender `contact@bluemins.life`; domain DKIM + DMARC records at WordPress.com (2026-10-04). Live sending not yet confirmed |
 | WhatsApp | not set up (waiting for Meta approval) |
 | File storage | Railway volume (move to S3-compatible storage + backups before real plant documents) |
 | Backups | to switch on (Postgres → Backups) before real plant data |
-| Runs release | v0.4.0 (`production` = commit `bcb3ffd`) |
+| Runs release | v0.5.0 (`production` = commit `44d975a`) |
 
 ## History
 | Date | What |
 |---|---|
 | 2026-10-04 | Hosting decided: Railway Singapore, subdomains app / lab / docs. Deploy files added (v0.4.0). |
 | 2026-10-04 | Database set up (`setup-railway-db.sh shared`); 3 services + volume created; DNS at WordPress.com; HTTPS live on all three; health checks OK. v0.4.0 live from branch `production`. super_admin password changed. |
+| 2026-10-04 | v0.5.0 live (Document Store ZIP export, Hindi/Odia, safer email setup). Brevo SMTP + domain DKIM/DMARC set up. Daily jobs workflow fixed (invalid YAML) and run #8 succeeded. |
