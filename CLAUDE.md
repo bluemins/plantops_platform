@@ -481,8 +481,8 @@ module SKU read endpoint for Floor Stock later (Phase 4).
   tested; nobody has done it on screen.
 - Live email: no SMTP settings are configured; an account and recipient email addresses are still required.
 - Real S3 bucket and a safe copy of existing volume files (setting `STORAGE_BUCKET` does not migrate them).
-- The latest GitHub Actions daily-workflow run records show failures but no job details through the available
-  API, so the live scheduler still needs to be checked in GitHub before being relied on.
+- The GitHub Actions daily workflow never ran until 2026-10-04: `daily.yml` was invalid YAML (an unquoted `run:`
+  line containing `: `), fixed with `run: |`. The first successful run still needs to be checked in GitHub.
 - Docker images (Dockerfile added, not built).
 - Any real deployment.
 

@@ -95,8 +95,8 @@ Local setup: `./scripts/setup-module-db.sh document_store doc_app DOC 3003`, the
   credentials are still required for the live check. Setting `STORAGE_BUCKET` switches all reads and writes to
   S3 immediately; it does not copy files off the local volume. Do not switch an existing deployment until every
   stored object has been copied and verified.
-- **Live email:** SMTP sending passes against a local fake SMTP server (`test/mail.test.ts`), and the GitHub
-  daily workflow is configured in the repository. Recent Actions run records reported failures without exposing
-  job details through the available API, so confirm the workflow in GitHub before relying on it. A real SMTP
-  account, its service variables, and saved recipient emails are still needed. Reminders created before SMTP is
-  configured remain pending (and old "Email is not set up yet" skipped rows are retried once SMTP is configured).
+- **Live email:** SMTP sending passes against a local fake SMTP server (`test/mail.test.ts`). The shared copy
+  uses Brevo (2026-10-04); the first live send is still to be confirmed. The daily workflow had never run until
+  2026-10-04: GitHub rejected `daily.yml` because an unquoted `run:` line contained `x-cron-secret: ` (fixed with
+  `run: |`). Reminders created before SMTP is configured remain pending (and old "Email is not set up yet"
+  skipped rows are retried once SMTP is configured).

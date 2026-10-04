@@ -272,8 +272,10 @@ every day at **07:00 India time**, for each copy listed in it:
 - Document Store: expiry emails
 
 To check or run it: GitHub → **Actions** → *Daily jobs*. Confirm a successful run before relying on reminders;
-click **Run workflow** to run it now. A failed run sends GitHub's failure email. Recent run records checked on
-2026-10-04 reported failures but exposed no job details through the available API, so inspect the Actions page.
+click **Run workflow** to run it now. A failed run sends GitHub's failure email.
+If runs appear on every push, named `.github/workflows/daily.yml` instead of *Daily jobs*, GitHub can't read the
+file (a YAML mistake) and nothing runs. Until 2026-10-04 that was the case: a `run:` line containing `: ` must be
+written as `run: |` with the command on the next line.
 
 Its settings live in GitHub → Settings → **Environments** → `shared`: variables `LAB_URL` and `DOCS_URL`,
 and the secret `CRON_SECRET`. If the repo is ever made public, GitHub pauses schedules after 60 days without

@@ -26,10 +26,12 @@ jobs:
         env:
           URL: ${{ vars.LAB_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: curl -fsS --max-time 120 -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/daily"
+        run: |
+          curl -fsS --max-time 120 -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/daily"
       - name: Document Store
         if: ${{ !cancelled() }}
         env:
           URL: ${{ vars.DOCS_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: curl -fsS --max-time 120 -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/daily"
+        run: |
+          curl -fsS --max-time 120 -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/daily"
