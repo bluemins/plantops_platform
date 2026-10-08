@@ -4,7 +4,7 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
-## Unreleased (planned v0.6.0) — Floor Stock
+## v0.6.0 — 2026-10-08 — Floor Stock
 
 **What's in it**
 - **Floor Stock (Phase 5)**, a new module app at `stock.bluemins.life` (port 3002). It replaces the evening
