@@ -210,10 +210,10 @@ export async function getDocument(user: DocUser, id: string): Promise<DocumentDe
   });
 }
 
-/** Who can be responsible: the plant's owners and document keepers (from the platform), with their email. */
+/** Who can be responsible: the plant's owners, document keepers and plant staff (from the platform), with their email. */
 export async function responsibleChoices(user: DocUser) {
   const contacts = (await kit.contacts(user.tenantId)) ?? [];
-  return contacts.filter((c) => c.roles.includes("tenant_admin") || c.roles.includes("document_keeper")).map((c) => ({ user_id: c.user_id, name: c.display_name, email: c.email ?? null }));
+  return contacts.filter((c) => c.roles.some((r) => r === "tenant_admin" || r === "document_keeper" || r === "plant_staff")).map((c) => ({ user_id: c.user_id, name: c.display_name, email: c.email ?? null }));
 }
 
 // ---------- writing ----------

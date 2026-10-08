@@ -16,6 +16,10 @@ describe("canAccessModule", () => {
     [["tenant_admin"], "lab_records", true],
     [["tenant_admin"], "amc", false], // owner still needs the module in the plan
     [[], "lab_records", false],
+    [["plant_staff"], "floor_stock", true], // plant staff: any enabled module...
+    [["plant_staff"], "lab_records", false], // ...except Lab Records
+    [["plant_staff"], "preventive_mgmt", false], // module not enabled
+    [["plant_staff", "lab_technician"], "lab_records", true], // a lab role still opens it
   ])("%j -> %s = %s", (roles, mod, expected) => {
     expect(canAccessModule(roles, enabled, mod)).toBe(expected);
   });

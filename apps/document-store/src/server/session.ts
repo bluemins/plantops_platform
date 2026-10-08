@@ -27,7 +27,7 @@ export function toDocUser(s: ModuleSession): DocUser {
     name: s.display_name ?? "Document user",
     roles: s.roles,
     isOwner,
-    canManage: isOwner || s.roles.includes("document_keeper"),
+    canManage: isOwner || s.roles.includes("document_keeper") || s.roles.includes("plant_staff"),
     isSupport: false,
   };
 }

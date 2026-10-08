@@ -27,7 +27,7 @@ export function toStockUser(s: ModuleSession): StockUser {
     name: s.display_name ?? "Floor Stock user",
     roles: s.roles,
     isOwner,
-    canCount: isOwner || s.roles.includes("store_keeper"),
+    canCount: isOwner || s.roles.includes("store_keeper") || s.roles.includes("plant_staff"),
     isSupport: false,
   };
 }

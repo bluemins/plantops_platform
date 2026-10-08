@@ -136,6 +136,8 @@ describe("login callback (one-time code -> session)", () => {
     expect((await cb("?code=used")).status).toBe(403);
     platform.nextToken = await platform.loginToken(["store_keeper"]);
     expect((await cb("?code=x")).status).toBe(403);
+    platform.nextToken = await platform.loginToken(["plant_staff"]); // plant staff never open Lab Records
+    expect((await cb("?code=x")).status).toBe(403);
     platform.nextToken = await platform.summaryToken();
     expect((await cb("?code=x")).status).toBe(403);
   });

@@ -52,9 +52,15 @@ describe("login", () => {
     expect((await proxy(new NextRequest("http://localhost:3003/api/documents", { method: "POST" }))).status).toBe(401);
   });
 
-  it("roles: owner and keeper manage, only the owner is owner", () => {
+  it("plant staff get a session", async () => {
+    platform.nextToken = await platform.loginToken(["plant_staff"]);
+    expect((await callback(new NextRequest("http://localhost:3003/sso/callback?code=abc"))).status).toBe(307);
+  });
+
+  it("roles: owner, keeper and plant staff manage, only the owner is owner", () => {
     const s = (roles: string[]) => ({ tenant_id: TENANT, user_id: USER, roles, enabled_modules: ["document_store"], login_at: Date.now(), checked_at: Date.now() }) as never;
     expect(toDocUser(s(["document_keeper"]))).toMatchObject({ canManage: true, isOwner: false });
+    expect(toDocUser(s(["plant_staff"]))).toMatchObject({ canManage: true, isOwner: false });
     expect(toDocUser(s(["tenant_admin"]))).toMatchObject({ canManage: true, isOwner: true });
   });
 });

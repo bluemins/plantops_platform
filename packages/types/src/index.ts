@@ -14,12 +14,20 @@ export const ModuleId = z.enum(MODULE_IDS);
 export type ModuleId = z.infer<typeof ModuleId>;
 
 /** Roles a plant user can hold. A user may hold several. */
-export const ROLE_IDS = ["tenant_admin", "lab_technician", "lab_lead", "document_keeper", "store_keeper", "maintenance_technician"] as const;
+export const ROLE_IDS = [
+  "tenant_admin",
+  "lab_technician",
+  "lab_lead",
+  "document_keeper",
+  "store_keeper",
+  "maintenance_technician",
+  "plant_staff",
+] as const;
 export const RoleId = z.enum(ROLE_IDS);
 export type RoleId = z.infer<typeof RoleId>;
 
-/** The working module each staff role operates. tenant_admin is not tied to one module. */
-export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin">, ModuleId> = {
+/** The working module each staff role operates. tenant_admin and plant_staff are not tied to one module. */
+export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin" | "plant_staff">, ModuleId> = {
   lab_technician: "lab_records",
   /** a lab technician who can also approve batches, release holds, verify entries and set limits */
   lab_lead: "lab_records",
@@ -28,6 +36,19 @@ export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin">, ModuleId> = {
   store_keeper: "floor_stock",
   maintenance_technician: "preventive_mgmt",
 };
+
+/** Modules plant_staff may never open: Lab Records is for lab technicians and lab leads only. */
+export const PLANT_STAFF_EXCLUDED: readonly ModuleId[] = ["lab_records"];
+
+/**
+ * Does this staff role work in this module? plant_staff works in every module except the excluded ones, with
+ * that module's normal staff rights. tenant_admin is not a working role (owners get the read-only view).
+ */
+export function roleWorksIn(role: RoleId, moduleId: ModuleId): boolean {
+  if (role === "tenant_admin") return false;
+  if (role === "plant_staff") return !PLANT_STAFF_EXCLUDED.includes(moduleId);
+  return ROLE_MODULE[role] === moduleId;
+}
 
 /** Plan limits JSON stored in tenant_plans.limits. A missing limit means "no limit". */
 const LimitValues = z.record(z.string(), z.number().int().nonnegative());

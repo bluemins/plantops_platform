@@ -101,6 +101,15 @@ describe("tile rules (decideTiles / landingFor)", () => {
     expect(landingFor(["maintenance_technician"], off)).toBe("launcher");
   });
 
+  it("plant staff: every enabled module except Lab Records, no locked tiles", () => {
+    const tiles = decideTiles(["plant_staff"], ["lab_records", "floor_stock", "document_store"], all);
+    expect(tiles.map((t) => t.module).sort()).toEqual(["document_store", "floor_stock"]);
+    expect(tiles.every((t) => t.view === "staff" && t.state !== "locked")).toBe(true);
+    expect(landingFor(["plant_staff"], tiles)).toBe("launcher");
+    const one = decideTiles(["plant_staff"], ["lab_records", "floor_stock"], all);
+    expect(landingFor(["plant_staff"], one)).toBe("floor_stock");
+  });
+
   it("an owner who is also lab staff still gets the owner view and the launcher", () => {
     const tiles = decideTiles(["tenant_admin", "lab_technician"], ["lab_records"], all);
     expect(tiles[0]).toMatchObject({ module: "lab_records", view: "owner" });
