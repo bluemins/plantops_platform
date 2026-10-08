@@ -5,6 +5,16 @@ production** (finished goods) and the **closing stock** of everything in the pla
 the day. Sales happen during the same day, so the stock figure is the closing count. Project rules live in the
 root `CLAUDE.md`. Built on the shared module kit (`packages/module-kit`), like Lab Records and Document Store.
 
+## Status (2026-10-08)
+- **Live** on the shared copy at https://stock.bluemins.life since release **v0.6.0** (Railway service
+  `floor-stock`, no volume; record in `docs/deployments/shared.md`).
+- All 8 build steps are done. 87 tests pass (platform 187, auth 32, Lab Records 111, Document Store 86 also pass).
+- Live checks passed:
+  - health with the database OK
+  - redirect to the PlantOps login
+  - APIs refuse without a session, the platform's ticket or the cron secret
+- **Not used for real yet:** no plant has sections, and no count has been entered in a browser.
+
 ## What it does
 - **Sections & items** (`/setup`): each plant's own list; nothing is shared between plants.
   - A section is **finished goods** (its items are entered as today's production AND counted as closing stock) or
@@ -90,9 +100,47 @@ Hosted copy set up before Floor Stock: `./scripts/add-railway-module.sh` (docs/D
 - low-stock email: once per item per day, owners only, skipped / pending / retry / give up
 - tile badges and the daily-job endpoint
 
-## Open / later
-- Dispatch entries (party, item, boxes, batch) as new tables, with the Lab Records batch check: a held batch is
-  never dispatched. Needs module-to-module authentication (a platform-signed token with a `purpose`), which
-  changes the token contents, so **ask the owner first**.
-- Purchases, a party list, who holds the returnable jars, Hindi / Odia screens.
-- Long-term: general godown stock (several godowns, transfers, ledger, suppliers). Keep the code generic.
+## Pending
+
+**To do now (owner, on the live copy):**
+- [ ] Delete `.env.railway.shared.floor_stock.paste` (it holds the database password). Save the updated
+      `.env.railway.shared` in the password manager.
+- [ ] GitHub → Settings → Environments → `shared`: add the variable `STOCK_URL` = `https://stock.bluemins.life`.
+      Then Actions → *Daily jobs* → Run workflow: all three steps should be green.
+- [ ] super_admin → Modules: check that Floor Stock shows `https://stock.bluemins.life`.
+- [ ] `floor-stock` variables: check that `BREVO_API_KEY` and `MAIL_FROM` match `document-store`.
+- [ ] First real use:
+  - [ ] switch Floor Stock on in a plant's plan
+  - [ ] give a staff member the `store_keeper` role
+  - [ ] owner: "⚙ Set up sections", then the starter list
+  - [ ] store keeper: a count on a phone
+  - [ ] owner: the day page and "Copy as WhatsApp message"
+- [ ] Email test: set a limit above an item's count, submit, and check the owner receives the email.
+- [ ] Turn on Railway backups for Postgres before real plant data (shared copy, all modules).
+
+**Decisions to confirm with the owner (made while building, 2026-10-08):**
+- Store keepers may re-order items within a section.
+- Corrections only for today / yesterday, like new counts. Should the owner be able to correct older days?
+- Sold / Used only against the calendar day before (a gap shows "—").
+- Store keepers see Sold / Used and low stock; CSV and Recent changes are owner-only.
+- An item switched off after a count is left out when that count is corrected.
+
+**Known limitations:**
+- If the platform can't be reached at the moment a count is saved, no low-stock email is queued for that count.
+  The next save or correction that day queues it. A full fix needs a small migration: `stock_tenants()` would also
+  list plants with an unqueued low count. Ask before changing the schema.
+- Low-stock emails are in English only.
+- History pages show the last 120 counts / 60 days per item (no paging yet). There is no plan-based history
+  window like Lab Records'.
+- On a phone over plain `http://` (local testing), "Copy as WhatsApp message" can't use the clipboard. It shows
+  the text to select instead. Over https it copies directly.
+
+**Later (not v1):**
+- Dispatch entries (party, item, boxes, batch) as new tables. The day page would then show "Dispatched vs Sold
+  (from count) vs Gap".
+- The Lab Records batch check on dispatch: a held batch is never dispatched, and dispatch is refused if Lab
+  Records can't be reached. It needs module-to-module authentication (a platform-signed token with a `purpose`),
+  which changes the token contents, so **ask the owner first**.
+- Purchases, a party list, who holds the returnable jars, Hindi / Odia screens and emails.
+- Long-term: general godown stock (several godowns, transfers, in/out ledger, suppliers, value). Keep the code
+  generic (free-text units, optional product link, no RO-only rules).

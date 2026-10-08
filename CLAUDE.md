@@ -97,7 +97,7 @@ working. Nothing is stored.
 screens stay PlantOps blue.
 
 **Every module app must** (all in `packages/auth`, wired up once by `createModule()` in `packages/module-kit`;
-`apps/lab-records` and `apps/document-store` use it):
+`apps/lab-records`, `apps/document-store` and `apps/floor-stock` use it):
 `startModuleSession` at `/sso/callback`, keep the session with `sealSession`/`openSession` (own
 `SESSION_SECRET`, ≥ 32 chars), call `refreshModuleSession` on every request (12 h shift, 5-min re-check,
 15-min grace if the platform is unreachable), send users without a session to
@@ -148,10 +148,10 @@ where the owner can see it. `apps/lab-records` is the reference module.
 - Node.js + TypeScript backend, clean REST API per app (platform + each module).
 - PostgreSQL, managed hosting. Hosting: Railway, Singapore region, one project (decided 2026-10-04 for low
   cost); India hosting later if a plant needs it. Public addresses: `app.bluemins.life` (platform),
-  `lab.bluemins.life` (Lab Records), `docs.bluemins.life` (Document Store); `bluemins.life` itself stays a
-  static site on GitHub Pages, DNS at WordPress.com. Railway deploys the git branch `production` only (`main`
-  never deploys). Running it: `docs/HANDBOOK.md`; setup steps: `docs/DEPLOY.md`; per-copy records:
-  `docs/deployments/`.
+  `lab.bluemins.life` (Lab Records), `docs.bluemins.life` (Document Store), `stock.bluemins.life` (Floor Stock);
+  `bluemins.life` itself stays a static site on GitHub Pages, DNS at WordPress.com. Railway deploys the git
+  branch `production` only (`main` never deploys). Running it: `docs/HANDBOOK.md`; setup steps: `docs/DEPLOY.md`;
+  per-copy records: `docs/deployments/`.
 - S3-compatible storage for documents/reports. PDF reports via Puppeteer or react-pdf.
 - Scheduler for daily checks; alerts via WhatsApp Cloud API.
 
@@ -588,8 +588,8 @@ the day**.
 6. ✅ (2026-10-08) Tile badges + low-stock email (owners only, once per item per day; mail sender moved into
    `packages/module-kit`, Document Store's 86 tests unchanged); daily job `POST /api/cron/daily`; GitHub step.
 7. ✅ (2026-10-08) 87 Floor Stock tests (see the status note below).
-8. ✅ (2026-10-08, except going live) NOTES, Dockerfile, deploy docs and `scripts/add-railway-module.sh`. Not yet
-   deployed to `stock.bluemins.life`.
+8. ✅ (2026-10-08) NOTES, Dockerfile, deploy docs and `scripts/add-railway-module.sh`; v0.6.0 live at
+   `stock.bluemins.life`.
 
 **Later:**
 - dispatch entries with the Lab Records batch check (a held batch must never be dispatched)
@@ -602,7 +602,7 @@ the day**.
   generic (free-text units, optional product link, no RO-only rules in code) so that this stays an addition and
   not a rewrite.
 
-### 2026-10-08 — Phase 5: Floor Stock — built, not yet live
+### 2026-10-08 — Phase 5: Floor Stock — complete, live (v0.6.0)
 **Built** (`apps/floor-stock` on :3002; module notes in `apps/floor-stock/NOTES.md`):
 - **Own database section and login:** schema `floor_stock`, login `stock_app`, 8 tables with `tenant_id` + FORCE
   RLS. Append-only counts: no UPDATE / DELETE on counts, versions and lines; nothing is ever deleted.
@@ -640,13 +640,26 @@ the day**.
 session. Every screen rendered for Sujata (owner) and Atharv (store keeper) through a session signed with the
 module's key and re-checked live against the platform. Store keeper refused `/changes` and the CSV.
 
-**Not yet verified:**
-- A real count on screen: plant 002 has no sections yet, and nobody has logged in through the browser to set
-  them up.
-- Live low-stock email (Brevo is set up on the shared copy for Document Store only).
-- Docker image build (no Docker here).
-- Deployment to `stock.bluemins.life`: needs `add-railway-module.sh`, a Railway service and DNS, done by the owner.
+**Live on the shared copy (2026-10-08, v0.6.0, `production` = `d248f3a`):**
+- `./scripts/add-railway-module.sh shared floor_stock stock_app STOCK 3002 stock.bluemins.life` created the
+  `stock_app` login, ran the migration and registered only Floor Stock with the platform.
+- New Railway service `floor-stock` (Dockerfile built by Railway, so the image works), no volume (no files).
+- DNS: `stock` CNAME + `_railway-verify` TXT at WordPress.com; HTTPS issued about 20 minutes after DNS.
+- Checks passed:
+  - `/health` with the database OK on all four apps
+  - Floor Stock without a session goes to the PlantOps login
+  - APIs refuse without a session, the tile without the platform's ticket, the daily job with a wrong secret
+  - platform, Lab Records and Document Store redeployed without problems
+- Record: `docs/deployments/shared.md`.
 
-**Next:** the owner tries it on `pnpm dev`, then the v0.6.0 release and Floor Stock on the shared copy. After that,
-Phase 6 (Preventive Management) is planned in plan mode, or dispatch entries with the batch check if the owner
-wants Floor Stock finished first.
+**Not yet verified:**
+- A real count on screen, locally or live: no plant has sections yet, and nobody has entered a count in the browser.
+- Live low-stock email: `BREVO_API_KEY` / `MAIL_FROM` on `floor-stock` are to be checked with a test limit.
+- The daily job's Floor Stock step: GitHub variable `STOCK_URL` to add, then "Run workflow".
+- super_admin → Modules shows `https://stock.bluemins.life` (it was registered by the script).
+
+**Next:**
+1. The owner tries it live: switch Floor Stock on for a plant, give a store keeper the role, set up sections from
+   the starter list, enter a count on a phone, and test a low-stock email.
+2. Then Phase 6 (Preventive Management), planned in plan mode, or dispatch entries with the batch check if the
+   owner wants Floor Stock finished first. Pending items for Floor Stock are listed in `apps/floor-stock/NOTES.md`.
