@@ -44,30 +44,6 @@ export const env = {
   get storageSecretKey() {
     return process.env.STORAGE_SECRET_ACCESS_KEY ?? "";
   },
-  // ---------- email (optional until set up) ----------
-  get smtpHost() {
-    return process.env.SMTP_HOST ?? "";
-  },
-  get smtpPort() {
-    return Number(process.env.SMTP_PORT ?? 587);
-  },
-  get smtpUser() {
-    return process.env.SMTP_USER ?? "";
-  },
-  get smtpPass() {
-    return process.env.SMTP_PASS ?? "";
-  },
-  /** Brevo's HTTPS email API (used instead of SMTP when set: Railway Hobby blocks outgoing SMTP). */
-  get brevoApiKey() {
-    return process.env.BREVO_API_KEY ?? "";
-  },
-  get brevoApiUrl() {
-    return process.env.BREVO_API_URL || "https://api.brevo.com/v3/smtp/email";
-  },
-  /** e.g. "PlantOps <reminders@plantops.in>" */
-  get mailFrom() {
-    return process.env.MAIL_FROM ?? "";
-  },
   /** shared secret the scheduler sends to POST /api/cron/daily; the endpoint is off without it */
   get cronSecret() {
     return process.env.CRON_SECRET ?? "";

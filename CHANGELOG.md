@@ -4,14 +4,29 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
-## Unreleased
+## Unreleased (planned v0.6.0) — Floor Stock
 
-**What's in it (in progress)**
-- **Floor Stock (Phase 5)** started: its own database section `floor_stock` and login `stock_app`, set up with
-  `./scripts/setup-module-db.sh floor_stock stock_app STOCK 3002`. The app itself is not built yet.
+**What's in it**
+- **Floor Stock (Phase 5)**, a new module app at `stock.bluemins.life` (port 3002). It replaces the evening
+  WhatsApp message:
+  - each plant's own sections and items, with a starter list made from the plant's products
+  - the daily count: today's production + closing stock, for today or yesterday, pre-filled, locked on submit,
+    corrections with a reason; append-only in the database
+  - day page with Sold / Used / received worked out against the day before, history by date and by item,
+    Recent changes, owner CSV, "Copy as WhatsApp message"
+  - low-stock email to the owners (once per item per day), tile badges, read-only support view
+- **Platform:** the owner's Floor Stock tile has a "⚙ Set up sections" link; the staff tile says "Daily stock
+  count". No database change.
+- **Email sender** moved into `packages/module-kit` (shared by Document Store and Floor Stock); Document Store's
+  behaviour is unchanged.
+- `apps/dev-module` no longer serves Floor Stock or Document Store (development only).
+- **Deployment:** new `apps/floor-stock/Dockerfile`; `scripts/add-railway-module.sh` adds a module to a copy that
+  already runs; `setup-railway-db.sh` includes Floor Stock for new copies; the daily workflow gets a Floor Stock
+  step (skipped until the GitHub variable `STOCK_URL` is set).
 
-**Migrations:** `apps/floor-stock/db/migrations/0001_floor_stock.sql` (new schema `floor_stock`). A hosted copy
-needs the `stock_app` login first.
+**Migrations:** `apps/floor-stock/db/migrations/0001_floor_stock.sql` (new schema `floor_stock`). It needs the
+`stock_app` login first. On an existing copy, run `./scripts/add-railway-module.sh <copy> floor_stock stock_app
+STOCK 3002 <address>` **before** pushing to `production` (docs/DEPLOY.md, "Adding a module to a running copy").
 
 ## v0.5.1 — 2026-10-04 — Document Store email through Brevo's API
 

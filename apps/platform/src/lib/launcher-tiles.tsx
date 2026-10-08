@@ -71,7 +71,18 @@ function TileCard({ tile, summaryUrl, openHref }: { tile: Tile; summaryUrl: stri
       </p>
     </Card>
   );
-  return openHref && tile.state === "open" ? <a href={openHref} className="block h-full">{body}</a> : body;
+  if (!openHref || tile.state !== "open") return body;
+  const card = <a href={openHref} className="block h-full">{body}</a>;
+  // owner only: a second link straight to the module's setup screen (through the same one-time-code handoff)
+  if (tile.view !== "owner" || !m.setup) return card;
+  return (
+    <div className="flex h-full flex-col gap-1">
+      <div className="flex-1">{card}</div>
+      <a href={`${openHref}&next=${encodeURIComponent(m.setup.path)}`} className="px-1 py-2 text-sm font-semibold text-(--brand)">
+        {m.setup.label}
+      </a>
+    </div>
+  );
 }
 
 /**

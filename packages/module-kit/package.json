@@ -11,7 +11,8 @@
     "./format": "./src/format.ts",
     "./csv": "./src/csv.ts",
     "./pages": "./src/pages.ts",
-    "./safe-next": "./src/safe-next.ts"
+    "./safe-next": "./src/safe-next.ts",
+    "./mail": "./src/mail.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -19,7 +20,8 @@
   "dependencies": {
     "@plantops/auth": "workspace:*",
     "@plantops/types": "workspace:*",
-    "zod": "^4.3.0"
+    "zod": "^4.3.0",
+    "nodemailer": "^7.0.0"
   },
   "peerDependencies": {
     "next": "^16.3.0"
@@ -29,6 +31,7 @@
     "next": "^16.3.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "@types/nodemailer": "^7.0.0"
   }
 }

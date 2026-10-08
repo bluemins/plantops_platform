@@ -570,14 +570,26 @@ the day**.
    8 edits / deletes of counts and setup rows refused; second count per day, correction without reason and a
    negative qty refused; rename, limit and correction with reason allowed. The checks become automated tests in
    step 7.
-2. App `apps/floor-stock` (:3002) on the module kit, replacing `apps/dev-module` for floor_stock.
-3. Sections / items screens + generic template + dashboard "Set up sections" link.
-4. Daily count screen.
-5. Owner views (today vs previous, sold / used, low stock, history, Recent changes, CSV); "unit changed: not
-   compared" on the day an item's unit changes.
-6. Tile + low-stock email (move the mail sender into `packages/module-kit`).
-7. Tests (isolation, roles, append-only refusals, sold arithmetic, once-a-day email, support read-only).
-8. NOTES, status note, Dockerfile, deploy (`stock.bluemins.life`).
+2. ✅ (2026-10-08) App `apps/floor-stock` (:3002) on the module kit; `apps/dev-module` no longer serves
+   floor_stock (or document_store). Checked over HTTP: health, platform login redirect, 401 for APIs.
+3. ✅ (2026-10-08) Sections & items screen (`/setup`) with the owner-only rules, generic starter list (sizes not
+   repeated when the product name has them), owner tile link "⚙ Set up sections" (`setup` in
+   `apps/platform/src/lib/modules.ts`), staff tile text "Daily stock count". Store keepers may also re-order
+   items within a section. 34 Floor Stock tests. Not yet clicked through on screen by the owner.
+4. ✅ (2026-10-08) Daily count screen (`/count`): today or yesterday (India date), closing stock pre-filled from
+   the latest version of the last count, production empty, several lines per item with remarks, submit locks,
+   correction = next version with a reason (≥ 3 chars), a correction based on an old version is refused (409),
+   "Copy as WhatsApp message" on the day page. Corrections are also limited to today / yesterday.
+5. ✅ (2026-10-08) Views: home (today / yesterday status, low stock of the newest count), day page `/day/<date>`
+   (compared with the day before only: Sold / Used / received, "check the count", "no count on <date>",
+   "unit changed: not compared", old versions), History by date and by item, Recent changes (owner + support),
+   owner CSV (every version, audited). Owner and store keeper (and support) see the day views; CSV owner only.
+   70 Floor Stock tests. Not yet clicked through on screen with real counts (plant 002 has no sections yet).
+6. ✅ (2026-10-08) Tile badges + low-stock email (owners only, once per item per day; mail sender moved into
+   `packages/module-kit`, Document Store's 86 tests unchanged); daily job `POST /api/cron/daily`; GitHub step.
+7. ✅ (2026-10-08) 87 Floor Stock tests (see the status note below).
+8. ✅ (2026-10-08, except going live) NOTES, Dockerfile, deploy docs and `scripts/add-railway-module.sh`. Not yet
+   deployed to `stock.bluemins.life`.
 
 **Later:**
 - dispatch entries with the Lab Records batch check (a held batch must never be dispatched)
@@ -589,3 +601,52 @@ the day**.
   godowns with transfers, a stock in/out ledger, suppliers, and optionally rates and value. Keep the v1 design
   generic (free-text units, optional product link, no RO-only rules in code) so that this stays an addition and
   not a rewrite.
+
+### 2026-10-08 — Phase 5: Floor Stock — built, not yet live
+**Built** (`apps/floor-stock` on :3002; module notes in `apps/floor-stock/NOTES.md`):
+- **Own database section and login:** schema `floor_stock`, login `stock_app`, 8 tables with `tenant_id` + FORCE
+  RLS. Append-only counts: no UPDATE / DELETE on counts, versions and lines; nothing is ever deleted.
+- **Sections & items** (`/setup`): each plant's own list, finished-goods vs stock sections, optional second number
+  and product link, a starter list from the plant's products, and the owner-only rules (sections, limits, moving
+  items, switching off an item with a limit), every change audited.
+- **Daily count** (`/count`): today or yesterday, pre-filled closing stock, several lines with remarks, locked on
+  submit, corrections as new versions with a reason; two people can't overwrite each other.
+- **Views:**
+  - home status
+  - day page compared with the day before (Sold / Used / received, check the count, unit changed)
+  - history by date and item
+  - Recent changes
+  - owner CSV
+  - Copy as WhatsApp message
+- **Low-stock email** to owners on submit, once per item per day; daily job retries; tile badges "Counted 6:40 pm"
+  / "N items low" / "Made N box"; support view read-only and logged.
+- **Platform:** "⚙ Set up sections" link on the owner's tile (`setup` in `apps/platform/src/lib/modules.ts`), staff
+  tile text "Daily stock count". No platform database change; the SSO token is unchanged.
+- **Shared:** mail sender in `packages/module-kit/src/mail.ts`. `apps/dev-module` serves only modules without an app.
+- **Deploy:** Dockerfile, `scripts/add-railway-module.sh`, Floor Stock in `setup-railway-db.sh`, docs/DEPLOY.md
+  "Adding a module to a running copy", daily workflow step (skipped until `STOCK_URL`).
+- **Tests: 87 Floor Stock** (platform 187 and Document Store 86 still pass): isolation + FORCE RLS guard, the
+  permission table, append-only refusals, count rules and concurrency, the arithmetic, views, CSV, WhatsApp text,
+  email once-only / retries, tile badges, support logging.
+
+**Decisions (2026-10-08, made while building; owner may change them):**
+- Store keepers may re-order items within a section.
+- Corrections are limited to today / yesterday, like new counts.
+- Sold / Used compare with the calendar day before only.
+- The store keeper sees Sold / Used and low stock too; CSV and Recent changes are owner-only (support read-only).
+- If the platform can't be reached when a count is saved, the count is saved but no email is queued for it.
+
+**Verified on `pnpm dev` (2026-10-08, plant 002):** health, platform-login redirect, 401 for APIs without a
+session. Every screen rendered for Sujata (owner) and Atharv (store keeper) through a session signed with the
+module's key and re-checked live against the platform. Store keeper refused `/changes` and the CSV.
+
+**Not yet verified:**
+- A real count on screen: plant 002 has no sections yet, and nobody has logged in through the browser to set
+  them up.
+- Live low-stock email (Brevo is set up on the shared copy for Document Store only).
+- Docker image build (no Docker here).
+- Deployment to `stock.bluemins.life`: needs `add-railway-module.sh`, a Railway service and DNS, done by the owner.
+
+**Next:** the owner tries it on `pnpm dev`, then the v0.6.0 release and Floor Stock on the shared copy. After that,
+Phase 6 (Preventive Management) is planned in plan mode, or dispatch entries with the batch check if the owner
+wants Floor Stock finished first.

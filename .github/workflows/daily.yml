@@ -1,7 +1,8 @@
 # Daily reminder jobs for every hosted PlantOps copy (docs/DEPLOY.md):
 #   Lab Records     POST <LAB_URL>/api/cron/daily   (holds older than 24 h, Form 1 due)
 #   Document Store  POST <DOCS_URL>/api/cron/daily  (expiry emails)
-# Each copy is a GitHub environment (Settings > Environments) with variables LAB_URL, DOCS_URL and the
+#   Floor Stock     POST <STOCK_URL>/api/cron/daily (low-stock emails still waiting; skipped while STOCK_URL is unset)
+# Each copy is a GitHub environment (Settings > Environments) with variables LAB_URL, DOCS_URL, STOCK_URL and the
 # secret CRON_SECRET. To add a copy: create its environment and add its name to `copy` below.
 # A failed call fails the run, and GitHub emails the repo owner. "Run workflow" runs it by hand.
 name: Daily jobs
@@ -32,6 +33,13 @@ jobs:
         if: ${{ !cancelled() }}
         env:
           URL: ${{ vars.DOCS_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS --max-time 120 -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/daily"
+      - name: Floor Stock
+        if: ${{ !cancelled() && vars.STOCK_URL != '' }}
+        env:
+          URL: ${{ vars.STOCK_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           curl -fsS --max-time 120 -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/daily"

@@ -33,6 +33,7 @@ Railway project "plantops-shared" (Singapore), environment "production"
   app.bluemins.life  ──► platform        login, launcher, super_admin, SSO     (port 3000)
   lab.bluemins.life  ──► lab-records     Lab Records module                    (port 3001)
   docs.bluemins.life ──► document-store  Document Store module (+ volume /data) (port 3003)
+  stock.bluemins.life ─► floor-stock     Floor Stock module (port 3002)
                          Postgres        one database, private (each app its own schema + login)
 
 GitHub repo bluemins/plantops_platform
@@ -57,7 +58,7 @@ They share **only the code**, and code reaches Railway in exactly one way: a pus
 
 | | Local (development) | Railway (production) |
 |---|---|---|
-| Addresses | `http://localhost:3000` / `:3001` / `:3003` | `https://app` / `lab` / `docs.bluemins.life` |
+| Addresses | `http://localhost:3000` / `:3001` / `:3003` / `:3002` | `https://app` / `lab` / `docs` / `stock.bluemins.life` |
 | Settings and secrets | `.env` in the project folder | each service → **Variables** |
 | Database | Postgres on this computer (`plantops`; tests use `plantops_test`) | Railway's Postgres |
 | super_admin | `admin@plantops.local` | `contact@bluemins.life` |
@@ -270,6 +271,8 @@ A reset is always temporary: the person picks their own at the next login. More 
 every day at **07:00 India time**, for each copy listed in it:
 - Lab Records: reminders about holds older than 24 h, and Form 1 due from the 25th
 - Document Store: expiry emails
+- Floor Stock: low-stock emails still waiting (most go out right after the count is saved); skipped until
+  `STOCK_URL` is set
 
 To check or run it: GitHub → **Actions** → *Daily jobs*. Confirm a successful run before relying on reminders;
 click **Run workflow** to run it now. A failed run sends GitHub's failure email.
@@ -277,11 +280,11 @@ If runs appear on every push, named `.github/workflows/daily.yml` instead of *Da
 file (a YAML mistake) and nothing runs. Until 2026-10-04 that was the case: a `run:` line containing `: ` must be
 written as `run: |` with the command on the next line.
 
-Its settings live in GitHub → Settings → **Environments** → `shared`: variables `LAB_URL` and `DOCS_URL`,
+Its settings live in GitHub → Settings → **Environments** → `shared`: variables `LAB_URL`, `DOCS_URL` and `STOCK_URL`,
 and the secret `CRON_SECRET`. If the repo is ever made public, GitHub pauses schedules after 60 days without
 commits.
 
-**Email (Document Store reminders): Brevo, through its HTTPS API.** Railway's Hobby plan blocks all outgoing
+**Email (Document Store reminders, Floor Stock low-stock alerts): Brevo, through its HTTPS API.** Railway's Hobby plan blocks all outgoing
 SMTP (ports 25 / 465 / 587 / 2525): SMTP settings there end in "Email failed: Connection timeout". So the shared
 copy uses Brevo's API, which is ordinary HTTPS.
 - Until email is set up, due reminders stay pending and are sent once it works (old "Email is not set up yet"
@@ -292,7 +295,7 @@ To set it up (done for `shared` on 2026-10-04):
 1. Brevo → *Senders, Domains* → authenticate the sending domain (DKIM + DMARC records at WordPress.com) and
    verify the sender address.
 2. Brevo → *SMTP & API* → **API Keys** → generate a key (not the SMTP key).
-3. **document-store** → Variables: `BREVO_API_KEY` = that key, `MAIL_FROM` = `PlantOps <contact@bluemins.life>`
+3. **document-store** and **floor-stock** → Variables: `BREVO_API_KEY` = that key, `MAIL_FROM` = `PlantOps <contact@bluemins.life>`
    (an address Brevo has verified). `SMTP_*` are ignored while `BREVO_API_KEY` is set.
    - On a host that allows SMTP (or Railway Pro) you can use `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
      instead; leave `BREVO_API_KEY` unset.
