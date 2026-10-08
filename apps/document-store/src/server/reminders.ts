@@ -44,7 +44,7 @@ export async function queueReminders(tenantId: string, today = todayIst()) {
       recipientName: p.name,
       email: looksLikeEmail(p.email) ? p.email : null,
       status: looksLikeEmail(p.email) ? ("pending" as const) : ("skipped" as const),
-      error: looksLikeEmail(p.email) ? null : resp || owners.some((o) => o.user_id === userId) ? "No email saved for this person" : "No longer an active owner / document keeper",
+      error: looksLikeEmail(p.email) ? null : resp || owners.some((o) => o.user_id === userId) ? "No email saved for this person" : "No longer an active owner / document keeper / plant staff",
     }));
   });
   const inserted = await withTenant(tenantId, (tx) => tx.insert(reminders).values(rows).onConflictDoNothing().returning({ id: reminders.id }));

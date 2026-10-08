@@ -9,7 +9,7 @@ module kit (`packages/module-kit`), like Lab Records.
 - **A document** has a name, certificate / licence no., issued on, expires on (blank = never), authority,
   contact for renewal / support, remark, a **responsible person**, and **a file** (PDF / JPG / PNG / WebP,
   ≤ 10 MB).
-- **The responsible person** is one of the plant's owners or document keepers, taken from the platform's
+- **The responsible person** is one of the plant's owners, document keepers or plant staff, taken from the platform's
   `alert-contacts` (with email).
 - **Renew** adds a new version with the new file and expiry. **Correct details** adds a new version with a
   required reason; the file is kept unless replaced. **Archive / restore** hides a document and stops its
@@ -20,7 +20,8 @@ module kit (`packages/module-kit`), like Lab Records.
   - Search: name, certificate no., authority
   - Sorted by the soonest expiry
 - **Who:**
-  - Owner and **Document keeper** manage documents.
+  - Owner, **Document keeper** and **Plant staff** (same rights as a document keeper; `canManage` in
+    `src/server/session.ts`) manage documents.
   - Only the owner exports (`/api/export`, CSV of every version; `/api/export/files`, ZIP of the manifest and
     every original version file) and sees `/support-access`.
   - super_admin's support view is read-only, and every page **and file** opened is logged.
@@ -58,7 +59,7 @@ module kit (`packages/module-kit`), like Lab Records.
   version) starts afresh.
 - **Recipients:** all owners + the responsible person.
   - No email → the row is `skipped – No email saved for this person`.
-  - The responsible person no longer an owner/keeper → `skipped`.
+  - The responsible person no longer an owner / keeper / plant staff → `skipped`.
   - **One email per person per run**, listing all their due documents.
 
 ## Settings (environment)

@@ -4,6 +4,21 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.6.1 — 2026-10-08 — Plant staff role
+
+**What's in it**
+- **New role "Plant staff"** on the owner's Add user / edit user screens. A general plant worker who can work
+  in every module the plant has switched on, with that module's normal staff rights, **except Lab Records**
+  (lab technicians and lab leads only; refused by Lab Records' own server).
+  - Floor Stock: same as a store keeper (count, add / edit items; no limits or sections).
+  - Document Store: same as a document keeper; can be a document's responsible person.
+  - Launcher: a tile per module they may open; with only one, they go straight into it.
+- The SSO token is unchanged.
+
+**Migrations:** `apps/platform/db/migrations/0008_plant_staff.sql` (adds the role row). Run
+`./scripts/railway-migrate.sh <copy>` before pushing to `production`. Deploy **all four apps**: a module still on
+v0.6.0 refuses plant staff until it is rebuilt.
+
 ## v0.6.0 — 2026-10-08 — Floor Stock
 
 **What's in it**

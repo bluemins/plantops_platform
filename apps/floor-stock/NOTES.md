@@ -40,7 +40,7 @@ root `CLAUDE.md`. Built on the shared module kit (`packages/module-kit`), like L
   - History by date (`/history`) and by item (`/items/<id>`, last 60 counts).
   - Recent changes (`/changes`): owner and support. Owner CSV (`/api/export`): every version, audited.
 - **Low-stock email** (`src/server/alerts.ts`): queued in the count's transaction for every item below its limit
-  (`closing < limit`), for every **owner**. Store keepers are never emailed.
+  (`closing < limit`), for every **owner**. Store keepers and plant staff are never emailed.
   - Once per item per day per owner (unique key in `low_stock_alerts`). A correction adds only newly low items.
   - An owner without an email address is recorded as `skipped`.
   - Sent right after the save (`after()`), one email per owner. The daily job (`POST /api/cron/daily`) sends
@@ -57,9 +57,10 @@ root `CLAUDE.md`. Built on the shared module kit (`packages/module-kit`), like L
   an owner from a store keeper:
   - Owner only: sections (add, rename, re-order, switch off), setting or changing a limit, moving an item to
     another section, switching off an item that **has** a limit.
-  - Owner or store keeper: add an item (choosing its section), edit name / units / product, re-order items within
-    a section, switch off an item without a limit, switch an item back on, count and correct.
-  - A store keeper's save that **changes** an owner-only field is refused as a whole. Sending a field back
+  - Owner, store keeper or **plant staff** (same rights as a store keeper; `canCount` in
+    `src/server/session.ts`): add an item (choosing its section), edit name / units / product, re-order items
+    within a section, switch off an item without a limit, switch an item back on, count and correct.
+  - A store keeper's (or plant staff's) save that **changes** an owner-only field is refused as a whole. Sending a field back
     unchanged is fine, so forms can send everything.
 - **Append-only:** `stock_app` has SELECT + INSERT on counts, versions and lines, and no UPDATE / DELETE. Its only
   UPDATEs are setup columns (`sections`, `items`) and the alert status columns. Nothing is ever deleted.
@@ -68,7 +69,7 @@ root `CLAUDE.md`. Built on the shared module kit (`packages/module-kit`), like L
 - **"Previous" means the calendar day before.** With a gap, nothing is compared rather than guessing over two days.
 - **Two people counting at once:** the screen sends the version it showed (`expected_version`). A mismatch, or the
   unique keys on `counts` / `count_versions`, gives a 409 "reload" instead of overwriting.
-- **Owners for emails** come from the platform's `alert-contacts` (owners + store keepers), filtered to
+- **Owners for emails** come from the platform's `alert-contacts` (owners + store keepers + plant staff), filtered to
   `tenant_admin`. If the platform can't be reached when a count is saved, the count is saved but **no email is
   queued for it** (logged). The next save or correction that day queues it.
 - Sums are done in hundredths (`src/lib/compare.ts`), so 0.1 + 0.2 = 0.3.
@@ -111,7 +112,7 @@ Hosted copy set up before Floor Stock: `./scripts/add-railway-module.sh` (docs/D
 - [ ] `floor-stock` variables: check that `BREVO_API_KEY` and `MAIL_FROM` match `document-store`.
 - [ ] First real use:
   - [ ] switch Floor Stock on in a plant's plan
-  - [ ] give a staff member the `store_keeper` role
+  - [ ] give a staff member the `store_keeper` (or `plant_staff`) role
   - [ ] owner: "⚙ Set up sections", then the starter list
   - [ ] store keeper: a count on a phone
   - [ ] owner: the day page and "Copy as WhatsApp message"

@@ -39,6 +39,10 @@ through the Lab Records API.
 - Module-level operational roles (examples): lab technician (Lab Records), lab lead (Lab Records: a lab
   technician who can also approve batches, release holds, verify records and set limits), store keeper (Floor
   Stock), maintenance technician (Preventive Management). Each sees only the module(s)/data it's entitled to.
+- **Plant staff** (`plant_staff`): a general worker not tied to one module. Works in every module the plant has
+  enabled, with that module's normal staff rights (never owner or lead rights), **except Lab Records**, which
+  stays with lab technicians and lab leads (`PLANT_STAFF_EXCLUDED`). New modules include plant staff
+  automatically unless added to that list. The rule is `roleWorksIn()` in `packages/types`.
 - A user can hold **more than one role** (e.g. lab technician AND store keeper in a small plant). tenant_admin
   is a role in `users`/`user_roles`, not a separate account type.
 - Login: plant users log in with **plant code + username + secret**. Staff use a 6-digit **PIN**; anyone holding
@@ -663,3 +667,17 @@ module's key and re-checked live against the platform. Store keeper refused `/ch
    the starter list, enter a count on a phone, and test a low-stock email.
 2. Then Phase 6 (Preventive Management), planned in plan mode, or dispatch entries with the batch check if the
    owner wants Floor Stock finished first. Pending items for Floor Stock are listed in `apps/floor-stock/NOTES.md`.
+
+### 2026-10-08 — Plant staff role — built, not live yet
+**Built** (commit `5f8450d`):
+- Role `plant_staff`, label "Plant staff" (platform migration `0008_plant_staff.sql`, `module_id` null like
+  tenant_admin). Decided with the owner: works in any enabled module **except Lab Records**.
+- One rule for every app: `roleWorksIn()` + `PLANT_STAFF_EXCLUDED` in `packages/types`, used by `canAccessModule`
+  and the platform's `alert-contacts`.
+- Floor Stock: same rights as a store keeper. Document Store: same rights as a document keeper, and can be the
+  responsible person. Lab Records refuses plant staff on its own server.
+- Launcher: plant staff see a tile for each module they may open; with only one, they land straight in it.
+- The SSO token is unchanged. Tests: platform 188, auth 36, Lab Records 111, Document Store 87, Floor Stock 88.
+
+**Not yet done:** tried on screen; the migration on the shared copy (`scripts/railway-migrate.sh`); deploy of all
+four apps (`production` is still at v0.6.0).
