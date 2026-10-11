@@ -10,6 +10,7 @@ import { kit } from "@/server/kit";
 import { orNotFound } from "@/server/pages";
 import { requirePageUser } from "@/server/session";
 import { dayView } from "@/server/views";
+import { CanMakeCard } from "../../can-make";
 import { Header } from "../../header";
 import { BackLink, ComparisonLine, lineText, LowChip } from "../../parts";
 import { CopyButton } from "./copy-button";
@@ -98,6 +99,8 @@ export default async function DayPage({ params, searchParams }: Props) {
           </ul>
         </Card>
       )}
+
+      <CanMakeCard groups={view.can_make} title="Can make from this stock" />
 
       {!view.previous_counted && <p className="text-sm text-slate-500">Nothing was counted on {previousDate}, so Sold and Used can't be worked out for this day.</p>}
 

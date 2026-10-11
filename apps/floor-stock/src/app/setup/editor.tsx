@@ -3,12 +3,13 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Button, Card, ErrorText, TextField } from "@plantops/ui";
 import { api } from "@/lib/api";
-import type { ItemView, SectionView } from "@/server/setup";
+import { contentText, kindOf, num, type Measure, type MeasureKind } from "@/lib/recipe";
+import type { SectionView, SetupItemView } from "@/server/setup";
 
-type Product = { id: string; label: string; active: boolean };
+type Product = { id: string; label: string; active: boolean; per_box: number };
 type TemplatePreview = { name: string; kind: "finished" | "stock"; items: string[] }[];
 type Can = { owner: boolean; edit: boolean };
-type Editing = { kind: "section-new" } | { kind: "section"; id: string } | { kind: "item-new"; sectionId: string } | { kind: "item"; id: string } | null;
+type Editing = { kind: "section-new" } | { kind: "section"; id: string } | { kind: "item-new"; sectionId: string } | { kind: "item"; id: string } | { kind: "recipe"; id: string } | { kind: "contents"; id: string } | null;
 
 const KIND_TEXT = { finished: "Today production + closing stock", stock: "Closing stock only" } as const;
 const done = () => window.location.reload();
@@ -33,6 +34,9 @@ export function SetupEditor({ sections, products, template, can }: { sections: S
   const activeSections = sections.filter((s) => s.status === "active");
   const offCount = sections.filter((s) => s.status === "off").length + sections.reduce((n, s) => n + s.items.filter((i) => i.status === "off").length, 0);
   const visible = showOff ? sections : activeSections;
+  const names = new Map(sections.flatMap((s) => s.items.map((i) => [i.id, i.name] as const)));
+  // what a recipe can use: active items of active stock sections
+  const materials = activeSections.filter((s) => s.kind === "stock").flatMap((s) => s.items.filter((i) => i.status === "active"));
 
   async function call(path: string, body: unknown, method = "POST") {
     setError(undefined);
@@ -112,15 +116,24 @@ export function SetupEditor({ sections, products, template, can }: { sections: S
                     <ItemForm item={item} sectionId={section.id} sections={activeSections} products={products} can={can} onClose={close} />
                   </li>
                 ) : (
-                  <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
-                    <ItemSummary item={item} products={products} />
-                    {can.edit && !off && (
-                      <div className="flex gap-2">
-                        <SmallButton label="Move item up" onClick={() => moveItem(section, item.id, -1)}>↑</SmallButton>
-                        <SmallButton label="Move item down" onClick={() => moveItem(section, item.id, 1)}>↓</SmallButton>
-                        <SmallButton onClick={() => setEditing({ kind: "item", id: item.id })}>Edit</SmallButton>
-                      </div>
-                    )}
+                  <li key={item.id} className="py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <ItemSummary item={item} products={products} finished={section.kind === "finished"} names={names} owner={can.owner} />
+                      {can.edit && !off && (
+                        <div className="flex flex-wrap gap-2">
+                          <SmallButton label="Move item up" onClick={() => moveItem(section, item.id, -1)}>↑</SmallButton>
+                          <SmallButton label="Move item down" onClick={() => moveItem(section, item.id, 1)}>↓</SmallButton>
+                          <SmallButton onClick={() => setEditing({ kind: "item", id: item.id })}>Edit</SmallButton>
+                          {can.owner && item.status === "active" && (
+                            <SmallButton onClick={() => setEditing({ kind: section.kind === "finished" ? "recipe" : "contents", id: item.id })}>
+                              {section.kind === "finished" ? "Recipe" : "Contents"}
+                            </SmallButton>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {editing?.kind === "recipe" && editing.id === item.id && <RecipeForm item={item} materials={materials} products={products} onClose={close} />}
+                    {editing?.kind === "contents" && editing.id === item.id && <ContentsForm item={item} onClose={close} />}
                   </li>
                 ),
               )}
@@ -223,9 +236,16 @@ function SectionForm({ section, onClose }: { section?: SectionView; onClose: () 
 }
 
 // ---------- items ----------
-function ItemSummary({ item, products }: { item: ItemView; products: Product[] }) {
+function ItemSummary({ item, products, finished, names, owner }: { item: SetupItemView; products: Product[]; finished: boolean; names: Map<string, string>; owner: boolean }) {
   const off = item.status === "off";
   const product = products.find((p) => p.id === item.sku_id);
+  const perBox = product ? product.per_box : item.recipe?.case_size ?? null;
+  let extra: string | null = null;
+  if (finished && item.recipe?.lines.length) {
+    const parts = item.recipe.lines.map((l) => `${l.measure === "pcs" ? num(l.qty) : `${num(l.qty)} ${l.measure}`} ${names.get(l.material_item_id) ?? "?"}`);
+    extra = `1 bottle = ${parts.join(" + ")}${perBox && perBox > 1 ? ` · ${perBox} per ${item.unit}` : ""}`;
+  } else if (finished && owner) extra = "No recipe yet";
+  else if (!finished && item.content) extra = contentText(item.unit, item.content);
   return (
     <div className={`min-w-0 ${off ? "text-slate-400" : ""}`}>
       <p className="font-semibold">
@@ -238,11 +258,149 @@ function ItemSummary({ item, products }: { item: ItemView; products: Product[] }
         {" · "}
         {item.min_level === null ? "no limit" : <span className="font-semibold text-slate-700">limit {fmt(item.min_level)}</span>}
       </p>
+      {extra && <p className={`text-sm ${extra === "No recipe yet" ? "text-slate-400" : "text-(--brand)"}`}>{extra}</p>}
     </div>
   );
 }
 
-function ItemForm({ item, sectionId, sections, products, can, onClose }: { item?: ItemView; sectionId: string; sections: SectionView[]; products: Product[]; can: Can; onClose: () => void }) {
+// ---------- "Can make": what 1 unit holds, and what 1 bottle needs (owner only) ----------
+const CHOICES: Record<MeasureKind, Measure[]> = { pieces: ["pcs"], weight: ["g", "kg"], volume: ["ml", "L"], length: ["m"] };
+const MEASURE_TEXT: Record<Measure, string> = { pcs: "pieces (pcs)", g: "grams (g)", kg: "kilograms (kg)", ml: "millilitres (ml)", L: "litres (L)", m: "metres (m)" };
+/** The measures a recipe may use for a material: the same kind as what 1 of its units holds (no contents = pieces). */
+const choicesFor = (m: SetupItemView | undefined) => CHOICES[m?.content ? kindOf(m.content.measure) : "pieces"];
+
+function ContentsForm({ item, onClose }: { item: SetupItemView; onClose: () => void }) {
+  const c = item.content;
+  const [f, setF] = useState({ qty: c ? String(c.qty) : "", measure: (c?.measure ?? "pcs") as Measure, damage: c ? String(c.damage_pct) : "0", loose: c?.second_is_pieces ?? false });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const set = (patch: Partial<typeof f>) => setF((v) => ({ ...v, ...patch }));
+  const canLoose = !!item.second_unit && f.measure === "pcs";
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setError(undefined);
+    const qty = Number(f.qty);
+    const damage = f.damage.trim() === "" ? 0 : Number(f.damage);
+    if (!Number.isFinite(qty) || qty <= 0) return setError(`Enter how much 1 ${item.unit} holds (a number above 0)`);
+    if (!Number.isFinite(damage) || damage < 0 || damage >= 100) return setError("Damage allowance must be from 0 to below 100");
+    setBusy(true);
+    const r = await api(`/api/materials/${item.id}`, { method: "PUT", body: { content_qty: qty, content_measure: f.measure, damage_pct: damage, second_is_pieces: canLoose && f.loose } });
+    setBusy(false);
+    if (!r.ok) return setError(r.error);
+    done();
+  }
+
+  return (
+    <FormBox title={`What is in 1 ${item.unit} of ${item.name}`} onSubmit={submit} busy={busy} error={error} onClose={onClose}>
+      <div className="grid grid-cols-2 gap-3">
+        <TextField label={`1 ${item.unit} holds`} type="number" inputMode="decimal" min={0} step="0.01" value={f.qty} onChange={(e) => set({ qty: e.target.value })} required autoFocus placeholder="e.g. 25000" />
+        <Select label="Measured in" value={f.measure} onChange={(v) => set({ measure: v as Measure })}>
+          {(Object.keys(MEASURE_TEXT) as Measure[]).map((m) => (
+            <option key={m} value={m}>
+              {MEASURE_TEXT[m]}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <TextField label="Damage allowance (%)" type="number" inputMode="decimal" min={0} max={99.9999} step="0.0001" value={f.damage} onChange={(e) => set({ damage: e.target.value })} placeholder="0" />
+      <p className="text-sm text-slate-500">Always taken off before working out what can be made, e.g. 0.01.</p>
+      {canLoose && (
+        <label className="flex min-h-12 items-center gap-3 text-sm font-medium text-slate-700">
+          <input type="checkbox" className="h-5 w-5" checked={f.loose} onChange={(e) => set({ loose: e.target.checked })} />
+          The &quot;{item.second_unit}&quot; number is loose pieces (added to the total)
+        </label>
+      )}
+    </FormBox>
+  );
+}
+
+type Draft = { material_item_id: string; qty: string; measure: Measure };
+
+function RecipeForm({ item, materials, products, onClose }: { item: SetupItemView; materials: SetupItemView[]; products: Product[]; onClose: () => void }) {
+  const product = products.find((p) => p.id === item.sku_id);
+  const byId = new Map(materials.map((m) => [m.id, m]));
+  const [lines, setLines] = useState<Draft[]>(() =>
+    item.recipe?.lines.length ? item.recipe.lines.map((l) => ({ material_item_id: l.material_item_id, qty: String(l.qty), measure: l.measure })) : [{ material_item_id: "", qty: "", measure: "pcs" }],
+  );
+  const [caseSize, setCaseSize] = useState(item.recipe?.case_size ? String(item.recipe.case_size) : "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const setLine = (i: number, patch: Partial<Draft>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
+  const pick = (i: number, id: string) => setLine(i, { material_item_id: id, measure: choicesFor(byId.get(id))[0]! });
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setError(undefined);
+    const filled = lines.filter((l) => l.material_item_id || l.qty.trim());
+    for (const l of filled) {
+      const name = byId.get(l.material_item_id)?.name;
+      if (!name) return setError("Pick a material on every line (or remove the line)");
+      const q = Number(l.qty);
+      if (!Number.isFinite(q) || q <= 0) return setError(`Enter how much 1 bottle needs of ${name}`);
+    }
+    const size = caseSize.trim() === "" ? null : Number(caseSize);
+    if (!product && size !== null && (!Number.isInteger(size) || size < 1)) return setError(`Bottles per ${item.unit} must be a whole number, 1 or more`);
+    if (!filled.length && !confirm(`Remove the recipe of ${item.name}? It will no longer show under "Can make".`)) return;
+    setBusy(true);
+    const r = await api(`/api/recipes/${item.id}`, {
+      method: "PUT",
+      body: { case_size: product ? null : size, lines: filled.map((l) => ({ material_item_id: l.material_item_id, qty: Number(l.qty), measure: l.measure })) },
+    });
+    setBusy(false);
+    if (!r.ok) return setError(r.error);
+    done();
+  }
+
+  return (
+    <FormBox title={`What makes 1 bottle of ${item.name}`} onSubmit={submit} busy={busy} error={error} onClose={onClose}>
+      {product ? (
+        <p className="text-sm text-slate-600">
+          1 {item.unit} = {product.per_box} bottle{product.per_box === 1 ? "" : "s"} (from the product {product.label})
+        </p>
+      ) : (
+        <TextField label={`Bottles per ${item.unit}`} type="number" inputMode="numeric" min={1} step="1" value={caseSize} onChange={(e) => setCaseSize(e.target.value)} placeholder="Blank = 1" />
+      )}
+      {materials.length === 0 && <p className="text-sm text-amber-800">Add raw material and consumable items first (in a stock section).</p>}
+      <div className="space-y-2">
+        {lines.map((l, i) => {
+          const m = byId.get(l.material_item_id);
+          return (
+            <div key={i} className="space-y-2 rounded-xl border border-slate-200 bg-white p-3">
+              <Select label={`Material ${i + 1}`} value={l.material_item_id} onChange={(v) => pick(i, v)}>
+                <option value="">Pick…</option>
+                {materials.map((x) => (
+                  <option key={x.id} value={x.id} disabled={x.id !== l.material_item_id && lines.some((o) => o.material_item_id === x.id)}>
+                    {x.name}
+                  </option>
+                ))}
+              </Select>
+              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2">
+                <TextField label="1 bottle needs" type="number" inputMode="decimal" min={0} step="0.01" value={l.qty} onChange={(e) => setLine(i, { qty: e.target.value })} />
+                <Select label="In" value={l.measure} onChange={(v) => setLine(i, { measure: v as Measure })}>
+                  {choicesFor(m).map((x) => (
+                    <option key={x} value={x}>
+                      {x}
+                    </option>
+                  ))}
+                </Select>
+                <SmallButton label={`Remove ${m?.name ?? "this material"}`} onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}>
+                  ✕
+                </SmallButton>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <Button type="button" variant="secondary" onClick={() => setLines((ls) => [...ls, { material_item_id: "", qty: "", measure: "pcs" }])}>
+        + Add material
+      </Button>
+      <p className="text-sm text-slate-500">A material counted in packets of grams needs its Contents set first, so its amount here can be in g.</p>
+    </FormBox>
+  );
+}
+
+function ItemForm({ item, sectionId, sections, products, can, onClose }: { item?: SetupItemView; sectionId: string; sections: SectionView[]; products: Product[]; can: Can; onClose: () => void }) {
   const [f, setF] = useState({
     section_id: item?.section_id ?? sectionId,
     name: item?.name ?? "",

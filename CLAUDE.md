@@ -780,7 +780,7 @@ module's key and re-checked live against the platform. Store keeper refused `/ch
 2. Then Phase 6 (Preventive Management), planned in plan mode, or dispatch entries with the batch check if the
    owner wants Floor Stock finished first. Pending items for Floor Stock are listed in `apps/floor-stock/NOTES.md`.
 
-### 2026-10-08 — Plant staff role — built, not live yet
+### 2026-10-08 — Plant staff role — live (v0.6.1)
 **Built** (commit `5f8450d`):
 - Role `plant_staff`, label "Plant staff" (platform migration `0008_plant_staff.sql`, `module_id` null like
   tenant_admin). Decided with the owner: works in any enabled module **except Lab Records**.
@@ -793,6 +793,8 @@ module's key and re-checked live against the platform. Store keeper refused `/ch
 
 **Live (checked 2026-10-11):** v0.6.1 on the shared copy (`production` = `2b01230`), migration `0008` applied.
 **Not yet done:** saving a user with the Plant staff role and using a module as that user, on screen.
+**Update 2026-10-11:** plant 001's Kedar was saved with Plant staff + store keeper on the live copy and gets Floor
+Stock alerts. A user with Plant staff **only** has still not been tried.
 
 ### 2026-10-11 — Nightly backups — live (v0.6.2), first run and practice restore OK
 Decided with the owner: stay on Railway Hobby (no built-in backups) and run our own. `.github/workflows/backup.yml`
@@ -803,7 +805,7 @@ forever. Only the public key is on servers / in GitHub. **New modules that store
 photos) add the backup route and the five `BACKUP_*` variables. Setup checklist and restore: HANDBOOK.md
 section 11. Tests: module-kit 12, Document Store 90.
 
-### 2026-10-11 — Notifications N1: app bell + phone push, Floor Stock — built, not live yet
+### 2026-10-11 — Notifications N1: app bell + phone push, Floor Stock — live (v0.7.0, deployed 2026-10-11)
 **Built** (design and later phases: `docs/notifications.md`):
 - **Platform:**
   - migration `0009_notifications.sql`: `notifications` (one row per person, `level` push / bell, unique per
@@ -843,7 +845,7 @@ including whether opening a notification on an iPhone asks for the login again (
 **Next:** deploy v0.7.0 (VAPID variables on `platform`, both migrations, `evening.yml`), test on phones, then
 N2 (chosen people get alerts via a per-module tick box, + Lab Records) in plan mode.
 
-### 2026-10-11 — Notifications N2: chosen people get alerts + Lab Records — built, not live yet
+### 2026-10-11 — Notifications N2: chosen people get alerts + Lab Records — live (v0.8.0, deployed 2026-10-11)
 **Built** (release v0.8.0; v0.7.0 = N1 is committed `878e8aa` and tagged, neither deployed):
 - **Platform:**
   - migration `0010_alert_recipients.sql` (`alert_recipients`: tenant, user, module, who ticked; FORCE RLS;
@@ -898,7 +900,7 @@ N2 (chosen people get alerts via a per-module tick box, + Lab Records) in plan m
 **Next:** deploy v0.7.0 + v0.8.0 together (VAPID variables, migrations platform `0009` + `0010`, Floor Stock
 `0002`, all four services), test on phones, then N3 (Document Store + platform events) in plan mode.
 
-### 2026-10-11 — Notifications N3: Document Store + PlantOps events — built, not live yet
+### 2026-10-11 — Notifications N3: Document Store + PlantOps events — live (v0.9.0, deployed 2026-10-11)
 **Built** (release v0.9.0; v0.8.0 = N2 committed `fe2157e` and tagged; v0.7.0–v0.9.0 not deployed):
 - **Platform:**
   - migration `0011_platform_notifications.sql`: `notifications.module_id` nullable (null = a PlantOps event,
@@ -941,7 +943,7 @@ N2 (chosen people get alerts via a per-module tick box, + Lab Records) in plan m
 - test on phones
 - then N4 (settings and reliability) in plan mode
 
-### 2026-10-11 — Notifications N4: settings and reliability — built, not live yet
+### 2026-10-11 — Notifications N4: settings and reliability — live (v0.10.0, deployed 2026-10-11)
 **Built** (release v0.10.0; v0.9.0 = N3 committed `cc68157` and tagged; v0.7.0–v0.10.0 not deployed):
 - **Settings:**
   - `NOTIFICATION_KINDS` catalogue in `packages/types` (label, module, `urgent`, `bellOnly`)
@@ -990,3 +992,41 @@ N2 (chosen people get alerts via a per-module tick box, + Lab Records) in plan m
 - Railway
 
 **Next:** deploy v0.7.0 → v0.10.0 together, test on phones. N5+ notifications come with each new module phase.
+
+**Live (2026-10-11):** v0.7.0–v0.10.0 deployed together on the shared copy (record: `docs/deployments/shared.md`);
+first real notifications for plant 001 the same day (desktop Chrome / Firefox). Android / iPhone not yet tested.
+
+### 2026-10-11 — Floor Stock "Can make" — built, not live yet
+**Built** (release v0.11.0; design, mock-ups and build prompt: `docs/FLOOR_STOCK_CAN_MAKE_PLAN.md`; notes in
+`apps/floor-stock/NOTES.md`):
+- After every count (and correction), the Floor Stock **home page** and **day page** show how many boxes / bottles
+  of each finished product the stock is enough for, and which material runs out first. Worked out when the page
+  opens, never stored.
+- **Owner-only setup on Sections & items:** "Contents" on raw material / consumables (1 packet = 25,000 g, damage
+  %, labels' loose count) and "Recipe" on finished goods (what 1 bottle needs). Bottles per box from the PlantOps
+  product. Store keepers see it read-only; audited in Recent changes.
+- **Shared materials** (one preform for BM 1L and DM 1L) shown as one "make one OR the other" group with the
+  shared total.
+- **Database:** Floor Stock migration `0004_recipes.sql`, three **new** tables (`material_contents`, `recipes`,
+  `recipe_lines`) with `tenant_id` + FORCE RLS, no DELETE. **No existing table changed.** Platform and SSO token
+  unchanged.
+- **Tests:** Floor Stock 146 (+35: 19 arithmetic with the owner's example, 16 database); the 111 earlier ones
+  unchanged. Typecheck and build pass.
+
+**Decisions (owner, 2026-10-11):** pieces / weight per counted unit; labels' second number = loose pieces; damage
+allowance per material (preform 0.01%); owner sets it in Sections & items; OR group for shared materials; new tables
+only.
+**Made while building:** amounts at most 2 decimals (use g for small amounts); recipe measure must match the
+material's contents and a contents change that would break a recipe is refused; nothing shows until a recipe exists;
+the Recipe panel puts each material on its own row (names were cut off on phones).
+
+**Verified on `pnpm dev` (2026-10-11, plant 002):** owner set Contents and Recipes through the real API (store
+keeper refused, no session 401); a count by Atharv showed SampleAqua1L up to 116 box / SampleAqua 500ml up to 104 box
+sharing Screw cap blue (2,500 bottles), as worked out by hand; a correction changed it and the old version kept its
+numbers; Recent changes listed every change; setup and home screens checked in headless Chrome at phone width.
+Test data removed afterwards.
+
+**Not yet verified:** the owner's own real figures on the live copy; real phones.
+
+**Next:** deploy v0.11.0 (`./scripts/railway-migrate.sh shared` for Floor Stock `0004`, then the `floor-stock`
+service), then the owner enters Contents and Recipes for the live plant.

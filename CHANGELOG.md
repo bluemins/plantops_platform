@@ -4,6 +4,21 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.11.0 — 2026-10-11 — Floor Stock "Can make"
+
+**What's in it**
+- **Floor Stock works out how many boxes today's stock is enough for**, on the home page and each day page, after
+  every count and correction. Each product shows "up to N box (M bottles)" and which material runs out first.
+- **Set up by the owner on Sections & items:** a **Contents** button on raw material and consumable items ("1 packet
+  = 25,000 g", damage allowance %, labels' count = loose pieces) and a **Recipe** button on finished goods ("1 bottle
+  = 18.5 g preform + 1 cap + 1 label"). Bottles per box come from the PlantOps product. Store keepers see it
+  read-only; every change shows in Recent changes.
+- **Products that share a material** (e.g. one preform for two 1 L brands) are shown together as "make one OR the
+  other", with the shared material's total for both.
+- Nothing changes in the daily count or in existing data: the setup lives in three new tables.
+
+**Migrations:** Floor Stock `0004_recipes.sql`. Deploy the `floor-stock` service only.
+
 ## v0.10.0 — 2026-10-11 — Notification settings, reminder hour, outbox, cleanup
 
 **What's in it**

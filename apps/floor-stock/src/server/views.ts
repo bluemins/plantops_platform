@@ -6,9 +6,11 @@ import { csv, csvTime } from "@plantops/module-kit/csv";
 import { describeChange } from "@/lib/changes";
 import { compare, isLow, sum, type Comparison } from "@/lib/compare";
 import { addDays } from "@/lib/days";
+import type { CanMakeGroup } from "@/lib/recipe";
 import { latestVersion, versionInfo, type VersionInfo } from "./counts";
 import { schema, withTenant, type StockTx } from "./db";
 import { forbidden, notFound } from "./http";
+import { canMakeForVersion } from "./recipes";
 import type { SectionKind } from "./schema";
 import { actorOf, requireOwner, type StockUser } from "./session";
 
@@ -58,6 +60,8 @@ export interface DayView {
   shown: VersionInfo;
   sections: DaySection[];
   low: DayRow[];
+  /** how many boxes this stock is enough for (empty until the owner sets a recipe) */
+  can_make: CanMakeGroup[];
 }
 
 const lineView = (l: Line): LineView => ({ qty: Number(l.qty), second_qty: l.secondQty === null ? null : Number(l.secondQty), remark: l.remark });
@@ -79,6 +83,12 @@ async function linesOf(tx: StockTx, versionId: string) {
 /** One day's count (a given version, or the latest) compared with the day before. null = not counted that day. */
 export async function dayView(user: StockUser, date: string, version?: number): Promise<DayView | null> {
   requireView(user);
+  const found = await countDay(user, date, version);
+  if (!found) return null;
+  return { ...found.view, can_make: await canMakeForVersion(user.tenantId, found.versionId) };
+}
+
+async function countDay(user: StockUser, date: string, version?: number) {
   return withTenant(user.tenantId, async (tx) => {
     const [count] = await tx.select().from(counts).where(and(eq(counts.tenantId, user.tenantId), eq(counts.countDate, date)));
     if (!count) return null;
@@ -130,7 +140,7 @@ export async function dayView(user: StockUser, date: string, version?: number): 
       });
     }
     const filled = result.filter((s) => s.rows.length);
-    return {
+    const view: Omit<DayView, "can_make"> = {
       date,
       previous_date: previousDate,
       previous_counted: !!prev,
@@ -139,6 +149,7 @@ export async function dayView(user: StockUser, date: string, version?: number): 
       sections: filled,
       low: filled.flatMap((s) => s.rows.filter((r) => r.low)),
     };
+    return { view, versionId: shown.id };
   });
 }
 
@@ -241,7 +252,7 @@ export async function recentChanges(user: StockUser, limit = 200): Promise<Chang
     const rows = await tx
       .select()
       .from(auditLog)
-      .where(and(eq(auditLog.tenantId, user.tenantId), or(like(auditLog.action, "section.%"), like(auditLog.action, "item.%"), like(auditLog.action, "setup.%"), eq(auditLog.action, "count.correct"))))
+      .where(and(eq(auditLog.tenantId, user.tenantId), or(like(auditLog.action, "section.%"), like(auditLog.action, "item.%"), like(auditLog.action, "setup.%"), eq(auditLog.action, "count.correct"), eq(auditLog.action, "material.content"), eq(auditLog.action, "recipe.set"))))
       .orderBy(desc(auditLog.at), desc(auditLog.id))
       .limit(limit);
     const names = new Map((await tx.select({ id: sections.id, name: sections.name }).from(sections).where(eq(sections.tenantId, user.tenantId))).map((s) => [s.id, s.name]));

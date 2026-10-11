@@ -12,7 +12,7 @@ import { ReminderSetting } from "./reminder";
 export default async function SetupPage() {
   const user = await requirePageUser("/setup");
   const [plant, sections, skus, settings] = await Promise.all([kit.branding(user.tenantId), listSetup(user), kit.products(user.tenantId), getSettings(user)]);
-  const products = skus.map((s) => ({ id: s.id, label: productLabel(s), active: s.status === "active" }));
+  const products = skus.map((s) => ({ id: s.id, label: productLabel(s), active: s.status === "active", per_box: s.units_per_pack }));
   // first start: what the starter list would create, so the owner sees it before saying yes
   const template = sections.length === 0 && user.isOwner ? starterTemplate(skus).map((s) => ({ name: s.name, kind: s.kind, items: s.items.map((i) => i.name) })) : null;
 

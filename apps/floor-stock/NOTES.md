@@ -5,15 +5,13 @@ production** (finished goods) and the **closing stock** of everything in the pla
 the day. Sales happen during the same day, so the stock figure is the closing count. Project rules live in the
 root `CLAUDE.md`. Built on the shared module kit (`packages/module-kit`), like Lab Records and Document Store.
 
-## Status (2026-10-08)
+## Status (2026-10-11)
 - **Live** on the shared copy at https://stock.bluemins.life since release **v0.6.0** (Railway service
-  `floor-stock`, no volume; record in `docs/deployments/shared.md`).
-- All 8 build steps are done. 87 tests pass (platform 187, auth 32, Lab Records 111, Document Store 86 also pass).
-- Live checks passed:
-  - health with the database OK
-  - redirect to the PlantOps login
-  - APIs refuse without a session, the platform's ticket or the cron secret
-- **Not used for real yet:** no plant has sections, and no count has been entered in a browser.
+  `floor-stock`, no volume; record in `docs/deployments/shared.md`). Runs **v0.10.0** (notifications, reminder hour,
+  outbox).
+- **In real use** since 2026-10-11 (plant 001 Bluemins: daily counts, low-stock and corrected notifications).
+- **v0.11.0 "Can make" built, not deployed yet:** needs Floor Stock migration `0004_recipes.sql` on the copy first.
+- 146 tests pass (all apps' tests pass too).
 
 ## What it does
 - **Sections & items** (`/setup`): each plant's own list; nothing is shared between plants.
@@ -69,6 +67,29 @@ or unreachable platform never holds up or breaks a count. Texts in `src/server/n
 - **Outbox** (N4): a notification that can't reach the platform waits in `notification_outbox` and is resent by the
   daily and evening jobs (`kit.retryOutbox`).
 
+## "Can make" (v0.11.0, docs/FLOOR_STOCK_CAN_MAKE_PLAN.md)
+How many boxes of each finished product a count's stock is enough for, on the home page (newest count) and the day
+page (the version shown). Worked out when the page opens (`src/lib/recipe.ts`), never stored.
+- **Set by the owner only** on Sections & items (`src/server/recipes.ts`, `PUT /api/materials/<id>`,
+  `PUT /api/recipes/<id>`), audited as `material.content` / `recipe.set` in Recent changes:
+  - **Contents** (stock items): what 1 counted unit holds (pcs, g, kg, ml, L, m), a damage allowance %, and for an
+    item with a second number "count = loose pieces" (only with pcs). No contents = the unit is single pieces.
+  - **Recipe** (finished items): what 1 bottle needs of each material. Bottles per box = the linked product's
+    `units_per_pack`; an item without a product uses `case_size` (blank = 1). If PlantOps products can't be loaded,
+    bottles are shown and boxes are not.
+- **Arithmetic:** on hand = closing × contents (+ loose pieces) × (1 − damage %); bottles = the smallest
+  floor(on hand ÷ need) over the recipe; boxes = floor(bottles ÷ per box). Ties name every limiting material.
+- **OR groups:** products sharing a material (directly or through another product) are shown together; each line is
+  "up to" as if all of it went to that product, plus the shared material's total when every product needs the same
+  amount. Numbers are never added up.
+- **Rules:** recipe amounts must be the same kind of measure as the material's contents (weight with weight); a
+  contents change that would break a recipe is refused ("change that recipe first"). Amounts have at most 2
+  decimals (use g, not kg, for small amounts). A material switched off and not counted → "Can't work out: … not
+  counted". Nothing shows until the plant has at least one recipe.
+- **Database** (migration `0004_recipes.sql`): new tables `material_contents`, `recipes`, `recipe_lines`, all with
+  `tenant_id` + FORCE RLS; `stock_app` SELECT / INSERT / column UPDATE, no DELETE (a recipe line taken out is
+  switched off). No existing table was changed.
+
 ## Rules that are easy to get wrong
 - **Who may do what** is checked in `src/server/setup.ts` / `counts.ts`, because the database login can't tell
   an owner from a store keeper:
@@ -106,7 +127,9 @@ Local setup: `./scripts/setup-module-db.sh floor_stock stock_app STOCK 3002`, th
 Hosted copy set up before Floor Stock: `./scripts/add-railway-module.sh` (docs/DEPLOY.md).
 
 ## Tests
-`pnpm --filter @plantops/floor-stock test` (real Postgres test database; the schema is rebuilt each run). 87 tests:
+`pnpm --filter @plantops/floor-stock test` (real Postgres test database; the schema is rebuilt each run). 146 tests
+(v0.11.0), including "Can make": the arithmetic with the owner's example (`recipe-math.test.ts`) and owner-only
+setup, recipe checks, corrections, Recent changes and the database guards (`recipes.test.ts`). Earlier list:
 - login / session / support read-only, and each support page view logged
 - FORCE RLS guard on every table, and plant A vs plant B
 - the full permission table, with the audit trail
@@ -127,11 +150,11 @@ Hosted copy set up before Floor Stock: `./scripts/add-railway-module.sh` (docs/D
   - [ ] Then Actions → *Daily jobs* → Run workflow: all three steps should be green.
 - [ ] super_admin → Modules: check that Floor Stock shows `https://stock.bluemins.life`.
 - [ ] `floor-stock` variables: check that `BREVO_API_KEY` and `MAIL_FROM` match `document-store`.
-- [ ] First real use:
-  - [ ] switch Floor Stock on in a plant's plan
-  - [ ] give a staff member the `store_keeper` (or `plant_staff`) role
-  - [ ] owner: "⚙ Set up sections", then the starter list
-  - [ ] store keeper: a count on a phone
+- [x] First real use (plant 001 Bluemins, 2026-10-11):
+  - [x] switch Floor Stock on in a plant's plan
+  - [x] give a staff member the `store_keeper` (or `plant_staff`) role
+  - [x] owner: "⚙ Set up sections"
+  - [x] store keeper: a count (Bindu, 14:15) and a correction
   - [ ] owner: the day page and "Copy as WhatsApp message"
 - [ ] Email test: set a limit above an item's count, submit, and check the owner receives the email.
 - [x] Backups before real plant data: nightly encrypted backups since v0.6.2 (HANDBOOK.md section 11).
@@ -152,6 +175,11 @@ Hosted copy set up before Floor Stock: `./scripts/add-railway-module.sh` (docs/D
   window like Lab Records'.
 - On a phone over plain `http://` (local testing), "Copy as WhatsApp message" can't use the clipboard. It shows
   the text to select instead. Over https it copies directly.
+
+**After deploying v0.11.0 ("Can make"):**
+- [ ] Owner: Contents on each preform, cap and label (e.g. 1 packet = 25,000 g, damage 0.01%; 1 box = ? caps;
+      1 bundle = ? labels + loose count), then a Recipe on each finished product.
+- [ ] Check the home page after the next count against a hand calculation for one product.
 
 **Later (not v1):**
 - Dispatch entries (party, item, boxes, batch) as new tables. The day page would then show "Dispatched vs Sold

@@ -1,5 +1,6 @@
 // "Recent changes": audit rows in plain words for the owner ("Item Roll: limit — → 3").
 import { fmtDate } from "@plantops/module-kit/format";
+import { contentText, type Content } from "./recipe";
 
 type Change = { from: unknown; to: unknown };
 const show = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : String(v));
@@ -38,6 +39,15 @@ export function describeChange(action: string, target: string | null, details: R
       return `Created the starter list (${show(details.sections)} sections, ${show(details.items)} items)`;
     case "setup.reminder":
       return `Evening reminder changed from ${show(details.from)} to ${show(details.to)}`;
+    case "material.content": {
+      const unit = show(details.unit);
+      const text = (c: unknown) => (c ? contentText(unit, c as Content) : "not set");
+      return `Contents of ${name}: ${text(details.from)} → ${text(details.to)}`;
+    }
+    case "recipe.set": {
+      const list = (v: unknown) => (Array.isArray(v) && v.length ? v.join(" + ") : "none");
+      return `Recipe of ${name} (1 bottle): ${list(details.from)} → ${list(details.to)}`;
+    }
     case "count.correct":
       return `Corrected the count of ${target ? fmtDate(target) : "—"} (version ${show(details.version)}): ${show(details.reason)}`;
     default:

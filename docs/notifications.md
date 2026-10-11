@@ -45,11 +45,11 @@ Notifications appear in two places:
   - The SSO token is unchanged.
 
 ## Status
-- **N1 built 2026-10-11** (release v0.7.0, not deployed yet). See the CLAUDE.md status note.
-- **N2 built 2026-10-11** (release v0.8.0, not deployed yet): chosen people ("Gets alerts" tick boxes),
+- **N1 built 2026-10-11** (release v0.7.0, live 2026-10-11). See the CLAUDE.md status note.
+- **N2 built 2026-10-11** (release v0.8.0, live 2026-10-11): chosen people ("Gets alerts" tick boxes),
   `/notifications` page, 🔔 in every module header, Lab Records events (table below).
-- **N3 built 2026-10-11** (release v0.9.0, not deployed yet): Document Store and PlantOps events (tables below).
-- **N4 built 2026-10-11** (release v0.10.0, not deployed yet):
+- **N3 built 2026-10-11** (release v0.9.0, live 2026-10-11): Document Store and PlantOps events (tables below).
+- **N4 built 2026-10-11** (release v0.10.0, live 2026-10-11):
   - **Settings per kind** on `/notifications`: Phone + bell / Bell only / Off; bell-only kinds offer Bell / Off;
     urgent kinds (ON HOLD, Form 3/4 FAIL, document expiry, someone locked out) are always on.
   - **Floor Stock reminder hour** chosen by the owner on Sections & items (5 pm–11 pm or Off; default 8 pm). The

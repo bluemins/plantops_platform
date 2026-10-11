@@ -8,10 +8,12 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { TenantSku } from "@plantops/types";
+import type { Content } from "@/lib/recipe";
 import { starterTemplate } from "@/lib/template";
 import { schema, withTenant, type StockTx } from "./db";
 import { badRequest, conflict, forbidden, notFound } from "./http";
 import { kit } from "./kit";
+import { recipeData, type RecipeView } from "./recipes";
 import type { OnOff, SectionKind } from "./schema";
 import { actorOf, requireCount, requireOwner, type StockUser } from "./session";
 
@@ -28,12 +30,17 @@ export interface ItemView {
   min_level: number | null;
   status: OnOff;
 }
+/** An item on the setup screen: also what 1 unit holds (stock items) and its recipe (finished goods). */
+export interface SetupItemView extends ItemView {
+  content: Content | null;
+  recipe: RecipeView | null;
+}
 export interface SectionView {
   id: string;
   name: string;
   kind: SectionKind;
   status: OnOff;
-  items: ItemView[];
+  items: SetupItemView[];
 }
 
 const num = (v: string | null) => (v === null ? null : Number(v));
@@ -53,7 +60,9 @@ export async function listSetup(user: StockUser): Promise<SectionView[]> {
   return withTenant(user.tenantId, async (tx) => {
     const secs = await tx.select().from(sections).where(eq(sections.tenantId, user.tenantId)).orderBy(asc(sections.sortOrder), asc(sections.createdAt));
     const its = await tx.select().from(items).where(eq(items.tenantId, user.tenantId)).orderBy(asc(items.sortOrder), asc(items.createdAt));
-    return secs.map((s) => ({ id: s.id, name: s.name, kind: s.kind, status: s.status, items: its.filter((i) => i.sectionId === s.id).map(itemView) }));
+    const data = await recipeData(tx, user.tenantId);
+    const view = (i: typeof items.$inferSelect): SetupItemView => ({ ...itemView(i), content: data.contents.get(i.id) ?? null, recipe: data.recipes.get(i.id) ?? null });
+    return secs.map((s) => ({ id: s.id, name: s.name, kind: s.kind, status: s.status, items: its.filter((i) => i.sectionId === s.id).map(view) }));
   });
 }
 

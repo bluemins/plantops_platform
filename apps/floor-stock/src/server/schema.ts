@@ -1,5 +1,6 @@
 // Drizzle table definitions mirroring db/migrations/*.sql (the SQL files are the source of truth).
-import { bigint, date, integer, jsonb, numeric, pgSchema, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, date, integer, jsonb, numeric, pgSchema, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import type { Measure } from "@/lib/recipe";
 
 export const stock = pgSchema("floor_stock");
 const ts = (name: string) => timestamp(name, { withTimezone: true });
@@ -124,6 +125,53 @@ export const notificationOutbox = stock.table("notification_outbox", {
 export const plantSettings = stock.table("plant_settings", {
   tenantId: uuid("tenant_id").primaryKey(),
   countReminder: text("count_reminder").notNull().default("20:00"),
+  updatedBy: uuid("updated_by").notNull(),
+  updatedByName: text("updated_by_name").notNull(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+// ---------- "Can make" (migration 0004): what 1 unit of a material holds, and what 1 bottle of a product needs ----------
+/** One row per stock item that has its contents set (no row = its unit is single pieces). */
+export const materialContents = stock.table("material_contents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  itemId: uuid("item_id").notNull(),
+  contentQty: numeric("content_qty", { precision: 12, scale: 2 }).notNull(),
+  contentMeasure: text("content_measure").$type<Measure>().notNull(),
+  secondIsPieces: boolean("second_is_pieces").notNull().default(false),
+  damagePct: numeric("damage_pct", { precision: 6, scale: 4 }).notNull().default("0"),
+  updatedBy: uuid("updated_by").notNull(),
+  updatedByName: text("updated_by_name").notNull(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+/** One recipe per finished product. case_size only for an item without a linked product. */
+export const recipes = stock.table("recipes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  productItemId: uuid("product_item_id").notNull(),
+  caseSize: integer("case_size"),
+  status: text("status").$type<OnOff>().notNull().default("active"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedBy: uuid("updated_by").notNull(),
+  updatedByName: text("updated_by_name").notNull(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+/** What 1 bottle needs of one material (switched off, never deleted). */
+export const recipeLines = stock.table("recipe_lines", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  recipeId: uuid("recipe_id").notNull(),
+  materialItemId: uuid("material_item_id").notNull(),
+  qty: numeric("qty", { precision: 12, scale: 2 }).notNull(),
+  measure: text("measure").$type<Measure>().notNull(),
+  status: text("status").$type<OnOff>().notNull().default("active"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
   updatedBy: uuid("updated_by").notNull(),
   updatedByName: text("updated_by_name").notNull(),
   updatedAt: ts("updated_at").notNull().defaultNow(),

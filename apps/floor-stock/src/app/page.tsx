@@ -8,6 +8,7 @@ import { requirePageUser } from "@/server/session";
 import { listSetup } from "@/server/setup";
 import { dayView, homeStatus } from "@/server/views";
 import type { VersionInfo } from "@/server/counts";
+import { CanMakeCard } from "./can-make";
 import { Header } from "./header";
 
 /** Floor Stock home: is today counted, what is low, and the way to everything else. */
@@ -41,6 +42,8 @@ export default async function HomePage() {
           {!status.yesterdayCount && <DayCard label="Yesterday" date={status.yesterday} count={null} canEnter={canEnter} />}
         </>
       )}
+
+      {latest && <CanMakeCard groups={latest.can_make} title={latest.date === status.today ? "Can make from today's stock" : `Can make from the stock of ${fmtDate(latest.date)}`} />}
 
       {latest && latest.low.length > 0 && (
         <Card className="border-red-200 bg-red-50">
