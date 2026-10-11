@@ -3,7 +3,8 @@
 #   Lab Records     POST <LAB_URL>/api/cron/daily   (holds older than 24 h, Form 1 due)
 #   Document Store  POST <DOCS_URL>/api/cron/daily  (expiry emails)
 #   Floor Stock     POST <STOCK_URL>/api/cron/daily (low-stock emails still waiting; skipped while STOCK_URL is unset)
-# Each copy is a GitHub environment (Settings > Environments) with variables APP_URL, LAB_URL, DOCS_URL, STOCK_URL and the
+#   Complaint Box   POST <COMPLAINT_URL>/api/cron/daily (complaints still open; skipped while COMPLAINT_URL is unset)
+# Each copy is a GitHub environment (Settings > Environments) with variables APP_URL, LAB_URL, DOCS_URL, STOCK_URL, COMPLAINT_URL and the
 # secret CRON_SECRET. To add a copy: create its environment and add its name to `copy` below.
 # A failed call fails the run, and GitHub emails the repo owner. "Run workflow" runs it by hand.
 name: Daily jobs
@@ -49,6 +50,13 @@ jobs:
         if: ${{ !cancelled() && vars.STOCK_URL != '' }}
         env:
           URL: ${{ vars.STOCK_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS --max-time 120 -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/daily"
+      - name: Complaint Box
+        if: ${{ !cancelled() && vars.COMPLAINT_URL != '' }}
+        env:
+          URL: ${{ vars.COMPLAINT_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           curl -fsS --max-time 120 -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/daily"

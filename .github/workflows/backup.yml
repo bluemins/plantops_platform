@@ -3,9 +3,11 @@
 #                   <bucket>/db/<copy>/plantops-<copy>-<India date>.dump.age; dumps older than 30 days are removed
 #   Document Store  POST <DOCS_URL>/api/cron/backup: the app copies its new uploaded files, encrypted, to
 #                   <bucket>/files/document_store/... (files are kept as long as the app keeps them: forever)
+#   Complaint Box   POST <COMPLAINT_URL>/api/cron/backup: the same for complaint photos / videos, into
+#                   <bucket>/files/complaint_box/... (skipped while COMPLAINT_URL is unset)
 # Each copy is a GitHub environment (Settings > Environments) with:
 #   secrets    DATABASE_URL_BACKUP, BACKUP_ACCESS_KEY_ID, BACKUP_SECRET_ACCESS_KEY, CRON_SECRET
-#   variables  BACKUP_BUCKET, BACKUP_ENDPOINT, BACKUP_RECIPIENT (public key only), DOCS_URL
+#   variables  BACKUP_BUCKET, BACKUP_ENDPOINT, BACKUP_RECIPIENT (public key only), DOCS_URL, COMPLAINT_URL
 # Only the public key is here; the private key that opens backups is in the owner's password manager.
 # A failed step fails the run, and GitHub emails the repo owner. "Run workflow" runs it by hand.
 name: Backup
@@ -83,4 +85,14 @@ jobs:
           code=$(curl -sS --max-time 120 -o result.json -w '%{http_code}' -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/backup")
           cat result.json; echo
           # "not set up" means the BACKUP_* variables are missing on the Railway service: that is a failure here
+          [ "$code" = 200 ] && jq -e '.status == "ok"' result.json >/dev/null
+
+      - name: Complaint Box files
+        if: ${{ !cancelled() && vars.COMPLAINT_URL != '' }}
+        env:
+          URL: ${{ vars.COMPLAINT_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -sS --max-time 120 -o result.json -w '%{http_code}' -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/backup")
+          cat result.json; echo
           [ "$code" = 200 ] && jq -e '.status == "ok"' result.json >/dev/null

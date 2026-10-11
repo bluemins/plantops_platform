@@ -10,6 +10,7 @@ independently, with its own URL, Docker image and database schema.
 - `apps/lab-records`
 - `apps/document-store`
 - `apps/floor-stock`
+- `apps/complaint-box` (built before Preventive Management, decided by the owner 2026-10-11)
 - `apps/preventive-mgmt`
 - `apps/amc`
 - `apps/attendance-salary`
@@ -101,7 +102,7 @@ working. Nothing is stored.
 screens stay PlantOps blue.
 
 **Every module app must** (all in `packages/auth`, wired up once by `createModule()` in `packages/module-kit`;
-`apps/lab-records`, `apps/document-store` and `apps/floor-stock` use it):
+`apps/lab-records`, `apps/document-store`, `apps/floor-stock` and `apps/complaint-box` use it):
 `startModuleSession` at `/sso/callback`, keep the session with `sealSession`/`openSession` (own
 `SESSION_SECRET`, ≥ 32 chars), call `refreshModuleSession` on every request (12 h shift, 5-min re-check,
 15-min grace if the platform is unreachable), send users without a session to
@@ -157,10 +158,10 @@ prompt to add to a module phase is in `docs/notifications.md` ("N5+").
 - Node.js + TypeScript backend, clean REST API per app (platform + each module).
 - PostgreSQL, managed hosting. Hosting: Railway, Singapore region, one project (decided 2026-10-04 for low
   cost); India hosting later if a plant needs it. Public addresses: `app.bluemins.life` (platform),
-  `lab.bluemins.life` (Lab Records), `docs.bluemins.life` (Document Store), `stock.bluemins.life` (Floor Stock);
-  `bluemins.life` itself stays a static site on GitHub Pages, DNS at WordPress.com. Railway deploys the git
-  branch `production` only (`main` never deploys). Running it: `docs/HANDBOOK.md`; setup steps: `docs/DEPLOY.md`;
-  per-copy records: `docs/deployments/`.
+  `lab.bluemins.life` (Lab Records), `docs.bluemins.life` (Document Store), `stock.bluemins.life` (Floor Stock),
+  `complaints.bluemins.life` (Complaint Box); `bluemins.life` itself stays a static site on GitHub Pages, DNS at
+  WordPress.com. Railway deploys the git branch `production` only (`main` never deploys). Running it:
+  `docs/HANDBOOK.md`; setup steps: `docs/DEPLOY.md`; per-copy records: `docs/deployments/`.
 - S3-compatible storage for documents/reports. PDF reports via Puppeteer or react-pdf.
 - Scheduler for daily checks; alerts via WhatsApp Cloud API.
 
@@ -330,6 +331,7 @@ WhatsApp, or setting them up. Existing email alerts stay as they are; notificati
 - AMC: contract expiring, visit due / done, invoice due
 - Attendance & Salary: not checked in, leave request, salary ready
 - Marketing Contacts: follow-up due
+- Complaint Box: done in its own phase plan (v0.12.0): new, resolved, reopened, still open, updated, storage
 
 ## Status log
 
@@ -1079,6 +1081,83 @@ notifications work.
 5. **Document Store reminder emails:** Brevo set up 2026-10-04, live sending never confirmed (the owner's no-Brevo
    decision covers Floor Stock only so far).
 
-**Next phase:** Phase 6 (Preventive Management) in plan mode when the owner is ready. Complaint Box and Order
-Capture are proposals only (`docs/COMPLAINT_BOX_PHASE_PLAN.md`, `docs/ORDER_CAPTURE_PHASE_PLAN.md`), with no phase
-number yet.
+**Next phase:** Phase 6 (Preventive Management) in plan mode when the owner is ready. Complaint Box was built next
+instead (owner, 2026-10-11; status note below). Order Capture is a proposal only (`docs/ORDER_CAPTURE_PHASE_PLAN.md`).
+
+### 2026-10-11 — Complaint Box — built (v0.12.0), deploy in progress
+Built ahead of Phase 6, decided by the owner 2026-10-11. Design, phases and build prompts:
+`docs/COMPLAINT_BOX_PHASE_PLAN.md`; module notes: `apps/complaint-box/NOTES.md`.
+
+**Built** (`apps/complaint-box` on :3004, on `packages/module-kit`):
+- **Platform:**
+  - migration `0013_complaint_box.sql` (module + role **Complaint desk**; plant staff work in it too)
+  - plan limit "Complaint Box storage (MB)"
+  - tile 📢 with the owner's "⚙ Item list" link
+  - six `NOTIFICATION_KINDS`
+  - super_admin "Open … (read-only)" for Complaint Box **and Floor Stock** (it was missing)
+- **Module schema** `complaint_box`, login `complaint_app` (migration `0001`):
+  - 7 tables with `tenant_id` + FORCE RLS, **no DELETE anywhere**
+  - complaint details locked after saving (only the status moves); history, files and audit append-only
+  - database checks (Indian mobile, lengths, resolve / reopen need text, file type / size, reference unique per plant)
+- **Item list** (owner): starter list from the plant's products + Dispenser / Delivery / Other with tick boxes;
+  switch off, never delete; complaint count per item; Recent changes.
+- **Logging (phone):**
+  - customer, mobile (Indian-mobile rule), place, item, optional batch, description
+  - up to 5 photos shrunk on the phone (≤ 1600 px JPEG) + one video ≤ 30 MB
+  - reference C-0001… per plant, safe when phones save together
+  - files: type by content, size / count / plan storage limit; added by whoever logged it (or the owner) within
+    24 h; private storage with byte ranges (iPhone video)
+- **Inbox:**
+  - list with status / item / date filters and search (ref, name, mobile digits, place)
+  - "Open N days", amber after 3; tap-to-call `tel:+91…`
+  - complaint page with photos / video and history
+  - notes (+ photos), In progress (staff), Resolve with quick picks / Reopen (owner)
+  - 409 "just changed by …"
+  - owner CSV
+- **Notifications (N5+ from day one):**
+  - new (push), resolved (to whoever logged it only), reopened, updated (bell), storage 80 / 95 %
+  - still open (daily job: day 3, 10, 17… from logging / reopening)
+  - outbox + retry
+- **Standard pieces:** tile "N open / N open over 3 days / N new today"; support view read-only with page + file
+  views on the owner's Support access page; nightly encrypted file backup (`files/complaint_box/…`).
+- **Shared code:** file storage moved from Document Store into `packages/module-kit/src/storage.ts` (+ `sniffVideo`).
+  Document Store's 102 tests passed unchanged.
+- **Deploy pieces:**
+  - Dockerfile
+  - `add-railway-module.sh` now refuses when the platform doesn't know the module yet (its registration used to
+    change 0 rows silently), and writes only the variables a module needs
+  - `setup-railway-db.sh` includes Complaint Box for new copies
+  - `daily.yml` / `backup.yml` steps skipped until `COMPLAINT_URL`
+- **Tests:** Complaint Box 190; platform 264, auth 41, module-kit 33, Lab Records 126, Document Store 102,
+  Floor Stock 146.
+
+**Decisions (owner, 2026-10-11):**
+- design "all as suggested"
+- files added by whoever logged it (or the owner) within 24 h
+- note text required; note photos by their author within 24 h
+- days open from logging / last reopening, amber after 3
+- CSV one row per complaint
+
+**Made while building:**
+- audit table named `audit_log` (like the other modules)
+- reference stored as a number, shown as C-0001
+- the still-open reminder sends the latest step reached, so a missed day catches up
+- no customer phone numbers in notifications
+
+**Bugs found by the checks and fixed:**
+- `crypto.randomUUID()` crashed the form on plain-`http` phone testing
+- a reopened complaint kept its old day count
+- the reminder title showed the step instead of the real days
+
+**Verified on `pnpm dev` (plant 002, headless Chrome at phone width; all test data removed after each check):**
+- real platform logins for a temporary owner, complaint desk user and support handoff
+- complaint with two 4032×3024 photos (stored 1600×1200) + an MP4; byte-range video
+- failed upload + Try again
+- note, In progress, Resolve ("Replaced"), Reopen, a stale change (409)
+- CSV; support read-only
+- Sujata's real inbox got the new / note / still-open notifications
+- tile numbers through the platform
+- the Support access page
+
+**Not yet verified:** real phones (camera, iPhone HEIC photos, Safari video), live deploy, the real R2 file backup.
+

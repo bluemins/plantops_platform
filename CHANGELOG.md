@@ -4,6 +4,32 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.12.0 — 2026-10-11 — Complaint Box
+
+**What's in it**
+- **New module: Complaint Box** at `complaints.bluemins.life`. Plant staff record customer complaints on their phone
+  (customer, mobile, place, item, optional batch, what went wrong) with up to 5 photos (shrunk on the phone) and
+  one short video, and get a reference (C-0001, C-0002 … per plant).
+- **Follow-up:** the complaint list (filters, search, tap-to-call, "Open N days", amber after 3 days), the complaint
+  page with photos / video / history, notes with photos, In progress, Resolve with quick picks ("Replaced",
+  "Refund given", "Not valid", "Entered by mistake") and Reopen (owner only), owner CSV export.
+- **Item list** (owner): starter list from the plant's products + Dispenser / Delivery / Other; switched off, never
+  deleted; complaint count per item; Recent changes.
+- **Alerts** (bell + phone): new complaint; resolved (to whoever logged it); reopened; note / in progress (bell);
+  storage nearly full; still open on day 3, 10, 17…
+- **New role "Complaint desk"**; plant staff work in Complaint Box too. Nothing can be deleted; complaint details are
+  locked after saving.
+- **Launcher tile** "N open · N open over 3 days · N new today"; support view with the owner's "Support access"
+  page; nightly encrypted backup of the photos / videos.
+- **super_admin dashboard:** "Open Floor Stock (read-only)" now appears too (it was missing).
+- **Behind the scenes:** Document Store's file storage moved into the shared module kit (no change for users);
+  `add-railway-module.sh` refuses to register a module the platform doesn't know yet.
+
+**Migrations:** platform `0013_complaint_box.sql`; Complaint Box `0001_complaint_box.sql` (new schema and login:
+run `add-railway-module.sh … complaint_box …` after the platform migration, see DEPLOY.md "Adding a module").
+**Deploy:** `platform`, `document-store` (shared storage code) and the new `complaint-box` service (with a volume).
+Lab Records and Floor Stock unchanged.
+
 ## v0.11.1 — 2026-10-11 — "Send a test to this phone"
 
 **What's in it**

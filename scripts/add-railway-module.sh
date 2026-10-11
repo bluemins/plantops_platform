@@ -33,6 +33,15 @@ read -rs ADMIN_URL; echo
 [[ "$ADMIN_URL" =~ ^postgres(ql)?:// ]] || { echo "That does not look like a postgres:// address"; exit 1; }
 read -rp "Platform address [app.bluemins.life]: " APP_HOST; APP_HOST="${APP_HOST:-app.bluemins.life}"
 
+# The module row comes from its platform migration; without it the registration below would change nothing.
+OWNER_URL=$(grep -E '^DATABASE_URL_OWNER=' "$LOCAL" | cut -d= -f2-)
+KNOWN=$(psql "$OWNER_URL" -Atq -v ON_ERROR_STOP=1 -c "select count(*) from platform.modules where id = '$MODULE'")
+if [ "$KNOWN" != "1" ]; then
+  echo "The platform on copy \"$COPY\" doesn't know $MODULE yet: run its platform migration first, e.g."
+  echo "  PLANTOPS_ENV_FILE=\$PWD/.env.railway.$COPY pnpm --filter @plantops/platform db:migrate"
+  exit 1
+fi
+
 gen() { openssl rand -hex "$1"; }
 PW=$(gen 16); SESSION=$(gen 32); SECRET=$(gen 32)
 
@@ -50,12 +59,13 @@ echo "Running $MODULE migrations..."
 PLANTOPS_ENV_FILE="$LOCAL" pnpm --filter "@plantops/$(echo "$MODULE" | tr _ -)" db:migrate
 
 echo "Registering $MODULE with the platform..."
-OWNER_URL=$(grep -E '^DATABASE_URL_OWNER=' "$LOCAL" | cut -d= -f2-)
 HASH=$(printf %s "$SECRET" | sha256sum | cut -d' ' -f1)
 # (psql fills in :'name' only in what it reads, not in -c)
-psql "$OWNER_URL" -q -v ON_ERROR_STOP=1 -v id="$MODULE" -v url="https://$HOST" -v hash="$HASH" <<'SQL'
-update platform.modules set base_url = :'url', client_secret_hash = :'hash' where id = :'id';
+UPDATED=$(psql "$OWNER_URL" -Atq -v ON_ERROR_STOP=1 -v id="$MODULE" -v url="https://$HOST" -v hash="$HASH" <<'SQL'
+with u as (update platform.modules set base_url = :'url', client_secret_hash = :'hash' where id = :'id' returning 1) select count(*) from u;
 SQL
+)
+[ "$UPDATED" = "1" ] || { echo "Registering $MODULE changed $UPDATED rows instead of 1 - stop and check platform.modules."; exit 1; }
 
 inner() { echo "postgres://$1:$2@\${{Postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/plantops"; }
 cat > "$PASTE" <<ENV
@@ -68,13 +78,33 @@ MODULE_URL_${ID_UP}=https://$HOST
 MODULE_SECRET_${ID_UP}=$SECRET
 ${PREFIX}_DATABASE_URL_APP=$(inner "$LOGIN" "$PW")
 ${PREFIX}_SESSION_SECRET=$SESSION
-# Copy these three from the document-store service (same values):
+# Copy from the document-store service (same value):
 CRON_SECRET=
+ENV
+case "$MODULE" in
+  document_store|floor_stock) cat >> "$PASTE" <<ENV
+# This module sends email - copy from the document-store service (same values):
 BREVO_API_KEY=
 MAIL_FROM=
 ENV
+  ;;
+esac
+case "$MODULE" in
+  document_store|complaint_box) cat >> "$PASTE" <<ENV
+# This module stores files: attach a volume at /data to the service, and copy the five BACKUP_* values from
+# document-store (nightly encrypted copy, docs/HANDBOOK.md "Backups").
+${PREFIX}_STORAGE_DIR=/data/$(echo "$MODULE" | sed 's/^complaint_box$/complaints/; s/^document_store$/documents/')
+RAILWAY_RUN_UID=0
+BACKUP_BUCKET=
+BACKUP_ENDPOINT=
+BACKUP_ACCESS_KEY_ID=
+BACKUP_SECRET_ACCESS_KEY=
+BACKUP_RECIPIENT=
+ENV
+  ;;
+esac
 
 echo
 echo "Done. $MODULE is ready on copy \"$COPY\" (database, migrations, platform registration)."
 echo "  $LOCAL  now also holds MODULE_URL_${ID_UP} / MODULE_SECRET_${ID_UP}: update your password manager copy"
-echo "  $PASTE  paste into the new Railway service (docs/DEPLOY.md), fill in the 3 empty lines, then delete it"
+echo "  $PASTE  paste into the new Railway service (docs/DEPLOY.md), fill in the empty lines, then delete it"

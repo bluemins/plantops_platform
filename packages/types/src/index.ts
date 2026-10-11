@@ -5,6 +5,7 @@ export const MODULE_IDS = [
   "lab_records",
   "document_store",
   "floor_stock",
+  "complaint_box",
   "preventive_mgmt",
   "amc",
   "attendance_salary",
@@ -20,6 +21,7 @@ export const ROLE_IDS = [
   "lab_lead",
   "document_keeper",
   "store_keeper",
+  "complaint_desk",
   "maintenance_technician",
   "plant_staff",
 ] as const;
@@ -34,6 +36,8 @@ export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin" | "plant_staff">
   /** adds, renews and archives the plant's licences and certificates */
   document_keeper: "document_store",
   store_keeper: "floor_stock",
+  /** logs customer complaints and follows them up (resolving and reopening are owner-only) */
+  complaint_desk: "complaint_box",
   maintenance_technician: "preventive_mgmt",
 };
 
@@ -204,6 +208,12 @@ export const NOTIFICATION_KINDS: Record<string, { module: ModuleId | null; label
   "document_store.added": { module: "document_store", label: "New document added", bellOnly: true },
   "document_store.renewed": { module: "document_store", label: "Document renewed", bellOnly: true },
   "document_store.storage": { module: "document_store", label: "Document storage nearly full" },
+  "complaint_box.new": { module: "complaint_box", label: "New complaint" },
+  "complaint_box.resolved": { module: "complaint_box", label: "Your complaint resolved" },
+  "complaint_box.reopened": { module: "complaint_box", label: "Complaint reopened" },
+  "complaint_box.still_open": { module: "complaint_box", label: "Complaint still open (reminder)" },
+  "complaint_box.updated": { module: "complaint_box", label: "Note added / in progress", bellOnly: true },
+  "complaint_box.storage": { module: "complaint_box", label: "Complaint Box storage nearly full" },
   "platform.user_locked": { module: null, label: "Someone locked out", urgent: true },
   "platform.support_opened": { module: null, label: "PlantOps support viewed your data", bellOnly: true },
   "platform.module_on": { module: null, label: "Module switched on" },

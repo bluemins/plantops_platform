@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ModuleId, RoleId } from "@plantops/types";
 import { AccessDeniedError, canAccessModule, requireModuleAccess, requireRole } from "../src";
 
-const enabled: ModuleId[] = ["lab_records", "floor_stock"];
+const enabled: ModuleId[] = ["lab_records", "floor_stock", "complaint_box"];
 
 describe("canAccessModule", () => {
   it.each<[RoleId[], ModuleId, boolean]>([
@@ -20,6 +20,11 @@ describe("canAccessModule", () => {
     [["plant_staff"], "lab_records", false], // ...except Lab Records
     [["plant_staff"], "preventive_mgmt", false], // module not enabled
     [["plant_staff", "lab_technician"], "lab_records", true], // a lab role still opens it
+    [["complaint_desk"], "complaint_box", true],
+    [["complaint_desk"], "floor_stock", false],
+    [["complaint_desk"], "lab_records", false],
+    [["plant_staff"], "complaint_box", true], // Complaint Box is not excluded for plant staff
+    [["store_keeper"], "complaint_box", false],
   ])("%j -> %s = %s", (roles, mod, expected) => {
     expect(canAccessModule(roles, enabled, mod)).toBe(expected);
   });

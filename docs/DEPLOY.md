@@ -24,6 +24,7 @@ One Railway project in the **Singapore** region (lowest cost; data location is n
 | `lab-records` | `apps/lab-records/Dockerfile` | `/health` | `lab.bluemins.life` | |
 | `document-store` | `apps/document-store/Dockerfile` | `/health` | `docs.bluemins.life` | + a volume at `/data` for uploaded files |
 | `floor-stock` | `apps/floor-stock/Dockerfile` | `/health` | `stock.bluemins.life` | no volume (everything is in the database) |
+| `complaint-box` | `apps/complaint-box/Dockerfile` | `/health` | `complaints.bluemins.life` | + its own volume at `/data` for complaint photos / videos (`COMPLAINT_STORAGE_DIR=/data/complaints`) |
 
 Service settings are set in the Railway dashboard, following this page. The Dockerfile is chosen by the
 `RAILWAY_DOCKERFILE_PATH` variable, which is in each service's pasted block. Railway's old `railway.json`
@@ -105,9 +106,15 @@ tag you are deploying.
 
 ## Adding a module to a running copy
 
-For a copy set up before the module existed (the `shared` copy got Floor Stock this way). Do it together with
-the release that contains the module, **before** pushing that release to `production`: the module's migration
-needs its database login to exist.
+For a copy set up before the module existed (the `shared` copy got Floor Stock and Complaint Box this way). Do it
+together with the release that contains the module, **before** pushing that release to `production`: the module's
+migration needs its database login to exist.
+
+**Order matters when the release also adds the module to the platform** (Complaint Box: platform migration `0013`).
+Run the platform migration first:
+`PLANTOPS_ENV_FILE=$PWD/.env.railway.<copy> pnpm --filter @plantops/platform db:migrate`. The script registers the
+module by updating the row that migration creates. It now stops with a plain message if the row isn't there yet.
+After the script, run `./scripts/railway-migrate.sh <copy>` once, so the backup login can also read the new schema.
 
 1. **Database, secrets, registration (this computer).** Check out the release tag, then e.g.:
    ```bash
@@ -119,14 +126,18 @@ needs its database login to exist.
    - registers only this module's address and secret with the platform
 
    It adds two lines to `.env.railway.<copy>` (update your password-manager copy) and writes
-   `.env.railway.<copy>.floor_stock.paste`.
+   `.env.railway.<copy>.<module>.paste` with only what that module needs. `CRON_SECRET` is always included. The Brevo
+   lines appear only for modules that send email; modules that store files (Document Store, Complaint Box) get
+   their storage folder, `RAILWAY_RUN_UID=0` and the five `BACKUP_*`.
 2. **Service.** Create the `floor-stock` service exactly like step 3 of "Setting up a new copy" (branch
    `production`, Healthcheck `/health`, Singapore). Paste the `.paste` block into its Variables → Raw Editor.
-   Fill in the three empty lines (`CRON_SECRET`, `BREVO_API_KEY`, `MAIL_FROM`) with the same values the
-   `document-store` service has. Then delete the `.paste` file.
+   Fill in the empty lines with the same values the `document-store` service has. A module that stores files also
+   needs a **volume at `/data`** (right-click the service → *Attach volume*). Then delete the `.paste` file.
 3. **Address and DNS:** steps 6–7 above (`stock`, port 3002).
-4. **Daily job:** add the variable `STOCK_URL` = `https://stock.bluemins.life` to the GitHub environment.
-   The Floor Stock step is skipped until it is set.
+4. **Daily job:** add the module's variable to the GitHub environment (`STOCK_URL` = `https://stock.bluemins.life`,
+   `COMPLAINT_URL` = `https://complaints.bluemins.life`). Its daily (and, for Complaint Box, backup) step is skipped
+   until it is set. For a module that stores files, add its schema to the "every schema has data" list in
+   `backup.yml` **after** its live migration.
 5. **Release** as below (no other migration needed for this module), then run the checks.
 6. **Switch it on for a plant:** super_admin → the plant → plan → tick Floor Stock, and give the store keeper
    the `store_keeper` role.
@@ -163,7 +174,7 @@ Migrations stay; the older code works with them because they are backward-compat
 
 ## Checks after a deploy
 
-- Open `https://<app address>/.well-known/jwks.json`, then `/health` on the lab, docs and stock addresses.
+- Open `https://<app address>/.well-known/jwks.json`, then `/health` on the lab, docs, stock and complaints addresses.
   All answer, the module ones with `"database":"ok"`.
 - super_admin logs in at `/super/login`. On a new copy, change the generated password first.
 - Modules screen: the Lab Records, Document Store and Floor Stock addresses are the `https://` ones.
@@ -179,12 +190,13 @@ Migrations stay; the older code works with them because they are backward-compat
   (iPhone: Add to Home Screen first) → a store keeper saves a count → the phone shows "Stock count saved" and
   the bell shows it.
 - super_admin dashboard → open a module read-only (support view). The owner's "Support access" page lists it.
+- Complaint Box: a complaint with a photo, redeploy `complaint-box`, and the photo still opens (the volume works).
 
 ## Good to know
 
-- **Ports.** Each service listens on its own port inside Railway (3000/3001/3003/3002, set by `PORT`). From
+- **Ports.** Each service listens on its own port inside Railway (3000/3001/3003/3002/3004, set by `PORT`). From
   outside, everything is normal HTTPS on its own address.
-- **Volume permissions.** Railway volumes can only be written by root, so `document-store` has
+- **Volume permissions.** Railway volumes can only be written by root, so `document-store` and `complaint-box` have
   `RAILWAY_RUN_UID=0`. If files move to S3-compatible storage later (`STORAGE_BUCKET`, see
   `.env.example`), remove the volume and that setting.
 - **Backups.** Nightly, encrypted, to a Cloudflare R2 bucket: database and every app's stored files

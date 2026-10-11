@@ -78,6 +78,7 @@ describe("tile rules (decideTiles / landingFor)", () => {
       ["floor_stock", "open", undefined],
       ["preventive_mgmt", "off", undefined],
       ["document_store", "locked", "not_enabled"],
+      ["complaint_box", "locked", "not_enabled"],
       ["amc", "locked", "addon"],
       ["attendance_salary", "locked", "not_enabled"],
       ["marketing_contacts", "locked", "not_enabled"],
@@ -110,6 +111,16 @@ describe("tile rules (decideTiles / landingFor)", () => {
     expect(landingFor(["plant_staff"], one)).toBe("floor_stock");
   });
 
+  it("complaint desk only: lands straight in Complaint Box; with a second working role, the launcher", () => {
+    const cb = [...all, avail("complaint_box")];
+    const one = decideTiles(["complaint_desk"], ["floor_stock", "complaint_box"], cb);
+    expect(one).toEqual([{ module: "complaint_box", state: "open", view: "staff" }]);
+    expect(landingFor(["complaint_desk"], one)).toBe("complaint_box");
+    const two = decideTiles(["complaint_desk", "store_keeper"], ["floor_stock", "complaint_box"], cb);
+    expect(two.map((t) => t.module)).toEqual(["floor_stock", "complaint_box"]);
+    expect(landingFor(["complaint_desk", "store_keeper"], two)).toBe("launcher");
+  });
+
   it("an owner who is also lab staff still gets the owner view and the launcher", () => {
     const tiles = decideTiles(["tenant_admin", "lab_technician"], ["lab_records"], all);
     expect(tiles[0]).toMatchObject({ module: "lab_records", view: "owner" });
@@ -127,12 +138,12 @@ describe("GET /api/launcher", () => {
     multi = await makeStaff(A, "multi", ["lab_technician", "store_keeper"]);
   });
 
-  it("owner: tiles + plan card (Growth, 3 of 7, users 3/10)", async () => {
+  it("owner: tiles + plan card (Growth, 3 of 8, users 3/10)", async () => {
     const res = await call(launcherRoute.GET as Handler, { cookie: A.adminCookie });
     expect(res.status).toBe(200);
     expect(res.body.landing).toBe("launcher");
-    expect(res.body.tiles.filter((t: { state: string }) => t.state === "locked")).toHaveLength(4);
-    expect(res.body.plan_summary).toMatchObject({ plan_name: "Growth", modules_enabled: 3, modules_total: 7, users_active: 3, max_users: 10 });
+    expect(res.body.tiles.filter((t: { state: string }) => t.state === "locked")).toHaveLength(5);
+    expect(res.body.plan_summary).toMatchObject({ plan_name: "Growth", modules_enabled: 3, modules_total: 8, users_active: 3, max_users: 10 });
     expect(res.body.plant).toMatchObject({ code: A.code, logo_url: null });
   });
 
@@ -254,9 +265,9 @@ describe("super_admin Modules screen", () => {
   });
   const patch = (id: string, body: unknown) => call(moduleRoute.PATCH as Handler, { cookie: sa.cookie, method: "PATCH", body, params: { id } });
 
-  it("lists all seven modules with their state; owner/staff are refused", async () => {
+  it("lists all eight modules with their state; owner/staff are refused", async () => {
     const res = await call(modulesRoute.GET as Handler, { cookie: sa.cookie });
-    expect(res.body.map((m: { id: string }) => m.id)).toEqual(["lab_records", "document_store", "floor_stock", "preventive_mgmt", "amc", "attendance_salary", "marketing_contacts"]);
+    expect(res.body.map((m: { id: string }) => m.id)).toEqual(["lab_records", "document_store", "floor_stock", "complaint_box", "preventive_mgmt", "amc", "attendance_salary", "marketing_contacts"]);
     expect(res.body[0]).toMatchObject({ base_url: fakeUrl, secret_set: true, status: "active", ready: true });
     expect(JSON.stringify(res.body)).not.toContain(sha256(LAB_SECRET)); // never the hash
     expect((await call(modulesRoute.GET as Handler, { cookie: P.adminCookie })).status).toBe(401);

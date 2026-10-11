@@ -14,7 +14,8 @@
     "./safe-next": "./src/safe-next.ts",
     "./mail": "./src/mail.ts",
     "./s3": "./src/s3.ts",
-    "./backup": "./src/backup.ts"
+    "./backup": "./src/backup.ts",
+    "./storage": "./src/storage.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

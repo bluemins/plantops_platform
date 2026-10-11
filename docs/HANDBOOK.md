@@ -34,6 +34,7 @@ Railway project "plantops-shared" (Singapore), environment "production"
   lab.bluemins.life  ──► lab-records     Lab Records module                    (port 3001)
   docs.bluemins.life ──► document-store  Document Store module (+ volume /data) (port 3003)
   stock.bluemins.life ─► floor-stock     Floor Stock module (port 3002)
+  complaints.bluemins.life ─► complaint-box  Complaint Box module (+ volume /data) (port 3004)
                          Postgres        one database, private (each app its own schema + login)
 
 GitHub repo bluemins/plantops_platform
@@ -58,12 +59,12 @@ They share **only the code**, and code reaches Railway in exactly one way: a pus
 
 | | Local (development) | Railway (production) |
 |---|---|---|
-| Addresses | `http://localhost:3000` / `:3001` / `:3003` / `:3002` | `https://app` / `lab` / `docs` / `stock.bluemins.life` |
+| Addresses | `http://localhost:3000` / `:3001` / `:3003` / `:3002` / `:3004` | `https://app` / `lab` / `docs` / `stock` / `complaints.bluemins.life` |
 | Settings and secrets | `.env` in the project folder | each service → **Variables** |
 | Database | Postgres on this computer (`plantops`; tests use `plantops_test`) | Railway's Postgres |
 | super_admin | `admin@plantops.local` | `contact@bluemins.life` |
 | Plants, users, lab records, documents | test data only | real data |
-| Uploaded files | `.data/` in the project folder | `document-store-volume` |
+| Uploaded files | `.data/` in the project folder (`documents/`, `complaints/`) | `document-store-volume`, `complaint-box-volume` |
 | Code changes go live | instantly with `pnpm dev` | only after a push to `production` |
 
 **Which database does a command touch?**
@@ -223,11 +224,11 @@ A reset is always temporary: the person picks their own at the next login. More 
 | SSO signing key `SSO_PRIVATE_JWK_B64` | platform | (pasted, then file deleted) | ✔ |
 | Module secrets `MODULE_SECRET_*` | lab-records, document-store | `.env.railway.shared` | ✔ |
 | Session secrets `LAB_/DOC_SESSION_SECRET` | lab-records, document-store | (pasted, then file deleted) | ✔ |
-| `CRON_SECRET` | platform, lab-records, document-store, floor-stock **and** GitHub environment `shared` | (pasted, then file deleted) | ✔ |
+| `CRON_SECRET` | platform, lab-records, document-store, floor-stock, complaint-box **and** GitHub environment `shared` | (pasted, then file deleted) | ✔ |
 | super_admin password | (stored as a hash in the database) | not stored | ✔ |
 | Phone notification keys `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | platform | not stored (local dev has its own pair in `.env`) | ✔ |
 | Backup login `DATABASE_URL_BACKUP` (read-only) | GitHub environment `shared` only | `.env.railway.shared` | ✔ |
-| R2 keys `BACKUP_ACCESS_KEY_ID` / `BACKUP_SECRET_ACCESS_KEY` | document-store **and** GitHub environment `shared` | `.env.railway.shared` | ✔ |
+| R2 keys `BACKUP_ACCESS_KEY_ID` / `BACKUP_SECRET_ACCESS_KEY` | document-store, complaint-box **and** GitHub environment `shared` | `.env.railway.shared` | ✔ |
 | **Private backup key** (`AGE-SECRET-KEY-...`) | **never** | **never** (typed in when restoring) | ✔ **two copies** |
 
 - **`.env.railway.shared`**: keep it. It's needed for migrations and password recovery. Git ignores it.
@@ -283,6 +284,8 @@ every day at **07:00 India time**, for each copy listed in it:
 - Document Store: expiry emails and app notifications
 - Floor Stock: low-stock emails still waiting (most go out right after the count is saved); skipped until
   `STOCK_URL` is set
+- Complaint Box: "C-0042 open for N days" reminders (day 3, 10, 17… after logging / reopening) and notifications
+  that waited in its outbox; skipped until `COMPLAINT_URL` is set
 
 To check or run it: GitHub → **Actions** → *Daily jobs*. Confirm a successful run before relying on reminders;
 click **Run workflow** to run it now. A failed run sends GitHub's failure email.
@@ -290,7 +293,7 @@ If runs appear on every push, named `.github/workflows/daily.yml` instead of *Da
 file (a YAML mistake) and nothing runs. Until 2026-10-04 that was the case: a `run:` line containing `: ` must be
 written as `run: |` with the command on the next line.
 
-Its settings live in GitHub → Settings → **Environments** → `shared`: variables `APP_URL`, `LAB_URL`, `DOCS_URL` and `STOCK_URL`,
+Its settings live in GitHub → Settings → **Environments** → `shared`: variables `APP_URL`, `LAB_URL`, `DOCS_URL`, `STOCK_URL` and `COMPLAINT_URL`,
 and the secret `CRON_SECRET`. If the repo is ever made public, GitHub pauses schedules after 60 days without
 commits.
 
@@ -364,12 +367,14 @@ When approved, add `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_TEMPLATE` an
 
 - **Uploaded documents** are on `document-store-volume`, mounted at `/data`. `DOC_STORAGE_DIR=/data/documents`,
   and `RAILWAY_RUN_UID=0` lets the app write there.
+- **Complaint photos / videos** are on Complaint Box's **own** `complaint-box-volume` at `/data`
+  (`COMPLAINT_STORAGE_DIR=/data/complaints`, `RAILWAY_RUN_UID=0`). Never Document Store's volume or bucket.
 - **Backups: every night, encrypted, outside Railway** (Railway's own Backups tab needs the Pro plan). The
   **Backup** workflow (`.github/workflows/backup.yml`, 02:00 India time) puts everything into one private
   Cloudflare R2 bucket:
   - **Database:** a `pg_dump` of all schemas made with the read-only login `plantops_backup`
     (`db/<copy>/plantops-<copy>-<date>.dump.age`), kept **30 days**.
-  - **Files:** each app that stores files (today Document Store) copies its **new** files there
+  - **Files:** each app that stores files (Document Store, Complaint Box) copies its **new** files there
     (`files/<module>/tenant/<plant>/<file>.age`). Files are never changed or deleted in PlantOps, so the copies
     are kept as long as the app keeps them: forever.
   - Everything is encrypted with `age`. GitHub and Railway hold only the **public** key, which can lock but not
@@ -392,7 +397,8 @@ When approved, add `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_TEMPLATE` an
      - secrets `DATABASE_URL_BACKUP`, `BACKUP_ACCESS_KEY_ID`, `BACKUP_SECRET_ACCESS_KEY` (`CRON_SECRET` is there)
      - variables `BACKUP_BUCKET`, `BACKUP_ENDPOINT`, `BACKUP_RECIPIENT` (= the public key) (`DOCS_URL` is there)
   7. Railway → `document-store` → Variables: `BACKUP_BUCKET`, `BACKUP_ENDPOINT`, `BACKUP_ACCESS_KEY_ID`,
-     `BACKUP_SECRET_ACCESS_KEY`, `BACKUP_RECIPIENT`. (Every future app that stores files gets the same five.)
+     `BACKUP_SECRET_ACCESS_KEY`, `BACKUP_RECIPIENT`. Every app that stores files gets the same five (also
+     `complaint-box`, plus `COMPLAINT_URL` in GitHub for its backup step).
   8. GitHub → Actions → **Backup** → Run workflow. All steps green; then `pnpm backup list` shows the dump.
   9. Do a practice restore (below) once, and again every few months.
 

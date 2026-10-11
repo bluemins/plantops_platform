@@ -9,9 +9,11 @@ export type PlanFormValue = {
   lab_history_months: string;
   /** Document Store: total file storage in MB. Blank = unlimited. */
   doc_storage_mb: string;
+  /** Complaint Box: total photo / video storage in MB. Blank = unlimited. */
+  cb_storage_mb: string;
 };
 
-export const emptyPlan: PlanFormValue = { plan_name: "Growth", enabled_modules: [], max_users: "10", renews_on: "", lab_history_months: "", doc_storage_mb: "" };
+export const emptyPlan: PlanFormValue = { plan_name: "Growth", enabled_modules: [], max_users: "10", renews_on: "", lab_history_months: "", doc_storage_mb: "", cb_storage_mb: "" };
 
 type ModuleLimits = Record<string, unknown>;
 
@@ -19,6 +21,7 @@ type ModuleLimits = Record<string, unknown>;
 export const MODULE_LIMIT_FIELDS = [
   { field: "lab_history_months", module: "lab_records", key: "history_months", label: "Lab Records history shown (months, blank = unlimited)" },
   { field: "doc_storage_mb", module: "document_store", key: "storage_mb", label: "Document Store storage (MB, blank = unlimited)" },
+  { field: "cb_storage_mb", module: "complaint_box", key: "storage_mb", label: "Complaint Box storage (MB, blank = unlimited)" },
 ] as const;
 
 const moduleLimits = (modules: ModuleLimits | undefined, module: string) => (modules?.[module] ?? {}) as Record<string, number>;
