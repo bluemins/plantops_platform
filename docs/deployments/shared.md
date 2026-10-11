@@ -16,12 +16,14 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | DNS | WordPress.com (bluemins.life itself stays on GitHub Pages) |
 | super_admin login | contact@bluemins.life (password in the password manager) |
 | Secrets | Railway variables + password manager entry "PlantOps railway shared"; `.env.railway.shared` on Rocky's computer |
-| Daily jobs | GitHub environment `shared` (`.github/workflows/daily.yml`); first successful run 2026-10-04 (#8) |
+| Daily jobs | GitHub environment `shared` (`.github/workflows/daily.yml`, 07:00 IST: Platform, Lab Records, Document Store, Floor Stock); first successful run 2026-10-04 (#8). Variables `APP_URL`, `LAB_URL`, `DOCS_URL`, `STOCK_URL` + secret `CRON_SECRET` (also on every Railway service, platform since 2026-10-11) |
+| Evening jobs | `.github/workflows/evening.yml`, hourly 17:00-23:00 IST (Lab Records from 20:00, Floor Stock at each plant's reminder hour); first run green 2026-10-11 |
+| App notifications | Web Push keys `VAPID_*` on `platform` (own pair for this copy, in the password manager; created 2026-10-11). Phones not yet tested |
 | Email | Brevo HTTPS API (`BREVO_API_KEY`; Railway Hobby blocks SMTP), sender `contact@bluemins.life`; domain DKIM + DMARC records at WordPress.com (2026-10-04). Live sending not yet confirmed |
 | WhatsApp | not set up (waiting for Meta approval) |
 | File storage | Railway volume (move to S3-compatible storage + backups before real plant documents) |
 | Backups | nightly 02:00 IST, encrypted (`age`), to Cloudflare R2 bucket `plantops-backup` (`backup.yml`): database dump (30 days, read-only login `plantops_backup`) + Document Store files. Private key in the password manager. Practice restore done 2026-10-11 |
-| Runs release | v0.6.2 (`production` = commit `42ef45f`) |
+| Runs release | v0.10.0 (`production` = commit `f0bcc18`) |
 
 ## History
 | Date | What |
@@ -32,3 +34,4 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | 2026-10-08 | v0.6.0 live: Floor Stock added with `add-railway-module.sh` (`stock_app` login, migration, module registration), new `floor-stock` service, `stock` CNAME + `_railway-verify` TXT at WordPress.com, HTTPS issued. Checks: all four health endpoints OK, platform login redirect, APIs refuse without session / ticket / secret. Platform, Lab Records and Document Store redeployed fine. |
 | 2026-10-11 | v0.6.1 live (Plant staff role). `railway-migrate.sh shared`: all four apps "up to date", so platform migration `0008_plant_staff.sql` was already applied. "Plant staff" shows on the owner's Users screen. Saving a user with the role not yet tried. |
 | 2026-10-11 | v0.6.2 live (nightly backups). R2 bucket + scoped token, backup key pair, `setup-backup-login.sh shared`, GitHub + document-store variables. Backup run #1 green: 1 database dump + 3 Document Store files in the bucket (`pnpm backup list`). |
+| 2026-10-11 | v0.7.0-v0.10.0 live together (app notifications N1-N4). Railway Postgres 18.6 (≥ 15 needed). `VAPID_*` (new pair) and `CRON_SECRET` added to `platform`; `APP_URL` added as a GitHub environment variable. `railway-migrate.sh shared`: platform `0009`-`0012`, Lab Records `0004`, Document Store `0002`, Floor Stock `0002`-`0003` applied; live apps unaffected while still on v0.6.2. Tags pushed, `v0.10.0:production` deployed (about 2 minutes). Checks: manifest, `sw.js` (no-cache), icon, `/notifications` 200; notification APIs 401 without login; all cron routes refuse a wrong secret (401); module health OK. Evening jobs run green (Lab waiting for 20:00, Floor Stock 1 plant not yet due); Daily jobs green after `APP_URL` / platform `CRON_SECRET` were fixed. Not yet tried: an owner turning on phone notifications, Android / iPhone delivery. |
