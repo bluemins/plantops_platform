@@ -1042,7 +1042,7 @@ and checked the home page against a count.
 
 **Next:** none for "Can make"; open Floor Stock items are in `apps/floor-stock/NOTES.md`.
 
-### 2026-10-11 — Android phone notifications: diagnosis + "Send a test" — built, not live yet
+### 2026-10-11 — Android phone notifications: diagnosis + "Send a test" — live (v0.11.1)
 **Reported:** phone notifications on Android (installed app) don't work.
 **Found (live database, read-only):** all four Android phones of plant 001 (bluemins, anmol, kedar ×2) are
 correctly signed up with Google's push service (FCM), but they were turned on at 16:09–16:40 IST, after the day's
@@ -1051,5 +1051,6 @@ there was no way to test. Desktop delivery already works.
 **Built** (release v0.11.1, platform only, no migration): "Send a test to this phone" on `/notifications`
 (`POST /api/push/test`, `sendTestPush` in `src/server/notifications.ts`): one push to the asking device only, no
 bell row, 5 per minute; an expired phone (404 / 410) is removed. Platform tests 254 (+4); typecheck and build pass.
-**Not yet verified:** the button on a real Android phone (needs the deploy), and the test screen in a browser.
-**Next:** deploy v0.11.1 (`platform` only), then each person taps the test on their Android phone.
+**Live (2026-10-11):** `v0.11.1:production` deployed; `/api/push/test` answers (401 without login).
+**Not yet verified:** the button on a real Android phone.
+**Next:** each person taps "Send a test to this phone" on their Android phone.
