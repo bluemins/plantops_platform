@@ -19,7 +19,7 @@ permissions: {}
 
 jobs:
   backup:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # pinned: the PostgreSQL apt setup was tested on 24.04
     strategy:
       fail-fast: false
       matrix:

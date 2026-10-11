@@ -20,8 +20,8 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | Email | Brevo HTTPS API (`BREVO_API_KEY`; Railway Hobby blocks SMTP), sender `contact@bluemins.life`; domain DKIM + DMARC records at WordPress.com (2026-10-04). Live sending not yet confirmed |
 | WhatsApp | not set up (waiting for Meta approval) |
 | File storage | Railway volume (move to S3-compatible storage + backups before real plant documents) |
-| Backups | nightly encrypted dump + Document Store files to Cloudflare R2 (`backup.yml`, v0.6.2): **not set up yet** (HANDBOOK.md section 11). Railway's Backups tab needs Pro |
-| Runs release | v0.6.1 (`production` = commit `2b01230`) |
+| Backups | nightly 02:00 IST, encrypted (`age`), to Cloudflare R2 bucket `plantops-backup` (`backup.yml`): database dump (30 days, read-only login `plantops_backup`) + Document Store files. Private key in the password manager. Practice restore not done yet |
+| Runs release | v0.6.2 (`production` = commit `42ef45f`) |
 
 ## History
 | Date | What |
@@ -31,3 +31,4 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | 2026-10-04 | v0.5.0 live (Document Store ZIP export, Hindi/Odia, safer email setup). Brevo SMTP + domain DKIM/DMARC set up. Daily jobs workflow fixed (invalid YAML) and run #8 succeeded. |
 | 2026-10-08 | v0.6.0 live: Floor Stock added with `add-railway-module.sh` (`stock_app` login, migration, module registration), new `floor-stock` service, `stock` CNAME + `_railway-verify` TXT at WordPress.com, HTTPS issued. Checks: all four health endpoints OK, platform login redirect, APIs refuse without session / ticket / secret. Platform, Lab Records and Document Store redeployed fine. |
 | 2026-10-11 | v0.6.1 live (Plant staff role). `railway-migrate.sh shared`: all four apps "up to date", so platform migration `0008_plant_staff.sql` was already applied. "Plant staff" shows on the owner's Users screen. Saving a user with the role not yet tried. |
+| 2026-10-11 | v0.6.2 live (nightly backups). R2 bucket + scoped token, backup key pair, `setup-backup-login.sh shared`, GitHub + document-store variables. Backup run #1 green: 1 database dump + 3 Document Store files in the bucket (`pnpm backup list`). |
