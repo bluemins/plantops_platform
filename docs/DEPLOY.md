@@ -175,9 +175,8 @@ Migrations stay; the older code works with them because they are backward-compat
 - **Volume permissions.** Railway volumes can only be written by root, so `document-store` has
   `RAILWAY_RUN_UID=0`. If files move to S3-compatible storage later (`STORAGE_BUCKET`, see
   `.env.example`), remove the volume and that setting.
-- **Backups.** Before real plant data goes in, turn on Railway's backups for the Postgres and document-store
-  volumes if your plan has them. Otherwise take a weekly `pg_dump` from this computer, using
-  `DATABASE_URL_OWNER` from `.env.railway.<copy>`.
+- **Backups.** Nightly, encrypted, to a Cloudflare R2 bucket: database and every app's stored files
+  (`.github/workflows/backup.yml`). Set up and restore: HANDBOOK.md section 11. Needs the Postgres TCP Proxy on.
 - **Email and WhatsApp** stay off until set up. Add `BREVO_API_KEY` + `MAIL_FROM` to `document-store` and `floor-stock` (Railway Hobby blocks
   SMTP; `SMTP_*` only on hosts that allow it) and the
   `WHATSAPP_*` settings to `lab-records` (see `.env.example`). Until then the apps show "not set up yet".

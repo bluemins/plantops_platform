@@ -15,4 +15,6 @@ export PLANTOPS_ENV_FILE="$FILE"
 
 echo "Migrating copy \"$COPY\"..."
 pnpm db:migrate
+# read access for the backup login to any new table or schema (does nothing until setup-backup-login.sh has run)
+psql "$(grep -E '^DATABASE_URL_OWNER=' "$FILE" | cut -d= -f2-)" -q -v ON_ERROR_STOP=1 -f scripts/backup-grants.sql
 if [ "${2:-}" = "--seed" ]; then pnpm db:seed; fi

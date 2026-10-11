@@ -12,26 +12,34 @@
     "./csv": "./src/csv.ts",
     "./pages": "./src/pages.ts",
     "./safe-next": "./src/safe-next.ts",
-    "./mail": "./src/mail.ts"
+    "./mail": "./src/mail.ts",
+    "./s3": "./src/s3.ts",
+    "./backup": "./src/backup.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "backup:keygen": "tsx scripts/backup-keygen.ts",
+    "backup": "tsx scripts/backup.ts"
   },
   "dependencies": {
     "@plantops/auth": "workspace:*",
     "@plantops/types": "workspace:*",
-    "zod": "^4.3.0",
-    "nodemailer": "^7.0.0"
+    "age-encryption": "^0.3.1",
+    "nodemailer": "^7.0.0",
+    "zod": "^4.3.0"
   },
   "peerDependencies": {
     "next": "^16.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/nodemailer": "^7.0.0",
     "next": "^16.3.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.0",
-    "@types/nodemailer": "^7.0.0"
+    "vitest": "^5.0.3"
   }
 }

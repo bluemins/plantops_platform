@@ -15,7 +15,9 @@
     "sso:keygen": "node scripts/generate-sso-key.mjs",
     "super:set-password": "pnpm --filter @plantops/platform super:set-password",
     "dev:lan": "turbo run dev:lan",
-    "lan:urls": "bash scripts/lan-urls.sh"
+    "lan:urls": "bash scripts/lan-urls.sh",
+    "backup:keygen": "pnpm --filter @plantops/module-kit backup:keygen",
+    "backup": "pnpm --silent --filter @plantops/module-kit backup"
   },
   "devDependencies": {
     "turbo": "^2.5.0",

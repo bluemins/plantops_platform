@@ -1,0 +1,86 @@
+# Nightly encrypted backup of every hosted PlantOps copy (docs/HANDBOOK.md "Backups"):
+#   Database        pg_dump with the read-only login plantops_backup -> checked -> encrypted with age ->
+#                   <bucket>/db/<copy>/plantops-<copy>-<India date>.dump.age; dumps older than 30 days are removed
+#   Document Store  POST <DOCS_URL>/api/cron/backup: the app copies its new uploaded files, encrypted, to
+#                   <bucket>/files/document_store/... (files are kept as long as the app keeps them: forever)
+# Each copy is a GitHub environment (Settings > Environments) with:
+#   secrets    DATABASE_URL_BACKUP, BACKUP_ACCESS_KEY_ID, BACKUP_SECRET_ACCESS_KEY, CRON_SECRET
+#   variables  BACKUP_BUCKET, BACKUP_ENDPOINT, BACKUP_RECIPIENT (public key only), DOCS_URL
+# Only the public key is here; the private key that opens backups is in the owner's password manager.
+# A failed step fails the run, and GitHub emails the repo owner. "Run workflow" runs it by hand.
+name: Backup
+
+on:
+  schedule:
+    - cron: "30 20 * * *" # 02:00 India time
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        copy: [shared]
+    environment: ${{ matrix.copy }}
+    env:
+      COPY: ${{ matrix.copy }}
+      BUCKET: ${{ vars.BACKUP_BUCKET }}
+      ENDPOINT: ${{ vars.BACKUP_ENDPOINT }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      # Cloudflare R2 does not accept the newer default checksums of the AWS CLI on every request
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+    steps:
+      - name: Install pg_dump 18 and age
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common age >/dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y -qq postgresql-client-18 >/dev/null
+
+      - name: Database dump
+        env:
+          DATABASE_URL_BACKUP: ${{ secrets.DATABASE_URL_BACKUP }}
+          RECIPIENT: ${{ vars.BACKUP_RECIPIENT }}
+        run: |
+          set -euo pipefail
+          umask 077
+          /usr/lib/postgresql/18/bin/pg_dump "$DATABASE_URL_BACKUP" --format=custom --file=plantops.dump
+          # a usable dump has the data of every PlantOps schema
+          /usr/lib/postgresql/18/bin/pg_restore --list plantops.dump > contents.txt
+          for schema in platform lab_records document_store floor_stock; do
+            grep -q " TABLE DATA $schema " contents.txt || { echo "No $schema data in the dump"; exit 1; }
+          done
+          echo "Dump: $(du -h plantops.dump | cut -f1), $(grep -c ' TABLE DATA ' contents.txt) tables"
+          age -r "$RECIPIENT" -o plantops.dump.age plantops.dump
+          rm plantops.dump contents.txt
+          DAY=$(TZ=Asia/Kolkata date +%F)
+          aws s3 cp plantops.dump.age "s3://$BUCKET/db/$COPY/plantops-$COPY-$DAY.dump.age" --endpoint-url "$ENDPOINT" --only-show-errors
+          echo "Uploaded db/$COPY/plantops-$COPY-$DAY.dump.age"
+
+      - name: Remove database dumps older than 30 days
+        run: |
+          set -euo pipefail
+          CUTOFF=$(TZ=Asia/Kolkata date -d '30 days ago' +%F)
+          aws s3 ls "s3://$BUCKET/db/$COPY/" --endpoint-url "$ENDPOINT" | awk '{print $4}' | while read -r name; do
+            if [[ "$name" =~ -([0-9]{4}-[0-9]{2}-[0-9]{2})\.dump\.age$ ]] && [[ "${BASH_REMATCH[1]}" < "$CUTOFF" ]]; then
+              aws s3 rm "s3://$BUCKET/db/$COPY/$name" --endpoint-url "$ENDPOINT" --only-show-errors
+              echo "Removed $name"
+            fi
+          done
+
+      - name: Document Store files
+        if: ${{ !cancelled() }}
+        env:
+          URL: ${{ vars.DOCS_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -sS --max-time 120 -o result.json -w '%{http_code}' -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/backup")
+          cat result.json; echo
+          # "not set up" means the BACKUP_* variables are missing on the Railway service: that is a failure here
+          [ "$code" = 200 ] && jq -e '.status == "ok"' result.json >/dev/null

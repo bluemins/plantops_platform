@@ -679,5 +679,14 @@ module's key and re-checked live against the platform. Store keeper refused `/ch
 - Launcher: plant staff see a tile for each module they may open; with only one, they land straight in it.
 - The SSO token is unchanged. Tests: platform 188, auth 36, Lab Records 111, Document Store 87, Floor Stock 88.
 
-**Not yet done:** tried on screen; the migration on the shared copy (`scripts/railway-migrate.sh`); deploy of all
-four apps (`production` is still at v0.6.0).
+**Live (checked 2026-10-11):** v0.6.1 on the shared copy (`production` = `2b01230`), migration `0008` applied.
+**Not yet done:** saving a user with the Plant staff role and using a module as that user, on screen.
+
+### 2026-10-11 — Nightly backups — built, not set up yet (v0.6.2)
+Decided with the owner: stay on Railway Hobby (no built-in backups) and run our own. `.github/workflows/backup.yml`
+dumps the database with a new read-only login `plantops_backup` (SELECT only + BYPASSRLS; approved by the owner
+2026-10-11) and each file-storing app copies its new files (`backupNewFiles` in `packages/module-kit/src/backup.ts`,
+`POST /api/cron/backup`), all `age`-encrypted to one private Cloudflare R2 bucket. Dumps kept 30 days, files
+forever. Only the public key is on servers / in GitHub. **New modules that store files** (e.g. Complaint Box
+photos) add the backup route and the five `BACKUP_*` variables. Setup checklist and restore: HANDBOOK.md
+section 11. Tests: module-kit 12, Document Store 90.

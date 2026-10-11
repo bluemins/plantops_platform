@@ -4,6 +4,23 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.6.2 — not released yet — Nightly encrypted backups
+
+**What's in it**
+- **Backup** workflow (`.github/workflows/backup.yml`, 02:00 India time): a `pg_dump` of the whole database with a
+  new read-only login, checked, encrypted with `age` and uploaded to a private Cloudflare R2 bucket; dumps are kept
+  30 days.
+- Document Store copies its new uploaded files, encrypted, to the same bucket (`POST /api/cron/backup`, shared code
+  in `packages/module-kit/src/backup.ts`, so any future app with files does the same).
+- `pnpm backup:keygen` (key pair) and `pnpm backup list | db | files | decrypt` (restore). Only the public key is
+  on servers and in GitHub.
+- `scripts/setup-backup-login.sh` creates the read-only login `plantops_backup` (SELECT only, read-only sessions,
+  BYPASSRLS so the dump has every plant's rows); `railway-migrate.sh` keeps its read access up to date.
+- Document Store's S3 signing moved into `packages/module-kit/src/s3.ts` (now also lists a bucket).
+
+**Migrations:** none. One-time setup per copy: docs/HANDBOOK.md section 11, "Setting it up". Deploy
+`document-store` (the other apps are unchanged).
+
 ## v0.6.1 — 2026-10-08 — Plant staff role
 
 **What's in it**

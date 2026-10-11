@@ -225,6 +225,9 @@ A reset is always temporary: the person picks their own at the next login. More 
 | Session secrets `LAB_/DOC_SESSION_SECRET` | lab-records, document-store | (pasted, then file deleted) | ✔ |
 | `CRON_SECRET` | lab-records, document-store **and** GitHub environment `shared` | (pasted, then file deleted) | ✔ |
 | super_admin password | (stored as a hash in the database) | not stored | ✔ |
+| Backup login `DATABASE_URL_BACKUP` (read-only) | GitHub environment `shared` only | `.env.railway.shared` | ✔ |
+| R2 keys `BACKUP_ACCESS_KEY_ID` / `BACKUP_SECRET_ACCESS_KEY` | document-store **and** GitHub environment `shared` | `.env.railway.shared` | ✔ |
+| **Private backup key** (`AGE-SECRET-KEY-...`) | **never** | **never** (typed in when restoring) | ✔ **two copies** |
 
 - **`.env.railway.shared`**: keep it. It's needed for migrations and password recovery. Git ignores it.
 - **`.env.railway.shared.paste`**: delete it once everything is pasted. The values live in Railway and the
@@ -240,6 +243,9 @@ A reset is always temporary: the person picks their own at the next login. More 
 | Session secret | Change it in Railway. Everyone using that module logs in again. |
 | `CRON_SECRET` | Change it on both modules **and** in the GitHub environment. |
 | SSO key | Run `pnpm sso:keygen`. Put the new key in platform's `SSO_PRIVATE_JWK_B64`, and the old *public* key in `SSO_PREVIOUS_PUBLIC_JWK_B64` for a day. |
+| Backup login password | Run `./scripts/setup-backup-login.sh shared` again, then update GitHub's `DATABASE_URL_BACKUP`. |
+| R2 keys | Cloudflare → R2 → API tokens: make a new token, put it in document-store, GitHub and `.env.railway.shared`, then delete the old token. |
+| Private backup key | Lost or leaked: `pnpm backup:keygen`, put the new public key in GitHub and document-store (`BACKUP_RECIPIENT`). Old backups still need the **old** private key, so keep it until they are gone (30 days for dumps; files stay, so keep it). |
 | Database password | Run `ALTER ROLE ... PASSWORD` as the `postgres` user, then update the matching `DATABASE_URL_*` (and `.env.railway.shared` for the owner). |
 
 ## 9. Domains and DNS
@@ -314,13 +320,53 @@ When approved, add `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_TEMPLATE` an
 
 - **Uploaded documents** are on `document-store-volume`, mounted at `/data`. `DOC_STORAGE_DIR=/data/documents`,
   and `RAILWAY_RUN_UID=0` lets the app write there.
-- **Back up before real plant data goes in.**
-  - Postgres → **Backups** tab: switch on scheduled backups.
-  - Do the same for `document-store-volume` if your plan offers it.
-  - Otherwise take a weekly dump from your computer:
+- **Backups: every night, encrypted, outside Railway** (Railway's own Backups tab needs the Pro plan). The
+  **Backup** workflow (`.github/workflows/backup.yml`, 02:00 India time) puts everything into one private
+  Cloudflare R2 bucket:
+  - **Database:** a `pg_dump` of all schemas made with the read-only login `plantops_backup`
+    (`db/<copy>/plantops-<copy>-<date>.dump.age`), kept **30 days**.
+  - **Files:** each app that stores files (today Document Store) copies its **new** files there
+    (`files/<module>/tenant/<plant>/<file>.age`). Files are never changed or deleted in PlantOps, so the copies
+    are kept as long as the app keeps them: forever.
+  - Everything is encrypted with `age`. GitHub and Railway hold only the **public** key, which can lock but not
+    open. The **private** key ("PlantOps backup key") is only in your password manager. **Lose it and the
+    backups can't be opened by anyone.** Keep two copies.
+  - A failed night fails the workflow and GitHub emails you. The Postgres TCP Proxy must stay **on**.
+  - Not covered: Railway settings / variables (they are in the password manager) and the code (it is in GitHub).
+
+  **Setting it up (once per copy):**
+  1. Cloudflare → R2 → create bucket `plantops-backup` (location hint: Asia-Pacific). Leave it **private**.
+  2. R2 → Manage API tokens → **Create API token**: permission *Object Read & Write*, *only* this bucket.
+     Note the Access Key ID, Secret Access Key and the S3 endpoint `https://<account id>.r2.cloudflarestorage.com`.
+  3. `pnpm backup:keygen` → save the **private** key in the password manager (two places); keep the public
+     key (`age1...`) for the next steps.
+  4. `./scripts/setup-backup-login.sh shared` (asks for Railway → Postgres → Variables → `DATABASE_PUBLIC_URL`).
+     It adds `DATABASE_URL_BACKUP` to `.env.railway.shared`.
+  5. Add to `.env.railway.shared` (for `pnpm backup`): `BACKUP_BUCKET`, `BACKUP_ENDPOINT`, `BACKUP_ACCESS_KEY_ID`,
+     `BACKUP_SECRET_ACCESS_KEY`. Save the updated file in the password manager.
+  6. GitHub → Settings → Environments → `shared`:
+     - secrets `DATABASE_URL_BACKUP`, `BACKUP_ACCESS_KEY_ID`, `BACKUP_SECRET_ACCESS_KEY` (`CRON_SECRET` is there)
+     - variables `BACKUP_BUCKET`, `BACKUP_ENDPOINT`, `BACKUP_RECIPIENT` (= the public key) (`DOCS_URL` is there)
+  7. Railway → `document-store` → Variables: `BACKUP_BUCKET`, `BACKUP_ENDPOINT`, `BACKUP_ACCESS_KEY_ID`,
+     `BACKUP_SECRET_ACCESS_KEY`, `BACKUP_RECIPIENT`. (Every future app that stores files gets the same five.)
+  8. GitHub → Actions → **Backup** → Run workflow. All steps green; then `pnpm backup list` shows the dump.
+  9. Do a practice restore (below) once, and again every few months.
+
+  **Restoring** (on this computer; `pnpm backup` only reads the bucket and asks for the private key, hidden):
+  ```bash
+  pnpm backup list                                   # dumps by date, files per module
+  pnpm backup db ~/restore/plantops.dump             # newest dump (or: pnpm backup db 2026-10-12 <file>)
+  pnpm backup files document_store ~/restore/documents
+  ```
+  - Practice: restore the dump into a scratch database and look at it, never into `plantops`:
     ```bash
-    pg_dump "$(grep ^DATABASE_URL_OWNER= .env.railway.shared | cut -d= -f2-)" -Fc -f plantops-$(date +%F).dump
+    sudo -u postgres createdb -O plantops_owner plantops_restore_test
+    pg_restore --no-owner --no-privileges -d "postgres://plantops_owner:<local owner password>@localhost/plantops_restore_test" ~/restore/plantops.dump
     ```
+  - Real disaster: restore into the Railway Postgres (a new empty `plantops` database, logins from
+    `setup-railway-db.sql` first), then copy the files folder into the `document-store` volume at
+    `/data/documents` (same `tenant/...` paths). Ask for help before doing this on the live copy.
+
 - **S3-compatible storage** (e.g. Cloudflare R2 or AWS S3) is supported and its signed read/write round trip is
   tested locally. A real bucket is still needed for the live check. Important: setting `STORAGE_BUCKET`
   immediately changes the app to use S3, but does **not** move existing files from `/data`. Keep the current
@@ -404,12 +450,11 @@ Example: Floor Stock, Phase 5. It becomes **one more Railway service** and **one
   - the daily job run
   - the support view
 - [ ] Delete `.env.railway.shared.paste` once everything is pasted (GitHub environment included).
-- [ ] Switch on Postgres backups (and volume backups if available) before real plant data.
+- [ ] Set up the nightly backups (section 11, "Setting it up") and do one practice restore, before real plant
+  data.
 - [ ] Confirm the first real reminder email arrives (Brevo API) and save plant owners' / responsible users'
   email addresses. See section 10.
 - [ ] Confirm GitHub Actions **Daily jobs** completes successfully before relying on expiry reminders.
 - [ ] Choose and configure a real S3 bucket only after safely copying and verifying the existing document files.
 - [ ] WhatsApp, when Meta approves.
 - [ ] Optional: set Watch Paths on each service.
-- [ ] Optional: turn off the Postgres TCP Proxy between releases (switch it on again to run migrations or
-  password resets).

@@ -1,7 +1,7 @@
 // File storage drivers: local disk (never overwrites) and S3-compatible (signed requests), the latter
 // against a small fake S3 server - real S3 is verified at deployment.
 import { createServer, type Server } from "node:http";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -16,6 +16,18 @@ describe("local disk", () => {
     expect((await store.get(key)).equals(PDF)).toBe(true);
     await expect(store.put(key, PNG, "image/png")).rejects.toThrow(/EEXIST/);
     await expect(store.put("../../etc/passwd", PDF, "application/pdf")).rejects.toThrow(/Invalid storage key/);
+  });
+
+  it("lists every stored file for the backup copy, ignoring anything else in the folder", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "docs-list-"));
+    const store = localStorage(dir);
+    expect(await store.list()).toEqual([]); // nothing uploaded yet: no folder
+    const a = newStorageKey(crypto.randomUUID());
+    const b = newStorageKey(crypto.randomUUID());
+    const c = newStorageKey(a.split("/")[1]!);
+    for (const k of [a, b, c]) await store.put(k, PDF, "application/pdf");
+    writeFileSync(path.join(dir, a.split("/").slice(0, 2).join("/"), "notes.txt"), "stray");
+    expect((await store.list()).sort()).toEqual([a, b, c].sort());
   });
 });
 

@@ -3,15 +3,20 @@
 //   * S3-compatible object storage (production, Mumbai region): when STORAGE_BUCKET is set
 // Files are written once and never changed or deleted (renewals add new files). Keys are random:
 // "tenant/<tenant_id>/<uuid>" - the original file name is only kept as data in the database.
-import { createHash, createHmac, randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { s3Client, type S3Settings } from "@plantops/module-kit/s3";
 import { env } from "./env";
 
 export interface FileStorage {
   put(key: string, data: Buffer, contentType: string): Promise<void>;
   get(key: string): Promise<Buffer>;
+  /** Every stored key (for the backup copy). */
+  list(): Promise<string[]>;
 }
+
+const KEY = /^tenant\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/;
 
 export const newStorageKey = (tenantId: string) => `tenant/${tenantId}/${randomUUID()}`;
 
@@ -19,7 +24,7 @@ export const newStorageKey = (tenantId: string) => `tenant/${tenantId}/${randomU
 
 export function localStorage(dir: string): FileStorage {
   const fileFor = (key: string) => {
-    if (!/^tenant\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/.test(key)) throw new Error("Invalid storage key");
+    if (!KEY.test(key)) throw new Error("Invalid storage key");
     return path.join(dir, key);
   };
   return {
@@ -29,42 +34,23 @@ export function localStorage(dir: string): FileStorage {
       await writeFile(file, data, { flag: "wx" }); // "wx": never overwrite an existing file
     },
     get: (key) => readFile(fileFor(key)),
+    async list() {
+      const tenants = await readdir(path.join(dir, "tenant")).catch((err: NodeJS.ErrnoException) => (err.code === "ENOENT" ? [] : Promise.reject(err)));
+      const keys: string[] = [];
+      for (const t of tenants) for (const f of await readdir(path.join(dir, "tenant", t))) keys.push(`tenant/${t}/${f}`);
+      return keys.filter((k) => KEY.test(k));
+    },
   };
 }
 
-// ---------- S3-compatible (AWS Signature V4, no SDK needed) ----------
+// ---------- S3-compatible (signed requests, packages/module-kit/src/s3.ts) ----------
 
-const sha256Hex = (data: string | Buffer) => createHash("sha256").update(data).digest("hex");
-const hmac = (key: Buffer | string, data: string) => createHmac("sha256", key).update(data).digest();
-
-export function s3Storage(o: { endpoint: string; region: string; bucket: string; accessKey: string; secretKey: string }): FileStorage {
-  async function send(method: "PUT" | "GET", key: string, body?: Buffer, contentType?: string) {
-    const url = new URL(`${o.endpoint.replace(/\/$/, "")}/${o.bucket}/${key}`); // path-style: works with AWS, MinIO, R2, Wasabi
-    const now = new Date();
-    const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
-    const day = amzDate.slice(0, 8);
-    const payloadHash = body ? sha256Hex(body) : sha256Hex("");
-    const headers: Record<string, string> = { host: url.host, "x-amz-content-sha256": payloadHash, "x-amz-date": amzDate };
-    if (contentType) headers["content-type"] = contentType;
-    const signed = Object.keys(headers).sort();
-    const canonical = [method, url.pathname, "", ...signed.map((h) => `${h}:${headers[h]}`), "", signed.join(";"), payloadHash].join("\n");
-    const scope = `${day}/${o.region}/s3/aws4_request`;
-    const toSign = ["AWS4-HMAC-SHA256", amzDate, scope, sha256Hex(canonical)].join("\n");
-    const kSigning = hmac(hmac(hmac(hmac(`AWS4${o.secretKey}`, day), o.region), "s3"), "aws4_request");
-    const signature = createHmac("sha256", kSigning).update(toSign).digest("hex");
-    headers.authorization = `AWS4-HMAC-SHA256 Credential=${o.accessKey}/${scope}, SignedHeaders=${signed.join(";")}, Signature=${signature}`;
-    const { host: _host, ...sendHeaders } = headers;
-    const res = await fetch(url, { method, headers: sendHeaders, body: body ? new Uint8Array(body) : undefined, signal: AbortSignal.timeout(30_000) });
-    if (!res.ok) throw new Error(`File storage ${method} failed: ${res.status}`);
-    return res;
-  }
+export function s3Storage(o: S3Settings): FileStorage {
+  const client = s3Client(o);
   return {
-    async put(key, data, contentType) {
-      await send("PUT", key, data, contentType);
-    },
-    async get(key) {
-      return Buffer.from(await (await send("GET", key)).arrayBuffer());
-    },
+    put: (key, data, contentType) => client.put(key, data, contentType),
+    get: (key) => client.get(key),
+    list: () => client.list("tenant/"),
   };
 }
 
@@ -93,4 +79,4 @@ export function sniffType(data: Buffer): "application/pdf" | "image/jpeg" | "ima
   return null;
 }
 
-export const fileSha256 = (data: Buffer) => sha256Hex(data);
+export const fileSha256 = (data: Buffer) => createHash("sha256").update(data).digest("hex");
