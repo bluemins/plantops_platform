@@ -5,6 +5,7 @@ import { and, asc, eq, lt, sql } from "drizzle-orm";
 import { fmtAge } from "@/lib/format";
 import { deliverPending, queueAlert } from "./alerts";
 import { labDb, schema, withTenant, type LabTx } from "./db";
+import { kit } from "./kit";
 import { dailyNotification, send } from "./notify";
 
 const { alerts, batches, entries, entryVersions } = schema;
@@ -57,6 +58,7 @@ export async function reminderFor(tenantId: string, now = new Date()) {
 
 /** Runs the daily job for every plant that uses Lab Records. */
 export async function runDaily(now = new Date()) {
+  const outbox = await kit.retryOutbox(); // notifications that couldn't reach PlantOps earlier (N4)
   const { rows } = await labDb().execute<{ id: string }>(sql`select t as id from lab_records.lab_tenants() t`);
   let reminders = 0;
   let sent = 0;
@@ -73,7 +75,7 @@ export async function runDaily(now = new Date()) {
       console.error(`[lab-records] daily job failed for one plant:`, (err as Error).message); // one plant never stops the others
     }
   }
-  return { plants: rows.length, reminders, sent };
+  return { plants: rows.length, reminders, sent, outbox };
 }
 
 /** For screens: is this month's Form 1 still missing? */

@@ -101,6 +101,72 @@ export function NotificationList({ inbox, reload, header }: { inbox: Inbox; relo
   );
 }
 
+type Setting = { kind: string; module: string | null; label: string; urgent: boolean; bell_only: boolean; mode: "push" | "bell" | "off" };
+const MODES: { mode: Setting["mode"]; label: string }[] = [
+  { mode: "push", label: "Phone + bell" },
+  { mode: "bell", label: "Bell only" },
+  { mode: "off", label: "Off" },
+];
+/** Events that never go to phones: on (in the bell) or off. */
+const BELL_ONLY_MODES: { mode: Setting["mode"]; label: string }[] = [
+  { mode: "push", label: "Bell" },
+  { mode: "off", label: "Off" },
+];
+
+/** Per event: phone + bell / bell only / off. Urgent events are always on (N4, decided 2026-10-11). */
+export function NotificationSettings() {
+  const [list, setList] = useState<Setting[]>();
+  const [error, setError] = useState<string>();
+  useEffect(() => {
+    api<Setting[]>("/api/notifications/settings").then((r) => r.ok && setList(r.data));
+  }, []);
+  async function choose(s: Setting, mode: Setting["mode"]) {
+    setError(undefined);
+    const r = await api("/api/notifications/settings", { method: "PUT", body: { kind: s.kind, mode } });
+    if (!r.ok) return setError(r.error);
+    setList((l) => l?.map((x) => (x.kind === s.kind ? { ...x, mode } : x)));
+  }
+  if (!list?.length) return null;
+  const groups = [...new Set(list.map((s) => s.module))];
+  return (
+    <section id="settings" className="space-y-3 border-t border-slate-200 pt-4 text-left">
+      <h2 className="text-xl font-bold">Notification settings</h2>
+      <p className="text-sm text-slate-600">Choose how you get each kind of notification. Urgent ones are always on.</p>
+      {error && <p className="text-sm text-red-700">{error}</p>}
+      {groups.map((g) => (
+        <div key={g ?? "platform"} className="space-y-2">
+          <h3 className="px-1 text-xs font-semibold tracking-wider text-slate-500 uppercase">{g ? moduleLabel(g) : "PlantOps"}</h3>
+          {list
+            .filter((s) => s.module === g)
+            .map((s) => (
+              <div key={s.kind} className="space-y-2 rounded-2xl border border-slate-200 bg-white p-3">
+                <p className="font-medium">{s.label}</p>
+                {s.urgent ? (
+                  <p className="text-sm text-slate-600">Always on (phone + bell): urgent</p>
+                ) : (
+                  <div className={`grid gap-2 ${s.bell_only ? "grid-cols-2" : "grid-cols-3"}`} role="radiogroup" aria-label={s.label}>
+                    {(s.bell_only ? BELL_ONLY_MODES : MODES).map((m) => (
+                      <button
+                        key={m.mode}
+                        type="button"
+                        role="radio"
+                        aria-checked={s.mode === m.mode || (s.bell_only && m.mode === "push" && s.mode === "bell")}
+                        onClick={() => choose(s, m.mode)}
+                        className={`min-h-11 rounded-xl border px-2 text-sm font-medium ${s.mode === m.mode ? "border-(--brand) bg-(--brand) text-(--brand-contrast)" : "border-slate-300 bg-white text-slate-700"}`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+        </div>
+      ))}
+    </section>
+  );
+}
+
 /** The whole /notifications page body (staff reach it from the bell in a module's header). */
 export function NotificationsPage({ showCard }: { showCard: boolean }) {
   const { inbox, reload } = useInbox();
@@ -108,6 +174,7 @@ export function NotificationsPage({ showCard }: { showCard: boolean }) {
     <div className="space-y-4">
       {showCard && <PushCard />}
       <NotificationList inbox={inbox} reload={reload} header={<h1 className="text-2xl font-bold">Your notifications</h1>} />
+      <NotificationSettings />
     </div>
   );
 }
@@ -150,6 +217,9 @@ export function NotificationBell() {
                     </svg>
                   </button>
                   <h2 className="text-2xl font-bold">Notifications</h2>
+                  <a href="/notifications#settings" className="ml-2 min-h-11 content-center px-2 text-sm font-semibold text-(--brand)">
+                    Settings
+                  </a>
                 </div>
               }
             />

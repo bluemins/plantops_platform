@@ -18,6 +18,7 @@ import {
   openSession,
   sendNotification,
   openSupportSession,
+  PlatformRequestError,
   RECHECK_GRACE_MINUTES,
   refreshModuleSession,
   sealSession,
@@ -43,10 +44,35 @@ export interface ModuleEnv {
   secureCookies(): boolean;
 }
 
+/** A notification that couldn't reach the platform, kept in the module's own outbox table to retry (N4). */
+export interface OutboxRow {
+  id: string;
+  tenantId: string;
+  input: NotificationInput;
+  attempts: number;
+  createdAt: Date;
+}
+
+/** Each module implements this on its own `notification_outbox` table (row-level security, no DELETE). */
+export interface OutboxStore {
+  save(tenantId: string, input: NotificationInput, error: string): Promise<void>;
+  /** plants with unsent rows (a security definer function: ids only) */
+  tenants(): Promise<string[]>;
+  pending(tenantId: string): Promise<OutboxRow[]>;
+  markSent(tenantId: string, id: string): Promise<void>;
+  markFailed(tenantId: string, id: string, error: string, giveUp: boolean): Promise<void>;
+}
+
+/** Retries stop after this many tries or this age: an old "count saved" is no use any more. */
+export const OUTBOX_MAX_ATTEMPTS = 10;
+export const OUTBOX_MAX_AGE_MS = 3 * 86_400_000;
+
 export interface ModuleConfig {
   moduleId: ModuleId;
   label: string;
   env: ModuleEnv;
+  /** where notifications wait when the platform can't be reached (N4); without it they are only logged */
+  outbox?: OutboxStore;
 }
 
 const CACHE_MS = 60_000;
@@ -59,6 +85,12 @@ export function productLabel(s: TenantSku) {
 }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
+/** Worth retrying: the platform couldn't be reached or failed (5xx), not a refusal or invalid input. */
+function shouldKeep(err: unknown) {
+  if (err instanceof PlatformRequestError) return err.status >= 500;
+  return !(err instanceof Error && err.name === "ZodError");
+}
 
 export function createModule(config: ModuleConfig) {
   const { moduleId, label, env } = config;
@@ -115,9 +147,40 @@ export function createModule(config: ModuleConfig) {
     try {
       return await sendNotification(creds(), tenantId, input);
     } catch (err) {
-      console.error(`[${moduleId}] notification "${input.kind}" not sent:`, (err as Error).message);
+      const message = (err as Error).message;
+      console.error(`[${moduleId}] notification "${input.kind}" not sent:`, message);
+      // Platform unreachable, too slow or failing (5xx): keep it to retry. A refusal (4xx: bad input, module
+      // switched off) or invalid input would never succeed, so it is only logged.
+      if (shouldKeep(err) && config.outbox) {
+        await config.outbox.save(tenantId, input, message.slice(0, 300)).catch((e) => console.error(`[${moduleId}] outbox save failed:`, (e as Error).message));
+      }
       return null;
     }
+  }
+
+  /**
+   * Sends the notifications waiting in the outbox (daily and evening jobs). The dedupe keys are unchanged, so one
+   * that did reach the platform before adds nothing. Gives up after OUTBOX_MAX_ATTEMPTS tries or OUTBOX_MAX_AGE_MS.
+   */
+  async function retryOutbox(now = Date.now()) {
+    const result = { sent: 0, failed: 0, given_up: 0 };
+    const store = config.outbox;
+    if (!store) return result;
+    for (const tenantId of await store.tenants()) {
+      for (const row of await store.pending(tenantId)) {
+        try {
+          await sendNotification(creds(), tenantId, row.input);
+          await store.markSent(tenantId, row.id);
+          result.sent++;
+        } catch (err) {
+          const giveUp = !shouldKeep(err) || row.attempts + 1 >= OUTBOX_MAX_ATTEMPTS || now - row.createdAt.getTime() > OUTBOX_MAX_AGE_MS;
+          await store.markFailed(tenantId, row.id, (err as Error).message.slice(0, 300), giveUp);
+          if (giveUp) result.given_up++;
+          else result.failed++;
+        }
+      }
+    }
+    return result;
   }
 
   // ---------- cookies ----------
@@ -268,6 +331,7 @@ a{display:inline-block;margin-top:12px;padding:12px 18px;border-radius:12px;back
     plan,
     contacts,
     notify,
+    retryOutbox,
     unread,
     notificationsUrl,
     sealCookie,

@@ -316,10 +316,15 @@ To set it up (done for `shared` on 2026-10-04):
    reminder log for sent / failed status and check the provider's delivery logs. Do not use the production
    workflow as a test until valid plant recipients are configured.
 
-**Evening job.** GitHub Actions **Evening jobs** (`.github/workflows/evening.yml`) runs at **20:00 India time**
-(GitHub may start it 10-30 minutes late) with the same environment settings: Floor Stock sends "Today's stock
-count is not done yet" to the owners of every plant with items set up and no count today. Skipped until
-`STOCK_URL` is set; *Run workflow* runs it by hand. A second run on the same day sends nothing new.
+**Evening jobs.** GitHub Actions **Evening jobs** (`.github/workflows/evening.yml`) runs **every hour from 17:00 to
+23:00 India time** (GitHub may start a run 10-30 minutes late) with the same environment settings:
+- Floor Stock sends "Today's stock count is not done yet" to each plant without a count, at the hour its owner
+  chose on **Sections & items → Evening reminder** (5 pm–11 pm, or Off; default 8 pm). Once a day.
+- Lab Records sends "No lab tests entered today" from 20:00. Once a day.
+- Every run (and every morning run) also resends notifications that waited in a module's outbox because PlantOps
+  was briefly unreachable.
+
+Skipped until `STOCK_URL` / `LAB_URL` are set; *Run workflow* runs it by hand, and extra runs never send twice.
 
 **App notifications (free; no email, SMS or WhatsApp).** Owners see a bell 🔔 on the launcher, and get phone
 notifications once they tap **Turn on** there. Design and phases: `docs/notifications.md`.
@@ -330,6 +335,9 @@ notifications once they tap **Turn on** there. Design and phases: `docs/notifica
 - **"Blocked on this phone"**: the person once refused. Only the phone's settings can undo it (iPhone: Settings
   → Notifications → PlantOps; Android: Chrome → site settings → app.bluemins.life → Notifications).
 - **Logging out** turns notifications off for that phone, so a shared phone doesn't get the owner's alerts.
+- **Each person chooses** on their notifications page (`app.bluemins.life/notifications` → Notification settings):
+  Phone + bell, Bell only or Off per kind. Urgent ones (ON HOLD, Form 3/4 FAIL, document expiry, someone locked
+  out) are always on. Notifications older than 90 days are removed automatically by the morning job.
 - **Other people (e.g. a manager)** get a module's alerts only when the owner ticks them: Manage users → Edit →
   **Gets alerts (bell and phone) for** → tick the module → Save. Only modules the person works in are offered;
   untick any time (audited). Owners always get every alert. A ticked person opens their list and turns on phone

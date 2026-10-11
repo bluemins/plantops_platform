@@ -195,3 +195,15 @@ export const alertRecipients = platform.table(
   },
   (t) => [primaryKey({ columns: [t.tenantId, t.userId, t.moduleId] })],
 );
+
+export const notificationPrefs = platform.table(
+  "notification_prefs",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    kind: text("kind").notNull(),
+    mode: text("mode").$type<"bell" | "off">().notNull(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.tenantId, t.userId, t.kind] })],
+);

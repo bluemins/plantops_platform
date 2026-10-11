@@ -1,15 +1,16 @@
 # Evening jobs for every hosted PlantOps copy (docs/notifications.md):
-#   Lab Records  POST <LAB_URL>/api/cron/evening    ("No lab tests entered today")
-#   Floor Stock  POST <STOCK_URL>/api/cron/evening  ("Today's stock count is not done yet"; skipped while STOCK_URL
+#   Lab Records  POST <LAB_URL>/api/cron/evening    ("No lab tests entered today", from 8 pm; earlier runs do nothing)
+#   Floor Stock  POST <STOCK_URL>/api/cron/evening  ("Today's stock count is not done yet" at each plant's hour; skipped while STOCK_URL
 #                is unset)
-# Both go to the plant's owners and the people ticked for that module.
+# Both go to the plant's owners and the people ticked for that module; once a day each (dedupe). Every run also
+# resends notifications waiting in the modules' outboxes (platform briefly down).
 # Same GitHub environments, variables and CRON_SECRET as daily.yml. GitHub may start it 10-30 minutes late.
 # A failed call fails the run, and GitHub emails the repo owner. "Run workflow" runs it by hand.
 name: Evening jobs
 
 on:
   schedule:
-    - cron: "30 14 * * *" # 20:00 India time
+    - cron: "30 11-17 * * *" # every hour 17:00-23:00 India time (each plant's chosen reminder hour; N4)
   workflow_dispatch:
 
 permissions: {}

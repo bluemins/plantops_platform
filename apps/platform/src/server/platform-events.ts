@@ -102,9 +102,12 @@ export function renewalText(renewsOn: string, today: string) {
   return days === 0 ? "Your PlantOps plan renews today" : `Your PlantOps plan renews in ${days} day${days === 1 ? "" : "s"}`;
 }
 
-/** The platform's daily job: plan renewal reminders (once per stage per renewal date). */
+/** The platform's daily job: plan renewal reminders (once per stage per renewal date), then old notifications go. */
 export async function runPlatformDaily(now = new Date(), send?: PushSender | null) {
   const today = istDay(now);
+  // notifications older than 90 days (only through the locked-down database function; N4)
+  const purge = await appDb().execute<{ n: number }>(sql`select platform.purge_old_notifications() as n`);
+  const removed = Number(purge.rows[0]?.n ?? 0);
   const { rows } = await appDb().execute<{ tenant_id: string; renews_on: string }>(sql`select tenant_id, renews_on::text from platform.renewal_tenants()`);
   let reminded = 0;
   for (const r of rows) {
@@ -125,5 +128,5 @@ export async function runPlatformDaily(now = new Date(), send?: PushSender | nul
     );
     if (n) reminded++;
   }
-  return { plants: rows.length, reminded };
+  return { plants: rows.length, reminded, removed };
 }

@@ -248,7 +248,12 @@ WhatsApp, or setting them up. Existing email alerts stay as they are; notificati
 - **iPhone:** iOS 16.4+ and PlantOps added to the Home Screen first. Android works from Chrome. Push needs
   HTTPS, so phones are tested on the live copy, not the LAN address.
 - **Modules call `kit.notify(tenantId, input)`** (`packages/module-kit`). It never throws; a failure is logged.
-  Sending is best effort, done after the module's answer (`after()`), until N4 adds a retry outbox.
+  Sending happens after the module's answer; if the platform can't be reached (or answers 5xx) the event waits
+  in the module's own `notification_outbox` and the daily / evening jobs send it again (`kit.retryOutbox`, N4).
+- **Each person chooses per kind** (N4): phone + bell / bell only / off on `/notifications` (`notification_prefs`;
+  catalogue `NOTIFICATION_KINDS` in `packages/types`). Urgent kinds (ON HOLD, Form 3/4 FAIL, document expiry,
+  locked out) are always on. Notifications older than 90 days are removed by `platform.purge_old_notifications()`
+  in the platform's daily job (the app login has no DELETE on notifications).
 - **Database:** migration `apps/platform/db/migrations/0009_notifications.sql`; both tables have `tenant_id` and
   FORCE RLS.
   - `platform_app` may SELECT / INSERT notifications and UPDATE `read_at` only.
@@ -931,3 +936,53 @@ N2 (chosen people get alerts via a per-module tick box, + Lab Records) in plan m
   `0009`–`0011` and Floor Stock `0002`; all four services
 - test on phones
 - then N4 (settings and reliability) in plan mode
+
+### 2026-10-11 — Notifications N4: settings and reliability — built, not live yet
+**Built** (release v0.10.0; v0.9.0 = N3 committed `cc68157` and tagged; v0.7.0–v0.10.0 not deployed):
+- **Settings:**
+  - `NOTIFICATION_KINDS` catalogue in `packages/types` (label, module, `urgent`, `bellOnly`)
+  - platform migration `0012`: `notification_prefs` ('bell' / 'off'; no row = normal), applied in `withPrefs`
+    for both `notifyPlant` and `notifyOwnersDirect`; urgent kinds ignore it; a choice never raises the level
+  - `GET` / `PUT /api/notifications/settings` (own rows only; urgent, unknown or never-received kinds → 400)
+  - settings section on `/notifications`; a Settings link in the bell list
+- **Cleanup:** `platform.purge_old_notifications()` (security definer; the app login still has no DELETE on
+  notifications), called by `runPlatformDaily`.
+- **Floor Stock reminder hour:**
+  - migration `0003`: `plant_settings.count_reminder`, 17:00–23:00 or off, no row = 20:00
+  - owner-only `PUT /api/settings`; "Evening reminder" on `/setup`; audited `setup.reminder`
+  - `runEvening` checks each plant's hour
+  - `evening.yml` hourly at `30 11-17 * * *` UTC; Lab Records' `runEvening` waits for 20:00 (`NO_TESTS_HOUR`)
+- **Outbox:**
+  - `OutboxStore` + `kit.retryOutbox` in module-kit: kept only when unreachable / 5xx; given up after 10 tries or
+    3 days
+  - `notification_outbox` + `outbox_tenants()` in Lab Records `0004`, Document Store `0002`, Floor Stock `0003`;
+    `src/server/outbox.ts` in each
+  - retried at the start of the daily and evening jobs
+- **Tests:** platform 250 (+11), Floor Stock 111 (+8), Lab Records 126 (+1, evening at 8 pm), Document Store 102
+  (outbox check; the table-count guard is now 7), module-kit 19 (+2), auth 36; typecheck and all four builds
+  pass.
+
+**Decisions (owner, 2026-10-11):**
+- three choices per kind
+- always on: ON HOLD, Form 3/4 FAIL, document expiry, locked out
+- reminder at whole hours 5–11 pm or Off
+- cleanup through a database function (no DELETE grant)
+
+**Made while building:**
+- bell-only kinds (setup changed, result corrected, added / renewed, support viewed, module off, plan changed)
+  offer just Bell / Off
+- 4xx refusals and invalid input are not kept in the outbox
+
+**Verified on `pnpm dev` (2026-10-11):**
+- all four migrations applied
+- Sujata set "Stock count saved" to Bell only; turning off ON HOLD was refused ("urgent and always on")
+- the platform daily job ran the cleanup (0 old rows)
+- the settings screen rendered in headless Chrome
+- test setting and session removed afterwards
+
+**Not yet verified:**
+- a live platform outage and catch-up across real services (covered by tests)
+- phones
+- Railway
+
+**Next:** deploy v0.7.0 → v0.10.0 together, test on phones. N5+ notifications come with each new module phase.

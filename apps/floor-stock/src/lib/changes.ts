@@ -36,6 +36,8 @@ export function describeChange(action: string, target: string | null, details: R
       return `Changed the order of the items in ${show(sections.get(String(target)))}`;
     case "setup.template":
       return `Created the starter list (${show(details.sections)} sections, ${show(details.items)} items)`;
+    case "setup.reminder":
+      return `Evening reminder changed from ${show(details.from)} to ${show(details.to)}`;
     case "count.correct":
       return `Corrected the count of ${target ? fmtDate(target) : "—"} (version ${show(details.version)}): ${show(details.reason)}`;
     default:

@@ -16,6 +16,9 @@ const BODY_MAX = 300;
 const clip = (s: string) => (s.length <= BODY_MAX ? s : `${s.slice(0, BODY_MAX - 1)}…`);
 const shortDate = (ymd: string) => new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${ymd}T00:00:00Z`));
 const istDay = (at: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(at);
+const istHour = (at: Date) => Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", hourCycle: "h23" }).format(at));
+/** "No lab tests entered today" goes out from this hour (India time); later evening runs add nothing (dedupe). */
+export const NO_TESTS_HOUR = 20;
 
 /** Sends one notification; never throws (a notification must never break the action that caused it). */
 export const send = (tenantId: string, input: NotificationInput) => kit.notify(tenantId, input);
@@ -157,8 +160,11 @@ async function testsToday(tenantId: string, now: Date) {
  * second run harmless). A plant that has switched Lab Records off is skipped quietly.
  */
 export async function runEvening(now = new Date(), notify = send) {
+  const outbox = await kit.retryOutbox(); // the evening job runs hourly, so a short outage is caught up soon (N4)
+  // The job runs every hour from 5 pm (Floor Stock's reminder hours); "no tests today" stays at 8 pm India time.
+  if (istHour(now) < NO_TESTS_HOUR) return { plants: 0, reminded: 0, tested: 0, skipped: 0, errors: 0, outbox, waiting_until: `${NO_TESTS_HOUR}:00` };
   const { rows } = await labDb().execute<{ id: string }>(sql`select t as id from lab_records.lab_tenants() t`);
-  const total = { plants: rows.length, reminded: 0, tested: 0, skipped: 0, errors: 0 };
+  const total = { plants: rows.length, reminded: 0, tested: 0, skipped: 0, errors: 0, outbox };
   const date = istDay(now);
   for (const { id } of rows) {
     try {

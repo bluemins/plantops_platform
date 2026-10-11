@@ -36,7 +36,8 @@ Notifications appear in two places:
 - **iPhone:** iOS 16.4 or newer, and PlantOps must be added to the Home Screen first. Android works from Chrome.
   Push needs HTTPS, so phones are tested on the live copy, not on the LAN address.
 - **Modules call `kit.notify(tenantId, input)`** (`packages/module-kit`). It never throws; a failure is logged.
-  - Sending is best effort, after the module's answer (`after()`), until N4 adds a retry outbox.
+  - Sending happens after the module's answer. If the platform can't be reached or answers 5xx, the event waits in
+    the module's `notification_outbox` and the daily / evening jobs send it again (N4).
 - **Database:** migration `apps/platform/db/migrations/0009_notifications.sql`. Both tables have `tenant_id` and
   FORCE RLS.
   - `platform_app` may SELECT / INSERT notifications and UPDATE `read_at` only.
@@ -48,6 +49,15 @@ Notifications appear in two places:
 - **N2 built 2026-10-11** (release v0.8.0, not deployed yet): chosen people ("Gets alerts" tick boxes),
   `/notifications` page, 🔔 in every module header, Lab Records events (table below).
 - **N3 built 2026-10-11** (release v0.9.0, not deployed yet): Document Store and PlantOps events (tables below).
+- **N4 built 2026-10-11** (release v0.10.0, not deployed yet):
+  - **Settings per kind** on `/notifications`: Phone + bell / Bell only / Off; bell-only kinds offer Bell / Off;
+    urgent kinds (ON HOLD, Form 3/4 FAIL, document expiry, someone locked out) are always on.
+  - **Floor Stock reminder hour** chosen by the owner on Sections & items (5 pm–11 pm or Off; default 8 pm). The
+    evening job runs hourly from 5 pm to 11 pm; Lab Records' "no tests today" still waits for 8 pm.
+  - **Outbox** in every module: kept on platform outages / 5xx (not on 4xx or invalid input), retried by the
+    daily and evening jobs, given up after 10 tries or 3 days.
+  - **Cleanup:** notifications older than 90 days are removed by the platform's daily job through
+    `platform.purge_old_notifications()`.
 
 ### Document Store events (N3, as built)
 | Event | Recipients | Level | Opens |

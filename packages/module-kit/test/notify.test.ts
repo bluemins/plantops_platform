@@ -2,7 +2,7 @@
 import { createServer, type Server } from "node:http";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { createModule } from "../src/module";
+import { createModule, type OutboxStore } from "../src/module";
 
 let server: Server;
 let url = "";
@@ -77,5 +77,65 @@ describe("header bell", () => {
     expect(await kitFor(() => url).unread(tenant, user)).toBe(4);
     expect(received.at(-1)!.path).toBe(`/api/m/tenants/${tenant}/users/${user}/notifications/unread`);
     expect(await kitFor(() => "http://127.0.0.1:9").unread(randomUUID(), randomUUID())).toBeNull();
+  });
+});
+
+describe("outbox (N4)", () => {
+  /** An in-memory store, like a module's notification_outbox table. */
+  function memoryStore() {
+    const rows: { id: string; tenantId: string; input: typeof event; attempts: number; createdAt: Date; sent: boolean; givenUp: boolean; error: string }[] = [];
+    const store: OutboxStore = {
+      async save(tenantId, input, error) {
+        rows.push({ id: randomUUID(), tenantId, input: input as typeof event, attempts: 0, createdAt: new Date(), sent: false, givenUp: false, error });
+      },
+      async tenants() {
+        return [...new Set(rows.filter((r) => !r.sent && !r.givenUp).map((r) => r.tenantId))];
+      },
+      async pending(tenantId) {
+        return rows.filter((r) => r.tenantId === tenantId && !r.sent && !r.givenUp);
+      },
+      async markSent(_t, id) {
+        rows.find((r) => r.id === id)!.sent = true;
+      },
+      async markFailed(_t, id, error, giveUp) {
+        const r = rows.find((x) => x.id === id)!;
+        r.attempts++;
+        r.error = error;
+        r.givenUp = giveUp;
+      },
+    };
+    return { rows, store };
+  }
+  const kitWith = (platformUrl: () => string, store: OutboxStore) =>
+    createModule({ moduleId: "floor_stock", label: "Floor Stock", outbox: store, env: { platformUrl, clientSecret: () => "secret", sessionSecret: () => "x".repeat(32), secureCookies: () => false } });
+
+  it("unreachable: kept; invalid input or a refusal: not kept", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { rows, store } = memoryStore();
+    await kitWith(() => "http://127.0.0.1:9", store).notify(randomUUID(), event);
+    expect(rows).toHaveLength(1);
+    await kitWith(() => url, store).notify(randomUUID(), { ...event, link: "https://evil.example" });
+    answer = 403;
+    await kitWith(() => url, store).notify(randomUUID(), event);
+    answer = 201;
+    expect(rows).toHaveLength(1);
+    log.mockRestore();
+  });
+
+  it("retry: sent when the platform is back; gives up after 10 tries", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { rows, store } = memoryStore();
+    const down = kitWith(() => "http://127.0.0.1:9", store);
+    await down.notify(randomUUID(), event);
+    await down.notify(randomUUID(), event);
+    for (let i = 0; i < 9; i++) await down.retryOutbox();
+    expect(rows.map((r) => [r.attempts, r.givenUp])).toEqual([[9, false], [9, false]]);
+    expect(await down.retryOutbox()).toEqual({ sent: 0, failed: 0, given_up: 2 });
+    const { rows: rows2, store: store2 } = memoryStore();
+    await kitWith(() => "http://127.0.0.1:9", store2).notify(randomUUID(), event);
+    answer = 201;
+    expect(await kitWith(() => url, store2).retryOutbox()).toEqual({ sent: 1, failed: 0, given_up: 0 });
+    expect(rows2[0]!.sent).toBe(true);
+    log.mockRestore();
   });
 });

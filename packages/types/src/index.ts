@@ -178,6 +178,42 @@ export type NotificationInput = z.input<typeof NotificationInput>;
 export const NotificationResult = z.object({ recipients: z.number().int(), created: z.number().int() });
 export type NotificationResult = z.infer<typeof NotificationResult>;
 
+/**
+ * Every notification kind people can configure (N4): its module (null = PlantOps itself), a plain label for the
+ * settings screen, `urgent` - always phone + bell and can't be changed (decided 2026-10-11) - and `bellOnly` - never
+ * on phones anyway, so the only choice is bell or off.
+ * A kind not listed here can't be configured and is always delivered as sent.
+ */
+export const NOTIFICATION_KINDS: Record<string, { module: ModuleId | null; label: string; urgent?: true; bellOnly?: true }> = {
+  "floor_stock.count_saved": { module: "floor_stock", label: "Stock count saved" },
+  "floor_stock.count_corrected": { module: "floor_stock", label: "Stock count corrected" },
+  "floor_stock.low_stock": { module: "floor_stock", label: "Low stock" },
+  "floor_stock.count_check": { module: "floor_stock", label: "Check the count" },
+  "floor_stock.count_missing": { module: "floor_stock", label: "Today's count not done (evening)" },
+  "floor_stock.setup_changed": { module: "floor_stock", label: "Sections & items changed by staff", bellOnly: true },
+  "lab_records.batch_held": { module: "lab_records", label: "Batch ON HOLD (failed test)", urgent: true },
+  "lab_records.form_failed": { module: "lab_records", label: "Form 3 / Form 4 FAIL", urgent: true },
+  "lab_records.batch_ready": { module: "lab_records", label: "Batch ready for approval" },
+  "lab_records.batch_approved": { module: "lab_records", label: "Batch approved" },
+  "lab_records.batch_rejected": { module: "lab_records", label: "Batch rejected" },
+  "lab_records.entry_corrected": { module: "lab_records", label: "Result corrected", bellOnly: true },
+  "lab_records.daily_reminder": { module: "lab_records", label: "Morning reminder (holds, Form 1)" },
+  "lab_records.no_tests_today": { module: "lab_records", label: "No lab tests today (evening)" },
+  "document_store.expiry": { module: "document_store", label: "Document expiring / expired", urgent: true },
+  "document_store.responsible": { module: "document_store", label: "You are made responsible for a document" },
+  "document_store.added": { module: "document_store", label: "New document added", bellOnly: true },
+  "document_store.renewed": { module: "document_store", label: "Document renewed", bellOnly: true },
+  "document_store.storage": { module: "document_store", label: "Document storage nearly full" },
+  "platform.user_locked": { module: null, label: "Someone locked out", urgent: true },
+  "platform.support_opened": { module: null, label: "PlantOps support viewed your data", bellOnly: true },
+  "platform.module_on": { module: null, label: "Module switched on" },
+  "platform.module_off": { module: null, label: "Module switched off", bellOnly: true },
+  "platform.plan_changed": { module: null, label: "Plan updated", bellOnly: true },
+  "platform.plan_renewal": { module: null, label: "Plan renewal coming up" },
+};
+export const NotificationMode = z.enum(["push", "bell", "off"]);
+export type NotificationMode = z.infer<typeof NotificationMode>;
+
 /** GET /api/m/tenants/:tid/skus - the plant's products. Modules store sku_id as a plain reference. */
 export const TenantSku = z.object({
   id: z.uuid(),

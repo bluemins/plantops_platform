@@ -4,6 +4,22 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.10.0 — 2026-10-11 — Notification settings, reminder hour, outbox, cleanup
+
+**What's in it**
+- **Notification settings** on the notifications page: per kind Phone + bell / Bell only / Off (Bell / Off for
+  events that never buzz). Urgent ones are always on: ON HOLD, Form 3/4 FAIL, document expiry, someone locked out.
+- **Floor Stock evening reminder hour** chosen by the owner on Sections & items: 5 pm–11 pm or Off (default 8 pm).
+  **Evening jobs** now run every hour from 5 pm to 11 pm India time; Lab Records still reminds at 8 pm.
+- **Nothing lost when PlantOps is briefly down:** a notification that can't be delivered waits in the module's
+  outbox and is resent by the next morning / evening job (up to 10 tries or 3 days).
+- **Old notifications** (90 days) are removed by the platform's morning job through a locked-down database
+  function; the app itself still can't delete notifications.
+
+**Migrations:** platform `0012_notification_settings.sql`, Floor Stock `0003_reminder_and_outbox.sql`,
+Lab Records `0004_notification_outbox.sql`, Document Store `0002_notification_outbox.sql`. Deploy all four
+services.
+
 ## v0.9.0 — 2026-10-11 — Document Store and PlantOps notifications
 
 **What's in it**

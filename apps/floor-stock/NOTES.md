@@ -62,7 +62,12 @@ or unreachable platform never holds up or breaks a count. Texts in `src/server/n
 - **8 pm "Today's stock count is not done yet"** (`POST /api/cron/evening`, `.github/workflows/evening.yml`):
   plants from `floor_stock.counting_tenants()` (migration `0002`; plants with active items), skipped quietly
   when Floor Stock is switched off for the plant; `missing:<date>` so a second run adds nothing.
-- Owners only in v1, never for their own action. Staff reminders come in N2.
+- Owners + people ticked for Floor Stock (N2), never for their own action.
+- **Reminder hour** (N4): the owner picks 5 pm–11 pm or Off on Sections & items (`plant_settings`, migration `0003`;
+  no row = 8 pm; audited as `setup.reminder`). `runEvening` runs hourly 5–11 pm and only reminds plants whose hour
+  has come.
+- **Outbox** (N4): a notification that can't reach the platform waits in `notification_outbox` and is resent by the
+  daily and evening jobs (`kit.retryOutbox`).
 
 ## Rules that are easy to get wrong
 - **Who may do what** is checked in `src/server/setup.ts` / `counts.ts`, because the database login can't tell

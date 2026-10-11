@@ -120,8 +120,9 @@ export async function sendPending(tenantId: string, mailer: Mailer = configuredM
 
 /** The daily job: every plant with emails still waiting (ids only, through stock_tenants()). */
 export async function runDaily(mailer: Mailer = configuredMailer()) {
+  const outbox = await kit.retryOutbox(); // notifications that couldn't reach PlantOps earlier (N4)
   const { rows } = await stockDb().execute<{ id: string }>(sql`select floor_stock.stock_tenants() as id`);
-  const total = { plants: rows.length, sent: 0, waiting: 0, failed: 0, errors: 0 };
+  const total = { plants: rows.length, sent: 0, waiting: 0, failed: 0, errors: 0, outbox };
   for (const { id } of rows) {
     try {
       const r = await sendPending(id, mailer);

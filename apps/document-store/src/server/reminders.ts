@@ -116,6 +116,7 @@ export async function deliverReminders(tenantId: string, mailer: Mailer = config
 
 /** The daily job for every plant that uses Document Store. One plant's problem never stops the others. */
 export async function runDaily(now = new Date(), mailer: Mailer = configuredMailer()) {
+  const outbox = await kit.retryOutbox(); // notifications that couldn't reach PlantOps earlier (N4)
   const { rows } = await docDb().execute<{ id: string }>(sql`select t as id from document_store.doc_tenants() t`);
   let queued = 0;
   let sent = 0;
@@ -127,5 +128,5 @@ export async function runDaily(now = new Date(), mailer: Mailer = configuredMail
       console.error("[document-store] daily job failed for one plant:", (err as Error).message);
     }
   }
-  return { plants: rows.length, queued, sent };
+  return { plants: rows.length, queued, sent, outbox };
 }

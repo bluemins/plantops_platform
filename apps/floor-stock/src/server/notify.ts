@@ -2,18 +2,20 @@
 // (active owners) and leaves out whoever did it; these functions only write the text.
 //   * one notification per saved count: low stock > check the count > corrected > saved (most serious wins the title)
 //   * setup changed by a store keeper / plant staff: bell only, so building the item list doesn't flood the phone
-//   * 8 pm India time: "Today's stock count is not done yet" (the evening job)
+//   * "Today's stock count is not done yet" at the plant's chosen hour (default 8 pm India time; the evening job)
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import type { NotificationInput } from "@plantops/types";
 import { qty } from "@/lib/compare";
 import { istDay, istTime } from "@/lib/days";
 import { latestVersion, type SavedCount } from "./counts";
+import { reminderFor } from "./settings";
 import { stockDb, withTenant } from "./db";
 import { kit } from "./kit";
 import type { StockUser } from "./session";
 
 const MAX_LISTED = 3;
+const istHour = (at: Date) => Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", hourCycle: "h23" }).format(at));
 const BODY_MAX = 300;
 
 /** "11 Oct" for a plant date. */
@@ -112,11 +114,19 @@ export function missingCountNotification(plant: string, date: string): Notificat
  * day (the dedupe key makes a second run harmless). A plant that has switched Floor Stock off is skipped quietly.
  */
 export async function runEvening(now = new Date(), notify = kit.notify) {
+  const outbox = await kit.retryOutbox(); // hourly in the evening, so a short platform outage is caught up soon (N4)
   const today = istDay(now);
+  const hour = istHour(now);
   const { rows } = await stockDb().execute<{ id: string }>(sql`select floor_stock.counting_tenants() as id`);
-  const total = { plants: rows.length, reminded: 0, counted: 0, skipped: 0, errors: 0 };
+  const total = { plants: rows.length, reminded: 0, counted: 0, skipped: 0, not_yet: 0, errors: 0, outbox };
   for (const { id } of rows) {
     try {
+      // each plant's own hour (owner's choice, default 8 pm) or off; the job runs every hour 5-11 pm (N4)
+      const reminder = await withTenant(id, (tx) => reminderFor(tx, id));
+      if (reminder === "off" || hour < Number(reminder.slice(0, 2))) {
+        total.not_yet++;
+        continue;
+      }
       const plan = await kit.plan(id);
       if (plan && !plan.enabled_modules.includes("floor_stock")) {
         total.skipped++;

@@ -86,3 +86,15 @@ export const auditLog = docs.table("audit_log", {
   details: jsonb("details").$type<Record<string, unknown>>().notNull().default({}),
   at: ts("at").notNull().defaultNow(),
 });
+
+/** App notifications that couldn't reach the platform, waiting to be sent again (N4; no DELETE grant). */
+export const notificationOutbox = docs.table("notification_outbox", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  input: jsonb("input").$type<Record<string, unknown>>().notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  sentAt: ts("sent_at"),
+  givenUpAt: ts("given_up_at"),
+});

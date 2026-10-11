@@ -107,3 +107,24 @@ export const auditLog = stock.table("audit_log", {
   details: jsonb("details").$type<Record<string, unknown>>().notNull().default({}),
   at: ts("at").notNull().defaultNow(),
 });
+
+/** App notifications that couldn't reach the platform, waiting to be sent again (N4; no DELETE grant). */
+export const notificationOutbox = stock.table("notification_outbox", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  input: jsonb("input").$type<Record<string, unknown>>().notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  sentAt: ts("sent_at"),
+  givenUpAt: ts("given_up_at"),
+});
+
+/** The owner's choice of the evening "count not done" reminder hour ('17:00'..'23:00' or 'off'; no row = 20:00). */
+export const plantSettings = stock.table("plant_settings", {
+  tenantId: uuid("tenant_id").primaryKey(),
+  countReminder: text("count_reminder").notNull().default("20:00"),
+  updatedBy: uuid("updated_by").notNull(),
+  updatedByName: text("updated_by_name").notNull(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});

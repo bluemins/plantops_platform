@@ -6,6 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { createDocument, renewDocument, setArchived, setResponsible, uploadFile } from "@/server/documents";
 import { storageStepCrossed } from "@/server/notify";
 import { queueReminders } from "@/server/reminders";
+import { kit } from "@/server/kit";
 import { supportUser } from "@/server/session";
 import { KEEPER_ID, OWNER_ID, startFakePlatform, type FakePlatform } from "./fake-platform";
 import { inDays, PDF, plant, refused } from "./helpers";
@@ -156,6 +157,11 @@ describe("safety", () => {
       const d = await addDoc(P, "FSSAI licence", 7, P.owner);
       expect(d.current.name).toBe("FSSAI licence");
       expect(await queueReminders(P.tenantId)).toBeGreaterThan(0);
+      // they wait in the outbox and go out with the next job once the platform is back (N4)
+      platform.notifyStatus = 201;
+      await kit.retryOutbox();
+      expect(ofKind(P.tenantId, "document_store.expiry")).toHaveLength(1);
+      expect(ofKind(P.tenantId, "document_store.responsible")).toHaveLength(1);
     } finally {
       platform.notifyStatus = 201;
       log.mockRestore();

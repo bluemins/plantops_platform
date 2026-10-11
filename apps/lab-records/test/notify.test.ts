@@ -10,6 +10,7 @@ import { correctEntry, createDailyEntry, createEntry } from "@/server/entries";
 import { noTestsNotification, runEvening } from "@/server/notify";
 import { listParameters, updateParameter } from "@/server/parameters";
 import { runDaily } from "@/server/reminders";
+import { kit } from "@/server/kit";
 import { supportUser } from "@/server/session";
 import { startFakePlatform, type FakePlatform } from "./fake-platform";
 import { asOwner, plant, refused } from "./helpers";
@@ -21,6 +22,8 @@ let ph: string;
 let n = 0;
 
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+/** Today at a given India time (the evening job's clock). */
+const istAt = (hhmm: string) => new Date(`${today()}T${hhmm}:00+05:30`);
 const newBatch = (p = P) => createBatch(p.tech, { batch_no: `N-${++n}`, production_date: today() });
 const test = (batchId: string, tdsValue: string, user = P.tech) =>
   createDailyEntry(user, { batch_id: batchId, results: [{ parameter_id: tds, value: tdsValue }, { parameter_id: ph, value: "7.2" }] });
@@ -147,12 +150,12 @@ describe("8 pm: no lab tests entered today", () => {
   it("a plant without a daily test today is reminded; a plant that tested is not", async () => {
     const quiet = plant();
     await listParameters(quiet.lead, "daily"); // sets up its checks, so it uses Lab Records
-    await runEvening();
+    await runEvening(istAt("20:30"));
     expect(sent(quiet.tenantId)).toEqual([expect.objectContaining({ kind: "lab_records.no_tests_today", title: "No lab tests entered today", link: "/tests/new" })]);
     const b = await newBatch();
     await test(b.id, "300");
     platform.notifications.length = 0;
-    await runEvening();
+    await runEvening(istAt("20:30"));
     expect(kinds(P.tenantId)).not.toContain("lab_records.no_tests_today");
   });
 
@@ -161,10 +164,22 @@ describe("8 pm: no lab tests entered today", () => {
     await listParameters(off.lead, "daily");
     platform.enabled[off.tenantId] = ["floor_stock"];
     const log = vi.spyOn(console, "error");
-    await runEvening();
+    await runEvening(istAt("20:30"));
     expect(sent(off.tenantId)).toEqual([]);
     expect(log).not.toHaveBeenCalled();
     log.mockRestore();
+  });
+
+  it("from 8 pm only: the hourly runs before that send nothing; later runs repeat the same key", async () => {
+    const late = plant();
+    await listParameters(late.lead, "daily");
+    await runEvening(istAt("19:30"));
+    expect(sent(late.tenantId)).toEqual([]);
+    await runEvening(istAt("20:30"));
+    await runEvening(istAt("21:30"));
+    const got = sent(late.tenantId);
+    expect(got.length).toBe(2); // the platform stores it once (same dedupe key)
+    expect(new Set(got.map((g) => g.dedupe_key)).size).toBe(1);
   });
 
   it("the text", () => {
@@ -192,6 +207,13 @@ describe("safety", () => {
       expect(e.current.verdict).toBe("fail");
       const { rows } = await asOwner<{ status: string }>("select status from lab_records.batches where id = $1", [b.id]);
       expect(rows[0]!.status).toBe("on_hold");
+      // the ON HOLD notification waits in the outbox and goes out with the next job (N4)
+      const waiting = await asOwner<{ kind: string }>("select input->>'kind' as kind from lab_records.notification_outbox where tenant_id = $1 and sent_at is null", [P.tenantId]);
+      expect(waiting.rows.map((r) => r.kind)).toContain("lab_records.batch_held");
+      platform.notifyStatus = 201;
+      platform.notifications.length = 0;
+      await kit.retryOutbox();
+      expect(kinds()).toContain("lab_records.batch_held");
     } finally {
       platform.notifyStatus = 201;
       log.mockRestore();

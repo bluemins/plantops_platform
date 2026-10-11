@@ -273,7 +273,7 @@ describe("plant isolation", () => {
              exists (select 1 from information_schema.columns k where k.table_schema = 'document_store' and k.table_name = c.relname and k.column_name = 'tenant_id') as has_tenant
         from pg_class c join pg_namespace n on n.oid = c.relnamespace
        where n.nspname = 'document_store' and c.relkind = 'r' and c.relname <> 'schema_migrations'`);
-    expect(rows.length).toBe(6);
+    expect(rows.length).toBe(7); // + notification_outbox (N4)
     for (const r of rows) expect({ t: r.relname, force: r.force, tenant: r.has_tenant }).toEqual({ t: r.relname, force: true, tenant: true });
   });
 });

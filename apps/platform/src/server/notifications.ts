@@ -5,16 +5,16 @@
 //   event is about), each active and working in the module (roleWorksIn) - minus whoever did it.
 import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import { NotificationInput, roleWorksIn, type ModuleId, type RoleId } from "@plantops/types";
+import { NOTIFICATION_KINDS, NotificationInput, NotificationMode, roleWorksIn, type ModuleId, type RoleId } from "@plantops/types";
 import type { CurrentUser } from "./auth";
 import { schema, withTenant, type PlatformTx } from "./db";
-import { forbidden, notFound } from "./http";
+import { badRequest, forbidden, notFound } from "./http";
 import { safeNext } from "@/lib/safe-next";
 import { later } from "./http";
 import { pushToUsers, type PushMessage, type PushSender } from "./push";
 import { enabledModules } from "./sso";
 
-const { alertRecipients, notifications, pushSubscriptions, tenants, userRoles, users } = schema;
+const { alertRecipients, notificationPrefs, notifications, pushSubscriptions, tenants, userRoles, users } = schema;
 
 export const INBOX_LIMIT = 30;
 type Input = z.output<typeof NotificationInput>;
@@ -61,6 +61,29 @@ async function recipientsFor(tx: PlatformTx, tenantId: string, moduleId: ModuleI
 }
 
 /**
+ * Each person's own choice for this kind (N4): 'off' -> left out, 'bell' -> stored without a phone message.
+ * Urgent kinds ignore it. A choice can lower the level, never raise it.
+ */
+async function withPrefs(tx: PlatformTx, tenantId: string, kind: string, people: string[], level: "push" | "bell") {
+  if (!people.length) return [];
+  if (NOTIFICATION_KINDS[kind]?.urgent) return people.map((userId) => ({ userId, level }));
+  const prefs = await tx
+    .select({ userId: notificationPrefs.userId, mode: notificationPrefs.mode })
+    .from(notificationPrefs)
+    .where(and(eq(notificationPrefs.tenantId, tenantId), eq(notificationPrefs.kind, kind), inArray(notificationPrefs.userId, people)));
+  const mode = new Map(prefs.map((p) => [p.userId, p.mode]));
+  return people
+    .filter((userId) => mode.get(userId) !== "off")
+    .map((userId) => ({ userId, level: mode.get(userId) === "bell" ? ("bell" as const) : level }));
+}
+
+const pushMessages = (rows: { id: string; userId: string; level: string }[], title: string, body: string) => {
+  const messages = new Map<string, PushMessage>();
+  for (const r of rows) if (r.level === "push") messages.set(r.userId, { id: r.id, title, body });
+  return messages;
+};
+
+/**
  * A module's event for one plant -> one notification per recipient (minus whoever did it). The same
  * module + dedupe_key is stored once per person, so a retry adds nothing. Returns the new rows' push messages;
  * the caller sends them (after the answer, so a slow push service never holds up the module).
@@ -70,29 +93,28 @@ export async function notifyPlant(moduleId: ModuleId, tenantId: string, input: I
     const enabled = await enabledModules(tx, tenantId);
     if (!enabled.includes(moduleId)) throw forbidden("This module is not enabled for this plant");
     const recipients = (await recipientsFor(tx, tenantId, moduleId, input.also_user_ids, input.only_listed)).filter((id) => id !== input.exclude_user_id);
-    if (!recipients.length) return { recipients: 0, created: [] as { id: string; userId: string }[] };
+    const people = await withPrefs(tx, tenantId, input.kind, recipients, input.level);
+    if (!people.length) return { recipients: 0, created: [] as { id: string; userId: string; level: string }[] };
     const created = await tx
       .insert(notifications)
       .values(
-        recipients.map((userId) => ({
+        people.map((p) => ({
           tenantId,
-          userId,
+          userId: p.userId,
           moduleId,
           kind: input.kind,
           title: input.title,
           body: input.body,
           link: input.link,
-          level: input.level,
+          level: p.level,
           dedupeKey: input.dedupe_key,
         })),
       )
       .onConflictDoNothing()
-      .returning({ id: notifications.id, userId: notifications.userId });
-    return { recipients: recipients.length, created };
+      .returning({ id: notifications.id, userId: notifications.userId, level: notifications.level });
+    return { recipients: people.length, created };
   });
-  const messages = new Map<string, PushMessage>();
-  if (input.level === "push") for (const r of rows.created) messages.set(r.userId, { id: r.id, title: input.title, body: input.body });
-  return { recipients: rows.recipients, created: rows.created.length, messages };
+  return { recipients: rows.recipients, created: rows.created.length, messages: pushMessages(rows.created, input.title, input.body) };
 }
 
 /** Sends the phone notifications prepared by notifyPlant. Never throws (logged instead). */
@@ -133,28 +155,27 @@ export async function notifyOwnersDirect(tenantId: string, e: DirectEvent, send?
         .innerJoin(userRoles, eq(userRoles.userId, users.id))
         .innerJoin(tenants, eq(tenants.id, users.tenantId))
         .where(and(eq(users.tenantId, tenantId), eq(users.status, "active"), eq(tenants.status, "active"), eq(userRoles.roleId, "tenant_admin")));
-      const people = owners.map((o) => o.id).filter((id) => id !== e.exclude_user_id);
+      const people = await withPrefs(tx, tenantId, e.kind, owners.map((o) => o.id).filter((id) => id !== e.exclude_user_id), e.level);
       if (!people.length) return [];
       return tx
         .insert(notifications)
         .values(
-          people.map((userId) => ({
+          people.map((p) => ({
             tenantId,
-            userId,
+            userId: p.userId,
             moduleId: e.module,
             kind: e.kind,
             title: e.title.slice(0, 80),
             body: e.body.slice(0, 300),
             link: e.link,
-            level: e.level,
+            level: p.level,
             dedupeKey: e.dedupe_key,
           })),
         )
         .onConflictDoNothing()
-        .returning({ id: notifications.id, userId: notifications.userId });
+        .returning({ id: notifications.id, userId: notifications.userId, level: notifications.level });
     });
-    const messages = new Map<string, PushMessage>();
-    if (e.level === "push") for (const r of created) messages.set(r.userId, { id: r.id, title: e.title, body: e.body });
+    const messages = pushMessages(created, e.title, e.body);
     if (messages.size) later(() => sendPrepared(tenantId, messages, send));
     return created.length;
   } catch (err) {
@@ -224,6 +245,58 @@ export async function unreadCount(tenantId: string, userId: string) {
       .from(notifications)
       .where(and(eq(notifications.tenantId, tenantId), eq(notifications.userId, userId), isNull(notifications.readAt)));
     return row?.n ?? 0;
+  });
+}
+
+// ---------- each person's settings (N4) ----------
+
+/** The kinds this person can receive: owners all of their plant's (and PlantOps'), others their modules' only. */
+async function kindsFor(tx: PlatformTx, user: CurrentUser) {
+  const enabled = await enabledModules(tx, user.tenantId);
+  const owner = user.roles.includes("tenant_admin");
+  return Object.entries(NOTIFICATION_KINDS).filter(([, k]) =>
+    k.module === null ? owner : enabled.includes(k.module) && (owner || user.roles.some((r) => roleWorksIn(r, k.module!))),
+  );
+}
+
+/** The settings screen: every kind this person can receive, grouped by module, with their choice. */
+export async function settingsFor(user: CurrentUser) {
+  return withTenant(user.tenantId, async (tx) => {
+    const kinds = await kindsFor(tx, user);
+    const prefs = await tx
+      .select({ kind: notificationPrefs.kind, mode: notificationPrefs.mode })
+      .from(notificationPrefs)
+      .where(and(eq(notificationPrefs.tenantId, user.tenantId), eq(notificationPrefs.userId, user.userId)));
+    const mode = new Map(prefs.map((p) => [p.kind, p.mode]));
+    return kinds.map(([kind, k]) => ({
+      kind,
+      module: k.module,
+      label: k.label,
+      urgent: !!k.urgent,
+      bell_only: !!k.bellOnly,
+      mode: k.urgent ? "push" : (mode.get(kind) ?? "push"),
+    }));
+  });
+}
+
+export const SettingInput = z.object({ kind: z.string().min(1).max(60), mode: NotificationMode });
+
+/** Changes one of this person's own choices. Urgent kinds, and kinds they never get, can't be changed. */
+export async function setSetting(user: CurrentUser, input: z.infer<typeof SettingInput>) {
+  return withTenant(user.tenantId, async (tx) => {
+    const k = (await kindsFor(tx, user)).find(([kind]) => kind === input.kind)?.[1];
+    if (!k) throw badRequest("You don't get this notification");
+    if (k.urgent) throw badRequest("This notification is urgent and always on");
+    const mine = and(eq(notificationPrefs.tenantId, user.tenantId), eq(notificationPrefs.userId, user.userId), eq(notificationPrefs.kind, input.kind));
+    if (input.mode === "push") {
+      await tx.delete(notificationPrefs).where(mine); // back to normal
+    } else {
+      await tx
+        .insert(notificationPrefs)
+        .values({ tenantId: user.tenantId, userId: user.userId, kind: input.kind, mode: input.mode })
+        .onConflictDoUpdate({ target: [notificationPrefs.tenantId, notificationPrefs.userId, notificationPrefs.kind], set: { mode: input.mode, updatedAt: new Date() } });
+    }
+    return { kind: input.kind, mode: input.mode };
   });
 }
 
