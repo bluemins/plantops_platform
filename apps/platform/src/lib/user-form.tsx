@@ -2,7 +2,9 @@
 
 import { useState, type FormEvent } from "react";
 import { Button, Card, ErrorText, TextField } from "@plantops/ui";
+import { roleWorksIn, type ModuleId, type RoleId } from "@plantops/types";
 import { ROLE_LABELS } from "@/lib/api";
+import { moduleLabel } from "@/lib/modules";
 
 /** A user as both the owner's and super_admin's user lists return it. */
 export type UserView = {
@@ -12,6 +14,8 @@ export type UserView = {
   phone: string | null;
   email: string | null;
   roles: string[];
+  /** modules whose app notifications this person gets (owners: always, so empty) */
+  alert_modules?: string[];
   status: "active" | "disabled";
   secret_kind: "pin" | "password";
   must_change_secret: boolean;
@@ -40,6 +44,37 @@ export function RolePicker({ value, onChange }: { value: string[]; onChange: (ro
   );
 }
 
+/** Modules (switched on for the plant) that someone with these roles works in: the ones they can get alerts for. */
+export const alertChoices = (enabled: string[], roles: string[]) =>
+  enabled.filter((m) => roles.some((r) => roleWorksIn(r as RoleId, m as ModuleId)));
+
+/**
+ * "Gets alerts" tick boxes (notifications N2): besides the owners, only people ticked here get a module's app
+ * notifications (e.g. a manager). Owners always get them.
+ */
+export function AlertPicker({ enabled, roles, value, onChange }: { enabled: string[]; roles: string[]; value: string[]; onChange: (m: string[]) => void }) {
+  if (roles.includes("tenant_admin")) return <p className="text-sm text-slate-500">Owners always get alerts (bell and phone).</p>;
+  const choices = alertChoices(enabled, roles);
+  if (!choices.length) return null;
+  return (
+    <div>
+      <span className="mb-1 block text-sm font-medium text-slate-700">Gets alerts (bell and phone) for</span>
+      <div className="flex flex-wrap gap-2">
+        {choices.map((m) => {
+          const on = value.includes(m);
+          return (
+            <label key={m} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-full border px-4 text-sm font-medium ${on ? "border-(--brand) bg-(--brand-soft)" : "border-slate-300 bg-white"}`}>
+              <input type="checkbox" checked={on} onChange={() => onChange(on ? value.filter((x) => x !== m) : [...value, m])} className="h-4 w-4 accent-(--brand)" />
+              {moduleLabel(m)}
+            </label>
+          );
+        })}
+      </div>
+      <p className="mt-1 text-xs text-slate-500">The same alerts the owner gets for that module. Untick any time.</p>
+    </div>
+  );
+}
+
 /** Shown once: a temporary PIN/password the admin passes on to the user. */
 export function TempSecret({ info, onClose }: { info: { who: string; secret: string; kind: string }; onClose: () => void }) {
   return (
@@ -58,11 +93,13 @@ export function TempSecret({ info, onClose }: { info: { who: string; secret: str
 export function UserEditForm({
   user,
   canEditUsername,
+  enabledModules = [],
   save,
   onClose,
 }: {
   user: UserView;
   canEditUsername?: boolean;
+  enabledModules?: string[];
   save: (body: Record<string, unknown>) => Promise<string | undefined>;
   onClose: () => void;
 }) {
@@ -72,14 +109,21 @@ export function UserEditForm({
     phone: user.phone ?? "",
     email: user.email ?? "",
     roles: user.roles,
+    alert_modules: user.alert_modules ?? [],
   });
   const [error, setError] = useState<string>();
   const ownerChange = form.roles.includes("tenant_admin") !== user.roles.includes("tenant_admin");
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    const { username, ...details } = form;
+    const { username, alert_modules, ...details } = form;
     const body: Record<string, unknown> = { ...details };
+    // Send the ticks only when the module list is known (never untick everyone because it failed to load). Only
+    // modules that still fit the (possibly changed) roles; after a role change the server drops misfits anyway.
+    if (enabledModules.length && !form.roles.includes("tenant_admin")) {
+      const ticks = alert_modules.filter((m) => alertChoices(enabledModules, form.roles).includes(m)).sort();
+      if (ticks.join() !== [...(user.alert_modules ?? [])].sort().join()) body.alert_modules = ticks;
+    }
     if (canEditUsername && username.trim().toLowerCase() !== user.username) {
       if (!confirm(`Change username to "${username.trim().toLowerCase()}"? ${user.display_name} is logged out and must log in with the new username.`)) return;
       body.username = username;
@@ -99,6 +143,7 @@ export function UserEditForm({
         <span className="mb-1 block text-sm font-medium text-slate-700">Roles</span>
         <RolePicker value={form.roles} onChange={(roles) => setForm({ ...form, roles })} />
       </div>
+      <AlertPicker enabled={enabledModules} roles={form.roles} value={form.alert_modules} onChange={(alert_modules) => setForm({ ...form, alert_modules })} />
       {ownerChange && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
           Owners log in with a password, staff with a PIN. They log in once more with their current one and are then asked to
@@ -157,6 +202,7 @@ export function ResetSecretForm({
 export function UserCard({
   user,
   canEditUsername,
+  enabledModules,
   patch,
   reset,
   unlock,
@@ -164,6 +210,7 @@ export function UserCard({
 }: {
   user: UserView;
   canEditUsername?: boolean;
+  enabledModules?: string[];
   patch: (body: Record<string, unknown>) => Promise<string | undefined>;
   reset: (secret: string) => Promise<{ error?: string; temporary_secret?: string; secret_kind?: string }>;
   unlock?: () => Promise<string | undefined>;
@@ -182,6 +229,7 @@ export function UserCard({
         {user.must_change_secret && " · has not set own " + (user.secret_kind === "pin" ? "PIN" : "password") + " yet"}
         {user.locked && <span className="ml-1 rounded bg-red-100 px-2 text-red-700">locked</span>}
       </p>
+      {!!user.alert_modules?.length && <p className="text-sm text-slate-500">Gets alerts: {user.alert_modules.map(moduleLabel).join(", ")}</p>}
       {(user.phone || user.email) && (
         <p className="text-sm text-slate-500">{[user.phone, user.email].filter(Boolean).join(" · ")}</p>
       )}
@@ -190,6 +238,7 @@ export function UserCard({
         <UserEditForm
           user={user}
           canEditUsername={canEditUsername}
+          enabledModules={enabledModules}
           onClose={() => setMode(undefined)}
           save={async (body) => {
             const err = await patch(body);

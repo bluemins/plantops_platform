@@ -1,16 +1,18 @@
 // App notifications (CLAUDE.md "Notifications", docs/notifications.md): one inbox in the platform for every module.
-// Modules only report events; the platform decides who receives them (N1: the plant's active owners), stores one
-// row per person (own read mark) and sends "push" level ones to the phones those people turned on.
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+// Modules only report events; the platform decides who receives them, stores one row per person (own read mark)
+// and sends "push" level ones to the phones those people turned on. Who (N2, decided 2026-10-11):
+//   the plant's active owners (always) + people the owner ticked for this module + also_user_ids (the people the
+//   event is about), each active and working in the module (roleWorksIn) - minus whoever did it.
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import { NotificationInput, type ModuleId } from "@plantops/types";
+import { NotificationInput, roleWorksIn, type ModuleId, type RoleId } from "@plantops/types";
 import type { CurrentUser } from "./auth";
-import { schema, withTenant } from "./db";
+import { schema, withTenant, type PlatformTx } from "./db";
 import { forbidden, notFound } from "./http";
 import { pushToUsers, type PushMessage, type PushSender } from "./push";
 import { enabledModules } from "./sso";
 
-const { notifications, pushSubscriptions, tenants, userRoles, users } = schema;
+const { alertRecipients, notifications, pushSubscriptions, tenants, userRoles, users } = schema;
 
 export const INBOX_LIMIT = 30;
 type Input = z.output<typeof NotificationInput>;
@@ -21,22 +23,40 @@ export function targetUrl(moduleId: string, link: string | null) {
   return link ? `${url}&next=${encodeURIComponent(link)}` : url;
 }
 
+/** Who gets this module's event in this plant (the rule above). Inside the plant's transaction. */
+async function recipientsFor(tx: PlatformTx, tenantId: string, moduleId: ModuleId, alsoUserIds: string[] = []) {
+  const ticked = await tx.select({ id: alertRecipients.userId }).from(alertRecipients).where(and(eq(alertRecipients.tenantId, tenantId), eq(alertRecipients.moduleId, moduleId)));
+  const candidates = [...new Set([...ticked.map((t) => t.id), ...alsoUserIds])];
+  const rows = await tx
+    .select({ id: users.id, role: userRoles.roleId })
+    .from(users)
+    .innerJoin(userRoles, eq(userRoles.userId, users.id))
+    .innerJoin(tenants, eq(tenants.id, users.tenantId))
+    .where(
+      and(
+        eq(users.tenantId, tenantId),
+        eq(users.status, "active"),
+        eq(tenants.status, "active"),
+        candidates.length ? or(eq(userRoles.roleId, "tenant_admin"), inArray(users.id, candidates)) : eq(userRoles.roleId, "tenant_admin"),
+      ),
+    );
+  const people = new Set<string>();
+  for (const r of rows) {
+    if (r.role === "tenant_admin" || roleWorksIn(r.role as RoleId, moduleId)) people.add(r.id);
+  }
+  return [...people];
+}
+
 /**
- * A module's event for one plant -> one notification per active owner (minus whoever did it). The same
+ * A module's event for one plant -> one notification per recipient (minus whoever did it). The same
  * module + dedupe_key is stored once per person, so a retry adds nothing. Returns the new rows' push messages;
  * the caller sends them (after the answer, so a slow push service never holds up the module).
  */
-export async function notifyOwners(moduleId: ModuleId, tenantId: string, input: Input) {
+export async function notifyPlant(moduleId: ModuleId, tenantId: string, input: Input) {
   const rows = await withTenant(tenantId, async (tx) => {
     const enabled = await enabledModules(tx, tenantId);
     if (!enabled.includes(moduleId)) throw forbidden("This module is not enabled for this plant");
-    const owners = await tx
-      .selectDistinct({ id: users.id })
-      .from(users)
-      .innerJoin(userRoles, eq(userRoles.userId, users.id))
-      .innerJoin(tenants, eq(tenants.id, users.tenantId))
-      .where(and(eq(users.status, "active"), eq(tenants.status, "active"), eq(userRoles.roleId, "tenant_admin")));
-    const recipients = owners.map((o) => o.id).filter((id) => id !== input.exclude_user_id);
+    const recipients = (await recipientsFor(tx, tenantId, moduleId, input.also_user_ids)).filter((id) => id !== input.exclude_user_id);
     if (!recipients.length) return { recipients: 0, created: [] as { id: string; userId: string }[] };
     const created = await tx
       .insert(notifications)
@@ -62,7 +82,7 @@ export async function notifyOwners(moduleId: ModuleId, tenantId: string, input: 
   return { recipients: rows.recipients, created: rows.created.length, messages };
 }
 
-/** Sends the phone notifications prepared by notifyOwners. Never throws (logged instead). */
+/** Sends the phone notifications prepared by notifyPlant. Never throws (logged instead). */
 export async function sendPrepared(tenantId: string, messages: Map<string, PushMessage>, send?: PushSender | null) {
   try {
     return await pushToUsers(tenantId, messages, send);
@@ -122,6 +142,17 @@ export async function openNotification(user: CurrentUser, id: string) {
     if (!n) throw notFound("Notification not found");
     if (!n.readAt) await tx.update(notifications).set({ readAt: new Date() }).where(eq(notifications.id, n.id));
     return targetUrl(n.moduleId, n.link);
+  });
+}
+
+/** Unread count for one person (module header bell). Unknown or other-plant user -> 0 (RLS). */
+export async function unreadCount(tenantId: string, userId: string) {
+  return withTenant(tenantId, async (tx) => {
+    const [row] = await tx
+      .select({ n: sql<number>`count(*)::int` })
+      .from(notifications)
+      .where(and(eq(notifications.tenantId, tenantId), eq(notifications.userId, userId), isNull(notifications.readAt)));
+    return row?.n ?? 0;
   });
 }
 

@@ -25,6 +25,12 @@ export interface FakePlatform {
   contacts: AlertContact[] | null;
   /** history_months on the plan, per tenant id (missing = unlimited) */
   historyMonths: Record<string, number>;
+  /** every app notification the module sent (POST /api/m/tenants/:tid/notifications) */
+  notifications: { tenantId: string; body: Record<string, unknown> }[];
+  /** HTTP status for notifications (201 = taken) */
+  notifyStatus: number;
+  /** enabled modules per plant on the plan (missing = Lab Records on) */
+  enabled: Record<string, string[]>;
   sign(claims: Record<string, unknown>, aud?: ModuleId, ttl?: string): Promise<string>;
   loginToken(roles?: RoleId[]): Promise<string>;
   summaryToken(aud?: ModuleId): Promise<string>;
@@ -47,13 +53,23 @@ export async function startFakePlatform(): Promise<FakePlatform> {
       { user_id: randomUUID(), display_name: "Ravi", phone: null, roles: ["tenant_admin"] },
     ] as AlertContact[] | null,
     historyMonths: {} as Record<string, number>,
+    notifications: [] as { tenantId: string; body: Record<string, unknown> }[],
+    notifyStatus: 201,
+    enabled: {} as Record<string, string[]>,
   };
   const send = (res: import("node:http").ServerResponse, code: number, body: unknown) => {
     res.writeHead(code, { "content-type": "application/json" });
     res.end(JSON.stringify(body));
   };
-  const server: Server = createServer((req, res) => {
+  const server: Server = createServer(async (req, res) => {
     const url = req.url ?? "";
+    const notify = /^\/api\/m\/tenants\/([^/]+)\/notifications$/.exec(url);
+    if (notify && req.method === "POST") {
+      let raw = "";
+      for await (const chunk of req) raw += chunk;
+      if (fake.notifyStatus === 201) fake.notifications.push({ tenantId: notify[1]!, body: JSON.parse(raw) });
+      return send(res, fake.notifyStatus, fake.notifyStatus === 201 ? { recipients: 2, created: 2 } : { error: "no" });
+    }
     if (url === "/.well-known/jwks.json") return send(res, 200, jwks);
     if (url === "/api/sso/support-exchange") return fake.nextToken ? send(res, 200, { token: fake.nextToken }) : send(res, 400, { error: "bad code" });
     if (url === "/api/sso/exchange") return fake.nextToken ? send(res, 200, { token: fake.nextToken }) : send(res, 400, { error: "bad code" });
@@ -69,7 +85,7 @@ export async function startFakePlatform(): Promise<FakePlatform> {
       return send(res, 200, {
         tenant_id: plan[1],
         plan_name: "Growth",
-        enabled_modules: ["lab_records"],
+        enabled_modules: fake.enabled[plan[1]!] ?? ["lab_records"],
         limits: { platform: {}, modules: months ? { lab_records: { history_months: months } } : {} },
         renews_on: null,
       });

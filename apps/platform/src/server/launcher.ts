@@ -7,6 +7,7 @@ import type { CurrentUser } from "./auth";
 import { appDb, schema, superDb, withTenant, type PlatformDb, type PlatformTx } from "./db";
 import { enabledModules } from "./sso";
 import { notFound } from "./http";
+import { loadAlertModules } from "./users";
 
 const { modules, tenants, tenantPlans, tenantProfiles, users } = schema;
 
@@ -113,8 +114,10 @@ export async function buildLauncher(user: CurrentUser) {
     const info = await plantInfo(tx, user.tenantId, "/api/business/logo");
     const tiles = decideTiles(user.roles, info.enabled, available);
     const owner = user.roles.includes("tenant_admin");
+    const alertModules = (await loadAlertModules(tx, user.tenantId, [user.userId])).get(user.userId) ?? [];
     return {
-      user: { display_name: user.displayName, roles: user.roles },
+      // gets_alerts: owners always; others when the owner ticked them for a module (shows the "turn on" card)
+      user: { display_name: user.displayName, roles: user.roles, gets_alerts: owner || alertModules.length > 0 },
       plant: info.plant,
       tiles,
       plan_summary: owner ? info.plan_summary : null, // staff never see plan details

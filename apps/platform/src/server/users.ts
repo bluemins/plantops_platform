@@ -1,14 +1,14 @@
 import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
-import { PlanLimits, RoleId } from "@plantops/types";
+import { ModuleId, PlanLimits, RoleId, roleWorksIn } from "@plantops/types";
 import { audit, type Actor } from "./audit";
 import { hashSecret, temporarySecret, validateSecret, type SecretKind } from "./crypto";
-import { schema, withTenant, type PlatformTx } from "./db";
+import { schema, withTenant, type PlatformDb, type PlatformTx } from "./db";
 import { badRequest, conflict, notFound } from "./http";
 import type { CurrentUser } from "./auth";
 import { loadRoles } from "./auth";
 
-const { users, userRoles, sessions, tenantPlans } = schema;
+const { alertRecipients, users, userRoles, sessions, tenantPlans } = schema;
 
 export const Roles = z
   .array(RoleId)
@@ -26,12 +26,16 @@ const blankToNull = (v: unknown) => (typeof v === "string" && v.trim() === "" ? 
 const Phone = z.string().trim().regex(/^\+?[0-9][0-9 -]{6,18}$/, "Phone: digits only, e.g. +91 98765 43210");
 const Email = z.email("Email address is not valid").trim().toLowerCase();
 
+/** Modules whose app notifications this person gets besides the owners ("Gets alerts" tick boxes). */
+export const AlertModules = z.array(ModuleId).max(20).refine((m) => new Set(m).size === m.length, "Modules must not repeat");
+
 export const NewUserInput = z.object({
   username: Username,
   display_name: z.string().trim().min(1).max(80),
   phone: z.preprocess((v) => blankToNull(v) ?? undefined, Phone.optional()),
   email: z.preprocess((v) => blankToNull(v) ?? undefined, Email.optional()),
   roles: Roles,
+  alert_modules: AlertModules.optional(),
 });
 export type NewUserInput = z.infer<typeof NewUserInput>;
 
@@ -42,6 +46,7 @@ export const UpdateUserInput = z
     email: z.preprocess(blankToNull, Email.nullable()),
     roles: Roles,
     status: z.enum(["active", "disabled"]),
+    alert_modules: AlertModules,
   })
   .partial();
 export type UpdateUserInput = z.infer<typeof UpdateUserInput>;
@@ -103,7 +108,8 @@ export async function insertUser(tx: PlatformTx, tenantId: string, input: NewUse
     throw err;
   }
   await tx.insert(userRoles).values(input.roles.map((roleId) => ({ tenantId, userId: id, roleId, grantedBy: actor })));
-  await audit(tx, { tenantId, actor, action: "user.created", target: id, details: { username: input.username, roles: input.roles } });
+  if (input.alert_modules?.length) await setAlertModules(tx, tenantId, id, input.roles, input.alert_modules, actor, true);
+  await audit(tx, { tenantId, actor, action: "user.created", target: id, details: { username: input.username, roles: input.roles, alert_modules: input.alert_modules ?? [] } });
   return { id, temporary_secret: temporary, secret_kind: kind };
 }
 
@@ -128,7 +134,43 @@ async function assertAnotherAdmin(tx: PlatformTx, tenantId: string, exceptUserId
   if (count === 0) throw conflict("A plant must keep at least one active owner (tenant_admin)");
 }
 
-export function toView(u: typeof users.$inferSelect, roles: RoleId[]) {
+// ---------- "Gets alerts" (notifications N2) ----------
+
+/** Each user's ticked modules, for the user lists. */
+export async function loadAlertModules(tx: PlatformTx | PlatformDb, tenantId: string, userIds: string[]) {
+  const map = new Map<string, ModuleId[]>();
+  if (!userIds.length) return map;
+  const rows = await tx
+    .select({ userId: alertRecipients.userId, moduleId: alertRecipients.moduleId })
+    .from(alertRecipients)
+    .where(and(eq(alertRecipients.tenantId, tenantId), inArray(alertRecipients.userId, userIds)));
+  for (const r of rows) map.set(r.userId, [...(map.get(r.userId) ?? []), r.moduleId as ModuleId].sort());
+  return map;
+}
+
+/**
+ * Replaces the modules whose alerts this person gets. Owners always get every alert, so they have no rows. When
+ * the owner ticks a module (`strict`), it must be switched on for the plant and the person must work in it;
+ * after a role change, modules the person no longer works in are dropped quietly.
+ */
+async function setAlertModules(tx: PlatformTx, tenantId: string, userId: string, roles: RoleId[], wanted: ModuleId[], actor: Actor, strict: boolean) {
+  let keep: ModuleId[] = [];
+  if (!roles.includes("tenant_admin")) {
+    const [plan] = await tx.select({ m: tenantPlans.enabledModules }).from(tenantPlans).where(eq(tenantPlans.tenantId, tenantId));
+    const enabled = new Set(plan?.m ?? []);
+    for (const m of wanted) {
+      const ok = enabled.has(m) && roles.some((r) => roleWorksIn(r, m));
+      if (ok) keep.push(m);
+      else if (strict) throw badRequest(enabled.has(m) ? "This person can only get alerts for modules they work in" : "That module is not switched on for this plant");
+    }
+  }
+  keep = [...new Set(keep)];
+  await tx.delete(alertRecipients).where(and(eq(alertRecipients.tenantId, tenantId), eq(alertRecipients.userId, userId)));
+  if (keep.length) await tx.insert(alertRecipients).values(keep.map((moduleId) => ({ tenantId, userId, moduleId, addedBy: actor })));
+  return keep;
+}
+
+export function toView(u: typeof users.$inferSelect, roles: RoleId[], alertModules: ModuleId[] = []) {
   return {
     id: u.id,
     username: u.username,
@@ -136,6 +178,7 @@ export function toView(u: typeof users.$inferSelect, roles: RoleId[]) {
     phone: u.phone,
     email: u.email,
     roles,
+    alert_modules: alertModules,
     status: u.status,
     secret_kind: u.secretKind,
     must_change_secret: u.mustChangeSecret,
@@ -159,14 +202,17 @@ export function listUsers(admin: CurrentUser) {
     const roleRows = rows.length
       ? await tx.select().from(userRoles).where(inArray(userRoles.userId, rows.map((r) => r.id)))
       : [];
+    const alerts = await loadAlertModules(tx, admin.tenantId, rows.map((r) => r.id));
     return rows.map((u) =>
-      toView(u, roleRows.filter((r) => r.userId === u.id).map((r) => r.roleId as RoleId).sort()),
+      toView(u, roleRows.filter((r) => r.userId === u.id).map((r) => r.roleId as RoleId).sort(), alerts.get(u.id)),
     );
   });
 }
 
 export function getUser(admin: CurrentUser, userId: string) {
-  return withTenant(admin.tenantId, async (tx) => toView(await getUserRow(tx, admin.tenantId, userId), await loadRoles(tx, userId)));
+  return withTenant(admin.tenantId, async (tx) =>
+    toView(await getUserRow(tx, admin.tenantId, userId), await loadRoles(tx, userId), (await loadAlertModules(tx, admin.tenantId, [userId])).get(userId)),
+  );
 }
 
 export function createUser(admin: CurrentUser, input: NewUserInput) {
@@ -206,9 +252,17 @@ export async function applyUserUpdate(tx: PlatformTx, tenantId: string, userId: 
     await tx.delete(userRoles).where(eq(userRoles.userId, userId));
     await tx.insert(userRoles).values(input.roles.map((roleId) => ({ tenantId, userId, roleId, grantedBy: actor })));
   }
+  // ticked alerts: as asked, or (after a role change) the current ones that still fit
+  const current = (await loadAlertModules(tx, tenantId, [userId])).get(userId) ?? [];
+  const alertModules =
+    input.alert_modules !== undefined
+      ? await setAlertModules(tx, tenantId, userId, nextRoles, input.alert_modules, actor, true)
+      : input.roles
+        ? await setAlertModules(tx, tenantId, userId, nextRoles, current, actor, false)
+        : current;
   if (nextStatus === "disabled") await revokeSessions(tx, userId);
   await audit(tx, { tenantId, actor, action: "user.updated", target: userId, details: input });
-  return toView(await getUserRow(tx, tenantId, userId), await loadRoles(tx, userId));
+  return toView(await getUserRow(tx, tenantId, userId), await loadRoles(tx, userId), alertModules);
 }
 
 /**

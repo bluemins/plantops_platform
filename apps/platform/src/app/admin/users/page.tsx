@@ -15,6 +15,11 @@ export default function UsersPage() {
   const [error, setError] = useState<string>();
   const [temp, setTemp] = useState<{ who: string; secret: string; kind: string }>();
   const [form, setForm] = useState(emptyForm);
+  const [enabled, setEnabled] = useState<string[]>([]);
+  useEffect(() => {
+    // modules switched on for this plant (locked tiles are the ones that aren't)
+    api<{ tiles?: { module: string; state: string }[] }>("/api/launcher").then((r) => r.ok && setEnabled((r.data.tiles ?? []).filter((t) => t.state !== "locked").map((t) => t.module)));
+  }, []);
 
   const load = useCallback(async () => {
     const r = await api<UserView[]>("/api/admin/users");
@@ -56,6 +61,7 @@ export default function UsersPage() {
         <UserCard
           key={u.id}
           user={u}
+          enabledModules={enabled}
           onTemp={setTemp}
           patch={async (body) => (await act(`/api/admin/users/${u.id}`, "PATCH", body)).error}
           reset={async (secret) => {

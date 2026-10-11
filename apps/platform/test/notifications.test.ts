@@ -217,8 +217,8 @@ describe("push sending", () => {
 
   it("each phone of the recipient gets title, body and the /n/<id> link", async () => {
     const P = await freshPlantWithPhones();
-    const { notifyOwners } = await import("@/server/notifications");
-    const r = await notifyOwners("floor_stock", P.tenantId, { kind: "k", title: "Low stock: 3 items", body: "Caps 500 ml", link: "/day/2026-10-11", level: "push", dedupe_key: "x" });
+    const { notifyPlant } = await import("@/server/notifications");
+    const r = await notifyPlant("floor_stock", P.tenantId, { kind: "k", title: "Low stock: 3 items", body: "Caps 500 ml", link: "/day/2026-10-11", level: "push", dedupe_key: "x" });
     const { sent, sender } = recorder();
     const result = await pushToUsers(P.tenantId, r.messages, sender);
     expect(result).toEqual({ sent: 2, removed: 0, failed: 0 });
@@ -228,8 +228,8 @@ describe("push sending", () => {
 
   it("a phone the push service says is gone (410 / 404) is removed; other errors keep it", async () => {
     const P = await freshPlantWithPhones();
-    const { notifyOwners } = await import("@/server/notifications");
-    const r = await notifyOwners("floor_stock", P.tenantId, { kind: "k", title: "t", body: "", link: null, level: "push", dedupe_key: "y" });
+    const { notifyPlant } = await import("@/server/notifications");
+    const r = await notifyPlant("floor_stock", P.tenantId, { kind: "k", title: "t", body: "", link: null, level: "push", dedupe_key: "y" });
     let first = true;
     const { sender } = recorder(() => (first ? ((first = false), 410) : 500));
     expect(await pushToUsers(P.tenantId, r.messages, sender)).toEqual({ sent: 0, removed: 1, failed: 1 });
@@ -239,8 +239,8 @@ describe("push sending", () => {
 
   it("bell-level notifications never go to phones", async () => {
     const P = await freshPlantWithPhones();
-    const { notifyOwners } = await import("@/server/notifications");
-    const r = await notifyOwners("floor_stock", P.tenantId, { kind: "k", title: "Setup changed", body: "", link: "/setup", level: "bell", dedupe_key: "z" });
+    const { notifyPlant } = await import("@/server/notifications");
+    const r = await notifyPlant("floor_stock", P.tenantId, { kind: "k", title: "Setup changed", body: "", link: "/setup", level: "bell", dedupe_key: "z" });
     expect(r.created).toBe(1);
     expect(r.messages.size).toBe(0);
   });

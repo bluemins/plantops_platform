@@ -15,6 +15,10 @@ beforeAll(async () => {
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
       received.push({ path: req.url ?? "", auth: req.headers.authorization ?? "", body: JSON.parse(raw || "{}") });
+      if (/\/notifications\/unread$/.test(req.url ?? "")) {
+        res.writeHead(answer === 201 ? 200 : answer, { "content-type": "application/json" });
+        return res.end(JSON.stringify({ unread: 4 }));
+      }
       res.writeHead(answer, { "content-type": "application/json" });
       res.end(JSON.stringify(answer === 201 ? { recipients: 2, created: 2 } : { error: "no" }));
     });
@@ -58,5 +62,20 @@ describe("kit.notify", () => {
     expect(await kitFor(() => url).notify(randomUUID(), { ...event, link: "https://evil.example" })).toBeNull();
     expect(received.length).toBe(before);
     log.mockRestore();
+  });
+});
+
+describe("header bell", () => {
+  it("links to the platform's notifications page", () => {
+    expect(kitFor(() => "https://app.example.test").notificationsUrl()).toBe("https://app.example.test/notifications");
+  });
+
+  it("unread count from the platform; null when it can't be reached", async () => {
+    answer = 201;
+    const tenant = randomUUID();
+    const user = randomUUID();
+    expect(await kitFor(() => url).unread(tenant, user)).toBe(4);
+    expect(received.at(-1)!.path).toBe(`/api/m/tenants/${tenant}/users/${user}/notifications/unread`);
+    expect(await kitFor(() => "http://127.0.0.1:9").unread(randomUUID(), randomUUID())).toBeNull();
   });
 });

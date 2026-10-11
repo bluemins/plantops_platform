@@ -182,3 +182,15 @@ export const pushSubscriptions = platform.table("push_subscriptions", {
   userAgent: text("user_agent"),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
+
+export const alertRecipients = platform.table(
+  "alert_recipients",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    moduleId: text("module_id").notNull(),
+    addedBy: text("added_by").notNull(),
+    addedAt: ts("added_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.tenantId, t.userId, t.moduleId] })],
+);

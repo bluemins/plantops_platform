@@ -8,7 +8,8 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { FORMS, mainDateField, type FormDef, type FormId } from "@/lib/forms";
 import { judge, overall, type Verdict } from "@/lib/verdict";
-import { holdOnFailure, type HoldNotice } from "./approval";
+import { approvalCheck, holdOnFailure, type HoldNotice } from "./approval";
+import { correctionNotification, formFailNotification, holdNotification, readyNotification, releaseRound, send } from "./notify";
 import { notifyFormFailure, notifyHold } from "./alerts";
 import { audit, pgCode } from "./audit";
 import { schema, withTenant, type LabTx } from "./db";
@@ -232,12 +233,31 @@ type NewResult = { parameterId: string; parameterName: string; unit: string | nu
 /** Forms 3 and 4 have a pass/fail outcome instead of numbers. */
 const outcomeVerdict = (data: Record<string, string>): Verdict => (data.outcome === "pass" ? "pass" : data.outcome === "fail" ? "fail" : "none");
 
-/** After saving: alerts go out once the transaction has committed (holds and Form 3/4 failures). */
-async function afterSave(user: LabUser, hold: HoldNotice | null, entry: EntryView) {
-  if (hold) await notifyHold(user.tenantId, hold);
-  else if ((entry.form === "form3" || entry.form === "form4") && entry.current.verdict === "fail") {
+type Ready = { batch: { id: string; batchNo: string }; tests: number; round: number } | null;
+
+/**
+ * After saving, once the transaction has committed: WhatsApp alerts (holds, Form 3/4 failures) and app
+ * notifications (docs/notifications.md N2). A correction that caused a hold only sends the hold.
+ */
+async function afterSave(user: LabUser, hold: HoldNotice | null, entry: EntryView, extra: { ready?: Ready; corrected?: boolean } = {}) {
+  if (hold) {
+    await notifyHold(user.tenantId, hold);
+    await send(user.tenantId, holdNotification(user, hold, entry.id));
+  } else if ((entry.form === "form3" || entry.form === "form4") && entry.current.verdict === "fail") {
     await notifyFormFailure(user.tenantId, entry);
+    await send(user.tenantId, formFailNotification(user, entry));
   }
+  if (!hold && extra.corrected) await send(user.tenantId, correctionNotification(user, entry));
+  if (!hold && extra.ready) await send(user.tenantId, readyNotification(user, extra.ready.batch, extra.ready.tests, extra.ready.round));
+}
+
+/** After a passing save on a pending batch: can it be approved now? (tests on record, nothing failing) */
+async function readiness(tx: LabTx, tenantId: string, batchId: string): Promise<Ready> {
+  const [b] = await tx.select().from(batches).where(and(eq(batches.tenantId, tenantId), eq(batches.id, batchId)));
+  if (!b || b.status !== "pending") return null;
+  const check = await approvalCheck(tx, tenantId, b, await loadEntries(tx, tenantId, { batchId }));
+  if (!check.tests || check.failing.length) return null;
+  return { batch: { id: b.id, batchNo: b.batchNo }, tests: check.tests, round: await releaseRound(tx, tenantId, b.id) };
 }
 
 // ---------- writing ----------
@@ -255,7 +275,7 @@ export async function createEntry(user: LabUser, input: z.infer<typeof EntryInpu
   if (def.batch === "none" && input.batch_id) throw badRequest("This form is not linked to a batch");
   noDuplicates(resultsIn);
 
-  const { entry, hold } = await withTenant(user.tenantId, async (tx) => {
+  const { entry, hold, ready } = await withTenant(user.tenantId, async (tx) => {
     if (input.batch_id) {
       const [batch] = await tx.select().from(batches).where(and(eq(batches.tenantId, user.tenantId), eq(batches.id, input.batch_id)));
       if (!batch) throw notFound("Batch not found");
@@ -282,9 +302,10 @@ export async function createEntry(user: LabUser, input: z.infer<typeof EntryInpu
     await insertVersion(tx, user, row!.id, 1, { reason: null, testedAt: at, data, results, verdict });
     const [view] = await loadEntries(tx, user.tenantId, { ids: [row!.id] });
     const hold = input.batch_id && verdict === "fail" ? await holdOnFailure(tx, user.tenantId, input.batch_id, view!) : null;
-    return { entry: view!, hold };
+    const ready = input.batch_id && !hold && (input.form === "daily" || input.form === "form1") ? await readiness(tx, user.tenantId, input.batch_id) : null;
+    return { entry: view!, hold, ready };
   });
-  await afterSave(user, hold, entry);
+  await afterSave(user, hold, entry, { ready });
   return entry;
 }
 
@@ -339,7 +360,7 @@ export async function correctEntry(user: LabUser, entryId: string, input: z.infe
     const hold = entry.batch_id && verdict === "fail" ? await holdOnFailure(tx, user.tenantId, entry.batch_id, view!) : null;
     return { entry: view!, hold };
   });
-  await afterSave(user, hold, entry);
+  await afterSave(user, hold, entry, { corrected: true });
   return entry;
 }
 

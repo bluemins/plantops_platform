@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { TenantBranding } from "@plantops/types";
+import { NotificationsLink } from "@plantops/ui";
 import { kit } from "@/server/kit";
 import type { DocUser } from "@/server/session";
 import type { Locale } from "@/lib/i18n";
@@ -15,7 +16,8 @@ const initials = (name: string) =>
     .join("");
 
 /** Top bar on every screen: plant logo + name, who is logged in, the way back to PlantOps (or out of support). */
-export function Header({ user, plant, locale }: { user: DocUser; plant: TenantBranding | null; locale: Locale }) {
+export async function Header({ user, plant, locale }: { user: DocUser; plant: TenantBranding | null; locale: Locale }) {
+  const unread = user.isSupport ? null : await kit.unread(user.tenantId, user.userId);
   const t = (key: Parameters<typeof translate>[1], values?: Record<string, string | number>) => translate(locale, key, values);
   const role = user.isSupport ? t("readOnly") : user.isOwner ? t("owner") : t("documentKeeper");
   return (
@@ -43,6 +45,7 @@ export function Header({ user, plant, locale }: { user: DocUser; plant: TenantBr
         </Link>
         <div className="flex flex-wrap items-center justify-end gap-3">
           <LanguageSelector />
+          {!user.isSupport && <NotificationsLink href={kit.notificationsUrl()} unread={unread} />}
           <a href={user.isSupport ? "/sso/support-exit" : kit.accountUrl()} className="flex items-center gap-2 text-right" title={user.isSupport ? t("exitSupportTitle") : t("accountTitle")}>
             <span className="hidden sm:block">
               <span className="block font-semibold">{user.name}</span>

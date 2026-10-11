@@ -4,6 +4,22 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.8.0 — 2026-10-11 — Chosen people get alerts; Lab Records notifications
+
+**What's in it**
+- **Gets alerts** tick boxes on Manage users → Edit (and when adding a user, and for super_admin): besides the
+  owners, only the people the owner ticks get a module's notifications, e.g. a manager for Floor Stock. Only
+  modules the person works in are offered; a role change drops ones that no longer fit; every change is audited.
+- **Notifications page** `app.bluemins.life/notifications` for everyone, and a 🔔 with the unread count in every
+  module's header (staff who skip the launcher reach their alerts and turn on phone notifications there). The
+  launcher bell now shows for everyone.
+- **Lab Records notifications:** ON HOLD, Form 3/4 FAIL, ready for approval, approved / rejected (also to the
+  technicians who tested the batch), result corrected (bell only), the morning reminder, and "No lab tests
+  entered today" at 20:00 (new Lab Records step in **Evening jobs**). WhatsApp alerts are unchanged.
+
+**Migrations:** platform `0010_alert_recipients.sql` (who gets which module's alerts; RLS). Deploy `platform`,
+`lab-records`, `floor-stock` and `document-store` (header bell).
+
 ## v0.7.0 — 2026-10-11 — App notifications (bell + phone), Floor Stock first
 
 **What's in it**

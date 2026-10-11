@@ -228,7 +228,10 @@ WhatsApp, or setting them up. Existing email alerts stay as they are; notificati
 - **The platform owns one inbox** (`platform.notifications`, one row per recipient with its own read mark).
 - **Modules only send events:** `POST /api/m/tenants/:tid/notifications` with module credentials and
   `{ kind, title (≤ 80), body (≤ 300), link (path inside the module), dedupe_key, exclude_user_id? }`.
-  - **The platform decides who receives it.** A module can never pick arbitrary people or reach another plant.
+  - **The platform decides who receives it** (N2): the plant's active owners (always) + the people the owner
+    ticked for that module on Manage users ("Gets alerts") + `also_user_ids` (the people an event is about, e.g.
+    the technicians of an approved batch), each re-checked at send time (active, this plant, works in the module
+    via `roleWorksIn`), minus `exclude_user_id`. A module can never pick arbitrary people or reach another plant.
   - A module not enabled for the plant gets 403.
   - The same `dedupe_key` is stored once per person.
 - **Where it shows:**
@@ -830,3 +833,58 @@ including whether opening a notification on an iPhone asks for the login again (
 
 **Next:** deploy v0.7.0 (VAPID variables on `platform`, both migrations, `evening.yml`), test on phones, then
 N2 (chosen people get alerts via a per-module tick box, + Lab Records) in plan mode.
+
+### 2026-10-11 — Notifications N2: chosen people get alerts + Lab Records — built, not live yet
+**Built** (release v0.8.0; v0.7.0 = N1 is committed `878e8aa` and tagged, neither deployed):
+- **Platform:**
+  - migration `0010_alert_recipients.sql` (`alert_recipients`: tenant, user, module, who ticked; FORCE RLS;
+    `platform_app` / `platform_super` SELECT / INSERT / DELETE)
+  - recipients = owners + ticked people + `also_user_ids`, each re-checked at send time (`notifyPlant` in
+    `src/server/notifications.ts`)
+  - "Gets alerts" tick boxes in `src/lib/user-form.tsx` (owner and super_admin; also on add user via the API):
+    only enabled modules the person works in, 400 otherwise, ignored for owners, dropped on a role change,
+    audited
+  - `/notifications` page for everyone; launcher bell for everyone; turn-on card for owners and ticked people
+    (`gets_alerts` in `/api/launcher`)
+  - `GET /api/m/tenants/:tid/users/:uid/notifications/unread` for module headers
+- **Shared:**
+  - `NotificationInput.also_user_ids`
+  - `fetchUnread` (auth); `sendNotification` now has a 5 s timeout
+  - `kit.unread` (30 s cache) and `kit.notificationsUrl` (module-kit)
+  - `NotificationsLink` (ui)
+  - 🔔 in the Lab Records, Document Store and Floor Stock headers (not in support views)
+- **Lab Records:** `src/server/notify.ts` (texts + 20:00 `runEvening`), wired into `entries.ts`, `approval.ts`
+  and `reminders.ts` next to the WhatsApp outbox; `POST /api/cron/evening`; Lab Records step in `evening.yml`.
+- **Tests:** platform 227 (+17 recipients / tick boxes / unread), Lab Records 125 (+14), module-kit 17,
+  Floor Stock 103, Document Store 90, auth 36; typecheck and all four builds pass.
+
+**Decisions (owner, 2026-10-11):**
+- chosen people instead of all staff (not the older "module_staff" prompt)
+- owners always receive
+- ticked people get the same events as owners
+- the technicians of a batch get approved / rejected even if not ticked
+- lab leads only if ticked (WhatsApp unchanged)
+- result corrected is bell only
+
+**Made while building:**
+- "ready for approval" fires when a pending batch has tests and nothing failing, once per round (again after
+  each released hold)
+- the hold notification leaves out whoever entered the failing test
+- the tick boxes are sent only when the module list is known and the ticks changed, so a failed load never
+  unticks anyone
+
+**Verified on `pnpm dev` (2026-10-11, plant 002):**
+- migration `0010` applied
+- Sujata ticked Atharv (lab technician + store keeper) for Floor Stock; the edit form offered only Lab Records
+  and Floor Stock
+- a Floor Stock event reached Sujata + Atharv (2 recipients); the unread endpoint said 1
+- Atharv's `/notifications` page rendered in headless Chrome
+- test data, tick and sessions removed afterwards
+
+**Not yet verified:**
+- the module header bell in a real browser session
+- Lab Records events end to end on `pnpm dev` (covered by tests)
+- phones (needs the deploy)
+
+**Next:** deploy v0.7.0 + v0.8.0 together (VAPID variables, migrations platform `0009` + `0010`, Floor Stock
+`0002`, all four services), test on phones, then N3 (Document Store + platform events) in plan mode.

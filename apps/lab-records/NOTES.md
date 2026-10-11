@@ -80,6 +80,15 @@ Phase 3.
   the template is not `en`.
 - Numbers are normalised to `91XXXXXXXXXX` (`whatsappNumber()`).
 
+## App notifications (v0.8.0, docs/notifications.md N2)
+Sent with `kit.notify` (never blocks or breaks a save; 5 s timeout) next to the WhatsApp outbox, texts in
+`src/server/notify.ts`. The platform picks the people: owners + people ticked for Lab Records (+ the batch's
+technicians for approved / rejected), minus whoever did it. Events: ON HOLD, Form 3/4 FAIL, ready for approval
+(`ready:<batch>:<released count>`), approved / rejected, result corrected (bell only; a correction that holds the
+batch sends only the hold), the morning reminder, and 20:00 "No lab tests entered today" (`POST /api/cron/evening`,
+plants from `lab_tenants()`, skipped when Lab Records is off). Support sessions can't write, so they never notify.
+The header shows a 🔔 to the platform's `/notifications` page with the unread count.
+
 ## Daily job
 - Endpoint: `POST /api/cron/daily` with header `x-cron-secret: $CRON_SECRET`. It is off (503) without the
   secret.

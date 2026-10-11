@@ -8,6 +8,7 @@ import { z } from "zod";
 import { FORMS } from "@/lib/forms";
 import { limitText } from "@/lib/verdict";
 import { notifyBatchDecision } from "./alerts";
+import { batchTechnicians, decisionNotification, readyNotification, releaseRound, send } from "./notify";
 import { audit } from "./audit";
 import { schema, withTenant, type LabTx } from "./db";
 import { loadEntries, type EntryView } from "./entries";
@@ -124,7 +125,7 @@ export async function addCorrectiveAction(user: LabUser, batchId: string, input:
 /** On hold -> pending. Needs a corrective-action note since the hold and nothing failing any more. */
 export async function releaseHold(user: LabUser, batchId: string, input: z.infer<typeof ReleaseInput>) {
   requireApprover(user);
-  return withTenant(user.tenantId, async (tx) => {
+  const result = await withTenant(user.tenantId, async (tx) => {
     const b = await lockBatch(tx, user.tenantId, batchId);
     if (b.status !== "on_hold") throw conflict("This batch is not on hold");
     const check = await approvalCheck(tx, user.tenantId, b, await currentEntries(tx, user.tenantId, batchId));
@@ -133,8 +134,11 @@ export async function releaseHold(user: LabUser, batchId: string, input: z.infer
     await tx.update(batches).set({ status: "pending", heldSince: null, updatedAt: new Date() }).where(eq(batches.id, batchId));
     await tx.insert(batchEvents).values({ tenantId: user.tenantId, batchId, event: "released", byUser: user.userId, byName: user.name, note: input.note || null });
     await audit(tx, { tenantId: user.tenantId, actor: actorOf(user), action: "batch.released", target: batchId, details: { batch_no: b.batchNo } });
-    return { status: "pending" as const };
+    // released = nothing failing and tests on record, so it is ready for approval again (a new round)
+    return { batchNo: b.batchNo, tests: check.tests, round: await releaseRound(tx, user.tenantId, batchId) };
   });
+  await send(user.tenantId, readyNotification(user, { id: batchId, batchNo: result.batchNo }, result.tests, result.round));
+  return { status: "pending" as const };
 }
 
 /** Pending -> approved for production (and later dispatch). */
@@ -150,8 +154,9 @@ export async function approveBatch(user: LabUser, batchId: string) {
     await tx.update(batches).set({ status: "approved", updatedAt: new Date() }).where(eq(batches.id, batchId));
     await tx.insert(batchEvents).values({ tenantId: user.tenantId, batchId, event: "approved", byUser: user.userId, byName: user.name });
     await audit(tx, { tenantId: user.tenantId, actor: actorOf(user), action: "batch.approved", target: batchId, details: { batch_no: b.batchNo } });
-    return { status: "approved" as const, batchNo: b.batchNo };
+    return { status: "approved" as const, batchNo: b.batchNo, technicians: await batchTechnicians(tx, user.tenantId, batchId) };
   });
+  await send(user.tenantId, decisionNotification(user, { id: batchId, batchNo: result.batchNo }, "approved", result.technicians));
   return { status: result.status };
 }
 
@@ -165,9 +170,10 @@ export async function rejectBatch(user: LabUser, batchId: string, input: z.infer
     await tx.update(batches).set({ status: "rejected", heldSince: null, updatedAt: new Date() }).where(eq(batches.id, batchId));
     await tx.insert(batchEvents).values({ tenantId: user.tenantId, batchId, event: "rejected", byUser: user.userId, byName: user.name, note: input.reason });
     await audit(tx, { tenantId: user.tenantId, actor: actorOf(user), action: "batch.rejected", target: batchId, details: { batch_no: b.batchNo, reason: input.reason } });
-    return { batchNo: b.batchNo };
+    return { batchNo: b.batchNo, technicians: await batchTechnicians(tx, user.tenantId, batchId) };
   });
   await notifyBatchDecision(user.tenantId, { batchId, batchNo: result.batchNo, text: `Batch ${result.batchNo} REJECTED by ${user.name}: ${input.reason}` });
+  await send(user.tenantId, decisionNotification(user, { id: batchId, batchNo: result.batchNo }, "rejected", result.technicians, input.reason));
   return { status: "rejected" as const };
 }
 

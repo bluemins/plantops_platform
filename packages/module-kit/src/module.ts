@@ -14,6 +14,7 @@ import {
   fetchLogo,
   fetchSkus,
   fetchTenantPlan,
+  fetchUnread,
   openSession,
   sendNotification,
   openSupportSession,
@@ -73,6 +74,9 @@ export function createModule(config: ModuleConfig) {
   /** Platform login that returns the user here with a one-time code (CLAUDE.md flow step 6). */
   const platformLoginUrl = (next: string) => new URL(`/sso/start?module=${moduleId}&next=${encodeURIComponent(next)}`, env.platformUrl()).toString();
 
+  /** The platform's notifications page (the bell in every module header links here; staff skip the launcher). */
+  const notificationsUrl = () => new URL("/notifications", env.platformUrl()).toString();
+
   // Caches survive hot reloads in dev; one per module.
   const g = globalThis as unknown as Record<string, Cache<unknown> | undefined>;
   function cached<T>(name: string, load: (tenantId: string) => Promise<T>, fallback: T) {
@@ -93,6 +97,16 @@ export function createModule(config: ModuleConfig) {
   const plan = cached<TenantPlan | null>("plan", (t) => fetchTenantPlan(creds(), t), null);
   /** Owners + this module's staff (names, phones, emails, roles). null if the platform can't be reached. */
   const contacts = cached<AlertContact[] | null>("contacts", (t) => fetchAlertContacts(creds(), t), null);
+  /** Unread notifications of one person, for the header bell. Cached 30 s; null if the platform can't say. */
+  async function unread(tenantId: string, userId: string): Promise<number | null> {
+    const cache = (g[`__${moduleId}_unread`] ??= new Map()) as Cache<number>;
+    const key = `${tenantId}:${userId}`;
+    const hit = cache.get(key);
+    if (hit && Date.now() - hit.at < 30_000) return hit.value;
+    const value = await fetchUnread(creds(), tenantId, userId).catch(() => null);
+    if (value !== null) cache.set(key, { at: Date.now(), value });
+    return value ?? hit?.value ?? null;
+  }
   /**
    * Tells the plant's owners about an event (launcher bell + phones; CLAUDE.md "Notifications"). Never throws:
    * a notification must never break the action that caused it. Returns null when the platform couldn't take it.
@@ -254,6 +268,8 @@ a{display:inline-block;margin-top:12px;padding:12px 18px;border-radius:12px;back
     plan,
     contacts,
     notify,
+    unread,
+    notificationsUrl,
     sealCookie,
     openCookie,
     readSession,

@@ -5,7 +5,7 @@ import { audit } from "./audit";
 import { ProfileInput, writeProfile } from "./business";
 import { schema, superDb, withTenant, type PlatformTx } from "./db";
 import { conflict, notFound } from "./http";
-import { applySecretReset, applyUserUpdate, insertUser, lockTenantUsers, NewUserInput, toView, UpdateUserInput, Username } from "./users";
+import { applySecretReset, applyUserUpdate, insertUser, loadAlertModules, lockTenantUsers, NewUserInput, toView, UpdateUserInput, Username } from "./users";
 import type { CurrentSuperAdmin } from "./super-auth";
 
 const { tenants, tenantPlans, users, userRoles, sessions } = schema;
@@ -98,7 +98,10 @@ export async function getTenant(tenantId: string) {
     status: row.tenants.status,
     hosting: row.tenants.hosting,
     plan: planView(row.tenant_plans ?? undefined),
-    users: userRows.map((u) => toView(u, roleRows.filter((r) => r.userId === u.id).map((r) => r.roleId as RoleId).sort())),
+    users: await (async () => {
+      const alerts = await loadAlertModules(db, tenantId, userRows.map((u) => u.id));
+      return userRows.map((u) => toView(u, roleRows.filter((r) => r.userId === u.id).map((r) => r.roleId as RoleId).sort(), alerts.get(u.id)));
+    })(),
   };
 }
 

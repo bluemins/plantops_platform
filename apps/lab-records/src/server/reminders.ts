@@ -5,6 +5,7 @@ import { and, asc, eq, lt, sql } from "drizzle-orm";
 import { fmtAge } from "@/lib/format";
 import { deliverPending, queueAlert } from "./alerts";
 import { labDb, schema, withTenant, type LabTx } from "./db";
+import { dailyNotification, send } from "./notify";
 
 const { alerts, batches, entries, entryVersions } = schema;
 
@@ -64,6 +65,7 @@ export async function runDaily(now = new Date()) {
       const text = await reminderFor(id, now);
       if (text) {
         await queueAlert(id, "daily_reminder", null, text);
+        await send(id, dailyNotification(text, now));
         reminders++;
       }
       sent += (await deliverPending(id)).sent;

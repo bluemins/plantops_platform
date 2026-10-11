@@ -328,6 +328,13 @@ notifications once they tap **Turn on** there. Design and phases: `docs/notifica
 - **"Blocked on this phone"**: the person once refused. Only the phone's settings can undo it (iPhone: Settings
   → Notifications → PlantOps; Android: Chrome → site settings → app.bluemins.life → Notifications).
 - **Logging out** turns notifications off for that phone, so a shared phone doesn't get the owner's alerts.
+- **Other people (e.g. a manager)** get a module's alerts only when the owner ticks them: Manage users → Edit →
+  **Gets alerts (bell and phone) for** → tick the module → Save. Only modules the person works in are offered;
+  untick any time (audited). Owners always get every alert. A ticked person opens their list and turns on phone
+  alerts from the 🔔 in any module's header (or `app.bluemins.life/notifications`).
+- **Lab Records** also notifies (owners + ticked): ON HOLD, Form 3/4 FAIL, ready for approval, approved /
+  rejected (also to the technicians who tested that batch), result corrected (bell only), the morning reminder
+  and "No lab tests entered today" at 20:00 (Evening jobs). WhatsApp alerts are unchanged.
 - **If a plant asks where the alerts go:** through Google's (Android) or Apple's (iPhone) push service,
   encrypted end to end; they can't read or keep the content. The data itself stays in Singapore.
 - Floor Stock sends: count saved / corrected / low stock / check the count (one per save), count not done

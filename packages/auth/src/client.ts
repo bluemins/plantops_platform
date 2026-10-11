@@ -69,7 +69,15 @@ export async function fetchAlertContacts(c: ModuleCredentials, tenantId: string)
  */
 export async function sendNotification(c: ModuleCredentials, tenantId: string, input: NotificationInput) {
   const body = NotificationInput.parse(input);
-  return NotificationResult.parse(await call(c, `/api/m/tenants/${tenantId}/notifications`, { method: "POST", body: JSON.stringify(body) }));
+  return NotificationResult.parse(
+    await call(c, `/api/m/tenants/${tenantId}/notifications`, { method: "POST", body: JSON.stringify(body), signal: AbortSignal.timeout(5_000) }),
+  );
+}
+
+/** How many unread notifications this person has (for the bell in a module's header). */
+export async function fetchUnread(c: ModuleCredentials, tenantId: string, userId: string): Promise<number> {
+  const body = (await call(c, `/api/m/tenants/${tenantId}/users/${userId}/notifications/unread`)) as { unread?: unknown };
+  return typeof body.unread === "number" ? body.unread : 0;
 }
 
 /** The plant's products (active and inactive). Store sku_id as a plain reference; cache briefly. */

@@ -19,7 +19,10 @@ Notifications appear in two places:
 - **Modules only send events**, server-to-server with their module credentials:
   `POST /api/m/tenants/:tid/notifications` with
   `{ kind, title (≤ 80), body (≤ 300), link (path inside the module), dedupe_key, exclude_user_id? }`.
-  - **The platform decides who receives it.** A module can never pick arbitrary people or reach another plant.
+  - **The platform decides who receives it** (N2): the plant's active owners (always) + the people the owner
+    ticked for that module on Manage users ("Gets alerts") + `also_user_ids` (the people an event is about, e.g.
+    the technicians of an approved batch), each re-checked at send time (active, this plant, works in the module
+    via `roleWorksIn`), minus `exclude_user_id`. A module can never pick arbitrary people or reach another plant.
   - A module that isn't enabled for the plant gets 403.
   - The same event (`module + dedupe_key`) is stored only once per person.
 - **Opening a notification:** a tap goes to `/sso/start?module=<id>&next=<link>` (checked by `safeNext`), so it
@@ -42,6 +45,19 @@ Notifications appear in two places:
 
 ## Status
 - **N1 built 2026-10-11** (release v0.7.0, not deployed yet). See the CLAUDE.md status note.
+- **N2 built 2026-10-11** (release v0.8.0, not deployed yet): chosen people ("Gets alerts" tick boxes),
+  `/notifications` page, 🔔 in every module header, Lab Records events (table below).
+
+### Lab Records events (N2, as built)
+| Event | Recipients | Level | Opens |
+|---|---|---|---|
+| Batch X ON HOLD (failed test, also via a correction) | owners + ticked, minus who entered it | phone + bell | batch |
+| Form 3 / Form 4: FAIL | owners + ticked, minus who entered it | phone + bell | record |
+| Batch X ready for approval (pending, tests on record, nothing failing; again after each released hold) | owners + ticked, minus actor | phone + bell | batch |
+| Batch X approved / rejected (+ reason) | owners + ticked + technicians who tested it, minus actor | phone + bell | batch |
+| Result corrected (vN): reason | owners + ticked, minus actor | **bell only** | record |
+| Lab Records reminder (holds > 24 h, Form 1 due from the 25th; 07:00 job, same text as WhatsApp) | owners + ticked | phone + bell | home |
+| No lab tests entered today (20:00 job, `POST /api/cron/evening`) | owners + ticked | phone + bell | new test |
 
 ## Phases at a glance
 Finish and test each phase, then add a status note in CLAUDE.md, before starting the next.

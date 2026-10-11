@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { TenantBranding } from "@plantops/types";
+import { NotificationsLink } from "@plantops/ui";
 import { kit } from "@/server/kit";
 import type { StockUser } from "@/server/session";
 
@@ -12,7 +13,8 @@ const initials = (name: string) =>
     .join("");
 
 /** Top bar on every screen: plant logo + name, who is logged in, the way back to PlantOps (or out of support). */
-export function Header({ user, plant }: { user: StockUser; plant: TenantBranding | null }) {
+export async function Header({ user, plant }: { user: StockUser; plant: TenantBranding | null }) {
+  const unread = user.isSupport ? null : await kit.unread(user.tenantId, user.userId);
   const role = user.isSupport ? "Read-only" : user.isOwner ? "Owner" : "Store keeper";
   return (
     <>
@@ -37,13 +39,16 @@ export function Header({ user, plant }: { user: StockUser; plant: TenantBranding
             <span className="block truncate text-sm text-slate-500">{plant?.name ?? ""}</span>
           </span>
         </Link>
-        <a href={user.isSupport ? "/sso/support-exit" : kit.accountUrl()} className="flex items-center gap-2 text-right" title={user.isSupport ? "Exit the support view" : "Account / PlantOps home"}>
-          <span className="hidden sm:block">
-            <span className="block font-semibold">{user.name}</span>
-            <span className="block text-sm text-slate-500">{role}</span>
-          </span>
-          <span className="grid h-11 w-11 place-items-center rounded-full bg-(--brand-soft) font-bold text-(--brand)">{initials(user.name)}</span>
-        </a>
+        <div className="flex items-center gap-2">
+          {!user.isSupport && <NotificationsLink href={kit.notificationsUrl()} unread={unread} />}
+          <a href={user.isSupport ? "/sso/support-exit" : kit.accountUrl()} className="flex items-center gap-2 text-right" title={user.isSupport ? "Exit the support view" : "Account / PlantOps home"}>
+            <span className="hidden sm:block">
+              <span className="block font-semibold">{user.name}</span>
+              <span className="block text-sm text-slate-500">{role}</span>
+            </span>
+            <span className="grid h-11 w-11 place-items-center rounded-full bg-(--brand-soft) font-bold text-(--brand)">{initials(user.name)}</span>
+          </a>
+        </div>
       </header>
     </>
   );

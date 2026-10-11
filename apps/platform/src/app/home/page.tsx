@@ -10,7 +10,7 @@ import { turnOff } from "@/lib/push-client";
 
 type Launcher = {
   must_change_secret: boolean;
-  user: { display_name: string; roles: string[] };
+  user: { display_name: string; roles: string[]; gets_alerts: boolean };
   plant: { name: string; code: string; logo_url: string | null };
   tiles: Tile[];
   plan_summary: PlanSummary | null;
@@ -61,7 +61,7 @@ export default function HomePage() {
           Plant<span className="text-(--brand)">Ops</span>
         </span>
         <div className="flex items-center gap-3 text-right">
-          {owner && <NotificationBell />}
+          <NotificationBell />
           <div>
             <p className="font-semibold leading-tight">{data.user.display_name}</p>
             <p className="text-xs text-slate-500">{data.plant.name}</p>
@@ -81,7 +81,7 @@ export default function HomePage() {
         <p className="text-slate-500">{owner ? "Here's what's available for your account today." : "Tap a module to open it."}</p>
       </div>
 
-      {owner && <PushCard />}
+      {data.user.gets_alerts && <PushCard />}
 
       <section>
         <h2 className="mb-2 text-xs font-semibold tracking-wider text-slate-500 uppercase">Your modules</h2>

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { TenantBranding } from "@plantops/types";
+import { NotificationsLink } from "@plantops/ui";
+import { kit } from "@/server/kit";
 import { accountUrl } from "@/server/platform";
 import type { LabUser } from "@/server/session";
 
@@ -14,7 +16,8 @@ const initials = (name: string) =>
 const ROLE_NAMES: Record<string, string> = { tenant_admin: "Owner", lab_lead: "Lab lead", lab_technician: "Lab technician" };
 
 /** Top bar on every Lab Records screen: plant logo + name, who is logged in, and the way back to PlantOps. */
-export function Header({ user, plant }: { user: LabUser; plant: TenantBranding | null }) {
+export async function Header({ user, plant }: { user: LabUser; plant: TenantBranding | null }) {
+  const unread = user.isSupport ? null : await kit.unread(user.tenantId, user.userId);
   const roles = user.isSupport ? ["Read-only"] : user.roles.filter((r) => ROLE_NAMES[r]).map((r) => ROLE_NAMES[r]);
   return (
     <>
@@ -39,13 +42,20 @@ export function Header({ user, plant }: { user: LabUser; plant: TenantBranding |
           <span className="block truncate text-sm text-slate-500">{plant?.name ?? ""}</span>
         </span>
       </Link>
-      <a href={user.isSupport ? "/sso/support-exit" : accountUrl()} className="flex items-center gap-2 text-right" title={user.isSupport ? "Exit support view" : "Account / PlantOps home"}>
-        <span className="hidden sm:block">
-          <span className="block font-semibold">{user.name}</span>
-          <span className="block text-sm text-slate-500">{roles.join(" · ")}</span>
-        </span>
-        <span className="grid h-11 w-11 place-items-center rounded-full bg-(--brand-soft) font-bold text-(--brand)">{initials(user.name)}</span>
-      </a>
+      <div className="flex items-center gap-2">
+        {!user.isSupport && (
+          <span className="no-print">
+            <NotificationsLink href={kit.notificationsUrl()} unread={unread} />
+          </span>
+        )}
+        <a href={user.isSupport ? "/sso/support-exit" : accountUrl()} className="flex items-center gap-2 text-right" title={user.isSupport ? "Exit support view" : "Account / PlantOps home"}>
+          <span className="hidden sm:block">
+            <span className="block font-semibold">{user.name}</span>
+            <span className="block text-sm text-slate-500">{roles.join(" · ")}</span>
+          </span>
+          <span className="grid h-11 w-11 place-items-center rounded-full bg-(--brand-soft) font-bold text-(--brand)">{initials(user.name)}</span>
+        </a>
+      </div>
     </header>
     </>
   );

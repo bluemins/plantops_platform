@@ -147,8 +147,9 @@ export const AlertContact = z.object({
 export type AlertContact = z.infer<typeof AlertContact>;
 
 /**
- * POST /api/m/tenants/:tid/notifications - a module reports an event; the PLATFORM decides who receives it
- * (in N1: the plant's active owners). Shown in the launcher bell and, at level "push", sent to installed phones.
+ * POST /api/m/tenants/:tid/notifications - a module reports an event; the PLATFORM decides who receives it: the
+ * plant's active owners + the people the owner ticked for this module + also_user_ids, each checked (active, this
+ * plant, works in the module), minus exclude_user_id. Shown in the bell and, at level "push", on installed phones.
  * The same module + dedupe_key is stored once per person, so a retry is safe. CLAUDE.md "Notifications".
  */
 export const NotificationInput = z.object({
@@ -168,6 +169,8 @@ export const NotificationInput = z.object({
   dedupe_key: z.string().trim().min(1).max(200),
   /** whoever did it - they are not notified about their own action */
   exclude_user_id: z.uuid().nullable().optional(),
+  /** people the event is about (e.g. the technician whose batch was approved); checked like everyone else */
+  also_user_ids: z.array(z.uuid()).max(20).optional(),
 });
 export type NotificationInput = z.input<typeof NotificationInput>;
 export const NotificationResult = z.object({ recipients: z.number().int(), created: z.number().int() });

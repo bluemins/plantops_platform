@@ -116,6 +116,7 @@ export default function TenantPage() {
           key={u.id}
           user={u}
           canEditUsername
+          enabledModules={t.plan?.enabled_modules ?? []}
           onTemp={setTemp}
           patch={async (body) => {
             const r = await api<Tenant>(`/api/super/tenants/${id}/users/${u.id}`, { method: "PATCH", body });

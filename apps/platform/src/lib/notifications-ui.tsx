@@ -52,16 +52,12 @@ function useInbox() {
   return { inbox, reload: load };
 }
 
-/** Bell with the unread count; tapping opens the list (full screen on a phone). */
-export function NotificationBell() {
-  const { inbox, reload } = useInbox();
-  const [open, setOpen] = useState(false);
-
+/** The list (newest first, grouped by day) with "Mark all read" and the phone on/off line. */
+export function NotificationList({ inbox, reload, header }: { inbox: Inbox; reload: () => void; header: React.ReactNode }) {
   async function markAll() {
     await api("/api/notifications/read", { body: { all: true } });
     reload();
   }
-
   const groups: { label: string; items: Item[] }[] = [];
   for (const n of inbox.items) {
     const label = dayGroup(n.created_at);
@@ -69,6 +65,57 @@ export function NotificationBell() {
     if (g?.label === label) g.items.push(n);
     else groups.push({ label, items: [n] });
   }
+  return (
+    <div className="space-y-3 text-left">
+      <header className="flex items-center justify-between">
+        {header}
+        {inbox.unread > 0 && (
+          <button type="button" onClick={markAll} className="min-h-11 px-2 text-sm font-semibold text-(--brand)">
+            Mark all read
+          </button>
+        )}
+      </header>
+
+      {!inbox.items.length && <p className="py-10 text-center text-slate-500">No notifications yet.</p>}
+      {groups.map((g) => (
+        <section key={g.label} className="space-y-2">
+          <h3 className="px-1 pt-2 text-xs font-semibold tracking-wider text-slate-500 uppercase">{g.label}</h3>
+          {g.items.map((n) => (
+            <a key={n.id} href={n.open_url} className={`flex gap-3 rounded-2xl border border-slate-200 p-4 ${n.read ? "" : "bg-white"}`}>
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex justify-between gap-2">
+                  <span className={n.read ? "font-medium text-slate-700" : "font-bold"}>{n.title}</span>
+                  <span className="text-xs whitespace-nowrap text-slate-500">{time(n.created_at)}</span>
+                </div>
+                {n.body && <p className="text-sm leading-snug text-slate-700">{n.body}</p>}
+                <p className="text-xs text-slate-500">{moduleLabel(n.module)}</p>
+              </div>
+              {!n.read && <span className="mt-1.5 h-2.5 w-2.5 flex-none rounded-full bg-(--brand)" aria-label="Unread" />}
+            </a>
+          ))}
+        </section>
+      ))}
+
+      <PushCard compact />
+    </div>
+  );
+}
+
+/** The whole /notifications page body (staff reach it from the bell in a module's header). */
+export function NotificationsPage({ showCard }: { showCard: boolean }) {
+  const { inbox, reload } = useInbox();
+  return (
+    <div className="space-y-4">
+      {showCard && <PushCard />}
+      <NotificationList inbox={inbox} reload={reload} header={<h1 className="text-2xl font-bold">Your notifications</h1>} />
+    </div>
+  );
+}
+
+/** Bell with the unread count; tapping opens the list (full screen on a phone). */
+export function NotificationBell() {
+  const { inbox, reload } = useInbox();
+  const [open, setOpen] = useState(false);
 
   return (
     <>
@@ -91,48 +138,21 @@ export function NotificationBell() {
 
       {open && (
         <div role="dialog" aria-modal="true" aria-label="Notifications" className="fixed inset-0 z-50 overflow-y-auto bg-slate-50 text-left">
-          <div className="mx-auto w-full max-w-3xl space-y-3 px-4 py-6">
-            <header className="flex items-center justify-between">
-              <div className="flex items-center gap-1">
-                <button type="button" aria-label="Close" onClick={() => setOpen(false)} className="flex h-11 w-11 items-center justify-center">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="m15 18-6-6 6-6" />
-                  </svg>
-                </button>
-                <h2 className="text-2xl font-bold">Notifications</h2>
-              </div>
-              {inbox.unread > 0 && (
-                <button type="button" onClick={markAll} className="min-h-11 px-2 text-sm font-semibold text-(--brand)">
-                  Mark all read
-                </button>
-              )}
-            </header>
-
-            {!inbox.items.length && <p className="py-10 text-center text-slate-500">No notifications yet.</p>}
-            {groups.map((g) => (
-              <section key={g.label} className="space-y-2">
-                <h3 className="px-1 pt-2 text-xs font-semibold tracking-wider text-slate-500 uppercase">{g.label}</h3>
-                {g.items.map((n) => (
-                  <a
-                    key={n.id}
-                    href={n.open_url}
-                    className={`flex gap-3 rounded-2xl border border-slate-200 p-4 ${n.read ? "" : "bg-white"}`}
-                  >
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex justify-between gap-2">
-                        <span className={n.read ? "font-medium text-slate-700" : "font-bold"}>{n.title}</span>
-                        <span className="text-xs whitespace-nowrap text-slate-500">{time(n.created_at)}</span>
-                      </div>
-                      {n.body && <p className="text-sm leading-snug text-slate-700">{n.body}</p>}
-                      <p className="text-xs text-slate-500">{moduleLabel(n.module)}</p>
-                    </div>
-                    {!n.read && <span className="mt-1.5 h-2.5 w-2.5 flex-none rounded-full bg-(--brand)" aria-label="Unread" />}
-                  </a>
-                ))}
-              </section>
-            ))}
-
-            <PushCard compact />
+          <div className="mx-auto w-full max-w-3xl px-4 py-6">
+            <NotificationList
+              inbox={inbox}
+              reload={reload}
+              header={
+                <div className="flex items-center gap-1">
+                  <button type="button" aria-label="Close" onClick={() => setOpen(false)} className="flex h-11 w-11 items-center justify-center">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="m15 18-6-6 6-6" />
+                    </svg>
+                  </button>
+                  <h2 className="text-2xl font-bold">Notifications</h2>
+                </div>
+              }
+            />
           </div>
         </div>
       )}
@@ -243,7 +263,7 @@ export function PushCard({ compact = false }: { compact?: boolean }) {
     <section className="space-y-3 rounded-2xl bg-(--brand-soft) p-4">
       <div>
         <p className="font-semibold">Get alerts on this phone</p>
-        <p className="text-sm text-slate-700">Low stock and the daily count, even when PlantOps is closed. Free, no SMS.</p>
+        <p className="text-sm text-slate-700">Your PlantOps alerts, even when the app is closed. Free, no SMS.</p>
       </div>
       <div className="flex gap-2">
         <Button disabled={busy} onClick={on}>{busy ? "Turning on..." : "Turn on"}</Button>
