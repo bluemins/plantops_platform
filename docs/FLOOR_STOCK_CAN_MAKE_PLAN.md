@@ -1,6 +1,6 @@
 # Floor Stock "Can make" — Plan and Build Prompt
 
-**Status:** Design agreed with the owner on 2026-10-11. **Built 2026-10-11 (v0.11.0), not deployed.** Notes in
+**Status:** Design agreed with the owner on 2026-10-11. **Built and live 2026-10-11 (v0.11.0).** Notes in
 `apps/floor-stock/NOTES.md`.
 
 Visual mock-ups (private link, owner only): https://claude.ai/artifact/TYHcm4MKJ75vhUuGXLGPrU

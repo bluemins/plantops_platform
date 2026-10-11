@@ -7,10 +7,9 @@ root `CLAUDE.md`. Built on the shared module kit (`packages/module-kit`), like L
 
 ## Status (2026-10-11)
 - **Live** on the shared copy at https://stock.bluemins.life since release **v0.6.0** (Railway service
-  `floor-stock`, no volume; record in `docs/deployments/shared.md`). Runs **v0.10.0** (notifications, reminder hour,
-  outbox).
+  `floor-stock`, no volume; record in `docs/deployments/shared.md`). Runs **v0.11.0** ("Can make", 2026-10-11).
 - **In real use** since 2026-10-11 (plant 001 Bluemins: daily counts, low-stock and corrected notifications).
-- **v0.11.0 "Can make" built, not deployed yet:** needs Floor Stock migration `0004_recipes.sql` on the copy first.
+- **"Can make" live since 2026-10-11** (migration `0004_recipes.sql` applied); no plant has entered Contents / Recipes yet.
 - 146 tests pass (all apps' tests pass too).
 
 ## What it does

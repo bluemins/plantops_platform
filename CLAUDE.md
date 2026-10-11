@@ -996,7 +996,7 @@ N2 (chosen people get alerts via a per-module tick box, + Lab Records) in plan m
 **Live (2026-10-11):** v0.7.0–v0.10.0 deployed together on the shared copy (record: `docs/deployments/shared.md`);
 first real notifications for plant 001 the same day (desktop Chrome / Firefox). Android / iPhone not yet tested.
 
-### 2026-10-11 — Floor Stock "Can make" — built, not live yet
+### 2026-10-11 — Floor Stock "Can make" — live (v0.11.0)
 **Built** (release v0.11.0; design, mock-ups and build prompt: `docs/FLOOR_STOCK_CAN_MAKE_PLAN.md`; notes in
 `apps/floor-stock/NOTES.md`):
 - After every count (and correction), the Floor Stock **home page** and **day page** show how many boxes / bottles
@@ -1028,5 +1028,7 @@ Test data removed afterwards.
 
 **Not yet verified:** the owner's own real figures on the live copy; real phones.
 
-**Next:** deploy v0.11.0 (`./scripts/railway-migrate.sh shared` for Floor Stock `0004`, then the `floor-stock`
-service), then the owner enters Contents and Recipes for the live plant.
+**Live (2026-10-11):** migration `0004` applied on the shared copy, `v0.11.0:production` deployed; health checks OK
+(`docs/deployments/shared.md`).
+
+**Next:** the owner enters Contents and Recipes for plant 001 and checks the home page after the next count.
