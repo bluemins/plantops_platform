@@ -110,6 +110,10 @@ screens stay PlantOps blue.
 support cookie (`sealSupportSession`/`openSupportSession`), refuse every write with it, and log each page view
 where the owner can see it. `apps/lab-records` is the reference module. Owner notifications (bell + phone) go
 through `kit.notify(tenantId, input)` after the answer, never blocking the action (CLAUDE.md "Notifications").
+**From day one (N5+):** a new module's phase plan lists its notification events (who receives each, text, link,
+dedupe key, action or scheduled job, level, urgent or not), adds them to `NOTIFICATION_KINDS`, gives the module a
+`notification_outbox` (+ `outbox_tenants()`) and `kit.retryOutbox()` in its jobs, and tests each event. The
+prompt to add to a module phase is in `docs/notifications.md` ("N5+").
 
 ## Plans and limits (centralized)
 - Central `tenant_plan` record per tenant: enabled modules + limits as flexible JSON. Limits are both

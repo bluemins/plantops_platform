@@ -369,7 +369,9 @@ Tests for each part. Finish with a dated N4 status note and an update to docs/no
 ### N5+ (add to each new module's phase prompt)
 ```
 This module must send notifications from day one (docs/notifications.md N5+). In the plan for this phase, list the
-module's events, who receives each (owners / module staff / one user), the text, the link, the dedupe key, the level
-(phone + bell or bell only), and whether it comes from an action or a scheduled job. Use kit.notify, with tests for
-each event.
+module's events, who receives each (owners + people ticked for the module / one user via also_user_ids or
+only_listed), the text, the link, the dedupe key, the level (phone + bell or bell only), urgent or not, and whether
+it comes from an action or a scheduled job. Add the kinds to NOTIFICATION_KINDS (packages/types), give the module a
+notification_outbox + outbox_tenants() migration and call kit.retryOutbox() in its jobs. Use kit.notify, with tests
+for each event.
 ```
