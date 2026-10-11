@@ -156,3 +156,29 @@ export const auditLog = platform.table("audit_log", {
   details: jsonb("details").notNull().default({}),
   at: ts("at").notNull().defaultNow(),
 });
+
+export const notifications = platform.table("notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  userId: uuid("user_id").notNull(),
+  moduleId: text("module_id").notNull(),
+  kind: text("kind").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull().default(""),
+  link: text("link"),
+  level: text("level").$type<"push" | "bell">().notNull().default("push"),
+  dedupeKey: text("dedupe_key").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  readAt: ts("read_at"),
+});
+
+export const pushSubscriptions = platform.table("push_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  userId: uuid("user_id").notNull(),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("user_agent"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { after } from "next/server";
 import { AccessDeniedError } from "@plantops/auth";
 
 /** Error with an HTTP status and a plain-language message that is safe to show the user. */
@@ -105,4 +106,13 @@ export function rateLimit(key: string, max: number, windowMs: number) {
 }
 export function resetRateLimits() {
   buckets.clear();
+}
+
+/** Runs work after the answer is sent (Next's after()); outside a request (tests, scripts) it just runs now. */
+export function later(fn: () => Promise<unknown>) {
+  try {
+    after(fn);
+  } catch {
+    void fn();
+  }
 }

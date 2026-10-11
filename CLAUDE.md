@@ -108,7 +108,8 @@ screens stay PlantOps blue.
 `<PLATFORM_URL>/sso/start?module=<id>&next=<path>`, serve the summary endpoint, and link "Account" to
 `<PLATFORM_URL>/home?launcher=1`. For the support view: `startSupportSession` at `/sso/support`, a separate
 support cookie (`sealSupportSession`/`openSupportSession`), refuse every write with it, and log each page view
-where the owner can see it. `apps/lab-records` is the reference module.
+where the owner can see it. `apps/lab-records` is the reference module. Owner notifications (bell + phone) go
+through `kit.notify(tenantId, input)` after the answer, never blocking the action (CLAUDE.md "Notifications").
 
 ## Plans and limits (centralized)
 - Central `tenant_plan` record per tenant: enabled modules + limits as flexible JSON. Limits are both
@@ -218,6 +219,105 @@ produce. Do not start a phase's detailed design until the prior phase's status n
 - Keep changes small and explain each in plain language; the owner is not a full-time developer.
 - If a requirement here conflicts with a request, stop and ask.
 - After completing a phase, add a dated "Status" note to this file: what was built, key decisions, what's next.
+
+## Notifications (app bell + phone push): roadmap, approved by the owner 2026-10-11
+**Why:** owners (and later staff) must hear about important plant events without paying for email, SMS or
+WhatsApp, or setting them up. Existing email alerts stay as they are; notifications are added alongside.
+
+**How it works (every phase):**
+- **The platform owns one inbox** (`platform.notifications`, one row per recipient with its own read mark).
+- **Modules only send events:** `POST /api/m/tenants/:tid/notifications` with module credentials and
+  `{ kind, title (≤ 80), body (≤ 300), link (path inside the module), dedupe_key, exclude_user_id? }`.
+  - **The platform decides who receives it.** A module can never pick arbitrary people or reach another plant.
+  - A module not enabled for the plant gets 403.
+  - The same `dedupe_key` is stored once per person.
+- **Where it shows:**
+  1. a bell 🔔 with the unread count on the launcher after login (the login page itself can't know who is
+     looking)
+  2. a phone notification through **Web Push** when PlantOps (`app.bluemins.life`) is installed on the home
+     screen. Web Push is free (the phone's browser push service delivers it). It needs `VAPID_PUBLIC_KEY`,
+     `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` on the platform only (`pnpm push:keys` makes a pair). Without them
+     the bell still works.
+- Tapping a notification opens `/sso/start?module=<id>&next=<link>`, which goes through the normal login and
+  handoff.
+- Subscriptions live in `platform.push_subscriptions`; a phone is removed on logout or when the push service
+  answers 404/410.
+- **iPhone:** iOS 16.4+ and PlantOps added to the Home Screen first. Android works from Chrome. Push needs
+  HTTPS, so phones are tested on the live copy, not the LAN address.
+- **Modules call `kit.notify(tenantId, input)`** (`packages/module-kit`). It never throws; a failure is logged.
+  Sending is best effort, done after the module's answer (`after()`), until N4 adds a retry outbox.
+- **Database:** migration `apps/platform/db/migrations/0009_notifications.sql`; both tables have `tenant_id` and
+  FORCE RLS.
+  - `platform_app` may SELECT / INSERT notifications and UPDATE `read_at` only.
+  - `platform_app` may SELECT / INSERT / DELETE push subscriptions.
+  - SSO token unchanged.
+
+**Phases (finish and test each, add a status note, then start the next):**
+
+**Full design, review findings and the build prompt for each phase: `docs/notifications.md`.**
+
+**N1 (v1): the system + every Floor Stock event, to owners.**
+- Platform:
+  - inbox, module endpoint, bell + list on the launcher (mark read, mark all read, refresh every 60 s)
+  - installable app (`manifest.ts`, `public/sw.js`, icons)
+  - "Turn on phone notifications" card (with the iPhone hint); logout unsubscribes the phone
+- Floor Stock (owners only; nothing is sent for the owner's own actions):
+  1. **count saved**
+  2. **count corrected** (with the reason)
+  3. **low stock** (newly low items only, once per item per day, the same rule as the email)
+  4. **check the count** (negative sold compared with the day before)
+  
+  Events 1–4 are **one notification per save**, titled by the most serious case.
+  5. **count not done** at 8 pm IST: new `POST /api/cron/evening` + `.github/workflows/evening.yml` at 14:30 UTC,
+     once per plant per day, only plants with items set up
+  6. **setup changed by a store keeper / plant staff:** one per save action
+- Release v0.7.0.
+
+**N2: chosen people get alerts + Lab Records** (decided by the owner 2026-10-11).
+- **Not all staff, only people the owner picks** (e.g. a manager): on Manage users → edit user, a tick box per
+  module, "Gets <module> alerts". The owner can tick or untick anyone at any time; every change is audited.
+  Needs a small platform table (alert recipients: tenant, user, module) with RLS (schema change, approved in
+  principle; confirm the migration first).
+- **Recipients** = the plant's owners (always; they can't be unticked, a per-event mute comes in N4) + the
+  ticked people. The platform checks each ticked person: active, of that plant, and works in that module
+  (`roleWorksIn`). Whoever did the action is still left out.
+- A ticked person gets **the same events as the owner** for that module (Floor Stock: saved / corrected, low
+  stock, check the count, not done at 8 pm, setup changes at bell level).
+- A `/notifications` page on the platform for every user, plus a 🔔 link in each module's header (module-kit), so
+  ticked staff who skip the launcher can turn push on.
+- Lab Records (who gets which event is planned with the tick box: e.g. ON HOLD to owners + ticked lab leads):
+  - **test failed → batch ON HOLD** (owner + lab leads; urgent; the main alert until WhatsApp is approved)
+  - hold older than 24 h
+  - batch waiting for approval
+  - batch approved / rejected (to the technician who entered it)
+  - result corrected (owner)
+  - Form 1 due
+  - no tests entered today
+
+**N3: Document Store + platform events.**
+- Document Store:
+  - **expiry** at 30 / 7 / 1 days before, on expiry, then weekly (owner + responsible person; same schedule as
+    the email)
+  - "you are now responsible for …"
+  - renewed / uploaded (owner)
+  - storage near the plan limit
+- Platform (sent by the platform itself, not through the module endpoint):
+  - a staff member locked out after 5 wrong PINs (owner, with an unlock link)
+  - PlantOps support viewed your data
+  - module switched on / plan changed
+  - plan renewal coming up
+
+**N4: settings and reliability.**
+- On / off per event type per user (e.g. keep "low stock", mute "count saved").
+- The evening reminder time chosen per plant.
+- A **retry outbox** in modules (in module-kit), so a notification isn't lost when the platform is briefly down.
+- Notifications older than 90 days removed. This needs a DELETE grant, a permission change: ask first.
+
+**N5+: inside each new module phase.** Every new module sends its own events with `kit.notify` from day one:
+- Preventive Management: task due / overdue, done, breakdown reported
+- AMC: contract expiring, visit due / done, invoice due
+- Attendance & Salary: not checked in, leave request, salary ready
+- Marketing Contacts: follow-up due
 
 ## Status log
 
@@ -690,3 +790,43 @@ dumps the database with a new read-only login `plantops_backup` (SELECT only + B
 forever. Only the public key is on servers / in GitHub. **New modules that store files** (e.g. Complaint Box
 photos) add the backup route and the five `BACKUP_*` variables. Setup checklist and restore: HANDBOOK.md
 section 11. Tests: module-kit 12, Document Store 90.
+
+### 2026-10-11 — Notifications N1: app bell + phone push, Floor Stock — built, not live yet
+**Built** (design and later phases: `docs/notifications.md`):
+- **Platform:**
+  - migration `0009_notifications.sql`: `notifications` (one row per person, `level` push / bell, unique per
+    module + `dedupe_key`; `platform_app` may only mark read) and `push_subscriptions` (unique per plant, so the
+    same phone can be used in two plants)
+  - module endpoint `POST /api/m/tenants/:tid/notifications` (recipients: active owners, minus whoever did it;
+    403 if the module is off for the plant)
+  - `GET /api/notifications`, `POST /api/notifications/read`, `/api/push` (key, turn on, turn off), `/n/<id>`
+    (mark read → `/sso/start`)
+  - `web-push` sender (24 h TTL; removes phones on 404/410; off without `VAPID_*`), `pnpm push:keys`
+  - installable app: `manifest.ts`, `public/sw.js`, icons (Dockerfile now copies `public/`)
+  - launcher: bell + list for owners, "Get alerts on this phone" card (iPhone install steps, blocked help,
+    "Not now" for 7 days); logout turns the phone off first
+- **Shared:** `NotificationInput` (`packages/types`), `sendNotification` (`packages/auth`), `kit.notify`
+  (`packages/module-kit`, never throws).
+- **Floor Stock:** one notification per save (low stock > check the count > corrected > saved), setup changed by
+  staff (bell only), 8 pm "count not done" (`POST /api/cron/evening`, `.github/workflows/evening.yml`, migration
+  `0002_counting_tenants.sql`: plant ids only, like `lab_tenants()`).
+- **Tests:** platform 210, auth 36, module-kit 15, Floor Stock 103, Lab Records 111, Document Store 90; typecheck
+  and production builds pass.
+
+**Decisions (owner, 2026-10-11):** free app notifications instead of email / SMS / WhatsApp, alongside the
+existing emails; shown on the launcher after login (not on the login page); owners only in N1; review fixes 1-3
+(phones per plant, module in the dedupe key, bell-only level for setup changes).
+**Made while building:** Floor Stock needed `counting_tenants()` because `stock_tenants()` lists only plants with
+emails waiting.
+
+**Verified on `pnpm dev` (2026-10-11, plant 002):**
+- manifest, `sw.js` (no-cache) and icons served
+- Floor Stock's real credentials → Sujata got the notification
+- evening job reminded plant 002 once; a second run added nothing; wrong secret → 401
+- launcher bell "2" and the list rendered in headless Chrome (alignment bug found and fixed)
+
+**Not yet verified:** a real phone notification (needs HTTPS: test on the live copy, Android and iPhone),
+including whether opening a notification on an iPhone asks for the login again (docs/notifications.md finding 4).
+
+**Next:** deploy v0.7.0 (VAPID variables on `platform`, both migrations, `evening.yml`), test on phones, then
+N2 (chosen people get alerts via a per-module tick box, + Lab Records) in plan mode.

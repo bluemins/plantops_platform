@@ -4,6 +4,24 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.7.0 — 2026-10-11 — App notifications (bell + phone), Floor Stock first
+
+**What's in it**
+- **Bell 🔔 on the owner's launcher** with the unread count and a list (tap = open the module page, mark all
+  read). Free phone notifications through Web Push once the owner taps **Turn on** (iPhone: Add to Home Screen
+  first; the card explains it). PlantOps is now installable (`manifest.webmanifest`, app icon, `sw.js`).
+- **Floor Stock tells the owners:** count saved / corrected / low stock / check the count (one notification per
+  save, the most serious wins the title), "Today's stock count is not done yet" at 8 pm India time (new
+  **Evening jobs** workflow), and setup changes by a store keeper (bell only). Never for the owner's own actions.
+- Modules send events with `kit.notify()`; the platform decides who receives them (`POST
+  /api/m/tenants/:tid/notifications`). Logging out turns notifications off for that phone. Email alerts are
+  unchanged. Design and later phases: `docs/notifications.md`.
+
+**Migrations:** platform `0009_notifications.sql` (tables `notifications`, `push_subscriptions`, both with RLS);
+Floor Stock `0002_counting_tenants.sql` (plant ids for the evening job). Before deploying `platform`, add its
+three `VAPID_*` variables (`pnpm --filter @plantops/platform push:keys`; docs/DEPLOY.md step 4). Deploy
+`platform` and `floor-stock`.
+
 ## v0.6.2 — 2026-10-11 — Nightly encrypted backups
 
 **What's in it**

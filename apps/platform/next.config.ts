@@ -15,7 +15,11 @@ const config: NextConfig = {
   output: "standalone", // small self-contained server for the Docker image
   outputFileTracingRoot: path.resolve(process.cwd(), "../.."),
   transpilePackages: ["@plantops/auth", "@plantops/db", "@plantops/types", "@plantops/ui"],
-  serverExternalPackages: ["@node-rs/argon2", "pg"],
+  serverExternalPackages: ["@node-rs/argon2", "pg", "web-push"],
+  // The notification service worker must never be served from a stale cache, or phones keep an old version.
+  async headers() {
+    return [{ source: "/sw.js", headers: [{ key: "cache-control", value: "no-cache" }, { key: "content-type", value: "application/javascript; charset=utf-8" }] }];
+  },
 };
 
 export default config;

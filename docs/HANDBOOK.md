@@ -225,6 +225,7 @@ A reset is always temporary: the person picks their own at the next login. More 
 | Session secrets `LAB_/DOC_SESSION_SECRET` | lab-records, document-store | (pasted, then file deleted) | ✔ |
 | `CRON_SECRET` | lab-records, document-store **and** GitHub environment `shared` | (pasted, then file deleted) | ✔ |
 | super_admin password | (stored as a hash in the database) | not stored | ✔ |
+| Phone notification keys `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | platform | not stored (local dev has its own pair in `.env`) | ✔ |
 | Backup login `DATABASE_URL_BACKUP` (read-only) | GitHub environment `shared` only | `.env.railway.shared` | ✔ |
 | R2 keys `BACKUP_ACCESS_KEY_ID` / `BACKUP_SECRET_ACCESS_KEY` | document-store **and** GitHub environment `shared` | `.env.railway.shared` | ✔ |
 | **Private backup key** (`AGE-SECRET-KEY-...`) | **never** | **never** (typed in when restoring) | ✔ **two copies** |
@@ -246,6 +247,7 @@ A reset is always temporary: the person picks their own at the next login. More 
 | Backup login password | Run `./scripts/setup-backup-login.sh shared` again, then update GitHub's `DATABASE_URL_BACKUP`. |
 | R2 keys | Cloudflare → R2 → API tokens: make a new token, put it in document-store, GitHub and `.env.railway.shared`, then delete the old token. |
 | Private backup key | Lost or leaked: `pnpm backup:keygen`, put the new public key in GitHub and document-store (`BACKUP_RECIPIENT`). Old backups still need the **old** private key, so keep it until they are gone (30 days for dumps; files stay, so keep it). |
+| Phone notification keys | `pnpm --filter @plantops/platform push:keys`, put all three lines in platform's Variables. Every phone stops getting notifications until its owner taps **Turn on** again, so change them only if the private key leaked. |
 | Database password | Run `ALTER ROLE ... PASSWORD` as the `postgres` user, then update the matching `DATABASE_URL_*` (and `.env.railway.shared` for the owner). |
 
 ## 9. Domains and DNS
@@ -311,6 +313,25 @@ To set it up (done for `shared` on 2026-10-04):
 5. Use GitHub → Actions → **Daily jobs** → **Run workflow** to exercise the live delivery. Check the document's
    reminder log for sent / failed status and check the provider's delivery logs. Do not use the production
    workflow as a test until valid plant recipients are configured.
+
+**Evening job.** GitHub Actions **Evening jobs** (`.github/workflows/evening.yml`) runs at **20:00 India time**
+(GitHub may start it 10-30 minutes late) with the same environment settings: Floor Stock sends "Today's stock
+count is not done yet" to the owners of every plant with items set up and no count today. Skipped until
+`STOCK_URL` is set; *Run workflow* runs it by hand. A second run on the same day sends nothing new.
+
+**App notifications (free; no email, SMS or WhatsApp).** Owners see a bell 🔔 on the launcher, and get phone
+notifications once they tap **Turn on** there. Design and phases: `docs/notifications.md`.
+- Needs the three `VAPID_*` variables on **platform** (section 8). Without them the bell still works.
+- **Android:** Chrome → app.bluemins.life → log in → **Turn on** (optionally Install for a home-screen icon).
+- **iPhone (iOS 16.4+):** Safari → app.bluemins.life → Share → **Add to Home Screen** → open PlantOps from the
+  new icon → log in → **Turn on**. In Safari itself the card explains this.
+- **"Blocked on this phone"**: the person once refused. Only the phone's settings can undo it (iPhone: Settings
+  → Notifications → PlantOps; Android: Chrome → site settings → app.bluemins.life → Notifications).
+- **Logging out** turns notifications off for that phone, so a shared phone doesn't get the owner's alerts.
+- **If a plant asks where the alerts go:** through Google's (Android) or Apple's (iPhone) push service,
+  encrypted end to end; they can't read or keep the content. The data itself stays in Singapore.
+- Floor Stock sends: count saved / corrected / low stock / check the count (one per save), count not done
+  (8 pm), and setup changed by staff (bell only, no phone buzz).
 
 **WhatsApp (Lab Records alerts): waiting for Meta approval.** Alerts are kept as "WhatsApp not set up yet".
 When approved, add `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_TEMPLATE` and `WHATSAPP_TEMPLATE_LANG` to

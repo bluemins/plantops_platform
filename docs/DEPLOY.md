@@ -77,6 +77,10 @@ tag you are deploying.
 4. **Settings.** For each service, go to Variables → *Raw Editor* and paste that service's block from the
    `.paste` file. The block includes `RAILWAY_DOCKERFILE_PATH`. Then click *Deploy*. Afterwards, Settings →
    Build should show the Dockerfile builder.
+   - **Phone notifications** (platform only): run `pnpm --filter @plantops/platform push:keys` and paste its three
+     lines (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`) into `platform`'s Variables. **Every copy
+     gets its own pair**; never reuse another copy's. Save the pair in the password manager. Without them the
+     launcher bell works but phones get nothing.
 5. **Files volume.** On `document-store`, add a volume (right-click the service → *Attach volume*) mounted at
    `/data`. 1 GB is plenty to start.
 6. **Addresses.** For each app service: Settings → Networking → *Custom Domain*. Enter its address and port
@@ -93,7 +97,7 @@ tag you are deploying.
    - secret `CRON_SECRET`
 
    The values are at the bottom of the `.paste` file. For a new Dedicated copy, also add its name to `copy:`
-   in `.github/workflows/daily.yml`.
+   in `.github/workflows/daily.yml` **and** `.github/workflows/evening.yml` (8 pm "count not done" reminder).
 9. **Check it** (see "Checks after a deploy" below), then write the copy's record in
    `docs/deployments/<copy>.md` and commit it.
 
@@ -165,7 +169,10 @@ Migrations stay; the older code works with them because they are backward-compat
   - Opening the lab address directly on a phone goes through login and back into the module.
 - Document Store: upload a file, redeploy `document-store`, and check the file still downloads (the volume
   works).
-- GitHub → Actions → *Daily jobs* → *Run workflow*: every step succeeds.
+- GitHub → Actions → *Daily jobs* → *Run workflow*: every step succeeds. Same for *Evening jobs*.
+- `https://<app address>/manifest.webmanifest` answers. As a test plant's owner on a phone: launcher → **Turn on**
+  (iPhone: Add to Home Screen first) → a store keeper saves a count → the phone shows "Stock count saved" and
+  the bell shows it.
 - super_admin dashboard → open a module read-only (support view). The owner's "Support access" page lists it.
 
 ## Good to know

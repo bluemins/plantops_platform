@@ -19,14 +19,22 @@ export const RETRY_DAYS = 7;
 /** Owners only (the platform also lists store keepers for this module). */
 export const ownersOf = (contacts: AlertContact[]) => contacts.filter((c) => c.roles.includes("tenant_admin"));
 
+/** An item that went below its limit with this count (for the owner's notification). */
+export interface LowItem {
+  name: string;
+  qty: number;
+  min: number;
+}
+
 /**
  * Inside the count's transaction: queue an alert for each item of this version below its limit, for each owner.
- * Rows already queued for that item, day and owner are left alone. Returns how many new rows were added.
+ * Rows already queued for that item, day and owner are left alone. Returns how many new rows were added and the
+ * items that are NEWLY low (a correction doesn't repeat items already reported that day).
  */
-export async function queueLowStock(tx: StockTx, tenantId: string, date: string, versionId: string, owners: AlertContact[]) {
+export async function queueLowStock(tx: StockTx, tenantId: string, date: string, versionId: string, owners: AlertContact[]): Promise<{ rows: number; items: LowItem[] }> {
   const lines = await tx.select({ itemId: countLines.itemId, name: countLines.itemName, qty: countLines.qty }).from(countLines).where(and(eq(countLines.versionId, versionId), eq(countLines.kind, "stock")));
   const ids = [...new Set(lines.map((l) => l.itemId))];
-  if (!ids.length || !owners.length) return 0;
+  if (!ids.length || !owners.length) return { rows: 0, items: [] };
   const limits = await tx.select({ id: items.id, min: items.minLevel }).from(items).where(and(eq(items.tenantId, tenantId), inArray(items.id, ids)));
   const rows: (typeof lowStockAlerts.$inferInsert)[] = [];
   for (const it of limits) {
@@ -51,9 +59,15 @@ export async function queueLowStock(tx: StockTx, tenantId: string, date: string,
       });
     }
   }
-  if (!rows.length) return 0;
-  const added = await tx.insert(lowStockAlerts).values(rows).onConflictDoNothing().returning({ id: lowStockAlerts.id });
-  return added.length;
+  if (!rows.length) return { rows: 0, items: [] };
+  const added = await tx
+    .insert(lowStockAlerts)
+    .values(rows)
+    .onConflictDoNothing()
+    .returning({ itemId: lowStockAlerts.itemId, name: lowStockAlerts.itemName, qty: lowStockAlerts.qty, min: lowStockAlerts.minLevel });
+  const newly = new Map<string, LowItem>();
+  for (const a of added) newly.set(a.itemId, { name: a.name, qty: Number(a.qty), min: Number(a.min) });
+  return { rows: added.length, items: [...newly.values()] };
 }
 
 /** The email for one owner: every queued item, grouped by day. */

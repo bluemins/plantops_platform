@@ -22,6 +22,13 @@ export const env = {
     const raw = process.env.SSO_PREVIOUS_PUBLIC_JWK_B64;
     return raw ? JSON.parse(Buffer.from(raw, "base64").toString("utf8")) : null;
   },
+  /** Web Push keys (`pnpm push:keys`). Optional: without them the bell works and phones get nothing. */
+  get vapid() {
+    const publicKey = process.env.VAPID_PUBLIC_KEY;
+    const privateKey = process.env.VAPID_PRIVATE_KEY;
+    const subject = process.env.VAPID_SUBJECT;
+    return publicKey && privateKey && subject ? { publicKey, privateKey, subject } : null;
+  },
   get secureCookies() {
     return this.platformUrl.startsWith("https://");
   },

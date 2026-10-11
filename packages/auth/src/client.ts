@@ -1,4 +1,4 @@
-import { AlertContact, TenantBranding, TenantPlan, TenantSku, UserStatus, type ModuleId } from "@plantops/types";
+import { AlertContact, NotificationInput, NotificationResult, TenantBranding, TenantPlan, TenantSku, UserStatus, type ModuleId } from "@plantops/types";
 
 /** How a module app identifies itself to the platform (server-to-server only, never from the browser). */
 export interface ModuleCredentials {
@@ -61,6 +61,15 @@ export async function fetchBranding(c: ModuleCredentials, tenantId: string) {
 /** Owners + this module's staff with phone numbers, for alerts (e.g. WhatsApp on a failed test). */
 export async function fetchAlertContacts(c: ModuleCredentials, tenantId: string) {
   return AlertContact.array().parse(await call(c, `/api/m/tenants/${tenantId}/alert-contacts`));
+}
+
+/**
+ * Reports an event to the platform's notification inbox (CLAUDE.md "Notifications"). The platform decides who
+ * receives it; the same dedupe_key is stored once per person, so retrying is safe.
+ */
+export async function sendNotification(c: ModuleCredentials, tenantId: string, input: NotificationInput) {
+  const body = NotificationInput.parse(input);
+  return NotificationResult.parse(await call(c, `/api/m/tenants/${tenantId}/notifications`, { method: "POST", body: JSON.stringify(body) }));
 }
 
 /** The plant's products (active and inactive). Store sku_id as a plain reference; cache briefly. */

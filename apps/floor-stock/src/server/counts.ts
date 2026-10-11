@@ -9,6 +9,7 @@ import { z } from "zod";
 import { addDays, istDay } from "@/lib/days";
 import type { AlertContact } from "@plantops/types";
 import { ownersOf, queueLowStock } from "./alerts";
+import { compare, sum } from "@/lib/compare";
 import { schema, withTenant, type StockTx } from "./db";
 import { kit } from "./kit";
 import { badRequest, conflict } from "./http";
@@ -231,6 +232,7 @@ async function saveCount(tx: StockTx, user: StockUser, input: CountInput, owners
     .returning();
   await tx.insert(countLines).values(values.map((x) => ({ ...x, versionId: v!.id })));
   const queued = await queueLowStock(tx, user.tenantId, input.date, v!.id, owners);
+  const checks = await negativeSold(tx, user.tenantId, input.date, values, kindOf, byId);
   await tx.insert(auditLog).values({
     tenantId: user.tenantId,
     actor: actorOf(user),
@@ -238,6 +240,54 @@ async function saveCount(tx: StockTx, user: StockUser, input: CountInput, owners
     target: input.date,
     details: { by: user.name, version, lines: values.length, ...(version > 1 ? { reason } : {}) },
   });
-  return { date: input.date, version, entered_at: v!.enteredAt.toISOString(), low_stock_emails: queued };
+  return {
+    date: input.date,
+    version,
+    reason: version === 1 ? null : reason,
+    entered_at: v!.enteredAt.toISOString(),
+    low_stock_emails: queued.rows,
+    /** for the owner's notification: items newly below their limit, and finished goods to check */
+    low_items: queued.items,
+    checks,
+  };
+}
+export type SavedCount = Awaited<ReturnType<typeof saveCount>>;
+
+/** A finished good whose Sold came out negative against the day before ("check the count"). */
+export interface CheckItem {
+  name: string;
+  unit: string;
+  /** how much more than possible */
+  extra: number;
+}
+
+/** Finished goods of this count whose Sold is negative compared with the day before (same rule as the day page). */
+async function negativeSold(
+  tx: StockTx,
+  tenantId: string,
+  date: string,
+  lines: (typeof countLines.$inferInsert)[],
+  kindOf: Map<string, SectionKind>,
+  byId: Map<string, { kind: SectionKind }>,
+): Promise<CheckItem[]> {
+  const prev = await latestVersion(tx, tenantId, addDays(date, -1));
+  if (!prev) return [];
+  const prevLines = await tx.select().from(countLines).where(and(eq(countLines.versionId, prev.version.id), eq(countLines.kind, "stock")));
+  const out: CheckItem[] = [];
+  for (const id of new Set(lines.map((l) => l.itemId))) {
+    if ((kindOf.get(id) ?? byId.get(id)?.kind) !== "finished") continue;
+    const mine = lines.filter((l) => l.itemId === id);
+    const before = prevLines.filter((l) => l.itemId === id);
+    const c = compare({
+      finished: true,
+      previousCounted: true,
+      previous: before.length ? { qty: sum(before.map((l) => Number(l.qty))), unit: before[0]!.unit } : null,
+      production: sum(mine.filter((l) => l.kind === "production").map((l) => Number(l.qty))),
+      closing: sum(mine.filter((l) => l.kind === "stock").map((l) => Number(l.qty))),
+      unit: mine[0]!.unit,
+    });
+    if (c.kind === "check") out.push({ name: mine[0]!.itemName, unit: mine[0]!.unit, extra: c.value });
+  }
+  return out;
 }
 

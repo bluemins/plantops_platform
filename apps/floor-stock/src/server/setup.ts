@@ -201,7 +201,7 @@ export async function createItem(user: StockUser, input: z.infer<typeof ItemInpu
         })
         .returning();
       await audit(tx, user, "item.add", it!.id, { name: it!.name, section: section.name, unit: it!.unit, second_unit: it!.secondUnit, sku_id: it!.skuId, min_level: num(it!.minLevel) });
-      return { id: it!.id };
+      return { id: it!.id, name: it!.name, section: section.name };
     }),
   );
 }
@@ -222,7 +222,7 @@ export async function updateItem(user: StockUser, id: string, patch: z.infer<typ
         const to = patch[key];
         if (to !== undefined && to !== before[key]) changes[key] = { from: before[key], to };
       }
-      if (!Object.keys(changes).length) return { id, changed: false };
+      if (!Object.keys(changes).length) return { id, changed: false, name: before.name, before: before.name, fields: [] as string[], status: before.status };
 
       if (!user.isOwner) {
         if (changes.min_level) throw forbidden("Only the plant owner can set or change a limit");
@@ -250,7 +250,7 @@ export async function updateItem(user: StockUser, id: string, patch: z.infer<typ
         })
         .where(eq(items.id, id));
       await audit(tx, user, "item.update", id, { name: next.name, ...(sectionName ? { to_section: sectionName } : {}), changes });
-      return { id, changed: true };
+      return { id, changed: true, name: next.name, before: before.name, fields: Object.keys(changes), status: next.status };
     }),
   );
 }
@@ -264,7 +264,8 @@ export async function reorderItems(user: StockUser, input: z.infer<typeof ItemOr
     if (!sameSet(all.map((i) => i.id), input.ids)) throw badRequest("The list of items has changed. Please reload the page.");
     for (const [i, id] of input.ids.entries()) await tx.update(items).set({ sortOrder: i + 1 }).where(eq(items.id, id));
     await audit(tx, user, "item.reorder", input.section_id, {});
-    return { ok: true };
+    const [sec] = await tx.select({ name: sections.name }).from(sections).where(eq(sections.id, input.section_id));
+    return { ok: true, section: sec?.name ?? "" };
   });
 }
 

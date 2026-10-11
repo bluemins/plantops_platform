@@ -11,6 +11,8 @@ WORKDIR /app
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build /repo/apps/platform/.next/standalone ./
 COPY --from=build /repo/apps/platform/.next/static ./apps/platform/.next/static
+# app icons and the notification service worker (sw.js)
+COPY --from=build /repo/apps/platform/public ./apps/platform/public
 USER node
 EXPOSE 3000
 CMD ["node", "apps/platform/server.js"]

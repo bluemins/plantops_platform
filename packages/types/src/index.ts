@@ -146,6 +146,33 @@ export const AlertContact = z.object({
 });
 export type AlertContact = z.infer<typeof AlertContact>;
 
+/**
+ * POST /api/m/tenants/:tid/notifications - a module reports an event; the PLATFORM decides who receives it
+ * (in N1: the plant's active owners). Shown in the launcher bell and, at level "push", sent to installed phones.
+ * The same module + dedupe_key is stored once per person, so a retry is safe. CLAUDE.md "Notifications".
+ */
+export const NotificationInput = z.object({
+  /** e.g. "floor_stock.count_saved" */
+  kind: z.string().trim().min(1).max(60),
+  title: z.string().trim().min(1).max(80),
+  body: z.string().trim().max(300).default(""),
+  /** a path inside the module ("/day/2026-10-11"); the platform opens it through /sso/start */
+  link: z
+    .string()
+    .max(500)
+    .regex(/^\/(?!\/)[^\s\\]*$/, "must be a path inside the module")
+    .nullable()
+    .default(null),
+  /** "push": phone + bell; "bell": launcher list only */
+  level: z.enum(["push", "bell"]).default("push"),
+  dedupe_key: z.string().trim().min(1).max(200),
+  /** whoever did it - they are not notified about their own action */
+  exclude_user_id: z.uuid().nullable().optional(),
+});
+export type NotificationInput = z.input<typeof NotificationInput>;
+export const NotificationResult = z.object({ recipients: z.number().int(), created: z.number().int() });
+export type NotificationResult = z.infer<typeof NotificationResult>;
+
 /** GET /api/m/tenants/:tid/skus - the plant's products. Modules store sku_id as a plain reference. */
 export const TenantSku = z.object({
   id: z.uuid(),

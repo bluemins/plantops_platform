@@ -35,6 +35,12 @@ export interface FakePlatform {
   skus: TenantSku[] | null;
   /** what GET alert-contacts returns (null = platform error) */
   contacts: AlertContact[] | null;
+  /** every notification the module sent (POST /api/m/tenants/:tid/notifications) */
+  notifications: { tenantId: string; body: Record<string, unknown> }[];
+  /** HTTP status for notifications (201 = taken) */
+  notifyStatus: number;
+  /** enabled modules per plant for GET /api/tenants/:id/plan (unknown plant = Floor Stock on) */
+  enabled: Map<string, string[]>;
   sign(claims: Record<string, unknown>, aud?: ModuleId, ttl?: string): Promise<string>;
   loginToken(roles?: RoleId[]): Promise<string>;
   summaryToken(aud?: ModuleId, tenantId?: string): Promise<string>;
@@ -51,13 +57,28 @@ export async function startFakePlatform(): Promise<FakePlatform> {
     status: { active: true, display_name: "Atharv", roles: ["store_keeper"], enabled_modules: ["floor_stock"] } as UserStatus | number,
     skus: SKUS as TenantSku[] | null,
     contacts: CONTACTS as AlertContact[] | null,
+    notifications: [] as { tenantId: string; body: Record<string, unknown> }[],
+    notifyStatus: 201,
+    enabled: new Map<string, string[]>(),
   };
   const send = (res: import("node:http").ServerResponse, code: number, body: unknown) => {
     res.writeHead(code, { "content-type": "application/json" });
     res.end(JSON.stringify(body));
   };
-  const server: Server = createServer((req, res) => {
+  const server: Server = createServer(async (req, res) => {
     const url = req.url ?? "";
+    const notify = /^\/api\/m\/tenants\/([^/]+)\/notifications$/.exec(url);
+    if (notify && req.method === "POST") {
+      let raw = "";
+      for await (const chunk of req) raw += chunk;
+      if (fake.notifyStatus === 201) fake.notifications.push({ tenantId: notify[1]!, body: JSON.parse(raw) });
+      return send(res, fake.notifyStatus, fake.notifyStatus === 201 ? { recipients: 2, created: 2 } : { error: "no" });
+    }
+    const plan = /^\/api\/tenants\/([^/]+)\/plan$/.exec(url);
+    if (plan) {
+      const tenantId = plan[1]!;
+      return send(res, 200, { tenant_id: tenantId, plan_name: "Growth", enabled_modules: fake.enabled.get(tenantId) ?? ["floor_stock"], limits: { platform: {}, modules: {} }, renews_on: null });
+    }
     if (url === "/.well-known/jwks.json") return send(res, 200, jwks);
     if (url === "/api/sso/support-exchange") return fake.nextToken ? send(res, 200, { token: fake.nextToken }) : send(res, 400, { error: "bad code" });
     if (url === "/api/sso/exchange") return fake.nextToken ? send(res, 200, { token: fake.nextToken }) : send(res, 400, { error: "bad code" });

@@ -52,6 +52,18 @@ root `CLAUDE.md`. Built on the shared module kit (`packages/module-kit`), like L
 - **Support view:** read-only (proxy + server guards); every page view is logged on the owner's
   `/support-access` page.
 
+## Owner notifications (v0.7.0, docs/notifications.md N1)
+App notifications through the platform (launcher bell + phone), sent with `kit.notify` after the answer, so a slow
+or unreachable platform never holds up or breaks a count. Texts in `src/server/notify.ts`.
+- **One per saved count or correction** (`count:<date>:v<version>`): title by the most serious case: "Low stock:
+  N items" (only items **newly** below their limit, the same once-per-item-per-day rule as the email) > "Check
+  the count: N items" (Sold negative against the day before) > "Count corrected (vN)" > "Stock count saved".
+- **Setup changed** by a store keeper / plant staff (add, edit, re-order items): **bell only**, one per action.
+- **8 pm "Today's stock count is not done yet"** (`POST /api/cron/evening`, `.github/workflows/evening.yml`):
+  plants from `floor_stock.counting_tenants()` (migration `0002`; plants with active items), skipped quietly
+  when Floor Stock is switched off for the plant; `missing:<date>` so a second run adds nothing.
+- Owners only in v1, never for their own action. Staff reminders come in N2.
+
 ## Rules that are easy to get wrong
 - **Who may do what** is checked in `src/server/setup.ts` / `counts.ts`, because the database login can't tell
   an owner from a store keeper:
@@ -104,10 +116,10 @@ Hosted copy set up before Floor Stock: `./scripts/add-railway-module.sh` (docs/D
 ## Pending
 
 **To do now (owner, on the live copy):**
-- [ ] Delete `.env.railway.shared.floor_stock.paste` (it holds the database password). Save the updated
+- [x] Delete `.env.railway.shared.floor_stock.paste` (it holds the database password). Save the updated
       `.env.railway.shared` in the password manager.
-- [ ] GitHub → Settings → Environments → `shared`: add the variable `STOCK_URL` = `https://stock.bluemins.life`.
-      Then Actions → *Daily jobs* → Run workflow: all three steps should be green.
+- [x] GitHub → Settings → Environments → `shared`: add the variable `STOCK_URL` = `https://stock.bluemins.life`.
+  - [ ] Then Actions → *Daily jobs* → Run workflow: all three steps should be green.
 - [ ] super_admin → Modules: check that Floor Stock shows `https://stock.bluemins.life`.
 - [ ] `floor-stock` variables: check that `BREVO_API_KEY` and `MAIL_FROM` match `document-store`.
 - [ ] First real use:
@@ -117,7 +129,7 @@ Hosted copy set up before Floor Stock: `./scripts/add-railway-module.sh` (docs/D
   - [ ] store keeper: a count on a phone
   - [ ] owner: the day page and "Copy as WhatsApp message"
 - [ ] Email test: set a limit above an item's count, submit, and check the owner receives the email.
-- [ ] Turn on Railway backups for Postgres before real plant data (shared copy, all modules).
+- [x] Backups before real plant data: nightly encrypted backups since v0.6.2 (HANDBOOK.md section 11).
 
 **Decisions to confirm with the owner (made while building, 2026-10-08):**
 - Store keepers may re-order items within a section.

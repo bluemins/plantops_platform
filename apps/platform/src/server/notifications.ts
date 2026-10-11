@@ -1,0 +1,171 @@
+// App notifications (CLAUDE.md "Notifications", docs/notifications.md): one inbox in the platform for every module.
+// Modules only report events; the platform decides who receives them (N1: the plant's active owners), stores one
+// row per person (own read mark) and sends "push" level ones to the phones those people turned on.
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { z } from "zod";
+import { NotificationInput, type ModuleId } from "@plantops/types";
+import type { CurrentUser } from "./auth";
+import { schema, withTenant } from "./db";
+import { forbidden, notFound } from "./http";
+import { pushToUsers, type PushMessage, type PushSender } from "./push";
+import { enabledModules } from "./sso";
+
+const { notifications, pushSubscriptions, tenants, userRoles, users } = schema;
+
+export const INBOX_LIMIT = 30;
+type Input = z.output<typeof NotificationInput>;
+
+/** Where tapping a notification goes: the module page, through the normal login + one-time-code handoff. */
+export function targetUrl(moduleId: string, link: string | null) {
+  const url = `/sso/start?module=${encodeURIComponent(moduleId)}`;
+  return link ? `${url}&next=${encodeURIComponent(link)}` : url;
+}
+
+/**
+ * A module's event for one plant -> one notification per active owner (minus whoever did it). The same
+ * module + dedupe_key is stored once per person, so a retry adds nothing. Returns the new rows' push messages;
+ * the caller sends them (after the answer, so a slow push service never holds up the module).
+ */
+export async function notifyOwners(moduleId: ModuleId, tenantId: string, input: Input) {
+  const rows = await withTenant(tenantId, async (tx) => {
+    const enabled = await enabledModules(tx, tenantId);
+    if (!enabled.includes(moduleId)) throw forbidden("This module is not enabled for this plant");
+    const owners = await tx
+      .selectDistinct({ id: users.id })
+      .from(users)
+      .innerJoin(userRoles, eq(userRoles.userId, users.id))
+      .innerJoin(tenants, eq(tenants.id, users.tenantId))
+      .where(and(eq(users.status, "active"), eq(tenants.status, "active"), eq(userRoles.roleId, "tenant_admin")));
+    const recipients = owners.map((o) => o.id).filter((id) => id !== input.exclude_user_id);
+    if (!recipients.length) return { recipients: 0, created: [] as { id: string; userId: string }[] };
+    const created = await tx
+      .insert(notifications)
+      .values(
+        recipients.map((userId) => ({
+          tenantId,
+          userId,
+          moduleId,
+          kind: input.kind,
+          title: input.title,
+          body: input.body,
+          link: input.link,
+          level: input.level,
+          dedupeKey: input.dedupe_key,
+        })),
+      )
+      .onConflictDoNothing()
+      .returning({ id: notifications.id, userId: notifications.userId });
+    return { recipients: recipients.length, created };
+  });
+  const messages = new Map<string, PushMessage>();
+  if (input.level === "push") for (const r of rows.created) messages.set(r.userId, { id: r.id, title: input.title, body: input.body });
+  return { recipients: rows.recipients, created: rows.created.length, messages };
+}
+
+/** Sends the phone notifications prepared by notifyOwners. Never throws (logged instead). */
+export async function sendPrepared(tenantId: string, messages: Map<string, PushMessage>, send?: PushSender | null) {
+  try {
+    return await pushToUsers(tenantId, messages, send);
+  } catch (err) {
+    console.error("[notifications] push failed:", (err as Error).message);
+    return { sent: 0, removed: 0, failed: messages.size };
+  }
+}
+
+// ---------- the user's own inbox ----------
+
+export async function listFor(user: CurrentUser) {
+  return withTenant(user.tenantId, async (tx) => {
+    const mine = and(eq(notifications.tenantId, user.tenantId), eq(notifications.userId, user.userId));
+    const items = await tx.select().from(notifications).where(mine).orderBy(desc(notifications.createdAt)).limit(INBOX_LIMIT);
+    const [unread] = await tx.select({ n: sql<number>`count(*)::int` }).from(notifications).where(and(mine, isNull(notifications.readAt)));
+    return {
+      unread: unread?.n ?? 0,
+      items: items.map((n) => ({
+        id: n.id,
+        module: n.moduleId,
+        kind: n.kind,
+        title: n.title,
+        body: n.body,
+        level: n.level,
+        created_at: n.createdAt.toISOString(),
+        read: n.readAt !== null,
+        open_url: `/n/${n.id}`,
+      })),
+    };
+  });
+}
+
+export const MarkReadInput = z.object({ ids: z.array(z.uuid()).max(100).optional(), all: z.literal(true).optional() }).refine((v) => v.all || v.ids?.length, "Give ids or all: true");
+
+/** Marks the user's own notifications read (never anyone else's). Returns how many changed. */
+export async function markRead(user: CurrentUser, input: z.infer<typeof MarkReadInput>) {
+  return withTenant(user.tenantId, async (tx) => {
+    const where = and(
+      eq(notifications.tenantId, user.tenantId),
+      eq(notifications.userId, user.userId),
+      isNull(notifications.readAt),
+      input.all ? undefined : inArray(notifications.id, input.ids!),
+    );
+    const changed = await tx.update(notifications).set({ readAt: new Date() }).where(where).returning({ id: notifications.id });
+    return changed.length;
+  });
+}
+
+/** Tap on a notification (bell list or phone): mark it read and return where to go. Someone else's -> 404. */
+export async function openNotification(user: CurrentUser, id: string) {
+  return withTenant(user.tenantId, async (tx) => {
+    const [n] = await tx
+      .select()
+      .from(notifications)
+      .where(and(eq(notifications.id, id), eq(notifications.tenantId, user.tenantId), eq(notifications.userId, user.userId)));
+    if (!n) throw notFound("Notification not found");
+    if (!n.readAt) await tx.update(notifications).set({ readAt: new Date() }).where(eq(notifications.id, n.id));
+    return targetUrl(n.moduleId, n.link);
+  });
+}
+
+// ---------- phones ----------
+
+/** What the browser's PushSubscription.toJSON() gives. Real push services always use https. */
+export const SubscriptionInput = z.object({
+  endpoint: z.url({ protocol: /^https$/ }).max(1000),
+  keys: z.object({ p256dh: z.string().min(1).max(200), auth: z.string().min(1).max(100) }),
+});
+
+/** This phone now gets this user's notifications. A phone used by someone else in this plant moves to this user. */
+export async function subscribe(user: CurrentUser, input: z.infer<typeof SubscriptionInput>, userAgent: string | null) {
+  await withTenant(user.tenantId, async (tx) => {
+    await tx.delete(pushSubscriptions).where(and(eq(pushSubscriptions.tenantId, user.tenantId), eq(pushSubscriptions.endpoint, input.endpoint)));
+    await tx.insert(pushSubscriptions).values({
+      tenantId: user.tenantId,
+      userId: user.userId,
+      endpoint: input.endpoint,
+      p256dh: input.keys.p256dh,
+      auth: input.keys.auth,
+      userAgent: userAgent?.slice(0, 300) ?? null,
+    });
+  });
+}
+
+/** This phone stops getting this user's notifications (turn off, or logout). */
+export async function unsubscribe(user: CurrentUser, endpoint: string) {
+  return withTenant(user.tenantId, async (tx) => {
+    const gone = await tx
+      .delete(pushSubscriptions)
+      .where(and(eq(pushSubscriptions.tenantId, user.tenantId), eq(pushSubscriptions.userId, user.userId), eq(pushSubscriptions.endpoint, endpoint)))
+      .returning({ id: pushSubscriptions.id });
+    return gone.length;
+  });
+}
+
+/** Whether this phone is on for this user (the launcher card shows "On for this phone"). */
+export async function isSubscribed(user: CurrentUser, endpoint: string) {
+  return withTenant(user.tenantId, async (tx) => {
+    const [row] = await tx
+      .select({ id: pushSubscriptions.id })
+      .from(pushSubscriptions)
+      .where(and(eq(pushSubscriptions.tenantId, user.tenantId), eq(pushSubscriptions.userId, user.userId), eq(pushSubscriptions.endpoint, endpoint)));
+    return Boolean(row);
+  });
+}

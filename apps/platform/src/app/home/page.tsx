@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Button } from "@plantops/ui";
 import { api } from "@/lib/api";
 import { LauncherTiles, PlanCard, type PlanSummary, type Tile } from "@/lib/launcher-tiles";
+import { NotificationBell, PushCard } from "@/lib/notifications-ui";
+import { turnOff } from "@/lib/push-client";
 
 type Launcher = {
   must_change_secret: boolean;
@@ -45,6 +47,7 @@ export default function HomePage() {
   }, []);
 
   async function logout() {
+    await turnOff(); // a shared phone must stop getting this person's notifications
     await api("/api/auth/logout", { body: {} });
     window.location.assign("/login"); // full reload: back to PlantOps colours
   }
@@ -58,6 +61,7 @@ export default function HomePage() {
           Plant<span className="text-(--brand)">Ops</span>
         </span>
         <div className="flex items-center gap-3 text-right">
+          {owner && <NotificationBell />}
           <div>
             <p className="font-semibold leading-tight">{data.user.display_name}</p>
             <p className="text-xs text-slate-500">{data.plant.name}</p>
@@ -76,6 +80,8 @@ export default function HomePage() {
         <h1 className="text-2xl font-bold">{greeting()}, {data.user.display_name.split(" ")[0]}</h1>
         <p className="text-slate-500">{owner ? "Here's what's available for your account today." : "Tap a module to open it."}</p>
       </div>
+
+      {owner && <PushCard />}
 
       <section>
         <h2 className="mb-2 text-xs font-semibold tracking-wider text-slate-500 uppercase">Your modules</h2>

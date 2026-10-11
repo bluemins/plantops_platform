@@ -1,0 +1,30 @@
+# Evening job for every hosted PlantOps copy (docs/notifications.md, N1):
+#   Floor Stock  POST <STOCK_URL>/api/cron/evening  ("Today's stock count is not done yet" to owners; skipped while
+#                STOCK_URL is unset)
+# Same GitHub environments, variables and CRON_SECRET as daily.yml. GitHub may start it 10-30 minutes late.
+# A failed call fails the run, and GitHub emails the repo owner. "Run workflow" runs it by hand.
+name: Evening jobs
+
+on:
+  schedule:
+    - cron: "30 14 * * *" # 20:00 India time
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  evening:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        copy: [shared]
+    environment: ${{ matrix.copy }}
+    steps:
+      - name: Floor Stock
+        if: ${{ vars.STOCK_URL != '' }}
+        env:
+          URL: ${{ vars.STOCK_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS --max-time 120 -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/evening"

@@ -15,6 +15,7 @@ import {
   fetchSkus,
   fetchTenantPlan,
   openSession,
+  sendNotification,
   openSupportSession,
   RECHECK_GRACE_MINUTES,
   refreshModuleSession,
@@ -28,7 +29,7 @@ import {
   type ModuleSession,
   type SupportSession,
 } from "@plantops/auth";
-import type { AlertContact, ModuleId, TenantBranding, TenantPlan, TenantSku } from "@plantops/types";
+import type { AlertContact, ModuleId, NotificationInput, TenantBranding, TenantPlan, TenantSku } from "@plantops/types";
 import { safeNext } from "./safe-next";
 
 export interface ModuleEnv {
@@ -92,6 +93,18 @@ export function createModule(config: ModuleConfig) {
   const plan = cached<TenantPlan | null>("plan", (t) => fetchTenantPlan(creds(), t), null);
   /** Owners + this module's staff (names, phones, emails, roles). null if the platform can't be reached. */
   const contacts = cached<AlertContact[] | null>("contacts", (t) => fetchAlertContacts(creds(), t), null);
+  /**
+   * Tells the plant's owners about an event (launcher bell + phones; CLAUDE.md "Notifications"). Never throws:
+   * a notification must never break the action that caused it. Returns null when the platform couldn't take it.
+   */
+  async function notify(tenantId: string, input: NotificationInput) {
+    try {
+      return await sendNotification(creds(), tenantId, input);
+    } catch (err) {
+      console.error(`[${moduleId}] notification "${input.kind}" not sent:`, (err as Error).message);
+      return null;
+    }
+  }
 
   // ---------- cookies ----------
   const sessionOpts = () => ({ secret: env.sessionSecret(), moduleId });
@@ -240,6 +253,7 @@ a{display:inline-block;margin-top:12px;padding:12px 18px;border-radius:12px;back
     products,
     plan,
     contacts,
+    notify,
     sealCookie,
     openCookie,
     readSession,
