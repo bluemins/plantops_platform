@@ -4,7 +4,7 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
-## v0.6.2 — not released yet — Nightly encrypted backups
+## v0.6.2 — 2026-10-11 — Nightly encrypted backups
 
 **What's in it**
 - **Backup** workflow (`.github/workflows/backup.yml`, 02:00 India time): a `pg_dump` of the whole database with a
