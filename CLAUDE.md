@@ -776,7 +776,8 @@ module's key and re-checked live against the platform. Store keeper refused `/ch
 
 **Update 2026-10-11:** real counts on the live copy (plant 001: Bindu's count + correction, notifications to the
 owner); the Daily jobs Floor Stock step is green; the launcher tile shows live numbers (so the module address is
-right). **Still open:** a live low-stock email (Brevo variables on `floor-stock` + a test limit).
+right). **Low-stock email:** not set up, by the owner's choice (2026-10-11): Floor Stock alerts go through app
+notifications (bell + browser / phone push); the email code stays and does nothing without Brevo.
 
 **Next:**
 1. The owner tries it live: switch Floor Stock on for a plant, give a store keeper the role, set up sections from
@@ -1032,10 +1033,11 @@ sharing Screw cap blue (2,500 bottles), as worked out by hand; a correction chan
 numbers; Recent changes listed every change; setup and home screens checked in headless Chrome at phone width.
 Test data removed afterwards.
 
-**Not yet verified:** the owner's own real figures on the live copy (Contents and Recipes not entered yet; caps per
-box and labels per bundle still to come from the owner); real phones.
+**Not yet verified:** real phones.
+**Update 2026-10-11:** plant 001's owner entered Contents (9 materials) and Recipes (8 products) on the live copy
+and checked the home page against a count.
 
 **Live (2026-10-11):** migration `0004` applied on the shared copy, `v0.11.0:production` deployed; health checks OK
 (`docs/deployments/shared.md`).
 
-**Next:** the owner enters Contents and Recipes for plant 001 and checks the home page after the next count.
+**Next:** none for "Can make"; open Floor Stock items are in `apps/floor-stock/NOTES.md`.

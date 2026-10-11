@@ -9,7 +9,9 @@ root `CLAUDE.md`. Built on the shared module kit (`packages/module-kit`), like L
 - **Live** on the shared copy at https://stock.bluemins.life since release **v0.6.0** (Railway service
   `floor-stock`, no volume; record in `docs/deployments/shared.md`). Runs **v0.11.0** ("Can make", 2026-10-11).
 - **In real use** since 2026-10-11 (plant 001 Bluemins: daily counts, low-stock and corrected notifications).
-- **"Can make" live since 2026-10-11** (migration `0004_recipes.sql` applied); no plant has entered Contents / Recipes yet.
+- **"Can make" live since 2026-10-11** (migration `0004_recipes.sql` applied); plant 001 has Contents and Recipes set
+  and the owner checked the result against a count.
+- **Low-stock email not used** (owner, 2026-10-11): app notifications instead (see the Pending list).
 - 146 tests pass (all apps' tests pass too).
 
 ## What it does
@@ -156,7 +158,9 @@ setup, recipe checks, corrections, Recent changes and the database guards (`reci
   - [x] owner: "⚙ Set up sections"
   - [x] store keeper: a count (Bindu, 14:15) and a correction
   - [ ] owner: the day page and "Copy as WhatsApp message"
-- [ ] Email test: set a limit above an item's count, submit, and check the owner receives the email.
+- [—] Email test: **not needed** (owner, 2026-10-11): Brevo will not be set up for Floor Stock; owners rely on app
+      notifications (bell + browser / phone push), which already carry "Low stock". Without email, low-stock rows are
+      `skipped` (owner without email) or wait as `pending` and are marked `failed` after 7 days; nothing breaks.
 - [x] Backups before real plant data: nightly encrypted backups since v0.6.2 (HANDBOOK.md section 11).
 
 **Decisions to confirm with the owner (made while building, 2026-10-08):**
@@ -177,9 +181,8 @@ setup, recipe checks, corrections, Recent changes and the database guards (`reci
   the text to select instead. Over https it copies directly.
 
 **After deploying v0.11.0 ("Can make"):**
-- [ ] Owner: Contents on each preform, cap and label (e.g. 1 packet = 25,000 g, damage 0.01%; 1 box = ? caps;
-      1 bundle = ? labels + loose count), then a Recipe on each finished product.
-- [ ] Check the home page after the next count against a hand calculation for one product.
+- [x] Owner: Contents and Recipes entered (plant 001, 2026-10-11: 9 materials, 8 products, 22 recipe lines).
+- [x] Home page checked after a count against the owner's own calculation (2026-10-11).
 
 **Later (not v1):**
 - Dispatch entries (party, item, boxes, batch) as new tables. The day page would then show "Dispatched vs Sold
