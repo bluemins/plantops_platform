@@ -1056,3 +1056,29 @@ bell row, 5 per minute; an expired phone (404 / 410) is removed. Platform tests 
 **Verified (2026-10-11):** the owner confirmed the test push arrives on Android (installed app). Android phone
 notifications work.
 **Not yet verified:** iPhone (iOS 16.4+, added to the Home Screen first).
+
+### 2026-10-11 — Where things stand (end of day)
+**Live on the shared copy: v0.11.1** (`docs/deployments/shared.md`).
+
+**Completed today:**
+- App notifications N1–N4 live (v0.7.0–v0.10.0); working on desktop (Chrome, Firefox) and **Android** (installed
+  app, confirmed with the test push).
+- Floor Stock in real use by plant 001 (counts, corrections, low-stock / corrected notifications).
+- Floor Stock "Can make" live (v0.11.0); plant 001's owner entered Contents (9 materials) and Recipes (8 products)
+  and checked the result against a count.
+- "Send a test to this phone" on `/notifications` live (v0.11.1).
+- Decided by the owner: **no Brevo email for Floor Stock**; low-stock alerts go by app notifications only.
+
+**Open:**
+1. **iPhone notifications:** not tested (iOS 16.4+, PlantOps added to the Home Screen first, then the test button).
+2. **Floor Stock day page and "Copy as WhatsApp message"** not yet tried by the owner on the live copy
+   (`apps/floor-stock/NOTES.md`, Pending).
+3. **A user with only the Plant staff role** not yet tried (Kedar also holds store keeper).
+4. **Five Floor Stock decisions made while building** await the owner's OK (`apps/floor-stock/NOTES.md`,
+   "Decisions to confirm with the owner").
+5. **Document Store reminder emails:** Brevo set up 2026-10-04, live sending never confirmed (the owner's no-Brevo
+   decision covers Floor Stock only so far).
+
+**Next phase:** Phase 6 (Preventive Management) in plan mode when the owner is ready. Complaint Box and Order
+Capture are proposals only (`docs/COMPLAINT_BOX_PHASE_PLAN.md`, `docs/ORDER_CAPTURE_PHASE_PLAN.md`), with no phase
+number yet.
