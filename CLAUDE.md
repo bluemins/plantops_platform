@@ -774,6 +774,10 @@ module's key and re-checked live against the platform. Store keeper refused `/ch
 - The daily job's Floor Stock step: GitHub variable `STOCK_URL` to add, then "Run workflow".
 - super_admin → Modules shows `https://stock.bluemins.life` (it was registered by the script).
 
+**Update 2026-10-11:** real counts on the live copy (plant 001: Bindu's count + correction, notifications to the
+owner); the Daily jobs Floor Stock step is green; the launcher tile shows live numbers (so the module address is
+right). **Still open:** a live low-stock email (Brevo variables on `floor-stock` + a test limit).
+
 **Next:**
 1. The owner tries it live: switch Floor Stock on for a plant, give a store keeper the role, set up sections from
    the starter list, enter a count on a phone, and test a low-stock email.
@@ -901,7 +905,8 @@ N2 (chosen people get alerts via a per-module tick box, + Lab Records) in plan m
 `0002`, all four services), test on phones, then N3 (Document Store + platform events) in plan mode.
 
 ### 2026-10-11 — Notifications N3: Document Store + PlantOps events — live (v0.9.0, deployed 2026-10-11)
-**Built** (release v0.9.0; v0.8.0 = N2 committed `fe2157e` and tagged; v0.7.0–v0.9.0 not deployed):
+**Built** (release v0.9.0; v0.8.0 = N2 committed `fe2157e` and tagged; v0.7.0–v0.9.0 not deployed at the time, live since
+2026-10-11):
 - **Platform:**
   - migration `0011_platform_notifications.sql`: `notifications.module_id` nullable (null = a PlantOps event,
     link = platform page), unique `nulls not distinct` (Postgres 15+), `renewal_tenants()` (security definer:
@@ -944,7 +949,8 @@ N2 (chosen people get alerts via a per-module tick box, + Lab Records) in plan m
 - then N4 (settings and reliability) in plan mode
 
 ### 2026-10-11 — Notifications N4: settings and reliability — live (v0.10.0, deployed 2026-10-11)
-**Built** (release v0.10.0; v0.9.0 = N3 committed `cc68157` and tagged; v0.7.0–v0.10.0 not deployed):
+**Built** (release v0.10.0; v0.9.0 = N3 committed `cc68157` and tagged; v0.7.0–v0.10.0 not deployed at the time, live
+since 2026-10-11):
 - **Settings:**
   - `NOTIFICATION_KINDS` catalogue in `packages/types` (label, module, `urgent`, `bellOnly`)
   - platform migration `0012`: `notification_prefs` ('bell' / 'off'; no row = normal), applied in `withPrefs`
@@ -1026,7 +1032,8 @@ sharing Screw cap blue (2,500 bottles), as worked out by hand; a correction chan
 numbers; Recent changes listed every change; setup and home screens checked in headless Chrome at phone width.
 Test data removed afterwards.
 
-**Not yet verified:** the owner's own real figures on the live copy; real phones.
+**Not yet verified:** the owner's own real figures on the live copy (Contents and Recipes not entered yet; caps per
+box and labels per bundle still to come from the owner); real phones.
 
 **Live (2026-10-11):** migration `0004` applied on the shared copy, `v0.11.0:production` deployed; health checks OK
 (`docs/deployments/shared.md`).

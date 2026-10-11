@@ -146,8 +146,9 @@ setup, recipe checks, corrections, Recent changes and the database guards (`reci
 - [x] Delete `.env.railway.shared.floor_stock.paste` (it holds the database password). Save the updated
       `.env.railway.shared` in the password manager.
 - [x] GitHub → Settings → Environments → `shared`: add the variable `STOCK_URL` = `https://stock.bluemins.life`.
-  - [ ] Then Actions → *Daily jobs* → Run workflow: all three steps should be green.
-- [ ] super_admin → Modules: check that Floor Stock shows `https://stock.bluemins.life`.
+  - [x] Then Actions → *Daily jobs* → Run workflow: green on 2026-10-11 (`docs/deployments/shared.md`).
+- [x] super_admin → Modules: Floor Stock's address works (2026-10-11: the live launcher tile shows its numbers, which
+      the platform fetches from the registered address).
 - [ ] `floor-stock` variables: check that `BREVO_API_KEY` and `MAIL_FROM` match `document-store`.
 - [x] First real use (plant 001 Bluemins, 2026-10-11):
   - [x] switch Floor Stock on in a plant's plan
