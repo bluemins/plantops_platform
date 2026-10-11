@@ -253,3 +253,55 @@ describe("push sending", () => {
     expect(await pushToUsers(P.tenantId, new Map([[P.adminUserId, { id: "x", title: "t", body: "" }]]), null)).toEqual({ sent: 0, removed: 0, failed: 0 });
   });
 });
+
+describe("Send a test to this phone", () => {
+  const sub = (n: number) => ({ endpoint: `https://push.example.test/test/${n}`, keys: { p256dh: `p-${n}`, auth: `a-${n}` } });
+  async function plantWithPhone() {
+    const P = await makePlant({ modules: ["floor_stock"] });
+    const mine = sub(++seq);
+    await call(pushRoute.POST as Handler, { cookie: P.adminCookie, body: mine });
+    return { P, mine, user: { tenantId: P.tenantId, userId: P.adminUserId } as never };
+  }
+
+  it("goes to this phone only, opens the notifications page, and adds nothing to the bell", async () => {
+    const { P, mine, user } = await plantWithPhone();
+    await call(pushRoute.POST as Handler, { cookie: P.adminCookie, body: sub(++seq) }); // another phone of the same person
+    const { sendTestPush } = await import("@/server/notifications");
+    const sent: { target: PushTarget; payload: Record<string, string> }[] = [];
+    const result = await sendTestPush(user, mine.endpoint, async (target, payload) => (sent.push({ target, payload: JSON.parse(payload) }), 201));
+    expect(result).toBe("sent");
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.target.endpoint).toBe(mine.endpoint);
+    expect(sent[0]!.payload).toMatchObject({ title: "PlantOps test", url: "/notifications" });
+    expect((await inbox(P.adminCookie)).body.items).toEqual([]);
+  });
+
+  it("someone else's phone, or one not turned on: nothing is sent", async () => {
+    const { mine } = await plantWithPhone();
+    const other = await plantWithPhone();
+    const { sendTestPush } = await import("@/server/notifications");
+    let called = false;
+    expect(await sendTestPush(other.user, mine.endpoint, async () => ((called = true), 201))).toBe("not_found");
+    expect(called).toBe(false);
+  });
+
+  it("an expired phone (410) is removed so it shows Off; other errors keep it", async () => {
+    const { P, mine, user } = await plantWithPhone();
+    const { sendTestPush } = await import("@/server/notifications");
+    expect(await sendTestPush(user, mine.endpoint, async () => 500)).toBe("failed");
+    expect(await sendTestPush(user, mine.endpoint, async () => 410)).toBe("gone");
+    const { rows } = await asOwner<{ n: number }>("select count(*)::int as n from platform.push_subscriptions where tenant_id = $1", [P.tenantId]);
+    expect(rows[0]!.n).toBe(0);
+  });
+
+  it("the route needs a login, answers with the result, and limits repeats", async () => {
+    const testRoute = await import("@/app/api/push/test/route");
+    const { P, mine } = await plantWithPhone();
+    expect((await call(testRoute.POST as Handler, { body: { endpoint: mine.endpoint } })).status).toBe(401);
+    const r = await call(testRoute.POST as Handler, { cookie: P.adminCookie, body: { endpoint: mine.endpoint } });
+    // the test phone's keys aren't real, so the push library refuses it before any network call
+    expect(r.body.result).toMatch(/^(failed|not_set_up)$/);
+    for (let i = 0; i < 4; i++) await call(testRoute.POST as Handler, { cookie: P.adminCookie, body: { endpoint: mine.endpoint } });
+    expect((await call(testRoute.POST as Handler, { cookie: P.adminCookie, body: { endpoint: mine.endpoint } })).status).toBe(429);
+  });
+});

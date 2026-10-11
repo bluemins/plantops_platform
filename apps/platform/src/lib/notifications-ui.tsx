@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@plantops/ui";
 import { api } from "./api";
 import { moduleLabel } from "./modules";
-import { pushState, turnOff, turnOn, type PushState } from "./push-client";
+import { pushState, sendTest, turnOff, turnOn, type PushState, type TestResult } from "./push-client";
 
 type Item = { id: string; module: string | null; title: string; body: string; level: "push" | "bell"; created_at: string; read: boolean; open_url: string };
 type Inbox = { unread: number; items: Item[] };
@@ -172,7 +172,7 @@ export function NotificationsPage({ showCard }: { showCard: boolean }) {
   const { inbox, reload } = useInbox();
   return (
     <div className="space-y-4">
-      {showCard && <PushCard />}
+      {showCard && <PushCard page />}
       <NotificationList inbox={inbox} reload={reload} header={<h1 className="text-2xl font-bold">Your notifications</h1>} />
       <NotificationSettings />
     </div>
@@ -242,7 +242,35 @@ function hiddenForNow() {
  * "Get alerts on this phone". Full card on the launcher until it's on (or "Not now" for a week); a one-line
  * status with Turn on / Turn off at the bottom of the bell list.
  */
-export function PushCard({ compact = false }: { compact?: boolean }) {
+const TEST_TEXT: Record<TestResult, string> = {
+  sent: "Sent. It should appear on this phone within a few seconds. If nothing comes: allow notifications for PlantOps (or Chrome) in the phone's Settings › Apps, and check that battery saver or Do Not Disturb is off.",
+  gone: "This phone's sign-up had expired, so it was removed. Tap Turn on again.",
+  failed: "The phone's push service didn't take it. Please try again in a few minutes.",
+  not_set_up: "Phone notifications are not set up on the server yet.",
+  not_found: "This phone isn't turned on yet. Tap Turn on.",
+  error: "Couldn't send the test. Check the internet connection and try again.",
+};
+
+/** "Send a test to this phone" with what to check when nothing arrives. */
+function TestButton({ onGone }: { onGone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<TestResult>();
+  async function test() {
+    setBusy(true);
+    const r = await sendTest();
+    setResult(r);
+    setBusy(false);
+    if (r === "gone" || r === "not_found") onGone();
+  }
+  return (
+    <div className="space-y-2">
+      <Button variant="secondary" disabled={busy} onClick={test}>{busy ? "Sending..." : "Send a test to this phone"}</Button>
+      {result && <p className={`text-sm ${result === "sent" ? "text-slate-700" : "text-orange-900"}`} role="status">{TEST_TEXT[result]}</p>}
+    </div>
+  );
+}
+
+export function PushCard({ compact = false, page = false }: { compact?: boolean; page?: boolean }) {
   const [state, setState] = useState<PushState>();
   const [key, setKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -292,7 +320,22 @@ export function PushCard({ compact = false }: { compact?: boolean }) {
     );
   }
 
-  if (state === "on" || hidden) return null;
+  // on the Notifications page: always show this phone's status, with a test once it is on
+  if (page && state === "on") {
+    return (
+      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-slate-700">
+            Phone notifications: <strong className="text-green-800">On for this phone</strong>
+          </p>
+          <Button variant="secondary" disabled={busy} onClick={off}>Turn off</Button>
+        </div>
+        <TestButton onGone={() => setState("off")} />
+      </section>
+    );
+  }
+
+  if (state === "on" || (hidden && !page)) return null;
 
   if (state === "needs-install") {
     return (
@@ -308,7 +351,7 @@ export function PushCard({ compact = false }: { compact?: boolean }) {
         </ol>
         <div className="flex items-center justify-between">
           <p className="text-xs text-slate-500">Needs iOS 16.4 or newer.</p>
-          <button type="button" onClick={notNow} className="min-h-11 px-2 text-sm text-slate-600">Not now</button>
+          {!page && <button type="button" onClick={notNow} className="min-h-11 px-2 text-sm text-slate-600">Not now</button>}
         </div>
       </section>
     );
@@ -323,7 +366,7 @@ export function PushCard({ compact = false }: { compact?: boolean }) {
           PlantOps and allow notifications.
         </p>
         <div className="text-right">
-          <button type="button" onClick={notNow} className="min-h-11 px-2 text-sm text-orange-900">Hide</button>
+          {!page && <button type="button" onClick={notNow} className="min-h-11 px-2 text-sm text-orange-900">Hide</button>}
         </div>
       </section>
     );
@@ -337,7 +380,7 @@ export function PushCard({ compact = false }: { compact?: boolean }) {
       </div>
       <div className="flex gap-2">
         <Button disabled={busy} onClick={on}>{busy ? "Turning on..." : "Turn on"}</Button>
-        <button type="button" onClick={notNow} className="min-h-11 px-3 text-sm text-slate-700">Not now</button>
+        {!page && <button type="button" onClick={notNow} className="min-h-11 px-3 text-sm text-slate-700">Not now</button>}
       </div>
     </section>
   );

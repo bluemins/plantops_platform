@@ -11,7 +11,7 @@ import { schema, withTenant, type PlatformTx } from "./db";
 import { badRequest, forbidden, notFound } from "./http";
 import { safeNext } from "@/lib/safe-next";
 import { later } from "./http";
-import { pushToUsers, type PushMessage, type PushSender } from "./push";
+import { configuredSender, pushToUsers, type PushMessage, type PushSender } from "./push";
 import { enabledModules } from "./sso";
 
 const { alertRecipients, notificationPrefs, notifications, pushSubscriptions, tenants, userRoles, users } = schema;
@@ -343,4 +343,30 @@ export async function isSubscribed(user: CurrentUser, endpoint: string) {
       .where(and(eq(pushSubscriptions.tenantId, user.tenantId), eq(pushSubscriptions.userId, user.userId), eq(pushSubscriptions.endpoint, endpoint)));
     return Boolean(row);
   });
+}
+
+export type TestResult = "sent" | "gone" | "failed" | "not_set_up" | "not_found";
+
+/**
+ * "Send a test to this phone" on /notifications: one push to the device asking, nothing in the bell. A phone the
+ * push service says is gone (404 / 410) is removed, so the page shows it as Off and the person can turn it on again.
+ */
+export async function sendTestPush(user: CurrentUser, endpoint: string, send: PushSender | null = configuredSender()): Promise<TestResult> {
+  if (!send) return "not_set_up";
+  const [sub] = await withTenant(user.tenantId, (tx) =>
+    tx
+      .select()
+      .from(pushSubscriptions)
+      .where(and(eq(pushSubscriptions.tenantId, user.tenantId), eq(pushSubscriptions.userId, user.userId), eq(pushSubscriptions.endpoint, endpoint))),
+  );
+  if (!sub) return "not_found";
+  const payload = JSON.stringify({ title: "PlantOps test", body: "Phone notifications work on this device.", url: "/notifications", tag: `test-${sub.id}` });
+  const status = await send({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, payload);
+  if (status >= 200 && status < 300) return "sent";
+  if (status === 404 || status === 410) {
+    await withTenant(user.tenantId, (tx) => tx.delete(pushSubscriptions).where(eq(pushSubscriptions.id, sub.id)));
+    return "gone";
+  }
+  console.error(`[push] test to ${new URL(sub.endpoint).host} answered ${status}`);
+  return "failed";
 }

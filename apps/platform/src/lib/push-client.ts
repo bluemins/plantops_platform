@@ -75,3 +75,18 @@ export async function turnOff() {
     // never block a logout
   }
 }
+
+export type TestResult = "sent" | "gone" | "failed" | "not_set_up" | "not_found" | "error";
+
+/** "Send a test to this phone": asks the server to push one message to this device only. */
+export async function sendTest(): Promise<TestResult> {
+  try {
+    const reg = await navigator.serviceWorker.getRegistration("/");
+    const sub = await reg?.pushManager.getSubscription();
+    if (!sub) return "not_found";
+    const r = await api<{ result: TestResult }>("/api/push/test", { body: { endpoint: sub.endpoint } });
+    return r.ok ? r.data.result : "error";
+  } catch {
+    return "error";
+  }
+}

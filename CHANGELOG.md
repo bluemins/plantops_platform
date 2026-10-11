@@ -4,6 +4,17 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.11.1 — 2026-10-11 — "Send a test to this phone"
+
+**What's in it**
+- **Notifications page: "Send a test to this phone"** once phone notifications are on. One test message to that
+  device only (nothing in the bell), with what to check on the phone if it doesn't arrive. A phone whose sign-up has
+  expired is removed, so the page shows Off and it can be turned on again.
+- Why: Android phones of plant 001 were turned on after the day's last notification, so nothing had been sent to
+  them yet and there was no way to check them.
+
+**Migrations:** none. Deploy the `platform` service only.
+
 ## v0.11.0 — 2026-10-11 — Floor Stock "Can make"
 
 **What's in it**
