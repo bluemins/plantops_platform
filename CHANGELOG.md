@@ -4,6 +4,20 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.9.0 — 2026-10-11 — Document Store and PlantOps notifications
+
+**What's in it**
+- **Document Store notifications:** expiry at 30 / 7 / 1 days before, on expiry, then weekly (one per document,
+  also to the responsible person, once per stage like the email), "You are responsible for …" (only that person),
+  new / renewed documents (bell only), storage 80% / 95% full.
+- **PlantOps notifications to owners:** someone locked out after 5 wrong PINs / passwords (opens Manage users),
+  PlantOps support viewed a module (bell), a module switched on (phone) / off and plan changes (bell), plan
+  renewal 30 / 7 / 1 days before and on the day (new platform step in **Daily jobs**).
+
+**Migrations:** platform `0011_platform_notifications.sql` (PlantOps events without a module; renewal list
+function). Needs **Postgres 15+**. Before deploying: `CRON_SECRET` on the **platform** service and the GitHub
+variable `APP_URL`. Deploy `platform` and `document-store`.
+
 ## v0.8.0 — 2026-10-11 — Chosen people get alerts; Lab Records notifications
 
 **What's in it**

@@ -30,6 +30,16 @@ module kit (`packages/module-kit`), like Lab Records.
   the platform stores a language preference per recipient.
 - **Tile:** "N expired" (red), "N expiring soon" (amber), "N documents".
 
+## App notifications (v0.9.0, docs/notifications.md N3)
+Sent with `kit.notify` (texts in `src/server/notify.ts`), next to the email reminders, never blocking a save:
+- **Expiry** (push): for each reminder stage newly reached in `queueReminders` (the email's once-per-version-and-stage
+  rule), one notification per document to owners + people ticked for Document Store + the responsible person.
+- **You are now responsible** (push, `only_listed`): only the person chosen, not when they chose themselves.
+- **New document / renewed** (bell): owners + ticked, minus whoever did it.
+- **Storage 80% / 95% full** (push): when an upload crosses the threshold; keyed to the plan's MB, so a bigger plan
+  re-arms it.
+The header shows a 🔔 to the platform's `/notifications` page with the unread count.
+
 ## Rules that are easy to get wrong
 - **Append-only, enforced by the database.** `doc_app` has SELECT + INSERT everywhere. Column UPDATE only on:
   - `documents(status, responsible_user_id, responsible_name, updated_at)`

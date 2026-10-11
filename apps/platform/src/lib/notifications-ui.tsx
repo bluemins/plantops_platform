@@ -7,7 +7,7 @@ import { api } from "./api";
 import { moduleLabel } from "./modules";
 import { pushState, turnOff, turnOn, type PushState } from "./push-client";
 
-type Item = { id: string; module: string; title: string; body: string; level: "push" | "bell"; created_at: string; read: boolean; open_url: string };
+type Item = { id: string; module: string | null; title: string; body: string; level: "push" | "bell"; created_at: string; read: boolean; open_url: string };
 type Inbox = { unread: number; items: Item[] };
 
 const REFRESH_MS = 60_000;
@@ -88,7 +88,7 @@ export function NotificationList({ inbox, reload, header }: { inbox: Inbox; relo
                   <span className="text-xs whitespace-nowrap text-slate-500">{time(n.created_at)}</span>
                 </div>
                 {n.body && <p className="text-sm leading-snug text-slate-700">{n.body}</p>}
-                <p className="text-xs text-slate-500">{moduleLabel(n.module)}</p>
+                <p className="text-xs text-slate-500">{n.module ? moduleLabel(n.module) : "PlantOps"}</p>
               </div>
               {!n.read && <span className="mt-1.5 h-2.5 w-2.5 flex-none rounded-full bg-(--brand)" aria-label="Unread" />}
             </a>

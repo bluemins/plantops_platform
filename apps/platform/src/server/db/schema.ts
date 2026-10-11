@@ -161,7 +161,8 @@ export const notifications = platform.table("notifications", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull(),
   userId: uuid("user_id").notNull(),
-  moduleId: text("module_id").notNull(),
+  /** null = an event from PlantOps itself (lockout, plan, renewal); its link is a platform path */
+  moduleId: text("module_id"),
   kind: text("kind").notNull(),
   title: text("title").notNull(),
   body: text("body").notNull().default(""),

@@ -171,6 +171,8 @@ export const NotificationInput = z.object({
   exclude_user_id: z.uuid().nullable().optional(),
   /** people the event is about (e.g. the technician whose batch was approved); checked like everyone else */
   also_user_ids: z.array(z.uuid()).max(20).optional(),
+  /** only also_user_ids, nobody else (e.g. "you are now responsible for …"); each is still checked */
+  only_listed: z.boolean().optional(),
 });
 export type NotificationInput = z.input<typeof NotificationInput>;
 export const NotificationResult = z.object({ recipients: z.number().int(), created: z.number().int() });

@@ -10,13 +10,14 @@ import { randomToken, sha256 } from "./crypto";
 import { appDb, schema, superDb } from "./db";
 import { badRequest, conflict, forbidden, notFound } from "./http";
 import { HANDOFF_CODE_SECONDS, enabledModules, signPlatformToken } from "./sso";
+import { notifySupportOpened } from "./platform-events";
 import type { CurrentSuperAdmin } from "./super-auth";
 
 const { modules, supportHandoffCodes, tenants } = schema;
 
 /** Step 1 (super_admin only): a one-time code and the module URL to open. */
 export async function createSupportHandoff(admin: CurrentSuperAdmin, tenantId: string, moduleId: ModuleId) {
-  return superDb().transaction(async (tx) => {
+  const result = await superDb().transaction(async (tx) => {
     const [tenant] = await tx.select({ id: tenants.id, code: tenants.code }).from(tenants).where(eq(tenants.id, tenantId));
     if (!tenant) throw notFound("Plant not found");
     if (!(await enabledModules(tx, tenantId)).includes(moduleId)) throw forbidden("This module is not in the plant's plan");
@@ -35,6 +36,8 @@ export async function createSupportHandoff(admin: CurrentSuperAdmin, tenantId: s
     url.searchParams.set("code", code);
     return { redirect_url: url.toString() };
   });
+  await notifySupportOpened(tenantId, moduleId); // the owners see that PlantOps support looked (bell)
+  return result;
 }
 
 /** Step 2 (module credentials): burns the code and returns the read-only support token. */

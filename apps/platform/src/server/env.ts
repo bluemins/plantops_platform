@@ -29,6 +29,10 @@ export const env = {
     const subject = process.env.VAPID_SUBJECT;
     return publicKey && privateKey && subject ? { publicKey, privateKey, subject } : null;
   },
+  /** The scheduler sends this to POST /api/cron/daily (the same value as the modules' CRON_SECRET). */
+  get cronSecret() {
+    return process.env.CRON_SECRET || null;
+  },
   get secureCookies() {
     return this.platformUrl.startsWith("https://");
   },

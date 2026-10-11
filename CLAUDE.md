@@ -888,3 +888,46 @@ N2 (chosen people get alerts via a per-module tick box, + Lab Records) in plan m
 
 **Next:** deploy v0.7.0 + v0.8.0 together (VAPID variables, migrations platform `0009` + `0010`, Floor Stock
 `0002`, all four services), test on phones, then N3 (Document Store + platform events) in plan mode.
+
+### 2026-10-11 — Notifications N3: Document Store + PlantOps events — built, not live yet
+**Built** (release v0.9.0; v0.8.0 = N2 committed `fe2157e` and tagged; v0.7.0–v0.9.0 not deployed):
+- **Platform:**
+  - migration `0011_platform_notifications.sql`: `notifications.module_id` nullable (null = a PlantOps event,
+    link = platform page), unique `nulls not distinct` (Postgres 15+), `renewal_tenants()` (security definer:
+    plant id + renewal date only)
+  - `notifyOwnersDirect` (owners only, as `platform_app`, phones via `later()`, never throws)
+  - `src/server/platform-events.ts`: lockout (`loginUser`), support opened (`createSupportHandoff`), module on /
+    off and plan changes (`updatePlan`), renewal (`runPlatformDaily`)
+  - `POST /api/cron/daily` on the platform (`CRON_SECRET`, new on the platform service); Platform step in
+    `daily.yml` (`APP_URL`)
+  - `NotificationInput.only_listed`
+- **Document Store:** `src/server/notify.ts`; expiry notifications from `queueReminders` (newly inserted reminder
+  rows only), responsible (`createDocument` / `setResponsible`), added / renewed (bell), storage 80% / 95%
+  (`uploadFile`).
+- **Tests:** platform 239 (+12), Document Store 102 (+12), Lab Records 125, Floor Stock 103, module-kit 17,
+  auth 36; typecheck and builds pass.
+
+**Decisions (owner, 2026-10-11):**
+- expiry: one notification per document
+- new / renewed: bell only
+- plan renewal: 30 / 7 / 1 days before and on the day
+
+**Made while building:**
+- PlantOps events go to owners only (never ticked people)
+- support opened is bell level
+- a module switched on is a phone notification; off and other plan changes are bell
+- storage warnings are keyed to the plan's MB, so a bigger plan re-arms them
+
+**Verified on `pnpm dev` (2026-10-11):** migration `0011` applied; the platform daily job answers (wrong secret
+401; no plant has a renewal date locally). Lockout, support and plan events: by tests only.
+
+**Not yet verified:**
+- the new events on screen
+- phones (needs the deploy)
+- Railway's Postgres version (must be ≥ 15)
+
+**Next:**
+- deploy v0.7.0 → v0.9.0 together: VAPID + `CRON_SECRET` on `platform`, `APP_URL` in GitHub; migrations platform
+  `0009`–`0011` and Floor Stock `0002`; all four services
+- test on phones
+- then N4 (settings and reliability) in plan mode

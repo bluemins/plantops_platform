@@ -11,6 +11,7 @@ import { listDocuments, type DocumentRow } from "./documents";
 
 import { kit } from "./kit";
 import { configuredMailer, looksLikeEmail, type Mailer } from "./mail";
+import { expiryNotification, send } from "./notify";
 import { systemReader } from "./session";
 
 const { reminders } = schema;
@@ -47,7 +48,16 @@ export async function queueReminders(tenantId: string, today = todayIst()) {
       error: looksLikeEmail(p.email) ? null : resp || owners.some((o) => o.user_id === userId) ? "No email saved for this person" : "No longer an active owner / document keeper / plant staff",
     }));
   });
-  const inserted = await withTenant(tenantId, (tx) => tx.insert(reminders).values(rows).onConflictDoNothing().returning({ id: reminders.id }));
+  const inserted = await withTenant(tenantId, (tx) =>
+    tx.insert(reminders).values(rows).onConflictDoNothing().returning({ id: reminders.id, documentId: reminders.documentId, stage: reminders.stage }),
+  );
+  // app notification: one per document whose stage is new today (same once-per-version-and-stage rule as the email)
+  const fresh = new Set(inserted.map((r) => `${r.documentId}:${r.stage}`));
+  for (const { doc, stage } of due) {
+    if (!fresh.has(`${doc.id}:${stage}`)) continue;
+    const info = { id: doc.id, name: doc.current.name, certificate_no: doc.current.certificate_no, expires_on: doc.current.expires_on, responsible_user_id: doc.responsible_user_id, responsible_name: doc.responsible_name };
+    await send(tenantId, expiryNotification(info, doc.current.id, stage, doc.expiry.text));
+  }
   return inserted.length;
 }
 

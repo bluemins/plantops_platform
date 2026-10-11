@@ -5,6 +5,7 @@ import { audit } from "./audit";
 import { ProfileInput, writeProfile } from "./business";
 import { schema, superDb, withTenant, type PlatformTx } from "./db";
 import { conflict, notFound } from "./http";
+import { notifyPlanChange } from "./platform-events";
 import { applySecretReset, applyUserUpdate, insertUser, loadAlertModules, lockTenantUsers, NewUserInput, toView, UpdateUserInput, Username } from "./users";
 import type { CurrentSuperAdmin } from "./super-auth";
 
@@ -142,11 +143,15 @@ async function writePlan(tx: PlatformTx, tenantId: string, plan: PlanInput, acto
 }
 
 export async function updatePlan(admin: CurrentSuperAdmin, tenantId: string, plan: PlanInput) {
-  await superDb().transaction(async (tx) => {
+  const before = await superDb().transaction(async (tx) => {
     const [t] = await tx.select({ id: tenants.id }).from(tenants).where(eq(tenants.id, tenantId));
     if (!t) throw notFound("Plant not found");
+    const [old] = await tx.select().from(tenantPlans).where(eq(tenantPlans.tenantId, tenantId));
     await writePlan(tx, tenantId, plan, actorOf(admin));
+    return planView(old);
   });
+  // the owners hear what changed: a module switched on (phone), anything else (bell)
+  await notifyPlanChange(tenantId, before, plan);
   return getTenant(tenantId);
 }
 

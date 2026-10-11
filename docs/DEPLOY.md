@@ -96,6 +96,8 @@ tag you are deploying.
    - variables `LAB_URL`, `DOCS_URL` and `STOCK_URL`
    - secret `CRON_SECRET`
 
+   Also the variable `APP_URL` (the platform address) for the platform's daily job, and put the same `CRON_SECRET`
+   on the **platform** service's Variables.
    The values are at the bottom of the `.paste` file. For a new Dedicated copy, also add its name to `copy:`
    in `.github/workflows/daily.yml` **and** `.github/workflows/evening.yml` (8 pm "count not done" reminder).
 9. **Check it** (see "Checks after a deploy" below), then write the copy's record in
@@ -130,6 +132,9 @@ needs its database login to exist.
    the `store_keeper` role.
 
 ## Releasing an update
+
+> Postgres **15 or newer** is required from v0.9.0 (migration `0011` uses `unique nulls not distinct`). Check with
+> `select version();` on the copy before migrating.
 
 Branches: **`main`** is everyday work. Pushing it is only a backup on GitHub; nothing goes live. **`production`**
 is what Railway runs, and pushing to it deploys.

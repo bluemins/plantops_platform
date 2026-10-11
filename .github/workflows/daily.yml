@@ -1,8 +1,9 @@
 # Daily reminder jobs for every hosted PlantOps copy (docs/DEPLOY.md):
+#   Platform        POST <APP_URL>/api/cron/daily   (plan renewal reminders to owners; skipped while APP_URL is unset)
 #   Lab Records     POST <LAB_URL>/api/cron/daily   (holds older than 24 h, Form 1 due)
 #   Document Store  POST <DOCS_URL>/api/cron/daily  (expiry emails)
 #   Floor Stock     POST <STOCK_URL>/api/cron/daily (low-stock emails still waiting; skipped while STOCK_URL is unset)
-# Each copy is a GitHub environment (Settings > Environments) with variables LAB_URL, DOCS_URL, STOCK_URL and the
+# Each copy is a GitHub environment (Settings > Environments) with variables APP_URL, LAB_URL, DOCS_URL, STOCK_URL and the
 # secret CRON_SECRET. To add a copy: create its environment and add its name to `copy` below.
 # A failed call fails the run, and GitHub emails the repo owner. "Run workflow" runs it by hand.
 name: Daily jobs
@@ -23,7 +24,15 @@ jobs:
         copy: [shared]
     environment: ${{ matrix.copy }}
     steps:
+      - name: Platform
+        if: ${{ vars.APP_URL != '' }}
+        env:
+          URL: ${{ vars.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS --max-time 120 -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/daily"
       - name: Lab Records
+        if: ${{ !cancelled() }}
         env:
           URL: ${{ vars.LAB_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}

@@ -6,6 +6,7 @@ import { burnTime, randomToken, sha256, validateSecret, verifySecret, hashSecret
 import { appDb, schema, withTenant, type PlatformTx } from "./db";
 import { env } from "./env";
 import { badRequest, cookieHeader, forbidden, getCookie, HttpError, unauthorized } from "./http";
+import { notifyLockout } from "./platform-events";
 
 const { users, userRoles, sessions, tenants } = schema;
 
@@ -66,7 +67,7 @@ export async function loginUser(input: { plantCode: string; username: string; se
         .where(eq(users.id, user.id));
       if (!lock) return { kind: "invalid" as const };
       await audit(tx, { tenantId, actor: `user:${user.id}`, action: "user.locked", target: user.id });
-      return { kind: "locked" as const };
+      return { kind: "locked" as const, justLocked: { id: user.id, name: user.displayName, pin: user.secretKind === "pin" } };
     }
 
     await tx.update(users).set({ failedAttempts: 0, lockedUntil: null }).where(eq(users.id, user.id));
@@ -81,7 +82,13 @@ export async function loginUser(input: { plantCode: string; username: string; se
   });
 
   if (outcome.kind === "invalid") throw invalidLogin();
-  if (outcome.kind === "locked") throw lockedLogin();
+  if (outcome.kind === "locked") {
+    // the owners hear about it (once per lock), so they can unlock the person straight away
+    if ("justLocked" in outcome && outcome.justLocked) {
+      await notifyLockout(tenantId, outcome.justLocked, new Date(Date.now() + LOCK_MINUTES * 60_000), LOCK_MINUTES);
+    }
+    throw lockedLogin();
+  }
   return outcome;
 }
 

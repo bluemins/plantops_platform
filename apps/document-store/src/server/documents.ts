@@ -9,6 +9,7 @@ import { expiryStatus, todayIst, type ExpiryKind } from "@/lib/expiry";
 import { schema, withTenant, type DocTx } from "./db";
 import { badRequest, conflict, HttpError, notFound } from "./http";
 import { kit } from "./kit";
+import { addedNotification, responsibleNotification, send, storageNotification, storageStepCrossed } from "./notify";
 import { actorOf, requireManage, type DocUser } from "./session";
 import { fileSha256, fileStorage, MAX_FILE_BYTES, newStorageKey, sniffType } from "./storage";
 
@@ -51,8 +52,10 @@ export async function uploadFile(user: DocUser, input: { data: Buffer; name: str
   const name = (input.name || "document").replace(/[\\/\r\n\t"]/g, "_").slice(0, 200);
   const limit = await storageLimitBytes(user.tenantId);
 
-  return withTenant(user.tenantId, async (tx) => {
-    if (limit !== null && (await storageUsed(tx, user.tenantId)) + input.data.length > limit) {
+  let usedBefore = 0;
+  const saved = await withTenant(user.tenantId, async (tx) => {
+    usedBefore = await storageUsed(tx, user.tenantId);
+    if (limit !== null && usedBefore + input.data.length > limit) {
       throw new HttpError(413, "Storage full for your plan – ask PlantOps to extend it");
     }
     const key = newStorageKey(user.tenantId);
@@ -63,6 +66,11 @@ export async function uploadFile(user: DocUser, input: { data: Buffer; name: str
       .returning();
     return fileView(row!);
   });
+  // owners are warned when this upload takes the plant past 80% / 95% of its plan's storage
+  const usedAfter = usedBefore + input.data.length;
+  const step = storageStepCrossed(usedBefore, usedAfter, limit);
+  if (step && limit) await send(user.tenantId, storageNotification(step, usedAfter, limit));
+  return saved;
 }
 
 /** A file's bytes, only for the viewer's own plant (row-level security), for viewing or downloading. */
@@ -302,7 +310,17 @@ export async function createDocument(user: DocUser, input: z.infer<typeof Docume
     await audit(tx, user, "document.created", doc!.id, { name: input.name });
     return doc!.id;
   });
-  return getDocument(user, id);
+  const detail = await getDocument(user, id);
+  const info = docInfo(detail);
+  await send(user.tenantId, addedNotification(user, info, "added", detail.current.id));
+  const resp = responsibleNotification(user, info);
+  if (resp) await send(user.tenantId, resp);
+  return detail;
+}
+
+/** What the notification texts need from a document. */
+function docInfo(d: DocumentDetail) {
+  return { id: d.id, name: d.current.name, certificate_no: d.current.certificate_no, expires_on: d.current.expires_on, responsible_user_id: d.responsible_user_id, responsible_name: d.responsible_name };
 }
 
 async function current(tx: DocTx, tenantId: string, documentId: string) {
@@ -334,7 +352,9 @@ export async function renewDocument(user: DocUser, documentId: string, input: z.
     });
     await audit(tx, user, "document.renewed", documentId, { name: c.name, expires_on: input.expires_on });
   });
-  return getDocument(user, documentId);
+  const detail = await getDocument(user, documentId);
+  await send(user.tenantId, addedNotification(user, docInfo(detail), "renewed", detail.current.id));
+  return detail;
 }
 
 /** Correction of the details (typing mistake, wrong date…): a new version with a reason; the file is kept unless replaced. */
@@ -385,7 +405,10 @@ export async function setResponsible(user: DocUser, documentId: string, input: z
       .where(and(eq(documents.tenantId, user.tenantId), eq(documents.id, documentId)));
     await audit(tx, user, "document.responsible", documentId, { from: row.responsible_name, to: responsible.name });
   });
-  return getDocument(user, documentId);
+  const detail = await getDocument(user, documentId);
+  const note = responsibleNotification(user, docInfo(detail));
+  if (note) await send(user.tenantId, note);
+  return detail;
 }
 
 /** Archive (no longer needed: no reminders, hidden from the main table) or restore. Nothing is deleted. */

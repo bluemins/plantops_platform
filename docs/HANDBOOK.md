@@ -223,7 +223,7 @@ A reset is always temporary: the person picks their own at the next login. More 
 | SSO signing key `SSO_PRIVATE_JWK_B64` | platform | (pasted, then file deleted) | ✔ |
 | Module secrets `MODULE_SECRET_*` | lab-records, document-store | `.env.railway.shared` | ✔ |
 | Session secrets `LAB_/DOC_SESSION_SECRET` | lab-records, document-store | (pasted, then file deleted) | ✔ |
-| `CRON_SECRET` | lab-records, document-store **and** GitHub environment `shared` | (pasted, then file deleted) | ✔ |
+| `CRON_SECRET` | platform, lab-records, document-store, floor-stock **and** GitHub environment `shared` | (pasted, then file deleted) | ✔ |
 | super_admin password | (stored as a hash in the database) | not stored | ✔ |
 | Phone notification keys `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | platform | not stored (local dev has its own pair in `.env`) | ✔ |
 | Backup login `DATABASE_URL_BACKUP` (read-only) | GitHub environment `shared` only | `.env.railway.shared` | ✔ |
@@ -242,7 +242,7 @@ A reset is always temporary: the person picks their own at the next login. More 
 |---|---|
 | Module secret | super_admin → **Modules** → new secret (the old one stops at once). Paste it into that service's `MODULE_SECRET_*` and into `.env.railway.shared`. |
 | Session secret | Change it in Railway. Everyone using that module logs in again. |
-| `CRON_SECRET` | Change it on both modules **and** in the GitHub environment. |
+| `CRON_SECRET` | Change it on every service that has it **and** in the GitHub environment. |
 | SSO key | Run `pnpm sso:keygen`. Put the new key in platform's `SSO_PRIVATE_JWK_B64`, and the old *public* key in `SSO_PREVIOUS_PUBLIC_JWK_B64` for a day. |
 | Backup login password | Run `./scripts/setup-backup-login.sh shared` again, then update GitHub's `DATABASE_URL_BACKUP`. |
 | R2 keys | Cloudflare → R2 → API tokens: make a new token, put it in document-store, GitHub and `.env.railway.shared`, then delete the old token. |
@@ -277,8 +277,10 @@ A reset is always temporary: the person picks their own at the next login. More 
 
 **Daily jobs.** The repository configures GitHub Actions **Daily jobs** (`.github/workflows/daily.yml`) to run
 every day at **07:00 India time**, for each copy listed in it:
+- Platform: plan renewal reminders to owners (30 / 7 / 1 days before and on the renewal date); skipped until
+  `APP_URL` is set (and needs `CRON_SECRET` on the **platform** service too)
 - Lab Records: reminders about holds older than 24 h, and Form 1 due from the 25th
-- Document Store: expiry emails
+- Document Store: expiry emails and app notifications
 - Floor Stock: low-stock emails still waiting (most go out right after the count is saved); skipped until
   `STOCK_URL` is set
 
@@ -288,7 +290,7 @@ If runs appear on every push, named `.github/workflows/daily.yml` instead of *Da
 file (a YAML mistake) and nothing runs. Until 2026-10-04 that was the case: a `run:` line containing `: ` must be
 written as `run: |` with the command on the next line.
 
-Its settings live in GitHub → Settings → **Environments** → `shared`: variables `LAB_URL`, `DOCS_URL` and `STOCK_URL`,
+Its settings live in GitHub → Settings → **Environments** → `shared`: variables `APP_URL`, `LAB_URL`, `DOCS_URL` and `STOCK_URL`,
 and the secret `CRON_SECRET`. If the repo is ever made public, GitHub pauses schedules after 60 days without
 commits.
 
@@ -332,6 +334,12 @@ notifications once they tap **Turn on** there. Design and phases: `docs/notifica
   **Gets alerts (bell and phone) for** → tick the module → Save. Only modules the person works in are offered;
   untick any time (audited). Owners always get every alert. A ticked person opens their list and turns on phone
   alerts from the 🔔 in any module's header (or `app.bluemins.life/notifications`).
+- **Document Store** notifies (owners + ticked): expiry at 30 / 7 / 1 days before, on expiry, then weekly (also
+  to the responsible person; once per stage, like the email), "you are now responsible for …" (only that person),
+  new / renewed documents (bell only), storage 80% / 95% full.
+- **PlantOps itself** notifies the **owners only**: someone locked out after 5 wrong PINs (with Manage users to
+  unlock), PlantOps support viewed a module (bell), a module switched on (phone) or off / plan changed (bell),
+  plan renewal coming up (daily job).
 - **Lab Records** also notifies (owners + ticked): ON HOLD, Form 3/4 FAIL, ready for approval, approved /
   rejected (also to the technicians who tested that batch), result corrected (bell only), the morning reminder
   and "No lab tests entered today" at 20:00 (Evening jobs). WhatsApp alerts are unchanged.

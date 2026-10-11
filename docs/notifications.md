@@ -47,6 +47,24 @@ Notifications appear in two places:
 - **N1 built 2026-10-11** (release v0.7.0, not deployed yet). See the CLAUDE.md status note.
 - **N2 built 2026-10-11** (release v0.8.0, not deployed yet): chosen people ("Gets alerts" tick boxes),
   `/notifications` page, 🔔 in every module header, Lab Records events (table below).
+- **N3 built 2026-10-11** (release v0.9.0, not deployed yet): Document Store and PlantOps events (tables below).
+
+### Document Store events (N3, as built)
+| Event | Recipients | Level | Opens |
+|---|---|---|---|
+| "FSSAI licence: expires in 7 days" (30 / 7 / 1 / on expiry / weekly; once per version and stage) | owners + ticked + the responsible person | phone + bell | document |
+| You are responsible for … | only that person (not when they chose themselves) | phone + bell | document |
+| New document / Renewed | owners + ticked, minus who did it | bell | document |
+| Document storage 80% / 95% full | owners + ticked | phone + bell | home |
+
+### PlantOps events (N3, as built; owners only, never ticked people)
+| Event | Level | Opens |
+|---|---|---|
+| X is locked out (5 wrong PINs / passwords; the locked person left out) | phone + bell | Manage users |
+| PlantOps support viewed <module> | bell | that module's Support access |
+| <Module> is now switched on | phone + bell | the module |
+| <Module> is switched off / Your PlantOps plan was updated | bell | PlantOps home |
+| Your PlantOps plan renews in N days (30 / 7 / 1 / on the day; platform daily job) | phone + bell | PlantOps home |
 
 ### Lab Records events (N2, as built)
 | Event | Recipients | Level | Opens |

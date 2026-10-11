@@ -9,6 +9,8 @@ import { NotificationInput, roleWorksIn, type ModuleId, type RoleId } from "@pla
 import type { CurrentUser } from "./auth";
 import { schema, withTenant, type PlatformTx } from "./db";
 import { forbidden, notFound } from "./http";
+import { safeNext } from "@/lib/safe-next";
+import { later } from "./http";
 import { pushToUsers, type PushMessage, type PushSender } from "./push";
 import { enabledModules } from "./sso";
 
@@ -17,15 +19,22 @@ const { alertRecipients, notifications, pushSubscriptions, tenants, userRoles, u
 export const INBOX_LIMIT = 30;
 type Input = z.output<typeof NotificationInput>;
 
-/** Where tapping a notification goes: the module page, through the normal login + one-time-code handoff. */
-export function targetUrl(moduleId: string, link: string | null) {
+/**
+ * Where tapping a notification goes: a module page through the normal login + one-time-code handoff, or (an event
+ * from PlantOps itself, no module) a platform page.
+ */
+export function targetUrl(moduleId: string | null, link: string | null) {
+  if (!moduleId) return safeNext(link) ?? "/home?launcher=1";
   const url = `/sso/start?module=${encodeURIComponent(moduleId)}`;
   return link ? `${url}&next=${encodeURIComponent(link)}` : url;
 }
 
 /** Who gets this module's event in this plant (the rule above). Inside the plant's transaction. */
-async function recipientsFor(tx: PlatformTx, tenantId: string, moduleId: ModuleId, alsoUserIds: string[] = []) {
-  const ticked = await tx.select({ id: alertRecipients.userId }).from(alertRecipients).where(and(eq(alertRecipients.tenantId, tenantId), eq(alertRecipients.moduleId, moduleId)));
+async function recipientsFor(tx: PlatformTx, tenantId: string, moduleId: ModuleId, alsoUserIds: string[] = [], onlyListed = false) {
+  if (onlyListed && !alsoUserIds.length) return [];
+  const ticked = onlyListed
+    ? []
+    : await tx.select({ id: alertRecipients.userId }).from(alertRecipients).where(and(eq(alertRecipients.tenantId, tenantId), eq(alertRecipients.moduleId, moduleId)));
   const candidates = [...new Set([...ticked.map((t) => t.id), ...alsoUserIds])];
   const rows = await tx
     .select({ id: users.id, role: userRoles.roleId })
@@ -37,7 +46,11 @@ async function recipientsFor(tx: PlatformTx, tenantId: string, moduleId: ModuleI
         eq(users.tenantId, tenantId),
         eq(users.status, "active"),
         eq(tenants.status, "active"),
-        candidates.length ? or(eq(userRoles.roleId, "tenant_admin"), inArray(users.id, candidates)) : eq(userRoles.roleId, "tenant_admin"),
+        onlyListed
+          ? inArray(users.id, candidates)
+          : candidates.length
+            ? or(eq(userRoles.roleId, "tenant_admin"), inArray(users.id, candidates))
+            : eq(userRoles.roleId, "tenant_admin"),
       ),
     );
   const people = new Set<string>();
@@ -56,7 +69,7 @@ export async function notifyPlant(moduleId: ModuleId, tenantId: string, input: I
   const rows = await withTenant(tenantId, async (tx) => {
     const enabled = await enabledModules(tx, tenantId);
     if (!enabled.includes(moduleId)) throw forbidden("This module is not enabled for this plant");
-    const recipients = (await recipientsFor(tx, tenantId, moduleId, input.also_user_ids)).filter((id) => id !== input.exclude_user_id);
+    const recipients = (await recipientsFor(tx, tenantId, moduleId, input.also_user_ids, input.only_listed)).filter((id) => id !== input.exclude_user_id);
     if (!recipients.length) return { recipients: 0, created: [] as { id: string; userId: string }[] };
     const created = await tx
       .insert(notifications)
@@ -89,6 +102,64 @@ export async function sendPrepared(tenantId: string, messages: Map<string, PushM
   } catch (err) {
     console.error("[notifications] push failed:", (err as Error).message);
     return { sent: 0, removed: 0, failed: messages.size };
+  }
+}
+
+// ---------- events from PlantOps itself (N3) ----------
+
+export interface DirectEvent {
+  /** the module it is about (opens that module), or null: a PlantOps event opening a platform page */
+  module: ModuleId | null;
+  kind: string;
+  title: string;
+  body: string;
+  link: string | null;
+  level: "push" | "bell";
+  dedupe_key: string;
+  exclude_user_id?: string | null;
+}
+
+/**
+ * The platform writes an event straight into the inbox of the plant's active OWNERS (never ticked people): a staff
+ * member locked out, support opened a module, plan changes, renewal. Runs on the app login (row-level security),
+ * also after a super_admin action. Phones are notified after the answer. Never throws into the action.
+ */
+export async function notifyOwnersDirect(tenantId: string, e: DirectEvent, send?: PushSender | null) {
+  try {
+    const created = await withTenant(tenantId, async (tx) => {
+      const owners = await tx
+        .selectDistinct({ id: users.id })
+        .from(users)
+        .innerJoin(userRoles, eq(userRoles.userId, users.id))
+        .innerJoin(tenants, eq(tenants.id, users.tenantId))
+        .where(and(eq(users.tenantId, tenantId), eq(users.status, "active"), eq(tenants.status, "active"), eq(userRoles.roleId, "tenant_admin")));
+      const people = owners.map((o) => o.id).filter((id) => id !== e.exclude_user_id);
+      if (!people.length) return [];
+      return tx
+        .insert(notifications)
+        .values(
+          people.map((userId) => ({
+            tenantId,
+            userId,
+            moduleId: e.module,
+            kind: e.kind,
+            title: e.title.slice(0, 80),
+            body: e.body.slice(0, 300),
+            link: e.link,
+            level: e.level,
+            dedupeKey: e.dedupe_key,
+          })),
+        )
+        .onConflictDoNothing()
+        .returning({ id: notifications.id, userId: notifications.userId });
+    });
+    const messages = new Map<string, PushMessage>();
+    if (e.level === "push") for (const r of created) messages.set(r.userId, { id: r.id, title: e.title, body: e.body });
+    if (messages.size) later(() => sendPrepared(tenantId, messages, send));
+    return created.length;
+  } catch (err) {
+    console.error("[notifications] direct event failed:", (err as Error).message);
+    return 0;
   }
 }
 
