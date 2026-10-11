@@ -450,7 +450,7 @@ Example: Floor Stock, Phase 5. It becomes **one more Railway service** and **one
   - the daily job run
   - the support view
 - [ ] Delete `.env.railway.shared.paste` once everything is pasted (GitHub environment included).
-- [ ] Set up the nightly backups (section 11, "Setting it up") and do one practice restore, before real plant
+- [x] Set up the nightly backups (section 11, "Setting it up") and do one practice restore, before real plant
   data.
 - [ ] Confirm the first real reminder email arrives (Brevo API) and save plant owners' / responsible users'
   email addresses. See section 10.

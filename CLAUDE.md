@@ -682,7 +682,7 @@ module's key and re-checked live against the platform. Store keeper refused `/ch
 **Live (checked 2026-10-11):** v0.6.1 on the shared copy (`production` = `2b01230`), migration `0008` applied.
 **Not yet done:** saving a user with the Plant staff role and using a module as that user, on screen.
 
-### 2026-10-11 — Nightly backups — built, not set up yet (v0.6.2)
+### 2026-10-11 — Nightly backups — live (v0.6.2), first run and practice restore OK
 Decided with the owner: stay on Railway Hobby (no built-in backups) and run our own. `.github/workflows/backup.yml`
 dumps the database with a new read-only login `plantops_backup` (SELECT only + BYPASSRLS; approved by the owner
 2026-10-11) and each file-storing app copies its new files (`backupNewFiles` in `packages/module-kit/src/backup.ts`,
