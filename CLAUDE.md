@@ -1001,7 +1001,8 @@ since 2026-10-11):
 **Next:** deploy v0.7.0 → v0.10.0 together, test on phones. N5+ notifications come with each new module phase.
 
 **Live (2026-10-11):** v0.7.0–v0.10.0 deployed together on the shared copy (record: `docs/deployments/shared.md`);
-first real notifications for plant 001 the same day (desktop Chrome / Firefox). Android / iPhone not yet tested.
+first real notifications for plant 001 the same day (desktop Chrome / Firefox). Android confirmed with the test push
+(v0.11.1, 2026-10-11); iPhone not yet tested.
 
 ### 2026-10-11 — Floor Stock "Can make" — live (v0.11.0)
 **Built** (release v0.11.0; design, mock-ups and build prompt: `docs/FLOOR_STOCK_CAN_MAKE_PLAN.md`; notes in
@@ -1052,5 +1053,6 @@ there was no way to test. Desktop delivery already works.
 (`POST /api/push/test`, `sendTestPush` in `src/server/notifications.ts`): one push to the asking device only, no
 bell row, 5 per minute; an expired phone (404 / 410) is removed. Platform tests 254 (+4); typecheck and build pass.
 **Live (2026-10-11):** `v0.11.1:production` deployed; `/api/push/test` answers (401 without login).
-**Not yet verified:** the button on a real Android phone.
-**Next:** each person taps "Send a test to this phone" on their Android phone.
+**Verified (2026-10-11):** the owner confirmed the test push arrives on Android (installed app). Android phone
+notifications work.
+**Not yet verified:** iPhone (iOS 16.4+, added to the Home Screen first).
