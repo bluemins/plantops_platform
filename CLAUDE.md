@@ -1082,7 +1082,9 @@ notifications work.
    decision covers Floor Stock only so far).
 
 **Next phase:** Phase 6 (Preventive Management) in plan mode when the owner is ready. Complaint Box was built next
-instead (owner, 2026-10-11; status note below). Order Capture is a proposal only (`docs/ORDER_CAPTURE_PHASE_PLAN.md`).
+instead (owner, 2026-10-11; status note below). **Order Capture:** design, phase plan
+and mock-ups approved by the owner 2026-10-12 (`docs/ORDER_CAPTURE_PHASE_PLAN.md`, build prompts per phase); to be
+built after Complaint Box is deployed and tried, before Phase 6.
 
 ### 2026-10-11 — Complaint Box — built (v0.12.0), deploy in progress
 Built ahead of Phase 6, decided by the owner 2026-10-11. Design, phases and build prompts:
