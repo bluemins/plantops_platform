@@ -35,6 +35,7 @@ describe("append-only for order_app", () => {
       `update order_capture.orders set entered_by_name = 'X' ${order}`,
       `update order_capture.orders set created_at = now() ${order}`,
       `update order_capture.orders set tenant_id = gen_random_uuid() ${order}`,
+      `update order_capture.orders set order_note = 'changed' ${order}`,
       // a customer's phone is their identity; who added them is fixed
       `update order_capture.customers set phone = '9000000000' ${customer}`,
       `update order_capture.customers set phone_typed = '9000000000' ${customer}`,
@@ -79,7 +80,7 @@ describe("append-only for order_app", () => {
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(59);
+    expect(list.length).toBe(60);
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 

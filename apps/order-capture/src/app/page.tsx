@@ -3,7 +3,7 @@ import { money } from "@/lib/money";
 import { productsText } from "@/lib/history";
 import { can } from "@/server/access";
 import { kit } from "@/server/kit";
-import { listOrders, TABS, tabCounts, type Tab } from "@/server/list";
+import { listOrders, pendingSummary, TABS, tabCounts, type PendingSummary, type Tab } from "@/server/list";
 import { requirePageUser } from "@/server/session";
 import { Header } from "./header";
 import { LinkRow } from "./parts";
@@ -30,7 +30,11 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
     );
   }
 
-  const [list, counts] = await Promise.all([listOrders(user, filters), tabCounts(user)]);
+  const [list, counts, summary] = await Promise.all([
+    listOrders(user, filters),
+    tabCounts(user),
+    tab === "pending" && can(user, "pending_summary") ? pendingSummary(user) : null,
+  ]);
   const filtered = Boolean(filters.q || filters.from || filters.to);
   const link = (t: Tab) => `/?${new URLSearchParams({ ...Object.fromEntries(Object.entries(filters).filter(([k, v]) => v && k !== "tab")), tab: t })}`;
 
@@ -56,6 +60,8 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
           </a>
         ))}
       </nav>
+
+      {summary && summary.orders > 0 && <PendingTotals summary={summary} />}
 
       <form method="get" className="space-y-2">
         <input type="hidden" name="tab" value={tab} />
@@ -103,6 +109,7 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
                 <p className="text-sm text-slate-600">
                   {o.place} · {o.ref} · by {o.entered_by}
                 </p>
+                {o.note && <p className="line-clamp-1 text-sm break-words text-amber-900">📝 {o.note}</p>}
                 <div className="flex justify-between gap-3">
                   <span className="min-w-0 break-words">{productsText(o.lines)}</span>
                   <span className="shrink-0 font-semibold">{money(o.total)}</span>
@@ -140,5 +147,56 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
         )}
       </nav>
     </div>
+  );
+}
+
+/** Owner only: all pending orders added up (the whole plant, not the search). */
+function PendingTotals({ summary }: { summary: PendingSummary }) {
+  const rate = (p: PendingSummary["products"][number]) => (p.min_rate === p.max_rate ? money(p.min_rate) : `${money(p.min_rate)}–${money(p.max_rate)}`);
+  return (
+    <details open className="rounded-2xl border border-slate-200 bg-white p-4">
+      <summary className="flex min-h-10 cursor-pointer list-none items-baseline justify-between gap-3">
+        <span>
+          <span className="block text-sm text-slate-500">All pending orders · {summary.orders.toLocaleString("en-IN")}</span>
+          <span className="text-2xl font-bold">{money(summary.total)}</span>
+        </span>
+        <span className="shrink-0 text-sm font-semibold text-(--brand)">By product ▾</span>
+      </summary>
+      <table className="mt-3 w-full text-sm">
+        <thead>
+          <tr className="text-left text-slate-500">
+            <th className="pb-1 font-normal">Product</th>
+            <th className="pb-1 text-right font-normal">Qty</th>
+            <th className="pb-1 text-right font-normal">Rate</th>
+            <th className="pb-1 text-right font-normal">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {summary.products.map((p) => (
+            <tr key={`${p.sku_id}:${p.unit}`} className="border-t border-slate-100 align-top">
+              <td className="py-1.5 pr-2 break-words">
+                {p.product}
+                <span className="block text-xs text-slate-500">
+                  {p.orders.toLocaleString("en-IN")} {p.orders === 1 ? "order" : "orders"}
+                </span>
+              </td>
+              <td className="py-1.5 pl-2 text-right whitespace-nowrap">
+                {p.quantity.toLocaleString("en-IN")} {p.unit}
+              </td>
+              <td className="py-1.5 pl-2 text-right whitespace-nowrap">{rate(p)}</td>
+              <td className="py-1.5 pl-2 text-right font-semibold whitespace-nowrap">{money(p.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t-2 border-slate-200 font-bold">
+            <td className="pt-2" colSpan={3}>
+              Total
+            </td>
+            <td className="pt-2 text-right whitespace-nowrap">{money(summary.total)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </details>
   );
 }

@@ -42,6 +42,7 @@ export const orders = oc.table("orders", {
   customerName: text("customer_name").notNull(),
   customerPhone: text("customer_phone").notNull(),
   customerPlace: text("customer_place").notNull(),
+  orderNote: text("order_note"),
   status: text("status").$type<OrderStatus>().notNull().default("pending"),
   version: integer("version").notNull().default(1),
   total: numeric("total", { precision: 18, scale: 2 }).notNull(),

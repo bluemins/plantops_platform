@@ -334,3 +334,17 @@ No database change (outbox, support views and the three kinds existed since Phas
   - Daily jobs run (Order Capture step green)
   - the first nightly backup with `order_capture`
   - the owner's phone checklist for plant 001
+
+### 2026-10-13 — Order note + owner's pending summary (v0.13.1)
+Asked by the owner after v0.13.0 went live.
+- **Order note** (migration `0002_order_note.sql`, approved by the owner): `orders.order_note`, optional, 1–300
+  characters after trimming, null when blank. **Fixed once saved** (owner's choice): `order_app` has no UPDATE on
+  it, as the column grants in `0001` list the updatable columns one by one; an append-only test checks the refusal.
+  Spaces are tidied and line breaks kept (`src/lib/note.ts`). Shown on the order page, saved screen, pending list,
+  owner CSV ("Order note" after Place) and, by the owner's choice, at the end of the "New order" notification body.
+- **Pending summary** (owner only, new access action `pending_summary`; Order desk and support refused):
+  `pendingSummary()` in `src/server/list.ts`. It adds up all pending orders (not the search), using each order's
+  current lines version. Per product and unit it gives quantity, number of orders, lowest / highest rate and amount,
+  biggest amount first. The product name comes from its newest order. No schema change.
+- **Tests:** 232 Order Capture (+8). Typecheck and build pass.
+- **Not yet checked on screen** (browser, phone width).

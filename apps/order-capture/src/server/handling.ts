@@ -43,6 +43,8 @@ export interface OrderDetail {
   status: OrderStatus;
   version: number;
   customer: { name: string; phone: string; place: string };
+  /** typed with the order, fixed once saved */
+  note: string | null;
   lines: LineView[];
   total: string;
   entered_by: string;
@@ -83,6 +85,7 @@ export async function getOrder(user: OcUser, id: string): Promise<OrderDetail> {
       status: o.status,
       version: o.version,
       customer: { name: o.customerName, phone: o.customerPhone, place: o.customerPlace },
+      note: o.orderNote,
       lines: versions.find((v) => v.version === o.version)?.lines ?? [],
       total: o.total,
       entered_by: o.enteredByName,

@@ -17,6 +17,7 @@ export type Action =
   | "customer_upload" // CSV upload with preview
   | "view_changes" // Recent changes
   | "export" // CSV
+  | "pending_summary" // all pending orders added up: total value, quantity / rate / amount per product
   | "support_log"; // the owner's "Support access" page
 
 export const ACCESS: Record<Action, readonly Who[]> = {
@@ -31,6 +32,7 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   customer_upload: ["owner"],
   view_changes: ["owner", "support"],
   export: ["owner"],
+  pending_summary: ["owner"],
   support_log: ["owner"],
 };
 

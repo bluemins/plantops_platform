@@ -36,6 +36,7 @@ export interface ListRow {
   customer: string;
   place: string;
   entered_by: string;
+  note: string | null;
   lines: LineView[];
   total: string;
   created_at: string;
@@ -91,6 +92,7 @@ export async function listOrders(user: OcUser, f: ListFilters = {}, now = Date.n
       customer: o.customerName,
       place: o.customerPlace,
       entered_by: o.enteredByName,
+      note: o.orderNote,
       lines: lines
         .filter((x) => x.orderId === o.id && x.version === o.version)
         .map(({ l }) => ({ sku_id: l.skuId, product: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, total: l.lineTotal })),
@@ -114,6 +116,44 @@ export async function tabCounts(user: OcUser): Promise<Record<Tab, number>> {
   });
 }
 
+export interface PendingSummary {
+  orders: number;
+  total: string;
+  /** one row per product and unit, biggest amount first */
+  products: { sku_id: string; product: string; unit: string; quantity: number; orders: number; min_rate: string; max_rate: string; amount: string }[];
+}
+
+/**
+ * Owner: every pending order of the plant added up (not the search), from each order's CURRENT lines. Worked out
+ * when the page opens, never stored. A product's name is the one on its newest order; rates differ per customer,
+ * so the lowest and highest are given.
+ */
+export async function pendingSummary(user: OcUser): Promise<PendingSummary> {
+  requireAccess(user, "pending_summary");
+  return withTenant(user.tenantId, async (tx) => {
+    const [head] = (
+      await tx.execute<{ orders: number; total: string }>(sql`
+        select count(*)::int as orders, coalesce(sum(total), 0)::text as total
+          from ${orders} where tenant_id = ${user.tenantId} and status = 'pending'`)
+    ).rows;
+    const { rows } = await tx.execute<PendingSummary["products"][number]>(sql`
+      select l.sku_id,
+             (array_agg(l.product_name order by o.created_at desc))[1] as product,
+             l.unit,
+             sum(l.quantity)::int as quantity,
+             count(distinct o.id)::int as orders,
+             min(l.rate)::text as min_rate,
+             max(l.rate)::text as max_rate,
+             sum(l.line_total)::text as amount
+        from ${orders} o
+        join ${orderLines} l on l.order_id = o.id and l.version = o.version and l.tenant_id = o.tenant_id
+       where o.tenant_id = ${user.tenantId} and o.status = 'pending'
+       group by l.sku_id, l.unit
+       order by sum(l.line_total) desc, 2`);
+    return { orders: head!.orders, total: head!.total, products: rows };
+  });
+}
+
 const STATUS_TEXT: Record<OrderStatus, string> = { pending: "Pending", delivered: "Delivered", cancelled: "Cancelled" };
 
 /** Owner: every order, one row per line of its current version (opens in Excel; formulas neutralised; audited). */
@@ -132,6 +172,7 @@ export async function exportCsv(user: OcUser) {
           o.customerName,
           o.customerPhone,
           o.customerPlace,
+          o.orderNote ?? "",
           STATUS_TEXT[o.status],
           csvTime(o.statusChangedAt),
           o.deliveredByName ?? "",
@@ -150,7 +191,7 @@ export async function exportCsv(user: OcUser) {
     }
     await audit(tx, user, "export.csv", null, { orders: os.length, lines: rows.length });
     return csv([
-      ["Reference", "Entered at", "Entered by", "Customer", "Phone", "Place", "Status", "Status changed at", "Delivered by", "Delivered at", "Delivery note", "Zoho invoice no.", "Version", "Product", "Unit", "Quantity", "Rate", "Line total", "Order total"],
+      ["Reference", "Entered at", "Entered by", "Customer", "Phone", "Place", "Order note", "Status", "Status changed at", "Delivered by", "Delivered at", "Delivery note", "Zoho invoice no.", "Version", "Product", "Unit", "Quantity", "Rate", "Line total", "Order total"],
       ...rows,
     ]);
   });

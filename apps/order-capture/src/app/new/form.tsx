@@ -5,6 +5,7 @@ import { Button, ErrorText, TextField } from "@plantops/ui";
 import { normalisePhone } from "@plantops/module-kit/phone";
 import { api } from "@/lib/api";
 import { money } from "@/lib/money";
+import { NOTE_MAX } from "@/lib/note";
 import { NAME_MAX, PLACE_MAX } from "@/lib/upload";
 import type { SavedOrder } from "@/server/orders";
 import type { RateView } from "@/server/rates";
@@ -36,6 +37,7 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
   const [name, setName] = useState("");
   const [place, setPlace] = useState("");
   const [lines, setLines] = useState<EditLine[]>([]);
+  const [note, setNote] = useState("");
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState<SavedOrder>();
@@ -97,6 +99,7 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
       request_key: key,
       customer: { phone, ...(isNew ? { name, place } : {}) },
       lines: linesBody(lines),
+      ...(note.trim() ? { note } : {}),
     };
     const r = await api<SavedOrder>("/api/orders", { body }).catch(() => null);
     setBusy(false);
@@ -113,6 +116,7 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
     setName("");
     setPlace("");
     setLines([]);
+    setNote("");
     setError(undefined);
     setSaved(undefined);
     window.scrollTo(0, 0);
@@ -180,6 +184,21 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
         }}
       />
 
+      <label className="block pt-1">
+        <span className="text-sm font-semibold">
+          Note for this order <span className="font-normal text-slate-500">(optional)</span>
+        </span>
+        <textarea
+          className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)"
+          rows={3}
+          maxLength={NOTE_MAX}
+          placeholder="e.g. deliver after 4 pm, call before coming"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
+        <span className="block text-sm text-slate-500">Can't be changed after saving.</span>
+      </label>
+
       <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white px-4 pt-3 pb-4">
         <div className="mx-auto max-w-3xl space-y-2">
           <ErrorText>{error}</ErrorText>
@@ -220,6 +239,7 @@ function SavedView({ order, onNew, ownerNotified }: { order: SavedOrder; onNew: 
           <span>Total</span>
           <span>{money(order.total)}</span>
         </div>
+        {order.note && <p className="rounded-lg bg-amber-50 px-3 py-2 whitespace-pre-line break-words text-amber-950">📝 {order.note}</p>}
       </div>
       {ownerNotified && <p className="text-sm text-slate-500">The owner has been notified.</p>}
       <div className="space-y-3">

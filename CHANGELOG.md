@@ -4,6 +4,19 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.13.1 — 2026-10-13 — Order Capture: order note + owner's pending summary
+
+**What's in it**
+- **Order note:** staff can type an optional note (up to 300 characters) before saving a new order, e.g. "deliver
+  after 4 pm". It is fixed once saved, like the customer copy, and the database refuses a change. It shows on the
+  order page, the saved screen, one line on the pending list, the owner's CSV ("Order note" column after Place) and
+  at the end of the owner's "New order" notification (shortened if too long).
+- **Owner's pending summary** (owner only) at the top of the Pending tab: the total value of all pending orders,
+  and per product the quantity, rate (lowest to highest when customers pay different rates), amount and number of
+  orders. Worked out when the page opens, never stored; counts each order's latest version.
+
+**Migrations:** Order Capture `0002_order_note.sql` (one new optional column on `orders`; no new grant).
+
 ## v0.13.0 — 2026-10-13 — Order Capture
 
 **What's in it**

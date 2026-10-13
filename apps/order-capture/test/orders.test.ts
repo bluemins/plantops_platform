@@ -107,6 +107,39 @@ describe("field rules", () => {
   });
 });
 
+describe("the order note", () => {
+  const withNote = (u: Who, note: unknown) =>
+    createOrder(u, OrderInput.parse({ request_key: key(), customer: { phone: "98765 43210", name: "Sri ram hotel", place: "bijepur" }, lines: SAMPLE, note }));
+
+  it("is optional: no note and a blank note both save null", async () => {
+    const p = plant();
+    expect((await order(p.desk)).note).toBeNull();
+    expect((await withNote(p.desk, "  \n  ")).note).toBeNull();
+    expect((await asOwner("select order_note from order_capture.orders where tenant_id = $1", [p.tenantId])).rows).toEqual([{ order_note: null }, { order_note: null }]);
+  });
+
+  it("is saved with the order, spaces tidied, line breaks kept", async () => {
+    const p = plant();
+    const o = await withNote(p.desk, "  Deliver   after 4 pm \r\n\n\n\nGate 2 ");
+    expect(o.note).toBe("Deliver after 4 pm\n\nGate 2");
+    expect((await asOwner("select order_note from order_capture.orders where id = $1", [o.id])).rows[0]!.order_note).toBe(o.note);
+  });
+
+  it("at most 300 characters", () => {
+    const base = { request_key: "abcdefgh", customer: { phone: "9876543210" }, lines: SAMPLE };
+    expect(OrderInput.safeParse({ ...base, note: "x".repeat(300) }).success).toBe(true);
+    expect(OrderInput.safeParse({ ...base, note: "x".repeat(301) }).success).toBe(false);
+  });
+
+  it("through the API: saved and shown in the answer", async () => {
+    const p = plant();
+    signInAs(p.desk);
+    const res = await POST(jsonReq("POST", "/api/orders", { request_key: key(), customer: { phone: "9876543210", name: "Sri ram hotel", place: "bijepur" }, lines: SAMPLE, note: "Call before coming" }), undefined as never);
+    expect(res.status).toBe(201);
+    expect((await res.json()).note).toBe("Call before coming");
+  });
+});
+
 describe("products", () => {
   it("an inactive or unknown (e.g. another plant's) product is refused", async () => {
     const p = plant();
@@ -196,7 +229,7 @@ describe("the customer", () => {
   it("a new customer is created in the same transaction: a failing order leaves no customer behind", async () => {
     const p = plant();
     // quantity 0 passes nothing in the form; sent straight to createOrder it reaches the database and fails there
-    await expect(createOrder(p.owner, { request_key: key(), customer: { phone: "9876543210", name: "Sri ram hotel", place: "bijepur" }, lines: [{ sku_id: b500.id, quantity: 0, rate: "90" }] })).rejects.toThrow();
+    await expect(createOrder(p.owner, { request_key: key(), customer: { phone: "9876543210", name: "Sri ram hotel", place: "bijepur" }, lines: [{ sku_id: b500.id, quantity: 0, rate: "90" }], note: null })).rejects.toThrow();
     expect([await count("orders", p.tenantId), await count("customers", p.tenantId), await count("audit_log", p.tenantId)]).toEqual([0, 0, 0]);
   });
 

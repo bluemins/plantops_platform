@@ -1,7 +1,7 @@
 // Order Capture's app notifications (docs/ORDER_CAPTURE_PHASE_PLAN.md "Notifications"). The PLATFORM picks the people
 // (the plant's owners + those ticked "Gets Order Capture alerts" + also_user_ids, each re-checked) and leaves out
 // whoever acted; these functions only write the text. None is urgent: each person can mute or downgrade them.
-//   1 new order (phone + bell)  ·  2 delivered: to whoever entered it only (bell)  ·  3 cancelled: + them (bell)
+//   1 new order (phone + bell; with the order note, shortened to fit)  ·  2 delivered: to whoever entered it only (bell)  ·  3 cancelled: + them (bell)
 // The customer's phone number is never put in a notification (it would show on a lock screen).
 import type { NotificationInput } from "@plantops/types";
 import { productsText } from "@/lib/history";
@@ -24,7 +24,7 @@ export function newOrderNotification(user: OcUser, o: SavedOrder): NotificationI
   return {
     kind: "order_capture.new",
     title: title(`New order ${o.ref}: ${money(o.total)}`),
-    body: body(`${o.customer.name}, ${o.customer.place}. ${lines} (by ${user.name})`),
+    body: body(`${o.customer.name}, ${o.customer.place}. ${lines} (by ${user.name})${o.note ? ` Note: ${o.note}` : ""}`),
     link: link(o.id),
     level: "push",
     dedupe_key: `new:${o.id}`,

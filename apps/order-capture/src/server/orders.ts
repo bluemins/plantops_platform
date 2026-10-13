@@ -12,6 +12,7 @@ import { z } from "zod";
 import { normalisePhone } from "@plantops/module-kit/phone";
 import { productLabel } from "@plantops/module-kit";
 import { fromPaise, lineTotal } from "@/lib/money";
+import { cleanNote, NOTE_MAX } from "@/lib/note";
 import { RATE_RE } from "@/lib/rates";
 import { formatRef } from "@/lib/ref";
 import { clean, NAME_MAX, NAME_MIN, PHONE_TYPED_MAX, PLACE_MAX, PLACE_MIN } from "@/lib/upload";
@@ -45,6 +46,11 @@ export const OrderInput = z.object({
   request_key: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/, "Please reload the page and try again"),
   customer: z.object({ phone: z.string().trim().max(PHONE_TYPED_MAX), name: z.string().optional(), place: z.string().optional() }),
   lines: LinesInput,
+  note: z
+    .string()
+    .optional()
+    .transform(cleanNote)
+    .refine((n) => n === null || n.length <= NOTE_MAX, `A note has at most ${NOTE_MAX} characters`),
 });
 
 export interface SavedOrder {
@@ -54,6 +60,7 @@ export interface SavedOrder {
   customer: { name: string; place: string; phone: string };
   lines: { product: string; unit: string; quantity: number; rate: string; total: string }[];
   total: string;
+  note: string | null;
 }
 
 // ---------- the customer and their last rates (the form's lookup) ----------
@@ -109,6 +116,7 @@ async function savedView(tx: OcTx, tenantId: string, orderId: string, created: b
     customer: { name: o!.customerName, place: o!.customerPlace, phone: o!.customerPhone },
     lines: lines.map((l) => ({ product: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, total: l.lineTotal })),
     total: o!.total,
+    note: o!.orderNote,
   };
 }
 
@@ -166,6 +174,7 @@ export async function createOrder(user: OcUser, input: z.infer<typeof OrderInput
         customerName: customer!.name,
         customerPhone: customer!.phone,
         customerPlace: customer!.place,
+        orderNote: input.note,
         total: fromPaise(total),
         enteredBy: user.userId,
         enteredByName: user.name,

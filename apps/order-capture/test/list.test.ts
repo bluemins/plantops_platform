@@ -2,8 +2,8 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { GET as exportRoute } from "@/app/api/export/route";
 import { recentChanges } from "@/server/audit";
-import { cancelOrder, deliverOrder } from "@/server/handling";
-import { exportCsv, listOrders, tabCounts } from "@/server/list";
+import { cancelOrder, changeOrder, deliverOrder } from "@/server/handling";
+import { exportCsv, listOrders, pendingSummary, tabCounts } from "@/server/list";
 import { createOrder, OrderInput } from "@/server/orders";
 import { SKUS, startFakePlatform, type FakePlatform } from "./fake-platform";
 import { asOwner, plant, refused, signInAs } from "./helpers";
@@ -100,6 +100,39 @@ describe("the order list", () => {
   });
 });
 
+describe("the owner's pending summary", () => {
+  it("adds up every pending order's current lines: total, and quantity / rate range / amount per product", async () => {
+    const p = plant();
+    expect(await pendingSummary(p.owner)).toEqual({ orders: 0, total: "0", products: [] });
+    const a = await add(p, "9000000001", "Hotel Annapurna", "Sambalpur"); // 500ml 1 × 90 + 1L 3 × 140 = 510
+    const b = await add(p, "9000000002", "Maa Tarini Store", "Bargarh", 4); // 500ml 4 × 90 + 1L 3 × 140 = 780
+    // a change: only the current version counts (500ml 2 × 100 = 200)
+    await changeOrder(p.desk, b.id, { expected: { status: "pending", version: 1 }, lines: [{ sku_id: b500.id, quantity: 2, rate: "100" }] });
+    // delivered and cancelled orders are left out
+    const c = await add(p, "9000000003", "Sharma Tiffin", "Bijepur");
+    const d = await add(p, "9000000004", "Sri ram hotel", "bijepur");
+    await deliverOrder(p.desk, c.id, { expected: { status: "pending", version: 1 } });
+    await cancelOrder(p.desk, d.id, { expected: { status: "pending", version: 1 }, reason: "customer changed mind" });
+    expect(a.total).toBe("510.00");
+    expect(await pendingSummary(p.owner)).toEqual({
+      orders: 2,
+      total: "710.00",
+      products: [
+        { sku_id: b1l.id, product: "Bluemins (1 L × 12)", unit: "box", quantity: 3, orders: 1, min_rate: "140.00", max_rate: "140.00", amount: "420.00" },
+        { sku_id: b500.id, product: "Bluemins (500 ml × 24)", unit: "box", quantity: 3, orders: 2, min_rate: "90.00", max_rate: "100.00", amount: "290.00" },
+      ],
+    });
+  });
+
+  it("owner only; another plant's orders never count", async () => {
+    const a = plant();
+    const b = plant();
+    await add(a, "9876543210", "Sri ram hotel", "bijepur");
+    for (const u of [a.desk, a.support, a.staff]) expect((await refused(() => pendingSummary(u))).status).toBe(403);
+    expect((await pendingSummary(b.owner)).orders).toBe(0);
+  });
+});
+
 describe("the owner's CSV export", () => {
   it("one row per line of each order's current version, formulas neutralised, audited", async () => {
     const p = plant();
@@ -108,9 +141,9 @@ describe("the owner's CSV export", () => {
     await deliverOrder(p.owner, evil.id, { expected: { status: "pending", version: 1 }, note: "+all delivered", invoice_no: "INV-7" });
     const text = (await exportCsv(p.owner)).replace(/^﻿/, "");
     const lines = text.trim().split("\r\n");
-    expect(lines[0]).toBe("Reference,Entered at,Entered by,Customer,Phone,Place,Status,Status changed at,Delivered by,Delivered at,Delivery note,Zoho invoice no.,Version,Product,Unit,Quantity,Rate,Line total,Order total");
+    expect(lines[0]).toBe("Reference,Entered at,Entered by,Customer,Phone,Place,Order note,Status,Status changed at,Delivered by,Delivered at,Delivery note,Zoho invoice no.,Version,Product,Unit,Quantity,Rate,Line total,Order total");
     expect(lines).toHaveLength(5); // header + 2 orders × 2 lines
-    expect(lines[1]).toMatch(/^O-0001,.*,Atharv,Sri ram hotel,9876543210,bijepur,Pending,.*,1,Bluemins \(500 ml × 24\),box,1,90\.00,90\.00,510\.00$/);
+    expect(lines[1]).toMatch(/^O-0001,.*,Atharv,Sri ram hotel,9876543210,bijepur,,Pending,.*,1,Bluemins \(500 ml × 24\),box,1,90\.00,90\.00,510\.00$/);
     expect(lines[3]).toContain(`"'=HYPERLINK(""http://x"")"`);
     expect(lines[3]).toContain(",Delivered,");
     expect(lines[3]).toContain(",'+all delivered,INV-7,");

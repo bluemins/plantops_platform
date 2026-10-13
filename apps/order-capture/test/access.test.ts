@@ -20,6 +20,7 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["customer_upload", true, false, false, false, false],
   ["view_changes", true, false, false, false, true],
   ["export", true, false, false, false, false],
+  ["pending_summary", true, false, false, false, false],
   ["support_log", true, false, false, false, false],
 ];
 

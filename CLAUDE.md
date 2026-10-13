@@ -1255,3 +1255,10 @@ wrong secret, the other services healthy (`docs/deployments/shared.md`). `backup
 owner's phone checklist for plant 001 (switch on, rates, customer upload, Order desk user, sample order, notification,
 deliver, cancel, CSV); iPhone.
 
+### 2026-10-13 — Order Capture: order note + owner's pending summary (v0.13.1)
+- **Order note:** optional free text on a new order, fixed once saved. Order Capture migration `0002_order_note.sql`
+  (one column, no UPDATE grant, approved by the owner). It is shown on the order page, the list and the CSV, and in the
+  "New order" notification.
+- **Pending summary:** owner-only card on the Pending tab with the total value and quantity / rate / amount per
+  product. No schema change.
+- Details: `apps/order-capture/NOTES.md`; tests 232 Order Capture.
