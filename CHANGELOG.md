@@ -4,6 +4,20 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.13.3 — 2026-10-13 — The installed app shows the plant's logo and name
+
+**What's in it**
+- **Installed app ("Add to Home Screen") in the plant's own look:** a logged-in plant user's phone now installs the
+  app with **the plant's logo** as the icon (on a white square) and **the plant's name** under it, in the plant's
+  brand colour. Before login, and for super_admin, it stays PlantOps with the "P".
+- A plant with no logo, or a WebP logo, keeps the "P" icon (upload a PNG or JPG logo in Business details).
+- **Phones that already installed PlantOps keep the old icon:** remove it from the home screen and add it again
+  after logging in (always needed on iPhone).
+- Behind the scenes: phones fetch the icon without the login, so each plant's icon and install details are at a
+  signed link (`/plant-app/<plant>.<logo version>.<signature>/…`) showing only the name, colour and logo.
+
+**Migrations:** none.
+
 ## v0.13.2 — 2026-10-13 — Floor Stock: "Can make" at the bottom of the home page
 
 **What's in it**

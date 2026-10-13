@@ -1262,3 +1262,14 @@ deliver, cancel, CSV); iPhone.
 - **Pending summary:** owner-only card on the Pending tab with the total value and quantity / rate / amount per
   product. No schema change.
 - Details: `apps/order-capture/NOTES.md`; tests 232 Order Capture.
+
+### 2026-10-13 — Installed app in the plant's own look (v0.13.3)
+- The installed app shows the plant's logo (on a white square) and name, in its brand colour, for a logged-in plant
+  user. PlantOps "P" before login, for super_admin, and for plants without a PNG / JPG logo.
+- Code: `apps/platform/src/server/app-icon.ts`; routes `/manifest.webmanifest` (replaces `manifest.ts`) and
+  `/plant-app/<token>/manifest.webmanifest` + `/icon/<180|192|512|512m>`.
+- **Access decision (owner, 2026-10-13):** phones fetch icons without the login cookie, so these routes need no login.
+  They use a signed link instead (HMAC with a key derived from the SSO private key; no new setting) and show only
+  the name, colour and logo.
+- Already-installed phones must remove the app and add it again.
+- Tests: platform 281 (+9).
