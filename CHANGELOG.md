@@ -4,6 +4,15 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.13.2 — 2026-10-13 — Floor Stock: "Can make" at the bottom of the home page
+
+**What's in it**
+- Floor Stock home page: the "Can make from today's stock" card moved to the bottom, below the low-stock list and
+  the buttons (History, Sections & items, …), so a long list no longer pushes them off the screen. Same for
+  everyone who opens the page.
+
+**Migrations:** none.
+
 ## v0.13.1 — 2026-10-13 — Order Capture: order note + owner's pending summary
 
 **What's in it**

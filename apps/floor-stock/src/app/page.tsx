@@ -43,8 +43,6 @@ export default async function HomePage() {
         </>
       )}
 
-      {latest && <CanMakeCard groups={latest.can_make} title={latest.date === status.today ? "Can make from today's stock" : `Can make from the stock of ${fmtDate(latest.date)}`} />}
-
       {latest && latest.low.length > 0 && (
         <Card className="border-red-200 bg-red-50">
           <h2 className="mb-2 font-bold text-red-800">
@@ -87,6 +85,9 @@ export default async function HomePage() {
           </LinkButton>
         )}
       </div>
+
+      {/* last: it can be long, and the buttons above should not be pushed off the screen */}
+      {latest && <CanMakeCard groups={latest.can_make} title={latest.date === status.today ? "Can make from today's stock" : `Can make from the stock of ${fmtDate(latest.date)}`} />}
     </div>
   );
 }
