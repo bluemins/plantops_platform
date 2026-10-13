@@ -151,19 +151,21 @@ setup, recipe checks, corrections, Recent changes and the database guards (`reci
   - [x] Then Actions → *Daily jobs* → Run workflow: green on 2026-10-11 (`docs/deployments/shared.md`).
 - [x] super_admin → Modules: Floor Stock's address works (2026-10-11: the live launcher tile shows its numbers, which
       the platform fetches from the registered address).
-- [ ] `floor-stock` variables: check that `BREVO_API_KEY` and `MAIL_FROM` match `document-store`.
+- [—] `floor-stock` variables `BREVO_API_KEY` / `MAIL_FROM`: not needed (no Brevo email for Floor Stock, owner
+      2026-10-11).
 - [x] First real use (plant 001 Bluemins, 2026-10-11):
   - [x] switch Floor Stock on in a plant's plan
   - [x] give a staff member the `store_keeper` (or `plant_staff`) role
   - [x] owner: "⚙ Set up sections"
   - [x] store keeper: a count (Bindu, 14:15) and a correction
-  - [ ] owner: the day page and "Copy as WhatsApp message"
+  - [ ] owner: the day page and "Copy as WhatsApp message" (deferred for later, owner 2026-10-13)
 - [—] Email test: **not needed** (owner, 2026-10-11): Brevo will not be set up for Floor Stock; owners rely on app
       notifications (bell + browser / phone push), which already carry "Low stock". Without email, low-stock rows are
       `skipped` (owner without email) or wait as `pending` and are marked `failed` after 7 days; nothing breaks.
 - [x] Backups before real plant data: nightly encrypted backups since v0.6.2 (HANDBOOK.md section 11).
 
-**Decisions to confirm with the owner (made while building, 2026-10-08):**
+**Decisions to confirm with the owner (made while building, 2026-10-08; deferred for later, owner 2026-10-13 —
+they stay as built until then):**
 - Store keepers may re-order items within a section.
 - Corrections only for today / yesterday, like new counts. Should the owner be able to correct older days?
 - Sold / Used only against the calendar day before (a gap shows "—").

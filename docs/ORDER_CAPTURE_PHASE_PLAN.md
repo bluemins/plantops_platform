@@ -65,6 +65,11 @@ message) = 1 × 90 + 3 × 140 = ₹510.
 - **Products = the plant's finished goods:** the plant's active **PlantOps products** (Business details → Products,
   `tenant_skus`), the same list Floor Stock's finished goods link to (`sku_id`). Read through the platform
   (`kit.products`, cached for a minute). No separate item list and no call to Floor Stock.
+  - `kit.products` also returns inactive products: Order Capture keeps only `status === "active"` for new orders and
+    rates (old orders keep their copies).
+  - Floor Stock is **not** read: a product added, renamed or switched off in Business details → Products reaches
+    Order Capture within a minute, whatever Floor Stock's items say. What matters is that every product the plant
+    sells exists there with the right `units_per_pack` / pack type.
 - **Owner sets per product:** a **unit** label (default "box" when the product holds more than one unit, else the
   pack type, e.g. "jar") and a **default rate per unit** (₹, up to 2 decimals). A product without a default rate can
   still be ordered (the rate is typed).
@@ -122,7 +127,8 @@ message) = 1 × 90 + 3 × 140 = ₹510.
 3. The total is shown → **Save** → "Order O-0042 saved".
 
 - The server takes the plant, who entered it and when from the session; ids sent by the browser are never used.
-- The reference `O-0001…` is allocated per plant inside the saving transaction (safe when two phones save at once).
+- The reference `O-0001…` is allocated per plant inside the saving transaction under a per-plant
+  `pg_advisory_xact_lock`, as Complaint Box does (safe when two phones save at once).
 - **Double save blocked:** the screen sends a one-time request key with each save; a repeat with the same key returns
   the same order instead of a new one. (Generate the key without `crypto.randomUUID()`, which fails on plain-`http`
   phone testing, as found in Complaint Box.)
@@ -243,11 +249,14 @@ ends with `pnpm test` for the touched apps, `typecheck`, and a short note in `ap
 ### Phase 0 — Placement and prerequisites
 - Complaint Box (v0.12.0) is deployed and the owner has tried it on a phone.
 - The open Floor Stock items in `apps/floor-stock/NOTES.md` are done or explicitly deferred.
-- Every Floor Stock finished good of plant 001 is linked to a PlantOps product (otherwise it won't appear in Order
-  Capture); products have the right `units_per_pack` / pack type.
+- Every product plant 001 sells exists as a PlantOps product (Business details → Products) with the right
+  `units_per_pack` / pack type. Order Capture reads that list, not Floor Stock; the Floor Stock link only matters
+  later ("Delivered by orders" next to "Sold").
 - Re-read this plan against the current code (module-kit, Complaint Box phone rule and references, notifications);
   report anything that changed since 2026-10-12.
 - Exit: owner says "start".
+- **Done 2026-10-13:** Complaint Box live (2026-10-12) and tried on a phone; Floor Stock's open items deferred for
+  later by the owner; plan re-checked against the code (it matches; wording fixes made in this file).
 
 ### Phase 1 — Platform registration
 - Platform migration `0014_order_capture.sql`: module `order_capture`, role `order_desk` (label "Order desk"). Show it
@@ -310,7 +319,8 @@ ends with `pnpm test` for the touched apps, `typecheck`, and a short note in `ap
 ### Phase 6 — Notifications, tile and support view
 - `src/server/notify.ts` with the three events above, called after the answer; `src/server/outbox.ts` +
   `kit.retryOutbox()`; `POST /api/cron/daily` (outbox only); Order Capture step in `.github/workflows/daily.yml`,
-  skipped until the GitHub variable `ORDER_URL` exists.
+  skipped until the GitHub variable `ORDER_URL` exists (also add `ORDER_URL` to the variable list in its header
+  comment).
 - Summary badges: "N pending", "N pending over 2 days" (warn), "N new today".
 - Support view: read-only in proxy and server guards; page views logged; owner's `/support-access`; add
   `order_capture` to `SUPPORT_READY` in `apps/platform/src/app/super/dashboard/page.tsx`.
@@ -323,7 +333,8 @@ ends with `pnpm test` for the touched apps, `typecheck`, and a short note in `ap
 - `apps/order-capture/NOTES.md`, Dockerfile, CLAUDE.md status note (module list in "Repo layout", "Every module app
   must" list, public addresses), HANDBOOK / DEPLOY additions, `docs/deployments/shared.md` record, next minor
   version.
-- Also: `scripts/setup-railway-db.sh` / `.sql` include Order Capture; `.github/workflows/backup.yml` "every schema
+- Also: `scripts/setup-railway-db.sh` / `.sql` include Order Capture (host question, `order_app` password, session
+  and module secrets, `.env` lines, as done for Complaint Box); `.github/workflows/backup.yml` "every schema
   has data" list gets `order_capture` **only after** the live migration has run; check the `.paste` file from
   `add-railway-module.sh` (no storage, no `BACKUP_*`, no Brevo needed; `CRON_SECRET` needed).
 - Live: platform migration, `./scripts/add-railway-module.sh shared order_capture order_app ORDER 3005

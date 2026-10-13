@@ -7,12 +7,13 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 |---|---|
 | Status | **Live** since 2026-10-04 (first checks in progress) |
 | Hosting | Railway, region Singapore |
-| Railway project | `plantops-shared`, environment `production`; services `Postgres`, `platform`, `lab-records`, `document-store` (+ `document-store-volume` at `/data`), `floor-stock` |
+| Railway project | `plantops-shared`, environment `production`; services `Postgres`, `platform`, `lab-records`, `document-store` (+ `document-store-volume` at `/data`), `floor-stock`, `complaint-box` (volume at `/data`: to confirm) |
 | Deploys from | git branch `production` (pushing `main` does not deploy) |
 | Platform | https://app.bluemins.life |
 | Lab Records | https://lab.bluemins.life |
 | Document Store | https://docs.bluemins.life (volume at `/data`) |
 | Floor Stock | https://stock.bluemins.life (since 2026-10-08) |
+| Complaint Box | https://complaints.bluemins.life (since 2026-10-12) |
 | DNS | WordPress.com (bluemins.life itself stays on GitHub Pages) |
 | super_admin login | contact@bluemins.life (password in the password manager) |
 | Secrets | Railway variables + password manager entry "PlantOps railway shared"; `.env.railway.shared` on Rocky's computer |
@@ -23,7 +24,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | WhatsApp | not set up (waiting for Meta approval) |
 | File storage | Railway volume (move to S3-compatible storage + backups before real plant documents) |
 | Backups | nightly 02:00 IST, encrypted (`age`), to Cloudflare R2 bucket `plantops-backup` (`backup.yml`): database dump (30 days, read-only login `plantops_backup`) + Document Store files. Private key in the password manager. Practice restore done 2026-10-11 |
-| Runs release | v0.11.1 (`production` = commit `f1f2049`) |
+| Runs release | v0.12.0 (`production` = commit `a375c8f`) |
 
 ## History
 | Date | What |
@@ -38,3 +39,4 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | 2026-10-11 | First real notifications, plant 001 Bluemins. Bindu's count (14:15) → "Low stock: 1 item" to the owner only (nobody ticked yet; no device turned on). Owner ticked Kedar (plant staff + store keeper) for Floor Stock; owner turned on Chrome and Kedar Firefox (Windows). A correction (14:20) → "Count corrected (v2)" to both, phone level, outbox empty, both subscriptions still valid. |
 | 2026-10-11 | v0.11.0 live (Floor Stock "Can make"). `railway-migrate.sh shared` applied Floor Stock `0004_recipes.sql`: the three new tables (`material_contents`, `recipes`, `recipe_lines`) exist with FORCE row-level security, still empty. `v0.11.0:production` deployed. Checks: Floor Stock `/health` database OK; platform JWKS, Lab Records and Document Store health 200. Same day: the owner entered Contents (9 materials) and Recipes (8 products, 22 lines) for plant 001 and checked the home page against a count. Decided: no Brevo email for Floor Stock; low-stock alerts by app notifications only. |
 | 2026-10-11 | v0.11.1 live ("Send a test to this phone" on `/notifications`; platform only, no migration). Why: plant 001's four Android phones were signed up correctly but turned on after the day's last notification, so nothing had reached them. Checks: `/api/push/test` refuses without login (401). Same day: the owner confirmed the test push arrives on Android (installed app). |
+| 2026-10-12 | v0.12.0 live (Complaint Box), recorded afterwards on 2026-10-13. `production` = `a375c8f`; the live database has the `complaint_box` schema, so `backup.yml` now also checks it is in each nightly dump (`91f32c3`). Check 2026-10-13: `complaints.bluemins.life/health` 200 with the database OK. The owner has tried it on a phone. **To confirm** (not recorded at deploy time): volume at `/data`, `CRON_SECRET` + five `BACKUP_*` on `complaint-box`, GitHub variable `COMPLAINT_URL`, a green Daily jobs and Nightly backup run with complaint files in R2. Delete `.env.railway.shared.complaint_box.paste` once its values are saved. |

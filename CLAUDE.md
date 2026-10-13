@@ -1074,10 +1074,10 @@ notifications work.
 **Open:**
 1. **iPhone notifications:** not tested (iOS 16.4+, PlantOps added to the Home Screen first, then the test button).
 2. **Floor Stock day page and "Copy as WhatsApp message"** not yet tried by the owner on the live copy
-   (`apps/floor-stock/NOTES.md`, Pending).
+   (`apps/floor-stock/NOTES.md`, Pending). Deferred for later (owner, 2026-10-13).
 3. **A user with only the Plant staff role** not yet tried (Kedar also holds store keeper).
 4. **Five Floor Stock decisions made while building** await the owner's OK (`apps/floor-stock/NOTES.md`,
-   "Decisions to confirm with the owner").
+   "Decisions to confirm with the owner"). Deferred for later (owner, 2026-10-13).
 5. **Document Store reminder emails:** Brevo set up 2026-10-04, live sending never confirmed (the owner's no-Brevo
    decision covers Floor Stock only so far).
 
@@ -1086,7 +1086,7 @@ instead (owner, 2026-10-11; status note below). **Order Capture:** design, phase
 and mock-ups approved by the owner 2026-10-12 (`docs/ORDER_CAPTURE_PHASE_PLAN.md`, build prompts per phase); to be
 built after Complaint Box is deployed and tried, before Phase 6.
 
-### 2026-10-11 — Complaint Box — built (v0.12.0), deploy in progress
+### 2026-10-11 — Complaint Box — live (v0.12.0, deployed 2026-10-12)
 Built ahead of Phase 6, decided by the owner 2026-10-11. Design, phases and build prompts:
 `docs/COMPLAINT_BOX_PHASE_PLAN.md`; module notes: `apps/complaint-box/NOTES.md`.
 
@@ -1161,5 +1161,22 @@ Built ahead of Phase 6, decided by the owner 2026-10-11. Design, phases and buil
 - tile numbers through the platform
 - the Support access page
 
-**Not yet verified:** real phones (camera, iPhone HEIC photos, Safari video), live deploy, the real R2 file backup.
+**Live (2026-10-12):** `v0.12.0:production` (`a375c8f`); `complaints.bluemins.life/health` answers with the
+database OK; the live database has the `complaint_box` schema, so `backup.yml` now also checks it is in each nightly
+dump (`91f32c3`). The owner has tried it on a phone (confirmed 2026-10-13).
+
+**Not yet confirmed (not recorded at deploy time):** GitHub variable `COMPLAINT_URL` with a green Daily jobs /
+Nightly backup run, the first real R2 copy of complaint files, the volume at `/data`; iPhone HEIC photos and Safari
+video in particular. `.env.railway.shared.complaint_box.paste` (holds the database password) is still on Rocky's
+computer: delete it once its values are in Railway and the password manager.
+
+### 2026-10-13 — Order Capture Phase 0 (readiness) — done
+- Complaint Box live and tried on a phone (above).
+- Floor Stock's open items **deferred for later** by the owner (2026-10-13): the day page / "Copy as WhatsApp
+  message" check and the five "Decisions to confirm" (`apps/floor-stock/NOTES.md`).
+- `docs/ORDER_CAPTURE_PHASE_PLAN.md` re-checked against the code; it still matches. Wording fixes made: active
+  products only, the reference lock, `ORDER_URL` in `daily.yml`'s comment, Order Capture in `setup-railway-db.sh`,
+  and **Order Capture reads PlantOps products (Business details → Products), not Floor Stock**, so what matters is
+  that every product sold exists there with the right units per pack / pack type.
+- **Next:** Order Capture Phase 1 (platform registration) when the owner says "start".
 

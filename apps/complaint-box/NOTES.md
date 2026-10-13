@@ -268,4 +268,11 @@ owner's "⚙ Item list" link, `ROLE_LABELS`, dev-module never serves it. Platfor
 - **Noticed, not changed (outside Complaint Box):** Floor Stock has a support view but is missing from the
   platform's `SUPPORT_READY`, so super_admin gets no "Open Floor Stock (read-only)" button. One-line fix if wanted.
 
-**Next:** Phase 8, release and deploy.
+### 2026-10-12 — Phase 8: release and deploy (live, v0.12.0)
+- Released as v0.12.0 (`a375c8f`), live on the shared copy at `https://complaints.bluemins.life`
+  (`docs/deployments/shared.md`). Phases 1–7 above were committed with the release.
+- `complaint_box` added to the "every schema has data" check of the nightly dump after the live migration (`91f32c3`).
+- 2026-10-13: `/health` 200 with the database OK; the owner has tried it on a phone.
+- **To confirm:** volume at `/data`, `COMPLAINT_URL` in GitHub with green Daily jobs / Nightly backup runs, the first
+  complaint files in R2; iPhone HEIC photos and Safari video. Delete `.env.railway.shared.complaint_box.paste` once
+  saved.
