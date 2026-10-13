@@ -1182,7 +1182,7 @@ computer: delete it once its values are in Railway and the password manager.
   that every product sold exists there with the right units per pack / pack type.
 - **Next:** Order Capture Phase 1 (platform registration) when the owner says "start".
 
-### 2026-10-13 — Order Capture — built (v0.13.0), deploy in progress
+### 2026-10-13 — Order Capture — live (v0.13.0, deployed 2026-10-13)
 Built ahead of Phase 6, decided by the owner 2026-10-12. Design, phases and build prompts:
 `docs/ORDER_CAPTURE_PHASE_PLAN.md`; module notes (one dated note per phase): `apps/order-capture/NOTES.md`.
 
@@ -1246,5 +1246,12 @@ cancelled.
 owner's sample order (₹510), change / deliver / undo / cancel, the upload of every duplicates case, Sujata's bell
 "New order O-0001: ₹510", the tile numbers, a real support handoff.
 
-**Not yet verified:** the live deploy, real phones, the first nightly backup with the schema.
+**Live (2026-10-13):** `v0.13.0:production` (`77a39ce`) at `orders.bluemins.life`, service `order-capture` (no volume).
+Checks passed: `/health` OK, platform login redirect, APIs and tile 401 without a session / ticket, cron 401 with a
+wrong secret, the other services healthy (`docs/deployments/shared.md`). `backup.yml` now checks the dump has
+`order_capture` data.
+
+**Not yet verified:** the Daily jobs run with the Order Capture step; the first nightly backup with the schema; the
+owner's phone checklist for plant 001 (switch on, rates, customer upload, Order desk user, sample order, notification,
+deliver, cancel, CSV); iPhone.
 

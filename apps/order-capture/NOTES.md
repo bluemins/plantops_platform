@@ -308,4 +308,29 @@ No database change (outbox, support views and the three kinds existed since Phas
     Sujata's Support access page listed all three views; the super_admin dashboard showed "Open Order Capture
     (read-only)"
 
-**Next:** Phase 7, release and deploy.
+### 2026-10-13 — Phase 7: release and deploy (live, v0.13.0)
+- **Release v0.13.0** (`77a39ce`, tag `v0.13.0`):
+  - Dockerfile (port 3005, no storage)
+  - CLAUDE.md status note, repo layout, addresses, module-kit and N5+ lists
+  - HANDBOOK / DEPLOY additions
+  - `setup-railway-db.sh` / `.sql` include Order Capture for new copies
+  - CHANGELOG
+- **Live on the shared copy at `https://orders.bluemins.life`** (record: `docs/deployments/shared.md`):
+  - platform migration `0014`
+  - `add-railway-module.sh shared order_capture order_app ORDER 3005 orders.bluemins.life` + `railway-migrate.sh
+    shared`
+  - Railway service `order-capture` (no volume, `CRON_SECRET`)
+  - DNS `orders` CNAME + TXT at WordPress.com; GitHub `ORDER_URL`
+  - `v0.13.0:production`
+  - the first build failed as expected before the push (v0.12.0 had no Order Capture Dockerfile)
+- **Live checks passed:**
+  - `/health` database OK; login redirect
+  - 401s for the APIs, the tile without the platform's ticket and the cron without its secret; 403 for fake codes
+  - the platform recognises the module; the other services healthy
+- **After the live migration:** `order_capture` added to `backup.yml`'s "every schema has data" list.
+- **The module secret** was printed once in a Claude Code session log while checking the paste file; rotating it
+  (super_admin → Modules → new client secret, then Railway variable) is optional.
+- **To do:**
+  - Daily jobs run (Order Capture step green)
+  - the first nightly backup with `order_capture`
+  - the owner's phone checklist for plant 001

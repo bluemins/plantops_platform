@@ -55,7 +55,7 @@ jobs:
           /usr/lib/postgresql/18/bin/pg_dump "$DATABASE_URL_BACKUP" --format=custom --file=plantops.dump
           # a usable dump has the data of every PlantOps schema
           /usr/lib/postgresql/18/bin/pg_restore --list plantops.dump > contents.txt
-          for schema in platform lab_records document_store floor_stock complaint_box; do
+          for schema in platform lab_records document_store floor_stock complaint_box order_capture; do
             grep -q " TABLE DATA $schema " contents.txt || { echo "No $schema data in the dump"; exit 1; }
           done
           echo "Dump: $(du -h plantops.dump | cut -f1), $(grep -c ' TABLE DATA ' contents.txt) tables"

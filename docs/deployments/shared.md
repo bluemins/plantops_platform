@@ -7,24 +7,25 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 |---|---|
 | Status | **Live** since 2026-10-04 (first checks in progress) |
 | Hosting | Railway, region Singapore |
-| Railway project | `plantops-shared`, environment `production`; services `Postgres`, `platform`, `lab-records`, `document-store` (+ `document-store-volume` at `/data`), `floor-stock`, `complaint-box` (volume at `/data`: to confirm) |
+| Railway project | `plantops-shared`, environment `production`; services `Postgres`, `platform`, `lab-records`, `document-store` (+ `document-store-volume` at `/data`), `floor-stock`, `complaint-box` (volume at `/data`: to confirm), `order-capture` (no volume) |
 | Deploys from | git branch `production` (pushing `main` does not deploy) |
 | Platform | https://app.bluemins.life |
 | Lab Records | https://lab.bluemins.life |
 | Document Store | https://docs.bluemins.life (volume at `/data`) |
 | Floor Stock | https://stock.bluemins.life (since 2026-10-08) |
 | Complaint Box | https://complaints.bluemins.life (since 2026-10-12) |
+| Order Capture | https://orders.bluemins.life (since 2026-10-13) |
 | DNS | WordPress.com (bluemins.life itself stays on GitHub Pages) |
 | super_admin login | contact@bluemins.life (password in the password manager) |
 | Secrets | Railway variables + password manager entry "PlantOps railway shared"; `.env.railway.shared` on Rocky's computer |
-| Daily jobs | GitHub environment `shared` (`.github/workflows/daily.yml`, 07:00 IST: Platform, Lab Records, Document Store, Floor Stock); first successful run 2026-10-04 (#8). Variables `APP_URL`, `LAB_URL`, `DOCS_URL`, `STOCK_URL` + secret `CRON_SECRET` (also on every Railway service, platform since 2026-10-11) |
+| Daily jobs | GitHub environment `shared` (`.github/workflows/daily.yml`, 07:00 IST: Platform, Lab Records, Document Store, Floor Stock); first successful run 2026-10-04 (#8). Variables `APP_URL`, `LAB_URL`, `DOCS_URL`, `STOCK_URL`, `COMPLAINT_URL`, `ORDER_URL` + secret `CRON_SECRET` (also on every Railway service, platform since 2026-10-11) |
 | Evening jobs | `.github/workflows/evening.yml`, hourly 17:00-23:00 IST (Lab Records from 20:00, Floor Stock at each plant's reminder hour); first run green 2026-10-11 |
 | App notifications | Web Push keys `VAPID_*` on `platform` (own pair for this copy, in the password manager; created 2026-10-11). Working on desktop (Chrome, Firefox) and Android (installed app, test push) since 2026-10-11; iPhone not yet tested |
 | Email | Brevo HTTPS API (`BREVO_API_KEY`; Railway Hobby blocks SMTP), sender `contact@bluemins.life`; domain DKIM + DMARC records at WordPress.com (2026-10-04). Live sending not yet confirmed |
 | WhatsApp | not set up (waiting for Meta approval) |
 | File storage | Railway volume (move to S3-compatible storage + backups before real plant documents) |
 | Backups | nightly 02:00 IST, encrypted (`age`), to Cloudflare R2 bucket `plantops-backup` (`backup.yml`): database dump (30 days, read-only login `plantops_backup`) + Document Store files. Private key in the password manager. Practice restore done 2026-10-11 |
-| Runs release | v0.12.0 (`production` = commit `a375c8f`) |
+| Runs release | v0.13.0 (`production` = commit `77a39ce`) |
 
 ## History
 | Date | What |
@@ -40,3 +41,4 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | 2026-10-11 | v0.11.0 live (Floor Stock "Can make"). `railway-migrate.sh shared` applied Floor Stock `0004_recipes.sql`: the three new tables (`material_contents`, `recipes`, `recipe_lines`) exist with FORCE row-level security, still empty. `v0.11.0:production` deployed. Checks: Floor Stock `/health` database OK; platform JWKS, Lab Records and Document Store health 200. Same day: the owner entered Contents (9 materials) and Recipes (8 products, 22 lines) for plant 001 and checked the home page against a count. Decided: no Brevo email for Floor Stock; low-stock alerts by app notifications only. |
 | 2026-10-11 | v0.11.1 live ("Send a test to this phone" on `/notifications`; platform only, no migration). Why: plant 001's four Android phones were signed up correctly but turned on after the day's last notification, so nothing had reached them. Checks: `/api/push/test` refuses without login (401). Same day: the owner confirmed the test push arrives on Android (installed app). |
 | 2026-10-12 | v0.12.0 live (Complaint Box), recorded afterwards on 2026-10-13. `production` = `a375c8f`; the live database has the `complaint_box` schema, so `backup.yml` now also checks it is in each nightly dump (`91f32c3`). Check 2026-10-13: `complaints.bluemins.life/health` 200 with the database OK. The owner has tried it on a phone. **To confirm** (not recorded at deploy time): volume at `/data`, `CRON_SECRET` + five `BACKUP_*` on `complaint-box`, GitHub variable `COMPLAINT_URL`, a green Daily jobs and Nightly backup run with complaint files in R2. Delete `.env.railway.shared.complaint_box.paste` once its values are saved. |
+| 2026-10-13 | v0.13.0 live (Order Capture, `orders.bluemins.life`). In order: platform migration `0014_order_capture.sql` (module + role "Order desk" only; checked read-only, no plan had it); `add-railway-module.sh shared order_capture order_app ORDER 3005 orders.bluemins.life` (login `order_app` without BYPASSRLS, 8 tables all FORCE RLS, none owned by the app login, migration `0001`, registration `https://orders.bluemins.life` with its secret) and `railway-migrate.sh shared` (all apps up to date; backup login reads `order_capture`); new Railway service `order-capture` (branch `production`, `/health`, Singapore, **no volume**, variables from the paste file + `CRON_SECRET`); DNS at WordPress.com: `orders` CNAME `tem8un74.up.railway.app` + `_railway-verify.orders` TXT (seen in public DNS); GitHub variable `ORDER_URL`; `git push origin v0.13.0:production` (`77a39ce`). Checks: `/health` database OK; pages without a session → PlantOps login; new order / rates / CSV / lookup APIs 401; tile numbers without (or with a fake) platform ticket 401; daily job with no / wrong secret 401; fake login / support codes 403; the platform recognises the module (`/sso/start?module=order_capture` → login); JWKS + Lab / Docs / Stock / Complaints health OK. `backup.yml` now also checks the dump has `order_capture` data. The module secret was printed once in a Claude Code session log during setup: rotate it in super_admin → Modules if wanted. **To do:** Daily jobs run with the Order Capture step green; first nightly backup with `order_capture`; the owner's phone checklist (plant 001). |
