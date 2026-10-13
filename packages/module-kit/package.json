@@ -15,7 +15,8 @@
     "./mail": "./src/mail.ts",
     "./s3": "./src/s3.ts",
     "./backup": "./src/backup.ts",
-    "./storage": "./src/storage.ts"
+    "./storage": "./src/storage.ts",
+    "./phone": "./src/phone.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

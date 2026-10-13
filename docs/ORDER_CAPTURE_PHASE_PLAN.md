@@ -2,7 +2,7 @@
 
 **Status:** Design and phase plan approved by the owner on 2026-10-12 ("I am ok with the plan", including the CSV
 upload with the duplicates table, recipients via "Gets Order Capture alerts", bell-only delivered / cancelled,
-cancelled is final, whole quantities 1–100,000 with each product once per order, default unit "box"). **Not built.** To be built **after Complaint Box is deployed
+cancelled is final, whole quantities 1–100,000 with each product once per order, default unit "box"). **Built (v0.13.0, 2026-10-13); notes per phase in `apps/order-capture/NOTES.md`.** Planned to be built **after Complaint Box is deployed
 and tried, before Phase 6 (Preventive Management)** (owner, 2026-10-12). Schema, permission and platform changes
 listed here are agreed in principle; each migration is still shown to the owner before it runs (CLAUDE.md working
 rules).
@@ -238,7 +238,7 @@ ends with `pnpm test` for the touched apps, `typecheck`, and a short note in `ap
 | Phase | What | Result |
 |---|---|---|
 | **0** | Placement and prerequisites | Complaint Box live and tried; plan re-checked against the code |
-| **1** | Platform registration | Module + role + plant-staff exclusion + notification kinds exist; tile says "not set up" |
+| **1** | Platform registration | Module + role + plant-staff exclusion + notification kinds exist; tile says "Temporarily unavailable" until the app is registered |
 | **2** | Module foundation | App on module-kit, own schema and login, login / support / tile skeleton |
 | **3** | Rates and customers | Owner sets units and default rates; customer list, add / edit, CSV upload with preview |
 | **4** | Entering an order | Phone form: lookup, new customer inline, lines with last-rate pre-fill, total, save |

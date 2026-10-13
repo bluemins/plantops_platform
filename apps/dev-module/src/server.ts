@@ -36,6 +36,7 @@ const LABELS: Record<ModuleId, string> = {
   document_store: "Document Store",
   floor_stock: "Floor Stock",
   complaint_box: "Complaint Box",
+  order_capture: "Order Capture",
   preventive_mgmt: "Preventive Mgmt",
   amc: "AMC",
   attendance_salary: "Attendance & Salary",
@@ -190,7 +191,7 @@ function serveModule(moduleId: ModuleId, creds: ModuleCredentials) {
 
 let started = 0;
 // Modules that now have a real app are served by that app, never by this placeholder.
-const REAL_APPS: ModuleId[] = ["lab_records", "document_store", "floor_stock", "complaint_box"]; // apps/lab-records, apps/document-store, apps/floor-stock, apps/complaint-box
+const REAL_APPS: ModuleId[] = ["lab_records", "document_store", "floor_stock", "complaint_box", "order_capture"]; // apps/lab-records, apps/document-store, apps/floor-stock, apps/complaint-box, apps/order-capture
 
 for (const id of MODULE_IDS) {
   if (REAL_APPS.includes(id)) continue;

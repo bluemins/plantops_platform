@@ -58,7 +58,7 @@ describe("module and role", () => {
     expect(mine.body.tiles).toEqual([{ module: "complaint_box", state: "open", view: "staff" }]);
     const owner = await call(launcherRoute.GET as Handler, { cookie: A.adminCookie });
     expect(owner.body.tiles.find((t: { module: string }) => t.module === "complaint_box")).toMatchObject({ state: "open", view: "owner" });
-    expect(owner.body.plan_summary.modules_total).toBe(8);
+    expect(owner.body.plan_summary.modules_total).toBe(9);
   });
 });
 

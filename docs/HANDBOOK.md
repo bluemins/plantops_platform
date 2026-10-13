@@ -35,6 +35,7 @@ Railway project "plantops-shared" (Singapore), environment "production"
   docs.bluemins.life ──► document-store  Document Store module (+ volume /data) (port 3003)
   stock.bluemins.life ─► floor-stock     Floor Stock module (port 3002)
   complaints.bluemins.life ─► complaint-box  Complaint Box module (+ volume /data) (port 3004)
+  orders.bluemins.life ─► order-capture  Order Capture module (port 3005)
                          Postgres        one database, private (each app its own schema + login)
 
 GitHub repo bluemins/plantops_platform
@@ -59,7 +60,7 @@ They share **only the code**, and code reaches Railway in exactly one way: a pus
 
 | | Local (development) | Railway (production) |
 |---|---|---|
-| Addresses | `http://localhost:3000` / `:3001` / `:3003` / `:3002` / `:3004` | `https://app` / `lab` / `docs` / `stock` / `complaints.bluemins.life` |
+| Addresses | `http://localhost:3000` / `:3001` / `:3003` / `:3002` / `:3004` / `:3005` | `https://app` / `lab` / `docs` / `stock` / `complaints` / `orders.bluemins.life` |
 | Settings and secrets | `.env` in the project folder | each service → **Variables** |
 | Database | Postgres on this computer (`plantops`; tests use `plantops_test`) | Railway's Postgres |
 | super_admin | `admin@plantops.local` | `contact@bluemins.life` |
@@ -224,7 +225,7 @@ A reset is always temporary: the person picks their own at the next login. More 
 | SSO signing key `SSO_PRIVATE_JWK_B64` | platform | (pasted, then file deleted) | ✔ |
 | Module secrets `MODULE_SECRET_*` | lab-records, document-store | `.env.railway.shared` | ✔ |
 | Session secrets `LAB_/DOC_SESSION_SECRET` | lab-records, document-store | (pasted, then file deleted) | ✔ |
-| `CRON_SECRET` | platform, lab-records, document-store, floor-stock, complaint-box **and** GitHub environment `shared` | (pasted, then file deleted) | ✔ |
+| `CRON_SECRET` | platform, lab-records, document-store, floor-stock, complaint-box, order-capture **and** GitHub environment `shared` | (pasted, then file deleted) | ✔ |
 | super_admin password | (stored as a hash in the database) | not stored | ✔ |
 | Phone notification keys `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | platform | not stored (local dev has its own pair in `.env`) | ✔ |
 | Backup login `DATABASE_URL_BACKUP` (read-only) | GitHub environment `shared` only | `.env.railway.shared` | ✔ |
@@ -286,6 +287,7 @@ every day at **07:00 India time**, for each copy listed in it:
   `STOCK_URL` is set
 - Complaint Box: "C-0042 open for N days" reminders (day 3, 10, 17… after logging / reopening) and notifications
   that waited in its outbox; skipped until `COMPLAINT_URL` is set
+- Order Capture: notifications that waited in its outbox (no reminders in v1); skipped until `ORDER_URL` is set
 
 To check or run it: GitHub → **Actions** → *Daily jobs*. Confirm a successful run before relying on reminders;
 click **Run workflow** to run it now. A failed run sends GitHub's failure email.
@@ -293,7 +295,7 @@ If runs appear on every push, named `.github/workflows/daily.yml` instead of *Da
 file (a YAML mistake) and nothing runs. Until 2026-10-04 that was the case: a `run:` line containing `: ` must be
 written as `run: |` with the command on the next line.
 
-Its settings live in GitHub → Settings → **Environments** → `shared`: variables `APP_URL`, `LAB_URL`, `DOCS_URL`, `STOCK_URL` and `COMPLAINT_URL`,
+Its settings live in GitHub → Settings → **Environments** → `shared`: variables `APP_URL`, `LAB_URL`, `DOCS_URL`, `STOCK_URL`, `COMPLAINT_URL` and `ORDER_URL`,
 and the secret `CRON_SECRET`. If the repo is ever made public, GitHub pauses schedules after 60 days without
 commits.
 

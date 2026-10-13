@@ -11,6 +11,7 @@ independently, with its own URL, Docker image and database schema.
 - `apps/document-store`
 - `apps/floor-stock`
 - `apps/complaint-box` (built before Preventive Management, decided by the owner 2026-10-11)
+- `apps/order-capture` (built before Preventive Management, decided by the owner 2026-10-12)
 - `apps/preventive-mgmt`
 - `apps/amc`
 - `apps/attendance-salary`
@@ -102,7 +103,7 @@ working. Nothing is stored.
 screens stay PlantOps blue.
 
 **Every module app must** (all in `packages/auth`, wired up once by `createModule()` in `packages/module-kit`;
-`apps/lab-records`, `apps/document-store`, `apps/floor-stock` and `apps/complaint-box` use it):
+`apps/lab-records`, `apps/document-store`, `apps/floor-stock`, `apps/complaint-box` and `apps/order-capture` use it):
 `startModuleSession` at `/sso/callback`, keep the session with `sealSession`/`openSession` (own
 `SESSION_SECRET`, ≥ 32 chars), call `refreshModuleSession` on every request (12 h shift, 5-min re-check,
 15-min grace if the platform is unreachable), send users without a session to
@@ -159,7 +160,7 @@ prompt to add to a module phase is in `docs/notifications.md` ("N5+").
 - PostgreSQL, managed hosting. Hosting: Railway, Singapore region, one project (decided 2026-10-04 for low
   cost); India hosting later if a plant needs it. Public addresses: `app.bluemins.life` (platform),
   `lab.bluemins.life` (Lab Records), `docs.bluemins.life` (Document Store), `stock.bluemins.life` (Floor Stock),
-  `complaints.bluemins.life` (Complaint Box); `bluemins.life` itself stays a static site on GitHub Pages, DNS at
+  `complaints.bluemins.life` (Complaint Box), `orders.bluemins.life` (Order Capture); `bluemins.life` itself stays a static site on GitHub Pages, DNS at
   WordPress.com. Railway deploys the git branch `production` only (`main` never deploys). Running it:
   `docs/HANDBOOK.md`; setup steps: `docs/DEPLOY.md`; per-copy records: `docs/deployments/`.
 - S3-compatible storage for documents/reports. PDF reports via Puppeteer or react-pdf.
@@ -332,6 +333,7 @@ WhatsApp, or setting them up. Existing email alerts stay as they are; notificati
 - Attendance & Salary: not checked in, leave request, salary ready
 - Marketing Contacts: follow-up due
 - Complaint Box: done in its own phase plan (v0.12.0): new, resolved, reopened, still open, updated, storage
+- Order Capture: done in its own phase plan (v0.13.0): new order, delivered, cancelled
 
 ## Status log
 
@@ -1179,4 +1181,70 @@ computer: delete it once its values are in Railway and the password manager.
   and **Order Capture reads PlantOps products (Business details → Products), not Floor Stock**, so what matters is
   that every product sold exists there with the right units per pack / pack type.
 - **Next:** Order Capture Phase 1 (platform registration) when the owner says "start".
+
+### 2026-10-13 — Order Capture — built (v0.13.0), deploy in progress
+Built ahead of Phase 6, decided by the owner 2026-10-12. Design, phases and build prompts:
+`docs/ORDER_CAPTURE_PHASE_PLAN.md`; module notes (one dated note per phase): `apps/order-capture/NOTES.md`.
+
+**Built** (`apps/order-capture` on :3005, on `packages/module-kit`):
+- **Platform:**
+  - migration `0014_order_capture.sql`: module + role **Order desk**; **plant staff do NOT work in it**
+    (`PLANT_STAFF_EXCLUDED` = Lab Records + Order Capture)
+  - three `NOTIFICATION_KINDS`
+  - tile 🧾 "Take an order" with the owner's "⚙ Rates" link
+  - super_admin "Open Order Capture (read-only)"
+- **Module schema** `order_capture`, login `order_app` (migration `0001`):
+  - 8 tables with `tenant_id` + FORCE RLS, **no DELETE anywhere**
+  - an order's reference, customer copy and saved lines never change: a change is a new version of the lines
+  - history, audit and support views append-only; a customer's phone is fixed
+- **Rates** (owner): unit ("box" for a pack of several, else the pack type) and default rate per **active PlantOps
+  product**; Recent changes.
+- **Customers** (owner + Order desk): name, phone, place; one customer per phone per plant (any spelling of the
+  number); switched off, never deleted; owner's **CSV upload** with a preview that follows the plan's duplicates
+  table (nothing saved until confirmed; rejected rows downloadable).
+- **New order** (phone):
+  - customer by phone (found / new with the order), lines with whole quantity and a rate pre-filled from the
+    customer's last non-cancelled order, else the default
+  - live total; references O-0001… per plant, safe when phones save together
+  - a repeated save never makes a second order
+  - totals in whole paise
+- **Order list and handling:**
+  - Pending (oldest first, **amber from 2 days**) / Delivered / Cancelled; search and dates
+  - order page with history and every version
+  - Change (new version), Mark delivered (note, Zoho invoice no.), Cancel (reason, final), Undo delivered (owner,
+    reason)
+  - 409 "just changed by …" when two people act at once
+  - owner CSV
+- **Notifications (N5+ from day one):** new order (push), delivered (to whoever entered it, bell), cancelled (bell),
+  outbox + daily job.
+- **Standard pieces:** tile "N pending · N pending over 2 days · N new today"; support view read-only with the owner's
+  Support access page; no files (no volume, nothing extra to back up).
+- **Shared code:** the Indian-mobile phone rule moved into `packages/module-kit/src/phone.ts`, used by Complaint Box
+  too (its 190 tests unchanged).
+- **Deploy pieces:** Dockerfile (no volume); `setup-railway-db.sh` includes Order Capture for new copies; `daily.yml`
+  step skipped until `ORDER_URL`.
+- **Tests:** Order Capture 224; platform 272, auth 49, module-kit 52, Lab Records 126, Document Store 102,
+  Floor Stock 146, Complaint Box 190.
+
+**Decisions (owner, 2026-10-12):** the plan as written, incl. Order desk only (no plant staff), cancelled is final,
+whole quantities, each product once per order, CSV upload with the duplicates table, bell-only delivered /
+cancelled.
+
+**Made while building (in NOTES.md per phase):**
+- `order_lines.line_no` and `order_events.invoice_no` (approved with the migration)
+- letter case counts in the upload
+- full phone numbers in the upload preview
+- a product switched off since can stay in a changed order
+- Change / Undo send no notification
+- "The owner has been notified." on the saved screen for non-owners
+
+**Bugs found by the checks and fixed:**
+- a search for "+91 …" found nothing
+- the customer list's buttons jumped beside / below the name
+
+**Verified on `pnpm dev` (plant 002, headless Chrome at 390 px, real platform logins; all test data removed):** the
+owner's sample order (₹510), change / deliver / undo / cancel, the upload of every duplicates case, Sujata's bell
+"New order O-0001: ₹510", the tile numbers, a real support handoff.
+
+**Not yet verified:** the live deploy, real phones, the first nightly backup with the schema.
 

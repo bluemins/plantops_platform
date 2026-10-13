@@ -6,6 +6,7 @@ export const MODULE_IDS = [
   "document_store",
   "floor_stock",
   "complaint_box",
+  "order_capture",
   "preventive_mgmt",
   "amc",
   "attendance_salary",
@@ -22,6 +23,7 @@ export const ROLE_IDS = [
   "document_keeper",
   "store_keeper",
   "complaint_desk",
+  "order_desk",
   "maintenance_technician",
   "plant_staff",
 ] as const;
@@ -38,11 +40,16 @@ export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin" | "plant_staff">
   store_keeper: "floor_stock",
   /** logs customer complaints and follows them up (resolving and reopening are owner-only) */
   complaint_desk: "complaint_box",
+  /** enters orders, marks them delivered or cancelled (rates, customer upload and undo delivered are owner-only) */
+  order_desk: "order_capture",
   maintenance_technician: "preventive_mgmt",
 };
 
-/** Modules plant_staff may never open: Lab Records is for lab technicians and lab leads only. */
-export const PLANT_STAFF_EXCLUDED: readonly ModuleId[] = ["lab_records"];
+/**
+ * Modules plant_staff may never open: Lab Records is for lab technicians and lab leads only; Order Capture is for the
+ * people the owner gave "Order desk" (orders and customer rates are not for every worker).
+ */
+export const PLANT_STAFF_EXCLUDED: readonly ModuleId[] = ["lab_records", "order_capture"];
 
 /**
  * Does this staff role work in this module? plant_staff works in every module except the excluded ones, with
@@ -214,6 +221,9 @@ export const NOTIFICATION_KINDS: Record<string, { module: ModuleId | null; label
   "complaint_box.still_open": { module: "complaint_box", label: "Complaint still open (reminder)" },
   "complaint_box.updated": { module: "complaint_box", label: "Note added / in progress", bellOnly: true },
   "complaint_box.storage": { module: "complaint_box", label: "Complaint Box storage nearly full" },
+  "order_capture.new": { module: "order_capture", label: "New order" },
+  "order_capture.delivered": { module: "order_capture", label: "Your order delivered", bellOnly: true },
+  "order_capture.cancelled": { module: "order_capture", label: "Order cancelled", bellOnly: true },
   "platform.user_locked": { module: null, label: "Someone locked out", urgent: true },
   "platform.support_opened": { module: null, label: "PlantOps support viewed your data", bellOnly: true },
   "platform.module_on": { module: null, label: "Module switched on" },

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { ModuleId, RoleId } from "@plantops/types";
+import { roleWorksIn, type ModuleId, type RoleId } from "@plantops/types";
 import { AccessDeniedError, canAccessModule, requireModuleAccess, requireRole } from "../src";
 
-const enabled: ModuleId[] = ["lab_records", "floor_stock", "complaint_box"];
+const enabled: ModuleId[] = ["lab_records", "floor_stock", "complaint_box", "order_capture"];
 
 describe("canAccessModule", () => {
   it.each<[RoleId[], ModuleId, boolean]>([
@@ -25,8 +25,25 @@ describe("canAccessModule", () => {
     [["complaint_desk"], "lab_records", false],
     [["plant_staff"], "complaint_box", true], // Complaint Box is not excluded for plant staff
     [["store_keeper"], "complaint_box", false],
+    [["order_desk"], "order_capture", true],
+    [["order_desk"], "floor_stock", false],
+    [["plant_staff"], "order_capture", false], // Order Capture is excluded for plant staff, like Lab Records
+    [["plant_staff", "order_desk"], "order_capture", true], // Order desk still opens it
+    [["store_keeper"], "order_capture", false],
+    [["complaint_desk"], "order_capture", false],
+    [["tenant_admin"], "order_capture", true],
   ])("%j -> %s = %s", (roles, mod, expected) => {
     expect(canAccessModule(roles, enabled, mod)).toBe(expected);
+  });
+});
+
+describe("roleWorksIn", () => {
+  it("Order desk works in Order Capture; plant staff and owners don't (owners get the owner view)", () => {
+    expect(roleWorksIn("order_desk", "order_capture")).toBe(true);
+    expect(roleWorksIn("order_desk", "complaint_box")).toBe(false);
+    expect(roleWorksIn("plant_staff", "order_capture")).toBe(false);
+    expect(roleWorksIn("plant_staff", "complaint_box")).toBe(true);
+    expect(roleWorksIn("tenant_admin", "order_capture")).toBe(false);
   });
 });
 

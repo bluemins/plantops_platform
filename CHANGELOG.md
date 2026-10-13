@@ -4,6 +4,34 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.13.0 — 2026-10-13 — Order Capture
+
+**What's in it**
+- **New module: Order Capture** at `orders.bluemins.life`. Staff take customers' orders on their phone instead of
+  sending a WhatsApp message: customer by phone number (found, or added with the order), products with whole
+  quantities and a rate filled in from that customer's last order (else the default rate), live total, and a
+  reference (O-0001, O-0002 … per plant). Saving twice never makes two orders.
+- **Order list:** Pending (oldest first, amber after 2 days) / Delivered / Cancelled, search by order no., name, phone
+  or place, dates. The order page has the history and every version.
+- **Handling:** Change (saved as a new version), Mark delivered (optional note and Zoho invoice no.), Cancel (with a
+  reason; final), Undo delivered (owner only). If two people act at once, the second is told "just changed by …".
+- **Rates** (owner): unit and default rate per PlantOps product. **Customers:** name, phone, place, one per phone
+  number; the owner can **upload a CSV** (Google Sheets / Excel / Zoho) with a preview of new / unchanged / updated /
+  rejected rows before anything is saved.
+- **Alerts** (bell + phone): new order to the owner (and people ticked "Gets Order Capture alerts"); delivered to
+  whoever entered it; cancelled (bell).
+- **New role "Order desk".** Plant staff do **not** work in Order Capture (like Lab Records); give "Order desk" to
+  whoever takes orders. Nothing can be deleted.
+- **Launcher tile** "N pending · N pending over 2 days · N new today"; owner CSV export; support view with the owner's
+  "Support access" page; super_admin "Open Order Capture (read-only)".
+- **Behind the scenes:** the Indian-mobile phone rule is shared by Complaint Box and Order Capture (no change for
+  users).
+
+**Migrations:** platform `0014_order_capture.sql`; Order Capture `0001_order_capture.sql` (new schema and login: run
+`add-railway-module.sh … order_capture …` after the platform migration, see DEPLOY.md "Adding a module").
+**Deploy:** `platform`, `complaint-box` (shared phone code) and the new `order-capture` service (no volume). Lab
+Records, Document Store and Floor Stock unchanged.
+
 ## v0.12.0 — 2026-10-11 — Complaint Box
 
 **What's in it**

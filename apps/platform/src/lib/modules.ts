@@ -9,6 +9,7 @@ export const MODULES: Record<ModuleId, { label: string; icon: string; staff: str
   document_store: { label: "Document Store", icon: "📄", staff: "Licences & certificates" },
   floor_stock: { label: "Floor Stock", icon: "📦", staff: "Daily stock count", setup: { label: "⚙ Set up sections", path: "/setup" } },
   complaint_box: { label: "Complaint Box", icon: "📢", staff: "Log a complaint", setup: { label: "⚙ Item list", path: "/items" } },
+  order_capture: { label: "Order Capture", icon: "🧾", staff: "Take an order", setup: { label: "⚙ Rates", path: "/rates" } },
   preventive_mgmt: { label: "Preventive Mgmt", icon: "🛠️", staff: "Manage PM tasks" },
   amc: { label: "AMC", icon: "📑", staff: "Contracts & visits" },
   attendance_salary: { label: "Attendance & Salary", icon: "🗓️", staff: "Attendance & salary" },
