@@ -399,3 +399,17 @@ Twilio account with a sender per plant.
   broken settings, once per order, roles, 400 / 500 / unreachable / 24 h / sender removed, two senders at once,
   daily retry, database checks; guard tests include the new table.
 - **Not yet checked:** on screen (dev servers were down), and a real message through Twilio.
+
+### 2026-10-14 — Notes after an order is saved
+Asked by the owner 2026-10-14: the note typed with the order stays fixed; more notes can be added later.
+- **Who / when (owner's choice):** owner and Order desk (`add_note` in the access table), on an order in **any**
+  status (pending, delivered, cancelled). Plant staff and support read them, never add.
+- **Migration `0004_order_notes.sql`** (approved by the owner): `order_events.kind` also allows `'note'`, and a note
+  event needs text. Append-only like every event: no UPDATE / DELETE for `order_app`.
+- **Flow:** `POST /api/orders/<id>/notes` `{ text }` → `addNote` (`src/server/handling.ts`): cleaned like the first
+  note (≤ 300), one `note` event at the current version. Status / version don't move, so no 409; the 409 message of
+  a later stale action names the last real change, never a note's author.
+- **Screens:** "+ Add a note" on the order page; the amber Note box lists the first note and every added note with
+  who / when; History shows "Note by …". New order form: "More notes can be added to the order later."
+- **Notification:** `order_capture.note` "Note added to an order", bell only, owners + ticked people, not the author.
+- **Tests:** Order Capture 262 (+4).

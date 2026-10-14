@@ -17,6 +17,7 @@ const settle = async () => {
 const { POST: postOrder } = await import("@/app/api/orders/route");
 const { POST: postDeliver } = await import("@/app/api/orders/[id]/deliver/route");
 const { POST: postCancel } = await import("@/app/api/orders/[id]/cancel/route");
+const { POST: postNote } = await import("@/app/api/orders/[id]/notes/route");
 const { POST: cron } = await import("@/app/api/cron/daily/route");
 
 let platform: FakePlatform;
@@ -230,4 +231,27 @@ it("saving through the module never waits for the platform: a slow / failing pla
   expect(res.status).toBe(201);
   await settle();
   expect((await asOwner("select count(*)::int as n from order_capture.orders where tenant_id = $1", [p.tenantId])).rows[0]).toEqual({ n: 1 });
+});
+
+describe("4. note added after saving (bell): owners + ticked people, not whoever wrote it", () => {
+  it("one bell notification with the note and its author, no phone number", async () => {
+    const p = plant();
+    const o = await saveSample(p);
+    platform.notifications.length = 0;
+    signInAs(p.desk);
+    expect((await postNote(jsonReq("POST", "/x", { text: "paid cash\ncall first" }), ctx(o.id))).status).toBe(200);
+    await settle();
+    const [ev] = (await asOwner<{ id: string }>("select id from order_capture.order_events where order_id = $1 and kind = 'note'", [o.id])).rows;
+    expect(sent()).toEqual([
+      {
+        kind: "order_capture.note",
+        title: "Note on O-0001: Sri ram hotel",
+        body: "paid cash call first (by Atharv)",
+        link: `/o/${o.id}`,
+        level: "bell",
+        dedupe_key: `note:${o.id}:${ev!.id}`,
+        exclude_user_id: p.desk.userId,
+      },
+    ]);
+  });
 });

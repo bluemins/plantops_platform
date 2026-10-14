@@ -2,6 +2,7 @@
 // (the plant's owners + those ticked "Gets Order Capture alerts" + also_user_ids, each re-checked) and leaves out
 // whoever acted; these functions only write the text. None is urgent: each person can mute or downgrade them.
 //   1 new order (phone + bell; with the order note, shortened to fit)  ·  2 delivered: to whoever entered it only (bell)  ·  3 cancelled: + them (bell)
+//   4 note added after saving (bell)
 // The customer's phone number is never put in a notification (it would show on a lock screen).
 import type { NotificationInput } from "@plantops/types";
 import { productsText } from "@/lib/history";
@@ -60,6 +61,19 @@ export function cancelledNotification(user: OcUser, e: OrderEvent): Notification
     dedupe_key: `cancelled:${e.order_id}`,
     exclude_user_id: user.userId,
     also_user_ids: [e.entered_by],
+  };
+}
+
+/** 4. A note added after saving: owners + ticked people, not whoever wrote it. */
+export function noteNotification(user: OcUser, e: OrderEvent): NotificationInput {
+  return {
+    kind: "order_capture.note",
+    title: title(`Note on ${e.ref}: ${e.customer}`),
+    body: body(`${e.text ?? ""} (by ${user.name})`),
+    link: link(e.order_id),
+    level: "bell",
+    dedupe_key: `note:${e.order_id}:${e.event_id}`,
+    exclude_user_id: user.userId,
   };
 }
 

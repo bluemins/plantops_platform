@@ -3,7 +3,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { POST as changeRoute } from "@/app/api/orders/[id]/change/route";
 import { POST as deliverRoute } from "@/app/api/orders/[id]/deliver/route";
-import { cancelOrder, ChangeInput, changeOrder, DeliverInput, deliverOrder, getOrder, ReasonInput, undoDelivered } from "@/server/handling";
+import { addNote, cancelOrder, ChangeInput, changeOrder, DeliverInput, deliverOrder, getOrder, NoteInput, ReasonInput, undoDelivered } from "@/server/handling";
 import { createOrder, lookupCustomer, OrderInput } from "@/server/orders";
 import { SKUS, startFakePlatform, type FakePlatform } from "./fake-platform";
 import { asOwner, dbError, asApp, jsonReq, plant, refused, signInAs } from "./helpers";
@@ -242,5 +242,46 @@ describe("who may", () => {
     const o = await sample(a);
     expect(await refused(() => getOrder(b.owner, o.id))).toEqual({ status: 404, message: "Order not found" });
     expect((await refused(() => deliver(b.owner, o.id))).status).toBe(404);
+  });
+});
+
+describe("Notes after saving", () => {
+  const note = (u: U, id: string, text: string) => addNote(u, id, NoteInput.parse({ text }));
+
+  it("owner and Order desk add notes in any status; the first note, status and version stay; a stale action still gets 409 by the real changer", async () => {
+    const p = plant();
+    const o = await createOrder(p.desk, OrderInput.parse({ request_key: `note-${Date.now()}-${++k}`, customer: { phone: "9876543210", name: "Sri ram hotel", place: "bijepur" }, lines: [{ sku_id: b500.id, quantity: 1, rate: "90" }], note: "Gate 2" }));
+    await note(p.desk, o.id, "  call before coming  ");
+    await change(p.owner, o.id, 1, [{ sku_id: b500.id, quantity: 2, rate: "90" }]);
+    await note(p.owner, o.id, "customer asked for 2");
+    // the desk still holds version 1: 409 names the owner (who changed it), not a note's author
+    expect(await refused(() => deliver(p.desk, o.id))).toEqual({ status: 409, message: "This order was just changed by Sujata. Please reload." });
+    await deliver(p.desk, o.id, { version: 2 });
+    await note(p.desk, o.id, "paid cash");
+    const c = await sample(p, "9876500000");
+    await cancel(p.desk, c.id);
+    await note(p.owner, c.id, "will order again next week");
+
+    const d = await getOrder(p.staff, o.id); // plant staff read the notes too
+    expect([d.status, d.version, d.note]).toEqual(["delivered", 2, "Gate 2"]);
+    expect(d.events.filter((e) => e.kind === "note").map((e) => [e.text, e.by, e.version])).toEqual([
+      ["call before coming", "Atharv", 1],
+      ["customer asked for 2", "Sujata", 2],
+      ["paid cash", "Atharv", 2],
+    ]);
+    expect((await getOrder(p.owner, c.id)).events.at(-1)).toMatchObject({ kind: "note", text: "will order again next week" });
+  });
+
+  it("plant staff, support and a store keeper can't; an empty or too long note is refused; the database needs text too", async () => {
+    const p = plant();
+    const o = await sample(p);
+    expect(await refused(() => note(p.staff, o.id, "x"))).toEqual({ status: 403, message: "You can view orders only. Order desk or the owner does this." });
+    expect(await refused(() => note(p.support, o.id, "x"))).toEqual({ status: 403, message: "PlantOps support view is read-only" });
+    expect((await refused(() => note(p.keeper, o.id, "x"))).status).toBe(403);
+    expect(NoteInput.safeParse({ text: "   " }).success).toBe(false);
+    expect(NoteInput.safeParse({ text: "x".repeat(301) }).success).toBe(false);
+    expect(await refused(() => note(p.desk, crypto.randomUUID(), "x"))).toEqual({ status: 404, message: "Order not found" });
+    expect(await dbError(asApp(p.tenantId, `insert into order_capture.order_events (tenant_id, order_id, kind, version, text, created_by, created_by_name) values ('${p.tenantId}', '${o.id}', 'note', 1, '  ', gen_random_uuid(), 'x')`))).toMatch(/check constraint/);
+    expect(await counts(o.id)).toEqual({ lines: 2, events: 1 });
   });
 });

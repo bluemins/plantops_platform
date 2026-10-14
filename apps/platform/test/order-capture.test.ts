@@ -11,6 +11,7 @@ import { MODULES } from "@/lib/modules";
 import { asOwner, call, makePlant, makeStaff, type Handler } from "./helpers";
 
 const OC_SECRET = "order-module-test-secret";
+const STOCK_SECRET = "stock-module-test-secret";
 
 let A: Awaited<ReturnType<typeof makePlant>>;
 let desk: Awaited<ReturnType<typeof makeStaff>>;
@@ -25,6 +26,8 @@ const settings = async (cookie: string) =>
 
 beforeAll(async () => {
   await asOwner("update platform.modules set base_url = 'https://orders.example.test', client_secret_hash = $1 where id = 'order_capture'", [sha256(OC_SECRET)]);
+  // Floor Stock too (plant staff open it here): set up in this file, not left to whichever test file ran before
+  await asOwner("update platform.modules set base_url = 'https://stock.example.test', client_secret_hash = $1, status = 'active' where id = 'floor_stock'", [sha256(STOCK_SECRET)]);
   A = await makePlant({ modules: ["floor_stock", "order_capture"] });
   desk = await makeStaff(A, "desk", ["order_desk"]);
   general = await makeStaff(A, "general", ["plant_staff"]);
@@ -74,10 +77,10 @@ describe("alerts and notification settings", () => {
     expect((await tick(Q.adminCookie, off.userId, ["order_capture"])).status).toBe(400); // not switched on
   });
 
-  it("the settings page lists the three Order Capture kinds; delivered and cancelled are bell only, none urgent", async () => {
+  it("the settings page lists the four Order Capture kinds; delivered, cancelled and note are bell only, none urgent", async () => {
     const list = (await settings(desk.cookie)).filter((s) => s.kind.startsWith("order_capture."));
-    expect(list.map((s) => s.kind).sort()).toEqual(["order_capture.cancelled", "order_capture.delivered", "order_capture.new"]);
-    expect(list.filter((s) => s.bell_only).map((s) => s.kind).sort()).toEqual(["order_capture.cancelled", "order_capture.delivered"]);
+    expect(list.map((s) => s.kind).sort()).toEqual(["order_capture.cancelled", "order_capture.delivered", "order_capture.new", "order_capture.note"]);
+    expect(list.filter((s) => s.bell_only).map((s) => s.kind).sort()).toEqual(["order_capture.cancelled", "order_capture.delivered", "order_capture.note"]);
     expect(list.some((s) => s.urgent)).toBe(false);
     expect((await settings(desk.cookie)).every((s) => s.kind.startsWith("order_capture."))).toBe(true);
     expect((await settings(A.adminCookie)).some((s) => s.kind.startsWith("order_capture."))).toBe(true);

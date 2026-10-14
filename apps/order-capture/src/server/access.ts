@@ -18,6 +18,7 @@ export type Action =
   | "deliver" // Pending -> Delivered
   | "cancel" // Pending -> Cancelled, with a reason
   | "undo_delivered" // Delivered -> Pending, with a reason
+  | "add_note" // a note on a saved order, any status (owner 2026-10-14)
   | "rates" // set each product's unit and default rate
   | "view_rates" // see the Rates page (support: read-only)
   | "customer_upload" // CSV upload with preview
@@ -36,6 +37,7 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   deliver: ["owner", "desk"],
   cancel: ["owner", "desk"],
   undo_delivered: ["owner"],
+  add_note: ["owner", "desk"],
   rates: ["owner"],
   view_rates: ["owner", "support"],
   customer_upload: ["owner"],

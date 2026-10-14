@@ -6,7 +6,7 @@ export const oc = pgSchema("order_capture");
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 
 export type OrderStatus = "pending" | "delivered" | "cancelled";
-export type EventKind = "created" | "changed" | "delivered" | "undelivered" | "cancelled";
+export type EventKind = "created" | "changed" | "delivered" | "undelivered" | "cancelled" | "note";
 
 export const productRates = oc.table("product_rates", {
   id: uuid("id").primaryKey().defaultRandom(),

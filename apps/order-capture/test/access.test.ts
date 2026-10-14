@@ -18,6 +18,7 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["deliver", true, true, false, false, false],
   ["cancel", true, true, false, false, false],
   ["undo_delivered", true, false, false, false, false],
+  ["add_note", true, true, false, false, false],
   ["rates", true, false, false, false, false],
   ["view_rates", true, false, false, false, true],
   ["customer_upload", true, false, false, false, false],

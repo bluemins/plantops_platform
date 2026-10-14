@@ -4,6 +4,18 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.16.0 — 2026-10-14 — Order Capture: notes after an order is saved
+
+**What's in it**
+- **"+ Add a note"** on the order page, for the owner and Order desk, on any order (pending, delivered or
+  cancelled). Up to 300 characters; never changed or removed afterwards.
+- The note typed with the order stays fixed; the yellow Note box lists it with every added note (who and when).
+  History shows "Note by …". Plant staff and PlantOps support read notes but can't add them.
+- New notification **"Note added to an order"** (bell only) to the owners and people ticked for Order Capture alerts,
+  not the person who wrote it.
+
+**Migrations:** Order Capture `0004_order_notes.sql` (order history accepts a "note" entry; no new table).
+
 ## v0.15.0 — 2026-10-14 — Order Capture: WhatsApp thank-you to the customer on "Delivered"
 
 **What's in it**

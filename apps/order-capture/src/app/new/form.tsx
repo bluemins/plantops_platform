@@ -196,7 +196,7 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
-        <span className="block text-sm text-slate-500">Can't be changed after saving.</span>
+        <span className="block text-sm text-slate-500">Can't be changed after saving. More notes can be added to the order later.</span>
       </label>
 
       <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white px-4 pt-3 pb-4">

@@ -11,6 +11,7 @@ import { requirePageUser } from "@/server/session";
 import { Header } from "../../header";
 import { BackLink, PhoneLink, StatusBadge } from "../../parts";
 import { OrderActions } from "./actions";
+import { AddNote } from "./add-note";
 
 type Params = Promise<{ id: string }>;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -28,6 +29,8 @@ export default async function OrderPage({ params }: { params: Params }) {
     cancel: pending && can(user, "cancel"),
     undo: o.status === "delivered" && can(user, "undo_delivered"),
   };
+  // the note typed with the order, then every note added since (oldest first)
+  const notes = o.events.filter((e) => e.kind === "note");
 
   // newest first; the WhatsApp thank-you sits at the time it was sent (or asked for)
   const m = o.thanks.message;
@@ -51,10 +54,18 @@ export default async function OrderPage({ params }: { params: Params }) {
         <p className="pt-1">
           <PhoneLink phone={o.customer.phone} plain={user.isSupport} prefix="Call +91 " />
         </p>
-        {o.note && (
-          <div className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-amber-950">
-            <p className="text-sm font-semibold">Note</p>
-            <p className="whitespace-pre-line break-words">{o.note}</p>
+        {(o.note || notes.length > 0) && (
+          <div className="mt-2 space-y-2 rounded-lg bg-amber-50 px-3 py-2 text-amber-950">
+            <p className="text-sm font-semibold">{o.note && notes.length === 0 ? "Note" : "Notes"}</p>
+            {o.note && <p className="whitespace-pre-line break-words">{o.note}</p>}
+            {notes.map((n, i) => (
+              <div key={i} className={o.note || i > 0 ? "border-t border-amber-200 pt-2" : ""}>
+                <p className="whitespace-pre-line break-words">{n.text}</p>
+                <p className="text-xs text-amber-800">
+                  {n.by} · {fmtDateTime(n.at)}
+                </p>
+              </div>
+            ))}
           </div>
         )}
       </Card>
@@ -112,6 +123,8 @@ export default async function OrderPage({ params }: { params: Params }) {
         may={may}
         thanks={{ available: o.thanks.available, already: o.thanks.message ? (o.thanks.message.sent_at ?? o.thanks.message.at) : null, name: o.customer.name, phone: o.customer.phone }}
       />
+
+      {can(user, "add_note") && <AddNote orderId={o.id} />}
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold">History</h2>

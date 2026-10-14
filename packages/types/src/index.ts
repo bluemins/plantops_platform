@@ -241,6 +241,7 @@ export const NOTIFICATION_KINDS: Record<string, { module: ModuleId | null; label
   "order_capture.new": { module: "order_capture", label: "New order" },
   "order_capture.delivered": { module: "order_capture", label: "Your order delivered", bellOnly: true },
   "order_capture.cancelled": { module: "order_capture", label: "Order cancelled", bellOnly: true },
+  "order_capture.note": { module: "order_capture", label: "Note added to an order", bellOnly: true },
   "platform.user_locked": { module: null, label: "Someone locked out", urgent: true },
   "platform.support_opened": { module: null, label: "PlantOps support viewed your data", bellOnly: true },
   "platform.module_on": { module: null, label: "Module switched on" },

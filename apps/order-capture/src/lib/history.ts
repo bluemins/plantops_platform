@@ -59,7 +59,7 @@ export function versionDiff(before: LineView[], after: LineView[], totalBefore: 
   return parts.join(" · ");
 }
 
-export type EventKind = "created" | "changed" | "delivered" | "undelivered" | "cancelled";
+export type EventKind = "created" | "changed" | "delivered" | "undelivered" | "cancelled" | "note";
 export interface EventView {
   kind: EventKind;
   version: number;
@@ -96,6 +96,8 @@ export function eventText(e: EventView, versions: VersionView[]): { title: strin
       return { title: `Delivery undone by ${e.by}`, detail: e.text ?? "" };
     case "cancelled":
       return { title: `Cancelled by ${e.by}`, detail: e.text ?? "" };
+    case "note":
+      return { title: `Note by ${e.by}`, detail: e.text ?? "" };
   }
 }
 

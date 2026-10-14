@@ -7,12 +7,14 @@
 //     status / version are written in that same transaction
 //   * only a Pending order can be changed, delivered or cancelled; Cancelled is final; Delivered changes only through
 //     the owner's Undo (back to Pending, with a reason)
+//   * a note (owner and Order desk) can be added to an order in any status; it only adds a history event
 //   * nothing is deleted: old line versions and every event stay (the database allows no UPDATE / DELETE on them)
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { productLabel } from "@plantops/module-kit";
 import { withoutAmounts, type EventKind, type EventView, type LineView, type VersionView } from "@/lib/history";
 import { fromPaise, lineTotal, toPaise } from "@/lib/money";
+import { cleanNote, NOTE_MAX } from "@/lib/note";
 import { formatRef } from "@/lib/ref";
 import { can, requireAccess, type Action } from "./access";
 import { schema, withTenant, type OcTx } from "./db";
@@ -37,6 +39,13 @@ export const DeliverInput = z.object({
   send_thanks: z.boolean().optional(),
 });
 export const ReasonInput = z.object({ expected: Expected, reason: Reason });
+/** A note added after saving: cleaned like the note typed with the order (src/lib/note.ts), but required. */
+export const NoteInput = z.object({
+  text: z
+    .string()
+    .transform((s) => cleanNote(s) ?? "")
+    .pipe(z.string().min(1, "Please write the note").max(NOTE_MAX, `A note has at most ${NOTE_MAX} characters`)),
+});
 
 const STATUS_WORD: Record<OrderStatus, string> = { pending: "pending", delivered: "already delivered", cancelled: "cancelled" };
 
@@ -117,7 +126,8 @@ async function lockAsSeen(tx: OcTx, user: OcUser, id: string, expected: z.infer<
   const [o] = await tx.select().from(orders).where(and(eq(orders.tenantId, user.tenantId), eq(orders.id, id))).for("update");
   if (!o) throw notFound("Order not found");
   if (o.status !== expected.status || o.version !== expected.version) {
-    const [last] = await tx.select({ by: orderEvents.createdByName }).from(orderEvents).where(and(eq(orderEvents.tenantId, user.tenantId), eq(orderEvents.orderId, id))).orderBy(desc(orderEvents.createdAt), desc(orderEvents.id)).limit(1);
+    // a note changes neither status nor version, so it is never the change meant here
+    const [last] = await tx.select({ by: orderEvents.createdByName }).from(orderEvents).where(and(eq(orderEvents.tenantId, user.tenantId), eq(orderEvents.orderId, id), ne(orderEvents.kind, "note"))).orderBy(desc(orderEvents.createdAt), desc(orderEvents.id)).limit(1);
     throw conflict(`This order was just changed by ${last?.by ?? "someone else"}. Please reload.`);
   }
   if (o.status !== allowed) throw conflict(`${formatRef(o.refNo)} is ${STATUS_WORD[o.status]}, so this can't be done.`);
@@ -231,5 +241,19 @@ export async function undoDelivered(user: OcUser, id: string, input: z.infer<typ
       .where(and(eq(orders.tenantId, user.tenantId), eq(orders.id, id)));
     await event(tx, user, id, "undelivered", o.version, input.reason);
     return { status: "pending" as const };
+  });
+}
+
+// ---------- a note after saving ----------
+/**
+ * Owner and Order desk, on an order in any status (owner 2026-10-14). Only adds a history event: the status, version
+ * and the note typed with the order stay as they are, so it needs no "as seen" check and never answers 409.
+ */
+export async function addNote(user: OcUser, id: string, input: z.infer<typeof NoteInput>) {
+  return act(user, "add_note", async (tx) => {
+    const [o] = await tx.select().from(orders).where(and(eq(orders.tenantId, user.tenantId), eq(orders.id, id)));
+    if (!o) throw notFound("Order not found");
+    const eventId = await event(tx, user, id, "note", o.version, input.text);
+    return { event: eventOf(o, eventId, input.text) };
   });
 }
