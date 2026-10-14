@@ -10,6 +10,7 @@ import type { OrderEvent } from "./handling";
 import { kit } from "./kit";
 import type { SavedOrder } from "./orders";
 import type { OcUser } from "./session";
+import { retryThanks } from "./thanks";
 
 const TITLE_MAX = 80;
 const BODY_MAX = 300;
@@ -62,7 +63,7 @@ export function cancelledNotification(user: OcUser, e: OrderEvent): Notification
   };
 }
 
-/** The daily job: resend what waited in the outbox (no scheduled notifications in v1). */
+/** The daily job: resend what waited in the outbox (no scheduled notifications in v1) and waiting WhatsApp thank-yous. */
 export async function runDaily() {
-  return { outbox: await kit.retryOutbox() };
+  return { outbox: await kit.retryOutbox(), whatsapp_thanks: await retryThanks() };
 }

@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import { Button, ErrorText } from "@plantops/ui";
+import { fmtDateTime } from "@plantops/module-kit/format";
 import { api } from "@/lib/api";
 
 type Order = { id: string; ref: string; status: "pending" | "delivered" | "cancelled"; version: number; summary: string };
 type May = { deliver: boolean; change: boolean; cancel: boolean; undo: boolean };
 type Open = "deliver" | "cancel" | "undo" | null;
+/** The WhatsApp thank-you: offered when the plant has a Twilio sender; `already` = this order had one (never twice). */
+type Thanks = { available: boolean; already: string | null; name: string; phone: string };
 
 const area = "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)";
 const input = "min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-base focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)";
@@ -16,10 +19,12 @@ const input = "min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 
  * action sends the status and version the page showed, so a change made meanwhile by someone else answers
  * "This order was just changed by …".
  */
-export function OrderActions({ order, may }: { order: Order; may: May }) {
+export function OrderActions({ order, may, thanks }: { order: Order; may: May; thanks: Thanks }) {
   const [open, setOpen] = useState<Open>(null);
   const [note, setNote] = useState("");
   const [invoice, setInvoice] = useState("");
+  const offerThanks = thanks.available && !thanks.already;
+  const [sendThanks, setSendThanks] = useState(true);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -54,8 +59,21 @@ export function OrderActions({ order, may }: { order: Order; may: May }) {
           Zoho invoice no. <span className="font-normal text-slate-500">(optional)</span>
           <input className={`${input} mt-1`} maxLength={40} placeholder="e.g. INV-001234" value={invoice} onChange={(e) => setInvoice(e.target.value)} />
         </label>
+        {offerThanks && (
+          <label className="flex min-h-12 items-start gap-3 rounded-xl border border-green-200 bg-green-50 px-3 py-3 text-green-950">
+            <input type="checkbox" className="mt-0.5 size-6 shrink-0 accent-green-700" checked={sendThanks} onChange={(e) => setSendThanks(e.target.checked)} />
+            <span>
+              <span className="font-semibold">Send a WhatsApp thank-you</span> to <span className="break-words">{thanks.name}</span> (+91 {thanks.phone.slice(0, 5)} {thanks.phone.slice(5)})
+            </span>
+          </label>
+        )}
+        {thanks.available && thanks.already && <p className="text-sm text-slate-600">This order already had its WhatsApp thank-you ({fmtDateTime(thanks.already)}, see History). It is never sent twice.</p>}
         <ErrorText>{error}</ErrorText>
-        <Button className="w-full min-h-14 text-lg" disabled={busy} onClick={() => send("deliver", { note: note.trim() || undefined, invoice_no: invoice.trim() || undefined })}>
+        <Button
+          className="w-full min-h-14 text-lg"
+          disabled={busy}
+          onClick={() => send("deliver", { note: note.trim() || undefined, invoice_no: invoice.trim() || undefined, ...(offerThanks && sendThanks ? { send_thanks: true } : {}) })}
+        >
           {busy ? "Saving…" : "Delivered"}
         </Button>
         <Button variant="secondary" className="w-full" onClick={close}>

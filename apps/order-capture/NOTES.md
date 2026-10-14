@@ -374,3 +374,28 @@ Asked by the owner 2026-10-14; mock-ups approved the same day.
 - No database change; the SSO token is unchanged.
 - **Tests:** Order Capture 243 (+11): access table with the plant-staff column, no amounts in the list / order /
   history, the WhatsApp text with and without amounts, the IST date.
+
+### 2026-10-14 — WhatsApp thank-you to the customer on "Delivered" (v0.15.0)
+Asked by the owner 2026-10-14: fully automatic through the owner's existing **Twilio** WhatsApp account, a tick box
+ticked by default, feedback = "reply to this message" (replies reach the Twilio number, outside PlantOps), one
+Twilio account with a sender per plant.
+- **Config (environment, `order-capture` only):** `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
+  `TWILIO_WHATSAPP_SENDERS` = `{"<plant id>": {"from": "whatsapp:+91…" | "MG…", "content_sid": "HX…"}}`. The
+  template's `{{1}}` gets the customer's name. A plant not listed, missing or broken settings = no tick box (broken
+  JSON is logged, never thrown). `TWILIO_API_URL` only for tests.
+- **Migration `0003_customer_messages.sql`** (approved by the owner): `customer_messages` with `tenant_id` + FORCE
+  RLS, FK to the order, **unique per order + kind** (one thank-you per order ever), `sent` ⇔ `sent_at`, Indian mobile
+  check. `order_app`: SELECT / INSERT, UPDATE only on status / provider_sid / error / attempts / sent_at; no DELETE.
+  `message_tenants()` (plant ids only) for the daily job.
+- **Flow** (`src/server/thanks.ts`): `deliverOrder` writes the `pending` row in the delivery's transaction
+  (`send_thanks: true`; 400 if the plant has no sender, 403 first for people who can't deliver); the deliver route
+  sends it in `after()`. Each row is locked while sent (`for update skip locked`), so the route and the daily job
+  never send it twice. Twilio 4xx → `failed` with Twilio's reason (not retried); 5xx / 429 / unreachable → stays
+  `pending`; `runDaily` retries; `failed` after 3 tries or 24 h. Sender removed meanwhile → `failed`.
+- **Screens:** the tick box in the deliver panel (with the customer's name and number); "This order already had its
+  WhatsApp thank-you" instead when it had one; a History line (`thanksText` in `src/lib/history.ts`) for everyone
+  who reads the order.
+- **Tests:** Order Capture 258 (+15): fake Twilio (form fields, Basic auth, Messaging Service), unticked, no sender,
+  broken settings, once per order, roles, 400 / 500 / unreachable / 24 h / sender removed, two senders at once,
+  daily retry, database checks; guard tests include the new table.
+- **Not yet checked:** on screen (dev servers were down), and a real message through Twilio.

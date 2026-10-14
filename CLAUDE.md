@@ -1294,3 +1294,18 @@ Asked by the owner 2026-10-14; mock-ups approved the same day. No database chang
 - **Tests:** Order Capture 243 (+11), platform 294 (+13), auth 50 (+1).
 
 **Not yet verified:** on screen with real logins (pending); not deployed.
+
+### 2026-10-14 — Order Capture: WhatsApp thank-you on "Delivered" via Twilio (v0.15.0)
+Asked by the owner 2026-10-14; plan `/home/rocky/.claude/plans/cozy-snuggling-pearl.md`, details
+`apps/order-capture/NOTES.md`.
+- "Mark delivered" panel: tick box (ticked by default) "Send a WhatsApp thank-you to <customer>". PlantOps sends the
+  plant's approved Twilio template (`{{1}}` = customer name) after the answer; replies go to the Twilio number.
+  Once per order ever; status in the order's History; daily job retries (3 tries / 24 h).
+- Config on `order-capture` only: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_SENDERS` (per plant
+  id: sender + template SID). Plants not listed have no tick box.
+- **Schema (approved by the owner):** Order Capture migration `0003_customer_messages.sql`, one new table with
+  FORCE RLS, no DELETE. Platform and SSO token unchanged.
+- **Tests:** Order Capture 258 (+15). Typecheck and build pass.
+
+**Not yet verified:** on screen; a real Twilio message (set the three variables, deliver an order to your own number).
+Not deployed (v0.14.0 isn't either).

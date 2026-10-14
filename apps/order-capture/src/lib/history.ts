@@ -98,3 +98,15 @@ export function eventText(e: EventView, versions: VersionView[]): { title: strin
       return { title: `Cancelled by ${e.by}`, detail: e.text ?? "" };
   }
 }
+
+/** The WhatsApp thank-you's history line (src/server/thanks.ts). */
+export function thanksText(m: { status: "pending" | "sent" | "failed"; error: string | null; by: string }): { title: string; detail: string } {
+  switch (m.status) {
+    case "sent":
+      return { title: "WhatsApp thank-you sent", detail: `Ticked by ${m.by}` };
+    case "pending":
+      return { title: "WhatsApp thank-you waiting to send", detail: m.error ? `Will try again: ${m.error}` : `Ticked by ${m.by}` };
+    case "failed":
+      return { title: "WhatsApp thank-you not sent", detail: m.error ?? "" };
+  }
+}

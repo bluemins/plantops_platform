@@ -4,6 +4,21 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.15.0 — 2026-10-14 — Order Capture: WhatsApp thank-you to the customer on "Delivered"
+
+**What's in it**
+- The **"Mark delivered"** panel has a tick box, **ticked by default**: "Send a WhatsApp thank-you to <customer>
+  (+91 …)". When the order is saved as delivered, PlantOps sends the plant's approved Twilio WhatsApp template to the
+  customer, with their name in it. The customer's reply goes to the plant's Twilio number.
+- The order's **History** shows "WhatsApp thank-you sent", "… waiting to send" or "… not sent: <Twilio's reason>".
+- **Once per order:** after Undo delivered + Delivered again, nothing more is sent.
+- A delivery never waits for or fails because of WhatsApp. If Twilio can't be reached, the daily job tries again
+  (at most 3 tries, within 24 hours).
+- Only plants listed in `TWILIO_WHATSAPP_SENDERS` see the tick box (settings on `order-capture`: `TWILIO_ACCOUNT_SID`,
+  `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_SENDERS`; docs/DEPLOY.md "Good to know").
+
+**Migrations:** Order Capture `0003_customer_messages.sql` (one new table; no existing table changed).
+
 ## v0.13.3 — 2026-10-13 — The installed app shows the plant's logo and name
 
 **What's in it**

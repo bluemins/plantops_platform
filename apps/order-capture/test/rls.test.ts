@@ -50,10 +50,20 @@ describe("row-level security", () => {
     expect(await dbError(asApp(b.tenantId, `insert into order_capture.orders (tenant_id, ref_no, request_key, customer_id, customer_name, customer_phone, customer_place, total, entered_by, entered_by_name) values ('${b.tenantId}', 1, 'key-cross-plant', '${ids.customer}', 'Sri ram hotel', '9876543210', 'bijepur', 0, gen_random_uuid(), 'x')`))).toMatch(/foreign key/);
   });
 
-  it("the outbox plant list gives plant ids only", async () => {
+  it("the outbox and WhatsApp plant lists give plant ids only", async () => {
     const a = plant();
     await seedPlant(a.tenantId);
     const outbox = await orderDb().execute<{ id: string }>(sql`select t as id from order_capture.outbox_tenants() t`);
     expect(outbox.rows.map((r) => r.id)).toContain(a.tenantId);
+    const thanks = await orderDb().execute<{ id: string }>(sql`select t as id from order_capture.message_tenants() t`);
+    expect(thanks.rows.map((r) => r.id)).toContain(a.tenantId);
+  });
+
+  it("plant B can't hang a WhatsApp thank-you on plant A's order", async () => {
+    const a = plant();
+    const ids = await seedPlant(a.tenantId);
+    const b = plant();
+    expect(await dbError(asApp(b.tenantId, `insert into order_capture.customer_messages (tenant_id, order_id, kind, to_phone, requested_by, requested_by_name) values ('${b.tenantId}', '${ids.order}', 'delivery_thanks', '9876543210', gen_random_uuid(), 'x')`))).toMatch(/foreign key/);
+    expect((await asApp(b.tenantId, `update order_capture.customer_messages set status = 'failed' where id = '${ids.message}'`)).rowCount).toBe(0);
   });
 });

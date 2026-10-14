@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Card } from "@plantops/ui";
 import { fmtDateTime } from "@plantops/module-kit/format";
-import { eventText } from "@/lib/history";
+import { eventText, thanksText } from "@/lib/history";
 import { money } from "@/lib/money";
 import { can } from "@/server/access";
 import { getOrder } from "@/server/handling";
@@ -28,6 +28,13 @@ export default async function OrderPage({ params }: { params: Params }) {
     cancel: pending && can(user, "cancel"),
     undo: o.status === "delivered" && can(user, "undo_delivered"),
   };
+
+  // newest first; the WhatsApp thank-you sits at the time it was sent (or asked for)
+  const m = o.thanks.message;
+  const history = [
+    ...(m ? [{ ...thanksText(m), at: m.sent_at ?? m.at }] : []),
+    ...[...o.events].reverse().map((e) => ({ ...eventText(e, o.versions), at: e.at })),
+  ].sort((x, y) => y.at.localeCompare(x.at));
 
   return (
     <div className="space-y-5 pb-8">
@@ -103,23 +110,21 @@ export default async function OrderPage({ params }: { params: Params }) {
       <OrderActions
         order={{ id: o.id, ref: o.ref, status: o.status, version: o.version, summary: o.lines.map((l) => `${l.product} ${l.quantity.toLocaleString("en-IN")} ${l.unit}`).join(", ") }}
         may={may}
+        thanks={{ available: o.thanks.available, already: o.thanks.message ? (o.thanks.message.sent_at ?? o.thanks.message.at) : null, name: o.customer.name, phone: o.customer.phone }}
       />
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold">History</h2>
         <Card className="p-4">
           <ul className="space-y-3">
-            {[...o.events].reverse().map((e, i) => {
-              const t = eventText(e, o.versions);
-              return (
-                <li key={i} className="text-sm">
-                  <p className="font-semibold">
-                    {t.title} · {fmtDateTime(e.at)}
-                  </p>
-                  {t.detail && <p className="text-slate-600 break-words">{t.detail}</p>}
-                </li>
-              );
-            })}
+            {history.map((t, i) => (
+              <li key={i} className="text-sm">
+                <p className="font-semibold">
+                  {t.title} · {fmtDateTime(t.at)}
+                </p>
+                {t.detail && <p className="text-slate-600 break-words">{t.detail}</p>}
+              </li>
+            ))}
           </ul>
         </Card>
         {o.versions.length > 1 && (

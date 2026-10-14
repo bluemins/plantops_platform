@@ -209,6 +209,10 @@ Migrations stay; the older code works with them because they are backward-compat
 - **Email and WhatsApp** stay off until set up. Add `BREVO_API_KEY` + `MAIL_FROM` to `document-store` and `floor-stock` (Railway Hobby blocks
   SMTP; `SMTP_*` only on hosts that allow it) and the
   `WHATSAPP_*` settings to `lab-records` (see `.env.example`). Until then the apps show "not set up yet".
+- **Order Capture WhatsApp thank-you (Twilio).** On `order-capture` only: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`
+  and `TWILIO_WHATSAPP_SENDERS` (JSON keyed by the plant's id: `select id, code, name from platform.tenants;`, see
+  `.env.example`). Without them, or for a plant not listed, the "Delivered" panel has no tick box.
+  Test: deliver an order whose customer phone is your own; the order's History says "WhatsApp thank-you sent".
 - **Changing a secret.**
   - Module client secret: super_admin → Modules → new secret, then update `MODULE_SECRET_*` on that
     service and in `.env.railway.<copy>`.

@@ -113,3 +113,22 @@ export const notificationOutbox = oc.table("notification_outbox", {
   sentAt: ts("sent_at"),
   givenUpAt: ts("given_up_at"),
 });
+
+export type MessageStatus = "pending" | "sent" | "failed";
+
+/** WhatsApp thank-you on "Delivered" (migration 0003): one per order, sent through Twilio. */
+export const customerMessages = oc.table("customer_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  orderId: uuid("order_id").notNull(),
+  kind: text("kind").$type<"delivery_thanks">().notNull(),
+  toPhone: text("to_phone").notNull(),
+  status: text("status").$type<MessageStatus>().notNull().default("pending"),
+  providerSid: text("provider_sid"),
+  error: text("error"),
+  attempts: integer("attempts").notNull().default(0),
+  requestedBy: uuid("requested_by").notNull(),
+  requestedByName: text("requested_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  sentAt: ts("sent_at"),
+});

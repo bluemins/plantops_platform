@@ -21,6 +21,7 @@ import { LinesInput } from "./orders";
 import { activeProducts, effectiveRates } from "./rates";
 import type { OrderStatus } from "./schema";
 import type { OcUser } from "./session";
+import { queueThanks, senderFor, thanksOf, type ThanksView } from "./thanks";
 
 const { orders, orderLines, orderEvents } = schema;
 
@@ -32,6 +33,8 @@ export const DeliverInput = z.object({
   expected: Expected,
   note: z.string().trim().max(300, "A delivery note has at most 300 characters").optional(),
   invoice_no: z.string().trim().max(40, "An invoice number has at most 40 characters").optional(),
+  /** the "Send a WhatsApp thank-you" tick box (src/server/thanks.ts) */
+  send_thanks: z.boolean().optional(),
 });
 export const ReasonInput = z.object({ expected: Expected, reason: Reason });
 
@@ -56,6 +59,8 @@ export interface OrderDetail {
   versions: VersionView[];
   /** oldest first */
   events: EventView[];
+  /** the WhatsApp thank-you on "Delivered" */
+  thanks: ThanksView;
 }
 
 async function versionsOf(tx: OcTx, tenantId: string, orderId: string): Promise<VersionView[]> {
@@ -98,6 +103,7 @@ export async function getOrder(user: OcUser, id: string): Promise<OrderDetail> {
       delivered: o.deliveredAt ? { by: o.deliveredByName!, at: o.deliveredAt.toISOString(), note: o.deliveryNote, invoice_no: o.invoiceNo } : null,
       versions,
       events: events.map((e) => ({ kind: e.kind as EventKind, version: e.version, text: e.text, invoice_no: e.invoiceNo, by: e.createdByName, at: e.createdAt.toISOString() })),
+      thanks: await thanksOf(tx, user.tenantId, id),
     };
   });
 }
@@ -183,7 +189,13 @@ export async function changeOrder(user: OcUser, id: string, input: z.infer<typeo
 }
 
 // ---------- Mark delivered / Cancel / Undo delivered ----------
+/**
+ * With `send_thanks`, the WhatsApp thank-you is queued in the same transaction (once per order ever: a second
+ * delivery after Undo sends nothing); the route sends it after the answer. `thanks_queued` says whether one was.
+ */
 export async function deliverOrder(user: OcUser, id: string, input: z.infer<typeof DeliverInput>) {
+  if (input.send_thanks) requireAccess(user, "deliver");
+  if (input.send_thanks && !senderFor(user.tenantId)) throw badRequest("WhatsApp isn't set up for this plant. Untick the thank-you and try again.");
   return act(user, "deliver", async (tx) => {
     const o = await lockAsSeen(tx, user, id, input.expected, "pending");
     const note = input.note || null;
@@ -194,7 +206,8 @@ export async function deliverOrder(user: OcUser, id: string, input: z.infer<type
       .set({ status: "delivered", statusChangedAt: now, deliveredBy: user.userId, deliveredByName: user.name, deliveredAt: now, deliveryNote: note, invoiceNo: invoice })
       .where(and(eq(orders.tenantId, user.tenantId), eq(orders.id, id)));
     const eventId = await event(tx, user, id, "delivered", o.version, note, invoice);
-    return { status: "delivered" as const, event: eventOf(o, eventId, note) };
+    const thanksQueued = input.send_thanks ? await queueThanks(tx, user, id, o.customerPhone) : false;
+    return { status: "delivered" as const, event: eventOf(o, eventId, note), thanks_queued: thanksQueued };
   });
 }
 

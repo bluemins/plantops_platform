@@ -67,7 +67,7 @@ export async function refused(fn: () => unknown): Promise<{ status: number; mess
 /**
  * One plant's sample rows in every table, inserted as the app (so the grants are exercised too): a product rate, a
  * customer, an order O-0001 (500ml 1 box @ 90 + 1ltr 3 box @ 140 = 510), its lines and "created" event, a support
- * view, an audit row and an outbox row. Returns their ids.
+ * view, an audit row, an outbox row and a pending WhatsApp thank-you. Returns their ids.
  */
 export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210") {
   const who = randomUUID();
@@ -86,11 +86,13 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
   await asApp(tenantId, `insert into order_capture.support_views (tenant_id, super_admin_id, super_admin_name, path) values ('${tenantId}', '${who}', 'PlantOps support', '/')`);
   await asApp(tenantId, `insert into order_capture.audit_log (tenant_id, actor, action) values ('${tenantId}', 'user:${who}', 'rate.set')`);
   const outbox = await one(`insert into order_capture.notification_outbox (tenant_id, input) values ('${tenantId}', '{}') returning id`);
-  return { who, sku500, sku1l, rate, customer, order, line, event, outbox };
+  const message = await one(`insert into order_capture.customer_messages (tenant_id, order_id, kind, to_phone, requested_by, requested_by_name)
+    values ('${tenantId}', '${order}', 'delivery_thanks', '${phone}', '${who}', 'Atharv') returning id`);
+  return { who, sku500, sku1l, rate, customer, order, line, event, outbox, message };
 }
 
 /** The tables in the order_capture schema (the guard tests compare against this list). */
-export const TABLES = ["audit_log", "customers", "notification_outbox", "order_events", "order_lines", "orders", "product_rates", "support_views"];
+export const TABLES = ["audit_log", "customer_messages", "customers", "notification_outbox", "order_events", "order_lines", "orders", "product_rates", "support_views"];
 
 /**
  * Calls an API route as `user` (owner, Order desk, support...), the way the proxy and the kit's session cookie would

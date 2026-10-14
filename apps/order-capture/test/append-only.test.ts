@@ -75,12 +75,20 @@ describe("append-only for order_app", () => {
       `update order_capture.notification_outbox set input = '{}' where id = '${ids.outbox}'`,
       `update order_capture.notification_outbox set tenant_id = gen_random_uuid() where id = '${ids.outbox}'`,
       `update order_capture.notification_outbox set created_at = now() where id = '${ids.outbox}'`,
+      // WhatsApp thank-you: who, which order and which number are fixed; only the sending columns move
+      `update order_capture.customer_messages set to_phone = '9000000000' where id = '${ids.message}'`,
+      `update order_capture.customer_messages set order_id = '${ids.order}' where id = '${ids.message}'`,
+      `update order_capture.customer_messages set kind = 'delivery_thanks' where id = '${ids.message}'`,
+      `update order_capture.customer_messages set requested_by = gen_random_uuid() where id = '${ids.message}'`,
+      `update order_capture.customer_messages set requested_by_name = 'X' where id = '${ids.message}'`,
+      `update order_capture.customer_messages set created_at = now() where id = '${ids.message}'`,
+      `update order_capture.customer_messages set tenant_id = gen_random_uuid() where id = '${ids.message}'`,
     ];
   };
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(60);
+    expect(list.length).toBe(69);
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 
@@ -95,6 +103,7 @@ describe("append-only for order_app", () => {
       (await asApp(t, `update order_capture.orders set status = 'pending', delivered_by = null, delivered_by_name = null, delivered_at = null, delivery_note = null, invoice_no = null where id = '${ids.order}'`)).rowCount,
     ).toBe(1);
     expect((await asApp(t, `update order_capture.notification_outbox set attempts = 1, last_error = 'x', sent_at = now() where id = '${ids.outbox}'`)).rowCount).toBe(1);
+    expect((await asApp(t, `update order_capture.customer_messages set status = 'sent', provider_sid = 'SM123', error = null, attempts = 1, sent_at = now() where id = '${ids.message}'`)).rowCount).toBe(1);
   });
 });
 

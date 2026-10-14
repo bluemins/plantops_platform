@@ -218,7 +218,7 @@ describe("the daily job's secret", () => {
     expect((await call("cron-test-secreT")).status).toBe(401);
     expect((await call("short")).status).toBe(401);
     const ok = await call("cron-test-secret");
-    expect([ok.status, Object.keys(await ok.json())]).toEqual([200, ["outbox"]]);
+    expect([ok.status, Object.keys(await ok.json())]).toEqual([200, ["outbox", "whatsapp_thanks"]]);
   });
 });
 

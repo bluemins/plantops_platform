@@ -27,4 +27,19 @@ export const env = {
   get cronSecret() {
     return process.env.CRON_SECRET ?? "";
   },
+  /** WhatsApp thank-you on "Delivered" (src/server/thanks.ts): the Twilio account; off without both. */
+  get twilioAccountSid() {
+    return process.env.TWILIO_ACCOUNT_SID ?? "";
+  },
+  get twilioAuthToken() {
+    return process.env.TWILIO_AUTH_TOKEN ?? "";
+  },
+  /** JSON {"<plant id>": {"from": "whatsapp:+91…", "content_sid": "HX…"}}; a plant not listed has no tick box. */
+  get twilioWhatsappSenders() {
+    return process.env.TWILIO_WHATSAPP_SENDERS ?? "";
+  },
+  /** only tests change it (a fake Twilio) */
+  get twilioApiUrl() {
+    return process.env.TWILIO_API_URL ?? "https://api.twilio.com";
+  },
 };
