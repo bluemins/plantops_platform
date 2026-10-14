@@ -25,7 +25,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | WhatsApp | not set up (waiting for Meta approval) |
 | File storage | Railway volume (move to S3-compatible storage + backups before real plant documents) |
 | Backups | nightly 02:00 IST, encrypted (`age`), to Cloudflare R2 bucket `plantops-backup` (`backup.yml`): database dump (30 days, read-only login `plantops_backup`) + Document Store files. Private key in the password manager. Practice restore done 2026-10-11 |
-| Runs release | v0.14.0 (`production` = commit `e09f10b`) |
+| Runs release | v0.16.0 (`production` = commit `4a0a749`) |
 
 ## History
 | Date | What |
@@ -46,3 +46,5 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | 2026-10-13 | v0.13.2 live (Floor Stock "Can make" card at the bottom of the home page; no migration). `v0.13.2:production` (`5491df5`) pushed by the owner. Checks: Lab / Docs / Stock / Complaints / Orders health and platform JWKS OK. |
 | 2026-10-13 | v0.13.3 live (installed app in the plant's own look; no migration), pushed by the owner (`3092c96`); recorded afterwards on 2026-10-14. |
 | 2026-10-14 | v0.14.0 live (Order Capture: plant staff view-only without amounts, tick + "Copy as WhatsApp message" on Pending; owner's Permissions screen; no migration, SSO token unchanged). `git push origin v0.14.0:production` (`e09f10b`); only `platform` and `order-capture` changed. Checks: see below. |
+| 2026-10-14 | v0.15.0 live (Order Capture WhatsApp thank-you, migration Order Capture `0003_customer_messages.sql`): `production` = `b5d4cf6`; recorded afterwards with v0.16.0 (the migration was already applied when v0.16.0's migrations ran). Twilio settings on `order-capture` and a real message not yet checked. |
+| 2026-10-14 | v0.16.0 live (Order Capture: notes after an order is saved). `railway-migrate.sh shared` applied Order Capture `0004_order_notes.sql` before the deploy (other apps up to date); checked on the live database: `order_events` allows kind `note` with text required, `order_app` still has no UPDATE / DELETE on it. `git push origin v0.16.0:production` (`4a0a749`). Checks: new `/api/orders/<id>/notes` refuses without login (401); `orders` `/health` database OK and login redirect; JWKS + Lab / Docs / Stock / Complaints health OK. Not yet tried on screen: adding a note to a real order, the bell notification, the new kind on `/notifications`. |
