@@ -1309,3 +1309,13 @@ Asked by the owner 2026-10-14; plan `/home/rocky/.claude/plans/cozy-snuggling-pe
 
 **Not yet verified:** on screen; a real Twilio message (set the three variables, deliver an order to your own number).
 Not deployed (v0.14.0 isn't either).
+
+### 2026-10-14 — Order Capture: notes after an order is saved — live (v0.16.0)
+- **"+ Add a note"** on the order page: owner and Order desk, any status (pending, delivered, cancelled), ≤ 300
+  characters, never changed afterwards. The note typed with the order stays fixed; the Note box lists it with every
+  added note (who / when); History shows "Note by …". Plant staff and support read only.
+- Order Capture migration `0004_order_notes.sql` (approved by the owner): `order_events.kind` also allows `note`, text
+  required; still append-only. New kind `order_capture.note` (bell only; owners + ticked people, not the author).
+- Tests: Order Capture 262 (+4), platform 294. Details: `apps/order-capture/NOTES.md`.
+- **Live (2026-10-14):** migration applied, `v0.16.0:production` (`4a0a749`), health checks OK. v0.15.0 (WhatsApp
+  thank-you) was already live. **Not yet verified:** a note on screen and its notification.
