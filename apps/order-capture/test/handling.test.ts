@@ -213,7 +213,27 @@ describe("who may", () => {
     expect(await refused(() => undo(p.desk, o.id))).toEqual({ status: 403, message: "Only the plant owner can do this" });
     await undo(p.owner, o.id);
     expect((await getOrder(p.support, o.id)).status).toBe("pending"); // support can read
-    expect((await refused(() => getOrder(p.staff, o.id))).status).toBe(403);
+    expect((await getOrder(p.staff, o.id)).status).toBe("pending"); // plant staff can read (no amounts)
+    expect((await refused(() => getOrder(p.keeper, o.id))).status).toBe(403);
+  });
+
+  it("plant staff get the order and its history without a single rate or amount", async () => {
+    const p = plant();
+    const o = await sample(p);
+    await change(p.desk, o.id, 1, [{ sku_id: b500.id, quantity: 1, rate: "95" }, { sku_id: b1l.id, quantity: 3, rate: "140" }]);
+    const d = await getOrder(p.staff, o.id);
+    expect(d.total).toBeNull();
+    expect(d.customer).toMatchObject({ phone: expect.stringMatching(/^\d{10}$/) });
+    expect(d.lines.map((l) => [l.quantity, l.rate, l.total])).toEqual([
+      [1, null, null],
+      [3, null, null],
+    ]);
+    expect(d.versions.map((v) => [v.version, v.total, v.lines.every((l) => l.rate === null && l.total === null)])).toEqual([
+      [1, null, true],
+      [2, null, true],
+    ]);
+    const full = await getOrder(p.desk, o.id);
+    expect([full.total, full.versions[0]!.total]).toEqual(["515.00", "370.00"]);
   });
 
   it("another plant's order is not found", async () => {

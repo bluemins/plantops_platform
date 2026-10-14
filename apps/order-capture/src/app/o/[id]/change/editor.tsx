@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { Button, ErrorText } from "@plantops/ui";
 import { api } from "@/lib/api";
-import type { LineView } from "@/lib/history";
+import type { PricedLine } from "@/lib/history";
 import { money } from "@/lib/money";
 import { LinesEditor, linesBody, linesProblem, plainRate, totalOf, unitsOf, type EditLine, type EditProduct } from "../../../lines-editor";
 
-type Order = { id: string; ref: string; status: "pending" | "delivered" | "cancelled"; version: number; total: string; lines: LineView[] };
+type Order = { id: string; ref: string; status: "pending" | "delivered" | "cancelled"; version: number; total: string; lines: PricedLine[] };
 
 /** The order's current lines, editable; Save sends the version it started from (409 if someone changed it since). */
 export function ChangeEditor({ order, products }: { order: Order; products: EditProduct[] }) {

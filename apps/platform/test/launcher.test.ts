@@ -122,7 +122,7 @@ describe("tile rules (decideTiles / landingFor)", () => {
     expect(landingFor(["complaint_desk", "store_keeper"], two)).toBe("launcher");
   });
 
-  it("order desk only: lands straight in Order Capture; plant staff never get its tile", () => {
+  it("order desk only: lands straight in Order Capture; plant staff get its (view-only) tile too", () => {
     const oc = [...all, avail("order_capture")];
     const one = decideTiles(["order_desk"], ["floor_stock", "order_capture"], oc);
     expect(one).toEqual([{ module: "order_capture", state: "open", view: "staff" }]);
@@ -131,7 +131,8 @@ describe("tile rules (decideTiles / landingFor)", () => {
     expect(two.map((t) => t.module)).toEqual(["floor_stock", "order_capture"]);
     expect(landingFor(["order_desk", "store_keeper"], two)).toBe("launcher");
     const general = decideTiles(["plant_staff"], ["floor_stock", "order_capture"], oc);
-    expect(general).toEqual([{ module: "floor_stock", state: "open", view: "staff" }]);
+    expect(general.map((t) => t.module)).toEqual(["floor_stock", "order_capture"]);
+    expect(landingFor(["plant_staff"], general)).toBe("launcher");
     expect(decideTiles(["plant_staff", "order_desk"], ["floor_stock", "order_capture"], oc).map((t) => t.module)).toEqual(["floor_stock", "order_capture"]);
   });
 

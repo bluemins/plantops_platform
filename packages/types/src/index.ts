@@ -46,10 +46,27 @@ export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin" | "plant_staff">
 };
 
 /**
- * Modules plant_staff may never open: Lab Records is for lab technicians and lab leads only; Order Capture is for the
+ * Modules plant_staff never WORK in: Lab Records is for lab technicians and lab leads only; Order Capture is for the
  * people the owner gave "Order desk" (orders and customer rates are not for every worker).
  */
 export const PLANT_STAFF_EXCLUDED: readonly ModuleId[] = ["lab_records", "order_capture"];
+
+/**
+ * Modules plant_staff may OPEN but not work in (owner, 2026-10-14): Order Capture shows them the orders (customer,
+ * phone, products, quantities) read-only and without amounts. They stay out of roleWorksIn for these modules, so they
+ * are never that module's staff, never ticked for its alerts and never in its alert contacts.
+ */
+export const PLANT_STAFF_VIEW_ONLY: readonly ModuleId[] = ["order_capture"];
+
+/** Does this person have only the read-only view of this module (plant staff in a view-only module, no working role)? */
+export function viewOnlyIn(roles: readonly RoleId[], moduleId: ModuleId): boolean {
+  return (
+    roles.includes("plant_staff") &&
+    PLANT_STAFF_VIEW_ONLY.includes(moduleId) &&
+    !roles.includes("tenant_admin") &&
+    !roles.some((r) => roleWorksIn(r, moduleId))
+  );
+}
 
 /**
  * Does this staff role work in this module? plant_staff works in every module except the excluded ones, with

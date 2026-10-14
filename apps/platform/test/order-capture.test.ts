@@ -37,11 +37,11 @@ describe("module and role", () => {
     expect(MODULES.order_capture).toMatchObject({ label: "Order Capture", staff: "Take an order", setup: { path: "/rates" } });
   });
 
-  it("Order desk opens Order Capture; plant staff and a store keeper don't", async () => {
+  it("Order desk opens Order Capture; plant staff open it view-only; a store keeper doesn't", async () => {
     expect((await handoff(desk.cookie, "order_capture")).status).toBe(200);
     expect((await handoff(desk.cookie, "floor_stock")).status).toBe(403);
-    expect((await handoff(general.cookie, "order_capture")).status).toBe(403); // excluded for plant staff
-    expect((await handoff(general.cookie, "floor_stock")).status).toBe(200); // ...but other modules still work
+    expect((await handoff(general.cookie, "order_capture")).status).toBe(200); // view-only (the module hides amounts)
+    expect((await handoff(general.cookie, "floor_stock")).status).toBe(200);
     expect((await handoff(keeper.cookie, "order_capture")).status).toBe(403);
   });
 
@@ -51,21 +51,22 @@ describe("module and role", () => {
     expect((await handoff(noPlan.cookie, "order_capture")).status).toBe(403);
   });
 
-  it("an Order-desk-only user lands straight in Order Capture; the owner sees its tile; plant staff don't", async () => {
+  it("an Order-desk-only user lands straight in Order Capture; the owner sees its tile; plant staff too (view-only)", async () => {
     const mine = await call(launcherRoute.GET as Handler, { cookie: desk.cookie });
     expect(mine.body.landing).toBe("order_capture");
     expect(mine.body.tiles).toEqual([{ module: "order_capture", state: "open", view: "staff" }]);
     const owner = await call(launcherRoute.GET as Handler, { cookie: A.adminCookie });
     expect(owner.body.tiles.find((t: { module: string }) => t.module === "order_capture")).toMatchObject({ state: "open", view: "owner" });
     const staff = await call(launcherRoute.GET as Handler, { cookie: general.cookie });
-    expect(staff.body.tiles.map((t: { module: string }) => t.module)).toEqual(["floor_stock"]);
+    expect(staff.body.tiles.map((t: { module: string }) => t.module)).toEqual(["floor_stock", "order_capture"]);
+    expect(staff.body.landing).toBe("launcher");
   });
 });
 
 describe("alerts and notification settings", () => {
   it("the 'Gets alerts' tick box offers Order Capture to Order desk only, never to plant staff", async () => {
     expect((await tick(A.adminCookie, desk.userId, ["order_capture"])).body.alert_modules).toEqual(["order_capture"]);
-    expect((await tick(A.adminCookie, general.userId, ["order_capture"])).status).toBe(400); // excluded
+    expect((await tick(A.adminCookie, general.userId, ["order_capture"])).status).toBe(400); // view-only: never its alerts (they carry amounts)
     expect((await tick(A.adminCookie, general.userId, ["floor_stock"])).body.alert_modules).toEqual(["floor_stock"]);
     expect((await tick(A.adminCookie, keeper.userId, ["order_capture"])).status).toBe(400); // doesn't work in it
     const Q = await makePlant({ modules: ["floor_stock"] });

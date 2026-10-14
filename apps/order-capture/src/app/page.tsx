@@ -1,16 +1,15 @@
 import { Card } from "@plantops/ui";
 import { money } from "@/lib/money";
-import { productsText } from "@/lib/history";
 import { can } from "@/server/access";
 import { kit } from "@/server/kit";
 import { listOrders, pendingSummary, TABS, tabCounts, type PendingSummary, type Tab } from "@/server/list";
 import { requirePageUser } from "@/server/session";
 import { Header } from "./header";
+import { OrderCards } from "./order-cards";
 import { LinkRow } from "./parts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
-const day = (iso: string) => new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short" }).format(new Date(iso));
 const field = "min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-base focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)";
 
 /** Order Capture home (mock-up "Pending orders"): New order, the Pending / Delivered / Cancelled lists, search. */
@@ -92,32 +91,7 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
           <p className="text-slate-500">{filtered ? "No order matches this search." : tab === "pending" ? "No pending orders." : `No ${tab} orders yet.`}</p>
         </Card>
       ) : (
-        <ul className="space-y-3">
-          {list.orders.map((o) => (
-            <li key={o.id}>
-              <a href={`/o/${o.id}`} className={`block space-y-1.5 rounded-xl border bg-white px-4 py-3 ${o.age?.amber ? "border-amber-400" : "border-slate-200"}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold break-words">{o.customer}</span>
-                  {o.age ? (
-                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-sm ${o.age.amber ? "bg-amber-100 font-semibold text-amber-900" : "bg-slate-100 text-slate-700"}`}>{o.age.text}</span>
-                  ) : (
-                    <span className="shrink-0 text-sm text-slate-500">
-                      {o.status === "delivered" ? "Delivered" : "Cancelled"} {day(o.status_changed_at)}
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-slate-600">
-                  {o.place} · {o.ref} · by {o.entered_by}
-                </p>
-                {o.note && <p className="line-clamp-1 text-sm break-words text-amber-900">📝 {o.note}</p>}
-                <div className="flex justify-between gap-3">
-                  <span className="min-w-0 break-words">{productsText(o.lines)}</span>
-                  <span className="shrink-0 font-semibold">{money(o.total)}</span>
-                </div>
-              </a>
-            </li>
-          ))}
-        </ul>
+        <OrderCards orders={list.orders} tickable={tab === "pending" && can(user, "copy_list")} plainPhones={user.isSupport} />
       )}
       {list.more && <p className="text-sm text-slate-500">More orders than shown: search or pick dates to narrow the list.</p>}
 
@@ -127,9 +101,11 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
             Rates
           </LinkRow>
         )}
-        <LinkRow href="/customers" note={can(user, "customer_upload") ? "Add, edit or upload a list" : "Add or edit customers"}>
-          Customers
-        </LinkRow>
+        {can(user, "view_customers") && (
+          <LinkRow href="/customers" note={can(user, "customer_upload") ? "Add, edit or upload a list" : "Add or edit customers"}>
+            Customers
+          </LinkRow>
+        )}
         {can(user, "view_changes") && (
           <LinkRow href="/changes" note="Who changed rates and customers, exports">
             Recent changes

@@ -1,6 +1,6 @@
 // How old a pending order is (amber from 2 days), and the history in words (pure; no database).
 import { describe, expect, it } from "vitest";
-import { ageOf, eventText, productsText, versionDiff, type LineView, type VersionView } from "@/lib/history";
+import { ageOf, eventText, priced, productsText, versionDiff, withoutAmounts, type LineView, type VersionView } from "@/lib/history";
 
 const H = 60 * 60 * 1000;
 const NOW = Date.parse("2026-10-13T12:00:00Z");
@@ -55,5 +55,26 @@ describe("history lines", () => {
     [ev("cancelled", 2, "customer changed mind"), "Cancelled by Atharv", "customer changed mind"],
   ])("%j", (e, title, detail) => {
     expect(eventText(e, versions)).toEqual({ title, detail });
+  });
+});
+
+describe("without amounts (plant staff)", () => {
+  const hidden: VersionView[] = [
+    { version: 1, lines: withoutAmounts(v1), total: null },
+    { version: 2, lines: withoutAmounts([line("a", "500ml", 1, "95.00"), line("b", "1ltr", 3, "140.00"), line("c", "Jar", 6, "50.00", "jar")]), total: null },
+    { version: 3, lines: withoutAmounts([line("a", "500ml", 1, "99.00"), line("b", "1ltr", 3, "140.00"), line("c", "Jar", 6, "50.00", "jar")]), total: null },
+  ];
+  const ev = (kind: "created" | "changed", version: number) => ({ kind, version, text: null, invoice_no: null, by: "Atharv", at: new Date(NOW).toISOString() });
+
+  it("no rupee sign anywhere: quantities only; a rate-only change just says the version", () => {
+    expect(withoutAmounts(v1).every((l) => l.rate === null && l.total === null)).toBe(true);
+    expect(eventText(ev("created", 1), hidden)).toEqual({ title: "Created by Atharv", detail: "2 products" });
+    expect(eventText(ev("changed", 2), hidden)).toEqual({ title: "Changed by Atharv", detail: "1ltr: 2 box → 3 box · added Jar 6 jar" });
+    expect(eventText(ev("changed", 3), hidden)).toEqual({ title: "Changed by Atharv", detail: "version 3" });
+  });
+
+  it("the change screen never gets lines without amounts", () => {
+    expect(priced(v1)).toEqual(v1);
+    expect(() => priced(withoutAmounts(v1))).toThrow();
   });
 });

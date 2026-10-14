@@ -12,20 +12,27 @@ plant's own tool (Zoho Invoice). Design, phases and build prompts: `docs/ORDER_C
 ## Who may do what
 **One table**, `src/server/access.ts`, used by every route and page:
 - **Owner** (`tenant_admin`): everything.
-- **Order desk:** read, enter / change orders, customers, deliver, cancel.
-- **PlantOps support:** read, and also the Rates and Recent changes pages; never writes.
-- **Plant staff:** nothing. Order Capture is in `PLANT_STAFF_EXCLUDED`, so give them "Order desk" too if they take
-  orders.
+- **Order desk:** read, amounts, enter / change orders, customers, deliver, cancel.
+- **Plant staff** (without Order desk): **view only, no amounts** (owner, 2026-10-14). They see the order list and each
+  order (customer, phone, place, products, quantities, note, history) and can tick pending orders to copy. They don't
+  see rates, totals, the customer list, Rates or CSV, and never write. Rule: `viewOnlyIn()` + `PLANT_STAFF_VIEW_ONLY`
+  in `packages/types`. Order Capture stays in `PLANT_STAFF_EXCLUDED`, so plant staff are never Order desk, never
+  ticked for its alerts (the "New order" notification carries the ₹ amount) and never in its alert contacts.
+  Amounts are removed on the server (`listOrders`, `getOrder`), not only hidden on screen.
+- **PlantOps support:** read (with amounts), and also the Rates and Recent changes pages; never writes.
 - **Anyone else:** nothing (store keeper, complaint desk…).
 
-| Action | Owner | Order desk | Support |
-|---|---|---|---|
-| read (orders, customers) | ✓ | ✓ | ✓ |
-| enter (new order, change a pending order) | ✓ | ✓ | |
-| customers (add, edit name / place, switch off / on) | ✓ | ✓ | |
-| deliver, cancel | ✓ | ✓ | |
-| undo delivered, rates, customer upload, export, support log | ✓ | | |
-| view rates, Recent changes | ✓ | | ✓ |
+| Action | Owner | Order desk | Plant staff | Support |
+|---|---|---|---|---|
+| read (order list, an order) | ✓ | ✓ | ✓ | ✓ |
+| see amounts (rates, totals) | ✓ | ✓ | | ✓ |
+| tick pending orders + copy as WhatsApp message | ✓ | ✓ | ✓ | |
+| customer list | ✓ | ✓ | | ✓ |
+| enter (new order, change a pending order) | ✓ | ✓ | | |
+| customers (add, edit name / place, switch off / on) | ✓ | ✓ | | |
+| deliver, cancel | ✓ | ✓ | | |
+| undo delivered, rates, customer upload, export, pending summary, support log | ✓ | | | |
+| view rates, Recent changes | ✓ | | | ✓ |
 
 ## Running it
 - **Local:**
@@ -348,3 +355,22 @@ Asked by the owner after v0.13.0 went live.
   biggest amount first. The product name comes from its newest order. No schema change.
 - **Tests:** 232 Order Capture (+8). Typecheck and build pass.
 - **Not yet checked on screen** (browser, phone width).
+
+### 2026-10-14 — Plant staff view-only + "Copy as WhatsApp message" (v0.14.0)
+Asked by the owner 2026-10-14; mock-ups approved the same day.
+- **Plant staff view-only:** new `viewer` row in the access table (above). `canAccessModule` lets plant staff open
+  Order Capture; the launcher shows them its tile (so a plant-staff-only user with Floor Stock now sees the tile screen
+  instead of landing in Floor Stock). Header says "View only". The order page shows quantities only, plus "You can
+  view orders. Order desk or the owner marks them delivered."
+- **Amounts:** rule `see_amounts` (owner, Order desk, support). `LineView.rate / total` and order totals are `null`
+  when hidden; history texts leave the rupee parts out (`versionDiff`, `eventText`); a rate-only change reads
+  "version N".
+- **Phone on the list cards** (tap to call), for everyone who reads.
+- **Copy as WhatsApp message** (`src/lib/whatsapp.ts`, `src/app/order-cards.tsx`): Pending tab only; a tick box per
+  card, Select all / Clear (the orders shown, so search and dates apply), a sticky bar "Copy N orders as WhatsApp
+  message". Message: "*Delivery – 14 Oct – N orders*", then per order ref + customer, phone + place, product lines,
+  note, and Amount + a grand total only for people who see amounts. Ticks are not saved. Clipboard refused (plain
+  http on a phone) → the text is shown to select.
+- No database change; the SSO token is unchanged.
+- **Tests:** Order Capture 243 (+11): access table with the plant-staff column, no amounts in the list / order /
+  history, the WhatsApp text with and without amounts, the IST date.

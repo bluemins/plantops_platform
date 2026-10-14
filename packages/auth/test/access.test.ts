@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { roleWorksIn, type ModuleId, type RoleId } from "@plantops/types";
+import { roleWorksIn, viewOnlyIn, type ModuleId, type RoleId } from "@plantops/types";
 import { AccessDeniedError, canAccessModule, requireModuleAccess, requireRole } from "../src";
 
 const enabled: ModuleId[] = ["lab_records", "floor_stock", "complaint_box", "order_capture"];
@@ -27,7 +27,7 @@ describe("canAccessModule", () => {
     [["store_keeper"], "complaint_box", false],
     [["order_desk"], "order_capture", true],
     [["order_desk"], "floor_stock", false],
-    [["plant_staff"], "order_capture", false], // Order Capture is excluded for plant staff, like Lab Records
+    [["plant_staff"], "order_capture", true], // plant staff open Order Capture view-only (no amounts, no writes)
     [["plant_staff", "order_desk"], "order_capture", true], // Order desk still opens it
     [["store_keeper"], "order_capture", false],
     [["complaint_desk"], "order_capture", false],
@@ -44,6 +44,18 @@ describe("roleWorksIn", () => {
     expect(roleWorksIn("plant_staff", "order_capture")).toBe(false);
     expect(roleWorksIn("plant_staff", "complaint_box")).toBe(true);
     expect(roleWorksIn("tenant_admin", "order_capture")).toBe(false);
+  });
+});
+
+describe("viewOnlyIn", () => {
+  it("plant staff without a working role have the read-only view of Order Capture only", () => {
+    expect(viewOnlyIn(["plant_staff"], "order_capture")).toBe(true);
+    expect(viewOnlyIn(["plant_staff", "store_keeper"], "order_capture")).toBe(true);
+    expect(viewOnlyIn(["plant_staff", "order_desk"], "order_capture")).toBe(false); // Order desk works there
+    expect(viewOnlyIn(["tenant_admin", "plant_staff"], "order_capture")).toBe(false); // the owner sees everything
+    expect(viewOnlyIn(["plant_staff"], "lab_records")).toBe(false); // still excluded
+    expect(viewOnlyIn(["plant_staff"], "floor_stock")).toBe(false); // works there normally
+    expect(viewOnlyIn(["store_keeper"], "order_capture")).toBe(false);
   });
 });
 

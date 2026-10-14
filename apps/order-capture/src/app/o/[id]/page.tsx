@@ -55,20 +55,31 @@ export default async function OrderPage({ params }: { params: Params }) {
       <Card className="space-y-2">
         <div className="flex justify-between text-sm text-slate-500">
           <span>Product</span>
-          <span>Amount</span>
+          <span>{o.total === null ? "Quantity" : "Amount"}</span>
         </div>
-        {o.lines.map((l) => (
-          <div key={l.sku_id} className="flex justify-between gap-3">
-            <span className="break-words">
-              {l.product} · {l.quantity.toLocaleString("en-IN")} {l.unit} × {money(l.rate)}
-            </span>
-            <span className="shrink-0">{money(l.total)}</span>
+        {o.lines.map((l) =>
+          l.rate === null || l.total === null ? (
+            <div key={l.sku_id} className="flex justify-between gap-3">
+              <span className="break-words">{l.product}</span>
+              <span className="shrink-0 font-semibold">
+                {l.quantity.toLocaleString("en-IN")} {l.unit}
+              </span>
+            </div>
+          ) : (
+            <div key={l.sku_id} className="flex justify-between gap-3">
+              <span className="break-words">
+                {l.product} · {l.quantity.toLocaleString("en-IN")} {l.unit} × {money(l.rate)}
+              </span>
+              <span className="shrink-0">{money(l.total)}</span>
+            </div>
+          ),
+        )}
+        {o.total !== null && (
+          <div className="flex justify-between border-t border-slate-200 pt-2 text-lg font-bold">
+            <span>Total</span>
+            <span>{money(o.total)}</span>
           </div>
-        ))}
-        <div className="flex justify-between border-t border-slate-200 pt-2 text-lg font-bold">
-          <span>Total</span>
-          <span>{money(o.total)}</span>
-        </div>
+        )}
         <p className="text-sm text-slate-500">
           Entered by {o.entered_by} · {fmtDateTime(o.created_at)}
           {o.version > 1 && ` · version ${o.version}`}
@@ -84,6 +95,10 @@ export default async function OrderPage({ params }: { params: Params }) {
         )}
         {o.status === "cancelled" && <p className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700">Cancelled is final. Enter a new order if needed.</p>}
       </Card>
+
+      {user.who === "viewer" && pending && (
+        <p className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">You can view orders. Order desk or the owner marks them delivered.</p>
+      )}
 
       <OrderActions
         order={{ id: o.id, ref: o.ref, status: o.status, version: o.version, summary: o.lines.map((l) => `${l.product} ${l.quantity.toLocaleString("en-IN")} ${l.unit}`).join(", ") }}
@@ -115,11 +130,13 @@ export default async function OrderPage({ params }: { params: Params }) {
                 <div key={v.version}>
                   <p className="font-semibold">
                     Version {v.version}
-                    {v.version === o.version ? " (current)" : ""} · {money(v.total)}
+                    {v.version === o.version ? " (current)" : ""}
+                    {v.total !== null && ` · ${money(v.total)}`}
                   </p>
                   {v.lines.map((l) => (
                     <p key={l.sku_id} className="text-slate-600">
-                      {l.product} · {l.quantity.toLocaleString("en-IN")} {l.unit} × {money(l.rate)} = {money(l.total)}
+                      {l.product} · {l.quantity.toLocaleString("en-IN")} {l.unit}
+                      {l.rate !== null && l.total !== null && ` × ${money(l.rate)} = ${money(l.total)}`}
                     </p>
                   ))}
                 </div>

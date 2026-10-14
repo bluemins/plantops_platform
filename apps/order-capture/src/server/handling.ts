@@ -1,6 +1,7 @@
 // Handling an order (docs/ORDER_CAPTURE_PHASE_PLAN.md "Order states"): Change (a new version of the lines), Mark
 // delivered, Cancel and the owner's Undo delivered. Rules, checked here on the server:
-//   * who: the access table (change / deliver / cancel: owner and Order desk; undo: owner only)
+//   * who: the access table (change / deliver / cancel: owner and Order desk; undo: owner only; plant staff only read,
+//     and never get amounts: getOrder removes them)
 //   * every change sends what the person saw (status + version); inside ONE transaction the order row is locked and,
 //     if someone changed it meanwhile, the answer is 409 "This order was just changed by …"; the event and the new
 //     status / version are written in that same transaction
@@ -10,10 +11,10 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { productLabel } from "@plantops/module-kit";
-import type { EventKind, EventView, LineView, VersionView } from "@/lib/history";
+import { withoutAmounts, type EventKind, type EventView, type LineView, type VersionView } from "@/lib/history";
 import { fromPaise, lineTotal, toPaise } from "@/lib/money";
 import { formatRef } from "@/lib/ref";
-import { requireAccess, type Action } from "./access";
+import { can, requireAccess, type Action } from "./access";
 import { schema, withTenant, type OcTx } from "./db";
 import { badRequest, conflict, notFound } from "./http";
 import { LinesInput } from "./orders";
@@ -46,7 +47,8 @@ export interface OrderDetail {
   /** typed with the order, fixed once saved */
   note: string | null;
   lines: LineView[];
-  total: string;
+  /** null = hidden from this person (plant staff) */
+  total: string | null;
   entered_by: string;
   created_at: string;
   status_changed_at: string;
@@ -68,7 +70,7 @@ async function versionsOf(tx: OcTx, tenantId: string, orderId: string): Promise<
     if (!v) out.push((v = { version: r.version, lines: [], total: "0.00" }));
     v.lines.push({ sku_id: r.skuId, product: r.productName, unit: r.unit, quantity: r.quantity, rate: r.rate, total: r.lineTotal });
   }
-  for (const v of out) v.total = fromPaise(v.lines.reduce((s, l) => s + toPaise(l.total), 0n));
+  for (const v of out) v.total = fromPaise(v.lines.reduce((s, l) => s + toPaise(l.total!), 0n));
   return out;
 }
 
@@ -77,7 +79,9 @@ export async function getOrder(user: OcUser, id: string): Promise<OrderDetail> {
   return withTenant(user.tenantId, async (tx) => {
     const [o] = await tx.select().from(orders).where(and(eq(orders.tenantId, user.tenantId), eq(orders.id, id)));
     if (!o) throw notFound("Order not found");
-    const versions = await versionsOf(tx, user.tenantId, id);
+    const amounts = can(user, "see_amounts");
+    const all = await versionsOf(tx, user.tenantId, id);
+    const versions = amounts ? all : all.map((v) => ({ version: v.version, lines: withoutAmounts(v.lines), total: null }));
     const events = await tx.select().from(orderEvents).where(and(eq(orderEvents.tenantId, user.tenantId), eq(orderEvents.orderId, id))).orderBy(asc(orderEvents.createdAt), asc(orderEvents.id));
     return {
       id: o.id,
@@ -87,7 +91,7 @@ export async function getOrder(user: OcUser, id: string): Promise<OrderDetail> {
       customer: { name: o.customerName, phone: o.customerPhone, place: o.customerPlace },
       note: o.orderNote,
       lines: versions.find((v) => v.version === o.version)?.lines ?? [],
-      total: o.total,
+      total: amounts ? o.total : null,
       entered_by: o.enteredByName,
       created_at: o.createdAt.toISOString(),
       status_changed_at: o.statusChangedAt.toISOString(),

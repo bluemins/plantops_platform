@@ -54,7 +54,7 @@ const isUniqueViolation = (err: unknown) => ((err as { cause?: { code?: string }
  * phone digits; at most `limit`. `off` = how many are switched off, for the "Show switched-off" tick.
  */
 export async function listCustomers(user: OcUser, opts: { q?: string; showOff?: boolean; limit?: number } = {}) {
-  requireAccess(user, "read");
+  requireAccess(user, "view_customers");
   const q = (opts.q ?? "").trim();
   const digits = normalisePhone(q) ?? q.replace(/\D/g, "");
   return withTenant(user.tenantId, async (tx) => {

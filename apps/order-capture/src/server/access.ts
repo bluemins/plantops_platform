@@ -2,11 +2,17 @@
 // "Who uses it"). Checked on the server every time; the screens only hide buttons the table already refuses.
 import { forbidden } from "./http";
 
-/** owner = tenant_admin; desk = Order desk (plant staff are NOT desk: roleWorksIn); support = PlantOps, read-only */
-export type Who = "owner" | "desk" | "support";
+/**
+ * owner = tenant_admin; desk = Order desk (plant staff are NOT desk: roleWorksIn); viewer = plant staff without Order
+ * desk (viewOnlyIn: sees the orders, never amounts, never writes; owner 2026-10-14); support = PlantOps, read-only
+ */
+export type Who = "owner" | "desk" | "viewer" | "support";
 
 export type Action =
-  | "read" // the order list, an order, the customer list
+  | "read" // the order list, an order
+  | "see_amounts" // rates, line amounts, order totals (everywhere: list, order page, history, WhatsApp text)
+  | "copy_list" // tick pending orders and copy them as a WhatsApp message
+  | "view_customers" // the customer list
   | "enter" // a new order; change the lines of a pending order
   | "customers" // add a customer, edit name / place, switch off / on
   | "deliver" // Pending -> Delivered
@@ -21,7 +27,10 @@ export type Action =
   | "support_log"; // the owner's "Support access" page
 
 export const ACCESS: Record<Action, readonly Who[]> = {
-  read: ["owner", "desk", "support"],
+  read: ["owner", "desk", "viewer", "support"],
+  see_amounts: ["owner", "desk", "support"],
+  copy_list: ["owner", "desk", "viewer"],
+  view_customers: ["owner", "desk", "support"],
   enter: ["owner", "desk"],
   customers: ["owner", "desk"],
   deliver: ["owner", "desk"],
@@ -36,7 +45,7 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   support_log: ["owner"],
 };
 
-/** What the user is, for this table. null = no Order Capture rights at all (e.g. plant staff or a store keeper). */
+/** What the user is, for this table. null = no Order Capture rights at all (e.g. a store keeper). */
 export interface Actor {
   who: Who | null;
 }
@@ -48,5 +57,6 @@ export function requireAccess(user: Actor, action: Action) {
   if (can(user, action)) return;
   if (user.who === "support") throw forbidden("PlantOps support view is read-only");
   if (user.who === "desk") throw forbidden("Only the plant owner can do this");
+  if (user.who === "viewer") throw forbidden("You can view orders only. Order desk or the owner does this.");
   throw forbidden("You don't have access to Order Capture");
 }

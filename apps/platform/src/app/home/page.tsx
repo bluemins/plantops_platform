@@ -103,6 +103,7 @@ export default function HomePage() {
         {owner && (
           <>
             <Link href="/admin/users"><Button>Manage users</Button></Link>
+            <Link href="/admin/permissions"><Button>Permissions</Button></Link>
             <Link href="/admin/business"><Button>Business details</Button></Link>
           </>
         )}

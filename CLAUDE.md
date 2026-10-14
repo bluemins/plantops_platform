@@ -44,7 +44,9 @@ through the Lab Records API.
 - **Plant staff** (`plant_staff`): a general worker not tied to one module. Works in every module the plant has
   enabled, with that module's normal staff rights (never owner or lead rights), **except Lab Records**, which
   stays with lab technicians and lab leads (`PLANT_STAFF_EXCLUDED`). New modules include plant staff
-  automatically unless added to that list. The rule is `roleWorksIn()` in `packages/types`.
+  automatically unless added to that list. The rule is `roleWorksIn()` in `packages/types`. **Order Capture** is
+  excluded too, but plant staff may **view** it (`PLANT_STAFF_VIEW_ONLY` + `viewOnlyIn()`, owner 2026-10-14): orders,
+  customer, phone, products and quantities, never amounts, never writes, never its alerts.
 - A user can hold **more than one role** (e.g. lab technician AND store keeper in a small plant). tenant_admin
   is a role in `users`/`user_roles`, not a separate account type.
 - Login: plant users log in with **plant code + username + secret**. Staff use a 6-digit **PIN**; anyone holding
@@ -1273,3 +1275,22 @@ deliver, cancel, CSV); iPhone.
   the name, colour and logo.
 - Already-installed phones must remove the app and add it again.
 - Tests: platform 281 (+9).
+
+### 2026-10-14 — Plant staff view Order Capture, WhatsApp copy, Permissions screen (v0.14.0)
+Asked by the owner 2026-10-14; mock-ups approved the same day. No database change; the SSO token is unchanged.
+- **Order amounts only for the owner and Order desk** (and PlantOps support, read-only). Plant staff get the orders
+  with no rates or totals: removed on the server, not just hidden.
+- **Plant staff view Order Capture:** `PLANT_STAFF_VIEW_ONLY` + `viewOnlyIn()` in `packages/types`, used by
+  `canAccessModule`. They see the order list and each order (customer, phone, place, products, quantities, note,
+  history) and can't enter, change, deliver or cancel; no customer list, Rates or CSV. They stay out of
+  `roleWorksIn` for Order Capture, so they are never ticked for its alerts (the new-order alert carries the amount).
+  A plant-staff-only user who also works in Floor Stock now sees the tile screen.
+- **"Copy as WhatsApp message"** on the Pending tab: tick orders (Select all / Clear apply to the orders shown),
+  then one message for the day's delivery; amounts and a total only for people who see amounts.
+- **Owner's Permissions screen** (`/admin/permissions`, "Permissions" on the dashboard): read-only grid of users ×
+  switched-on modules with each person's role there, "View only, no amounts", 🔔 for alerts, disabled users greyed,
+  and a key. Worked out with the same rules the servers use (`src/lib/permissions.ts`); changes stay on Manage users.
+- Details: `apps/order-capture/NOTES.md` (v0.14.0 note and the updated permission table).
+- **Tests:** Order Capture 243 (+11), platform 294 (+13), auth 50 (+1).
+
+**Not yet verified:** on screen with real logins (pending); not deployed.

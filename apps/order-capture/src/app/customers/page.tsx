@@ -13,7 +13,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 /** The plant's customers: owner and Order desk add / edit / switch off; PlantOps support reads. */
 export default async function CustomersPage({ searchParams }: { searchParams: Search }) {
   const user = await requirePageUser("/customers");
-  if (!can(user, "read")) redirect("/");
+  if (!can(user, "view_customers")) redirect("/");
   const sp = await searchParams;
   const q = one(sp.q).slice(0, 100);
   const showOff = one(sp.off) === "1";

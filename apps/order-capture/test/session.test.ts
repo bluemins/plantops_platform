@@ -1,5 +1,5 @@
 // Order Capture login, session and support view through the shared module kit (same rules as the other modules),
-// who may open the module (owner, Order desk; never plant staff), the empty tile answer and the health check.
+// who may open the module (owner, Order desk; plant staff view-only), the empty tile answer and the health check.
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { GET as callback } from "@/app/sso/callback/route";
@@ -37,15 +37,15 @@ describe("login", () => {
     expect((await cb("?code=abc&next=%2F%2Fevil.example")).headers.get("location")).toBe("/");
   });
 
-  it("the owner, and plant staff who were also given Order desk, get a session", async () => {
-    for (const roles of [["tenant_admin"], ["plant_staff", "order_desk"]] as const) {
+  it("the owner, plant staff (view-only) and plant staff who were also given Order desk get a session", async () => {
+    for (const roles of [["tenant_admin"], ["plant_staff"], ["plant_staff", "order_desk"]] as const) {
       platform.nextToken = await platform.loginToken([...roles]);
       expect((await cb("?code=abc")).status, roles.join("+")).toBe(307);
     }
   });
 
-  it("plant staff, a store keeper or a complaint desk (no Order Capture role) are refused", async () => {
-    for (const role of ["plant_staff", "store_keeper", "complaint_desk"] as const) {
+  it("a store keeper or a complaint desk (no Order Capture role) are refused", async () => {
+    for (const role of ["store_keeper", "complaint_desk"] as const) {
       platform.nextToken = await platform.loginToken([role]);
       expect((await cb("?code=abc")).status, role).toBe(403);
     }

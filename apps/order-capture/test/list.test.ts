@@ -89,14 +89,32 @@ describe("the order list", () => {
     expect((await listOrders(p.desk, {}, Date.now(), 5)).more).toBe(true);
   });
 
-  it("each plant sees only its own orders; plant staff and a store keeper see nothing", async () => {
+  it("each plant sees only its own orders (plant staff too); a store keeper sees nothing", async () => {
     const a = plant();
     const b = plant();
     await add(a, "9876543210", "Sri ram hotel", "bijepur");
     expect((await listOrders(b.owner)).orders).toEqual([]);
     expect((await listOrders(b.owner, { q: "Sri ram" })).orders).toEqual([]);
+    expect((await listOrders(b.staff)).orders).toEqual([]);
     expect(await tabCounts(b.owner)).toEqual({ pending: 0, delivered: 0, cancelled: 0 });
-    for (const u of [a.staff, a.keeper]) expect((await refused(() => listOrders(u))).status).toBe(403);
+    expect((await refused(() => listOrders(a.keeper))).status).toBe(403);
+  });
+
+  it("plant staff see customer, phone, place, products and quantities, but never a rate or an amount", async () => {
+    const p = plant();
+    await add(p, "9876543210", "Sri ram hotel", "Bijepur");
+    const [mine] = (await listOrders(p.staff)).orders;
+    expect(mine).toMatchObject({ customer: "Sri ram hotel", phone: "9876543210", place: "Bijepur", total: null });
+    expect(mine!.lines.map((l) => [l.product, l.quantity, l.unit, l.rate, l.total])).toEqual([
+      [mine!.lines[0]!.product, 1, "box", null, null],
+      [mine!.lines[1]!.product, 3, "box", null, null],
+    ]);
+    expect(JSON.stringify(mine)).not.toMatch(/"(90|140|510)(\.00)?"/);
+    const [desk] = (await listOrders(p.desk)).orders;
+    expect([desk!.total, desk!.phone, desk!.lines[0]!.rate]).toEqual(["510.00", "9876543210", "90.00"]);
+    expect(await tabCounts(p.staff)).toEqual({ pending: 1, delivered: 0, cancelled: 0 });
+    expect((await refused(() => pendingSummary(p.staff))).status).toBe(403);
+    expect((await refused(() => exportCsv(p.staff))).status).toBe(403);
   });
 });
 

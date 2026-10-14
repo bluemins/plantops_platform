@@ -1,0 +1,45 @@
+// The owner's "Who can do what" screen (/admin/permissions): what each person is in each module switched on for the
+// plant. Worked out from the SAME rules the servers enforce (roleWorksIn / viewOnlyIn in packages/types), so the
+// screen can't say something different from what actually happens. Text only; nothing here grants access.
+import { MODULE_IDS, roleWorksIn, viewOnlyIn, type ModuleId, type RoleId } from "@plantops/types";
+import { ROLE_LABELS } from "./api";
+
+export type CellKind = "owner" | "lead" | "work" | "view";
+export interface Cell {
+  kind: CellKind;
+  label: string;
+  /** gets this module's app notifications (owners always do) */
+  alerts: boolean;
+}
+
+/** What a read-only viewer sees, per view-only module (packages/types PLANT_STAFF_VIEW_ONLY). */
+const VIEW_LABELS: Partial<Record<ModuleId, string>> = { order_capture: "View only, no amounts" };
+
+/** One cell of the grid: null = no access ("–"). */
+export function cellFor(roles: readonly string[], alertModules: readonly string[], moduleId: ModuleId): Cell | null {
+  const rs = roles as RoleId[];
+  if (rs.includes("tenant_admin")) return { kind: "owner", label: "Owner", alerts: true };
+  const alerts = alertModules.includes(moduleId);
+  let working = rs.filter((r) => roleWorksIn(r, moduleId));
+  if (working.includes("lab_lead")) working = working.filter((r) => r !== "lab_technician"); // a lead is a technician too
+  if (working.length > 1) working = working.filter((r) => r !== "plant_staff"); // the module's own role says more
+  if (working.length) return { kind: working.includes("lab_lead") ? "lead" : "work", label: working.map((r) => ROLE_LABELS[r] ?? r).join(", "), alerts };
+  if (viewOnlyIn(rs, moduleId)) return { kind: "view", label: VIEW_LABELS[moduleId] ?? "View only", alerts: false };
+  return null;
+}
+
+/** The grid's columns: the plant's switched-on modules in the usual module order. */
+export const gridModules = (enabled: readonly string[]) => MODULE_IDS.filter((m) => enabled.includes(m));
+
+/** The key under the grid, in plain words. */
+export const ROLE_MEANINGS: { kind: CellKind; label: string; text: string }[] = [
+  { kind: "owner", label: "Owner", text: "Everything, in every module." },
+  { kind: "lead", label: "Lab lead", text: "Lab tests, plus approve batches, release holds and set limits." },
+  { kind: "work", label: "Lab technician", text: "Enters lab tests and forms." },
+  { kind: "work", label: "Document keeper", text: "Adds and renews documents." },
+  { kind: "work", label: "Store keeper", text: "Daily stock count, adds items." },
+  { kind: "work", label: "Complaint desk", text: "Logs complaints and follows them up." },
+  { kind: "work", label: "Order desk", text: "Takes orders, sees amounts, marks them delivered or cancelled." },
+  { kind: "work", label: "Plant staff", text: "Normal staff work in each module, never Lab Records." },
+  { kind: "view", label: "View only, no amounts", text: "Plant staff in Order Capture: sees orders, never prices." },
+];

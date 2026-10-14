@@ -325,7 +325,7 @@ describe("who may enter an order", () => {
     expect((await order(p.owner)).created).toBe(true);
     expect(await refused(() => order(p.support))).toEqual({ status: 403, message: "PlantOps support view is read-only" });
     for (const u of [p.staff, p.keeper]) {
-      expect(await refused(() => order(u))).toEqual({ status: 403, message: "You don't have access to Order Capture" });
+      expect(await refused(() => order(u))).toEqual({ status: 403, message: u === p.staff ? "You can view orders only. Order desk or the owner does this." : "You don't have access to Order Capture" });
       expect((await refused(() => lookupCustomer(u, "9876543210"))).status).toBe(403);
     }
     signInAs(p.support);

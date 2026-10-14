@@ -1,7 +1,7 @@
 // Who is using Order Capture right now (from the module kit's session cookies). What they may do is in access.ts.
 import { redirect } from "next/navigation";
 import type { ModuleSession } from "@plantops/auth";
-import { roleWorksIn, type RoleId } from "@plantops/types";
+import { roleWorksIn, viewOnlyIn, type RoleId } from "@plantops/types";
 import type { Who } from "./access";
 import { schema, withTenant } from "./db";
 import { HttpError } from "./http";
@@ -19,10 +19,14 @@ export interface OcUser {
   isSupport: boolean;
 }
 
-/** Owner wins over a staff role; desk = a role that works in Order Capture (Order desk; never plant staff). */
+/**
+ * Owner wins over a staff role; desk = a role that works in Order Capture (Order desk; never plant staff); viewer =
+ * plant staff without Order desk (read-only, no amounts).
+ */
 export function whoFor(roles: RoleId[]): Who | null {
   if (roles.includes("tenant_admin")) return "owner";
-  return roles.some((r) => roleWorksIn(r, "order_capture")) ? "desk" : null;
+  if (roles.some((r) => roleWorksIn(r, "order_capture"))) return "desk";
+  return viewOnlyIn(roles, "order_capture") ? "viewer" : null;
 }
 
 export function toOcUser(s: ModuleSession): OcUser {
@@ -40,9 +44,10 @@ export const supportUser = (tenantId: string, superAdminId: string): OcUser => (
   isSupport: true,
 });
 
-/** For the header: Owner / Order desk / Read-only. */
+/** For the header: Owner / Order desk / View only / Read-only. */
 export function roleLabel(user: OcUser) {
   if (user.isSupport) return "Read-only";
+  if (user.who === "viewer") return "View only";
   return user.isOwner ? "Owner" : "Order desk";
 }
 

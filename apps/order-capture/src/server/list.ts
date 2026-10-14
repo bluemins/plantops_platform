@@ -1,14 +1,15 @@
 // The order list (home page) and the owner's CSV export. Rules:
-//   * read: owner, Order desk, PlantOps support; one plant only (row-level security + tenant filter)
+//   * read: owner, Order desk, plant staff (view only), PlantOps support; one plant only (row-level security + tenant
+//     filter); amounts only for people who may see them (never plant staff: removed here, not just hidden on screen)
 //   * Pending oldest first; Delivered / Cancelled newest first (by when that happened)
 //   * search: "O-0042" / "42" = a reference, 3+ digits = part of the phone, otherwise name or place (any case)
 //   * the CSV: one row per line of each order's CURRENT version; formulas neutralised; audited
 import { and, asc, desc, eq, ilike, inArray, like, or, sql, type SQL } from "drizzle-orm";
 import { csv, csvTime } from "@plantops/module-kit/csv";
 import { normalisePhone } from "@plantops/module-kit/phone";
-import { ageOf, type LineView } from "@/lib/history";
+import { ageOf, withoutAmounts, type LineView } from "@/lib/history";
 import { formatRef } from "@/lib/ref";
-import { requireAccess } from "./access";
+import { can, requireAccess } from "./access";
 import { audit } from "./audit";
 import { schema, withTenant } from "./db";
 import type { OrderStatus } from "./schema";
@@ -34,11 +35,14 @@ export interface ListRow {
   ref: string;
   status: OrderStatus;
   customer: string;
+  /** the customer's 10 digits */
+  phone: string;
   place: string;
   entered_by: string;
   note: string | null;
   lines: LineView[];
-  total: string;
+  /** null = hidden from this person */
+  total: string | null;
   created_at: string;
   status_changed_at: string;
   /** pending only: "Today", "1 day", "3 days" and amber from 2 days */
@@ -64,6 +68,7 @@ function searchWhere(q: string): SQL | undefined {
 
 export async function listOrders(user: OcUser, f: ListFilters = {}, now = Date.now(), limit = 200) {
   requireAccess(user, "read");
+  const amounts = can(user, "see_amounts");
   const tab = f.tab ?? "pending";
   return withTenant(user.tenantId, async (tx) => {
     const where = [eq(orders.tenantId, user.tenantId), eq(orders.status, tab)];
@@ -85,22 +90,26 @@ export async function listOrders(user: OcUser, f: ListFilters = {}, now = Date.n
           .where(and(eq(orderLines.tenantId, user.tenantId), inArray(orderLines.orderId, shown.map((o) => o.id))))
           .orderBy(asc(orderLines.lineNo))
       : [];
-    const list: ListRow[] = shown.map((o) => ({
-      id: o.id,
-      ref: formatRef(o.refNo),
-      status: o.status,
-      customer: o.customerName,
-      place: o.customerPlace,
-      entered_by: o.enteredByName,
-      note: o.orderNote,
-      lines: lines
+    const list: ListRow[] = shown.map((o) => {
+      const current: LineView[] = lines
         .filter((x) => x.orderId === o.id && x.version === o.version)
-        .map(({ l }) => ({ sku_id: l.skuId, product: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, total: l.lineTotal })),
-      total: o.total,
-      created_at: o.createdAt.toISOString(),
-      status_changed_at: o.statusChangedAt.toISOString(),
-      age: o.status === "pending" ? ageOf(o.createdAt, now) : null,
-    }));
+        .map(({ l }) => ({ sku_id: l.skuId, product: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, total: l.lineTotal }));
+      return {
+        id: o.id,
+        ref: formatRef(o.refNo),
+        status: o.status,
+        customer: o.customerName,
+        phone: o.customerPhone,
+        place: o.customerPlace,
+        entered_by: o.enteredByName,
+        note: o.orderNote,
+        lines: amounts ? current : withoutAmounts(current),
+        total: amounts ? o.total : null,
+        created_at: o.createdAt.toISOString(),
+        status_changed_at: o.statusChangedAt.toISOString(),
+        age: o.status === "pending" ? ageOf(o.createdAt, now) : null,
+      };
+    });
     return { orders: list, more: rows.length > limit };
   });
 }

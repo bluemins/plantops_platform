@@ -112,7 +112,7 @@ describe("who may do what", () => {
     expect(await refused(() => add(p.support, "9000000002"))).toEqual({ status: 403, message: "PlantOps support view is read-only" });
     expect(await refused(() => updateCustomer(p.support, customer.id, { active: false }))).toMatchObject({ status: 403 });
     for (const u of [p.staff, p.keeper]) {
-      expect(await refused(() => add(u, "9000000003"))).toEqual({ status: 403, message: "You don't have access to Order Capture" });
+      expect(await refused(() => add(u, "9000000003"))).toEqual({ status: 403, message: u === p.staff ? "You can view orders only. Order desk or the owner does this." : "You don't have access to Order Capture" });
       expect((await refused(() => listCustomers(u))).status).toBe(403);
     }
     expect((await listCustomers(p.support)).customers).toHaveLength(1);
