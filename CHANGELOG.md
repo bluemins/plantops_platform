@@ -4,6 +4,20 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.16.1 — 2026-10-15 — Clearer role buttons on Add / Edit user
+
+**What's in it**
+- Each role button shows the module it opens (e.g. "Store keeper · Floor Stock", "Document keeper · Document
+  Store"). **Plant staff** lists what it opens in that plant, e.g. "Floor Stock · Order Capture (view only, no
+  amounts) · never Lab Records".
+- Roles for modules the plant hasn't switched on are hidden (e.g. Maintenance technician until Preventive
+  Management exists). A role someone already holds stays, greyed with "not switched on", so it can be removed.
+- Mobile says "for Lab Records WhatsApp alerts" only for owners and lab leads; otherwise "Mobile (optional)".
+- Nobody's access changes. The decided change to what Plant staff means comes with Attendance & Salary (CLAUDE.md,
+  status 2026-10-15).
+
+**Migrations:** none.
+
 ## v0.16.0 — 2026-10-14 — Order Capture: notes after an order is saved
 
 **What's in it**
