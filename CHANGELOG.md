@@ -4,6 +4,20 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.17.0 — 2026-10-15 — Plant staff means "employee"
+
+**What's in it**
+- **Plant staff no longer opens Floor Stock, Document Store, Complaint Box or Marketing Contacts.** Those need the
+  module's own role: Store keeper, Document keeper, Complaint desk (Sales team for Marketing Contacts, when built).
+  Each module's own server refuses a Plant-staff-only login, not just the launcher.
+- Plant staff keeps the **Order Capture view** (orders without amounts) and will open **Attendance & Salary** (own
+  attendance and overtime) when that module is built.
+- A Plant-staff-only user of a plant with Order Capture goes straight into Order Capture after login.
+- On Add / Edit user, Plant staff reads "Employee · <what it opens in this plant>".
+- "Gets alerts" ticks for a module someone no longer works in stop sending (they were already re-checked at send time).
+
+**Migrations:** none.
+
 ## v0.16.1 — 2026-10-15 — Clearer role buttons on Add / Edit user
 
 **What's in it**
