@@ -210,7 +210,8 @@ pilots.
    low-stock email; sold / used worked out from the counts. Dispatch entries with the batch check come later.
 6. **Preventive Management module** — assets, PM schedules, task completion, history.
 7. **AMC module** — contracts, visit logs, renewals, invoicing (pairs with Preventive Management).
-8. **Attendance & Salary module.**
+8. **Attendance & Salary module.** Version 1 (attendance only: QR scan + location check, own calendar, owner view
+   and fixes) built **before Phase 6** (owner, 2026-10-15); plan and build prompts in `docs/ATTENDANCE_PHASE_PLAN.md`.
 9. **Digital Marketing Contact Management module.**
 10. **Website + dedicated-instance/tenant provisioning tooling.**
 
