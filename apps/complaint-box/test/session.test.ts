@@ -1,5 +1,5 @@
 // Complaint Box login, session and support view through the shared module kit (same rules as the other modules),
-// who may open the module (owner, complaint desk, plant staff), the empty tile answer and the health check.
+// who may open the module (owner, complaint desk), the empty tile answer and the health check.
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { GET as callback } from "@/app/sso/callback/route";
@@ -37,15 +37,15 @@ describe("login", () => {
     expect((await cb("?code=abc&next=%2F%2Fevil.example")).headers.get("location")).toBe("/");
   });
 
-  it("the owner and plant staff get a session too", async () => {
-    for (const role of ["tenant_admin", "plant_staff"] as const) {
+  it("the owner gets a session too", async () => {
+    for (const role of ["tenant_admin"] as const) {
       platform.nextToken = await platform.loginToken([role]);
       expect((await cb("?code=abc")).status, role).toBe(307);
     }
   });
 
-  it("a store keeper or lab technician (no Complaint Box role) is refused", async () => {
-    for (const role of ["store_keeper", "lab_technician"] as const) {
+  it("plant staff alone, a store keeper or lab technician (no Complaint Box role) is refused", async () => {
+    for (const role of ["plant_staff", "store_keeper", "lab_technician"] as const) {
       platform.nextToken = await platform.loginToken([role]);
       expect((await cb("?code=abc")).status, role).toBe(403);
     }

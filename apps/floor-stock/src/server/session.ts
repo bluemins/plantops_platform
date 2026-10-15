@@ -1,7 +1,7 @@
 // Who is using Floor Stock right now (from the module kit's session cookies), and what they may do.
 import { redirect } from "next/navigation";
 import type { ModuleSession } from "@plantops/auth";
-import type { RoleId } from "@plantops/types";
+import { roleWorksIn, type RoleId } from "@plantops/types";
 import { schema, withTenant } from "./db";
 import { forbidden, HttpError } from "./http";
 import { kit } from "./kit";
@@ -27,7 +27,7 @@ export function toStockUser(s: ModuleSession): StockUser {
     name: s.display_name ?? "Floor Stock user",
     roles: s.roles,
     isOwner,
-    canCount: isOwner || s.roles.includes("store_keeper") || s.roles.includes("plant_staff"),
+    canCount: isOwner || s.roles.some((r) => roleWorksIn(r, "floor_stock")),
     isSupport: false,
   };
 }

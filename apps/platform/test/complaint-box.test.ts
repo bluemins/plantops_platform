@@ -39,10 +39,10 @@ describe("module and role", () => {
     expect(ROLE_LABELS.complaint_desk).toBe("Complaint desk");
   });
 
-  it("complaint desk and plant staff open Complaint Box; a store keeper doesn't", async () => {
+  it("complaint desk opens Complaint Box; plant staff alone or a store keeper don't", async () => {
     expect((await handoff(desk.cookie, "complaint_box")).status).toBe(200);
     expect((await handoff(desk.cookie, "floor_stock")).status).toBe(403);
-    expect((await handoff(general.cookie, "complaint_box")).status).toBe(200);
+    expect((await handoff(general.cookie, "complaint_box")).status).toBe(403);
     expect((await handoff(keeper.cookie, "complaint_box")).status).toBe(403);
   });
 
@@ -83,7 +83,7 @@ describe("storage limit on the plan", () => {
 describe("alerts and notification settings", () => {
   it("the 'Gets alerts' tick box offers Complaint Box to the people who work in it", async () => {
     expect((await tick(A.adminCookie, desk.userId, ["complaint_box"])).body.alert_modules).toEqual(["complaint_box"]);
-    expect((await tick(A.adminCookie, general.userId, ["floor_stock", "complaint_box"])).body.alert_modules.sort()).toEqual(["complaint_box", "floor_stock"]);
+    expect((await tick(A.adminCookie, general.userId, ["complaint_box"])).status).toBe(400); // plant staff alone: not Complaint Box
     expect((await tick(A.adminCookie, keeper.userId, ["complaint_box"])).status).toBe(400); // doesn't work in it
     const Q = await makePlant({ modules: ["floor_stock"] });
     const off = await makeStaff(Q, "desk", ["complaint_desk"]);

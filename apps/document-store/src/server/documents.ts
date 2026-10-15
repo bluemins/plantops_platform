@@ -5,6 +5,7 @@
 // The database enforces it: doc_app has no UPDATE on versions/files and no DELETE anywhere.
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
+import { roleWorksIn } from "@plantops/types";
 import { expiryStatus, todayIst, type ExpiryKind } from "@/lib/expiry";
 import { schema, withTenant, type DocTx } from "./db";
 import { badRequest, conflict, HttpError, notFound } from "./http";
@@ -218,10 +219,10 @@ export async function getDocument(user: DocUser, id: string): Promise<DocumentDe
   });
 }
 
-/** Who can be responsible: the plant's owners, document keepers and plant staff (from the platform), with their email. */
+/** Who can be responsible: the plant's owners and the people who work in Document Store (from the platform), with their email. */
 export async function responsibleChoices(user: DocUser) {
   const contacts = (await kit.contacts(user.tenantId)) ?? [];
-  return contacts.filter((c) => c.roles.some((r) => r === "tenant_admin" || r === "document_keeper" || r === "plant_staff")).map((c) => ({ user_id: c.user_id, name: c.display_name, email: c.email ?? null }));
+  return contacts.filter((c) => c.roles.some((r) => r === "tenant_admin" || roleWorksIn(r, "document_store"))).map((c) => ({ user_id: c.user_id, name: c.display_name, email: c.email ?? null }));
 }
 
 // ---------- writing ----------

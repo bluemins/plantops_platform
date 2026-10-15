@@ -44,7 +44,7 @@ describe("module and role", () => {
     expect((await handoff(desk.cookie, "order_capture")).status).toBe(200);
     expect((await handoff(desk.cookie, "floor_stock")).status).toBe(403);
     expect((await handoff(general.cookie, "order_capture")).status).toBe(200); // view-only (the module hides amounts)
-    expect((await handoff(general.cookie, "floor_stock")).status).toBe(200);
+    expect((await handoff(general.cookie, "floor_stock")).status).toBe(403); // plant staff alone: not Floor Stock
     expect((await handoff(keeper.cookie, "order_capture")).status).toBe(403);
   });
 
@@ -61,8 +61,8 @@ describe("module and role", () => {
     const owner = await call(launcherRoute.GET as Handler, { cookie: A.adminCookie });
     expect(owner.body.tiles.find((t: { module: string }) => t.module === "order_capture")).toMatchObject({ state: "open", view: "owner" });
     const staff = await call(launcherRoute.GET as Handler, { cookie: general.cookie });
-    expect(staff.body.tiles.map((t: { module: string }) => t.module)).toEqual(["floor_stock", "order_capture"]);
-    expect(staff.body.landing).toBe("launcher");
+    expect(staff.body.tiles.map((t: { module: string }) => t.module)).toEqual(["order_capture"]);
+    expect(staff.body.landing).toBe("order_capture");
   });
 });
 
@@ -70,7 +70,6 @@ describe("alerts and notification settings", () => {
   it("the 'Gets alerts' tick box offers Order Capture to Order desk only, never to plant staff", async () => {
     expect((await tick(A.adminCookie, desk.userId, ["order_capture"])).body.alert_modules).toEqual(["order_capture"]);
     expect((await tick(A.adminCookie, general.userId, ["order_capture"])).status).toBe(400); // view-only: never its alerts (they carry amounts)
-    expect((await tick(A.adminCookie, general.userId, ["floor_stock"])).body.alert_modules).toEqual(["floor_stock"]);
     expect((await tick(A.adminCookie, keeper.userId, ["order_capture"])).status).toBe(400); // doesn't work in it
     const Q = await makePlant({ modules: ["floor_stock"] });
     const off = await makeStaff(Q, "desk", ["order_desk"]);

@@ -46,10 +46,11 @@ export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin" | "plant_staff">
 };
 
 /**
- * Modules plant_staff never WORK in: Lab Records is for lab technicians and lab leads only; Order Capture is for the
- * people the owner gave "Order desk" (orders and customer rates are not for every worker).
+ * The only modules plant_staff WORKS in (owner, 2026-10-15): Plant staff marks "this person is an employee", so it
+ * opens the employment module (own attendance and overtime; salary stays owner-only). Work in any other module needs
+ * that module's own role (Store keeper, Document keeper, Complaint desk, ...). A new module is NOT added automatically.
  */
-export const PLANT_STAFF_EXCLUDED: readonly ModuleId[] = ["lab_records", "order_capture"];
+export const PLANT_STAFF_MODULES: readonly ModuleId[] = ["attendance_salary"];
 
 /**
  * Modules plant_staff may OPEN but not work in (owner, 2026-10-14): Order Capture shows them the orders (customer,
@@ -69,12 +70,12 @@ export function viewOnlyIn(roles: readonly RoleId[], moduleId: ModuleId): boolea
 }
 
 /**
- * Does this staff role work in this module? plant_staff works in every module except the excluded ones, with
- * that module's normal staff rights. tenant_admin is not a working role (owners get the read-only view).
+ * Does this staff role work in this module? plant_staff works only in PLANT_STAFF_MODULES. tenant_admin is not a
+ * working role (owners get the read-only view).
  */
 export function roleWorksIn(role: RoleId, moduleId: ModuleId): boolean {
   if (role === "tenant_admin") return false;
-  if (role === "plant_staff") return !PLANT_STAFF_EXCLUDED.includes(moduleId);
+  if (role === "plant_staff") return PLANT_STAFF_MODULES.includes(moduleId);
   return ROLE_MODULE[role] === moduleId;
 }
 

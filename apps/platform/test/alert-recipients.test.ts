@@ -117,7 +117,7 @@ describe("the owner's tick boxes", () => {
     expect((await tick(A.adminCookie, tech.userId, ["floor_stock"])).status).toBe(400);
     expect((await tick(A.adminCookie, general.userId, ["lab_records"])).status).toBe(400); // plant staff: not Lab Records
     expect((await tick(A.adminCookie, general.userId, ["preventive_mgmt"])).status).toBe(400); // not switched on
-    expect((await tick(A.adminCookie, general.userId, ["floor_stock"])).body.alert_modules).toEqual(["floor_stock"]);
+    expect((await tick(A.adminCookie, general.userId, ["floor_stock"])).status).toBe(400); // plant staff alone: not Floor Stock (2026-10-15)
   });
 
   it("untick any time", async () => {

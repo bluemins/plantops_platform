@@ -9,7 +9,8 @@ describe("a cell of the permissions grid", () => {
     [["lab_technician", "lab_lead"], ["lab_records"], "lab_records", { kind: "lead", label: "Lab lead", alerts: true }],
     [["lab_technician"], [], "lab_records", { kind: "work", label: "Lab technician", alerts: false }],
     [["plant_staff"], [], "lab_records", null], // never Lab Records
-    [["plant_staff"], ["floor_stock"], "floor_stock", { kind: "work", label: "Plant staff", alerts: true }],
+    [["plant_staff"], ["floor_stock"], "floor_stock", null], // plant staff = employee: not Floor Stock
+    [["plant_staff"], [], "attendance_salary", { kind: "work", label: "Plant staff", alerts: false }],
     [["plant_staff", "store_keeper"], [], "floor_stock", { kind: "work", label: "Store keeper", alerts: false }],
     [["plant_staff"], [], "order_capture", { kind: "view", label: "View only, no amounts", alerts: false }],
     [["plant_staff", "order_desk"], ["order_capture"], "order_capture", { kind: "work", label: "Order desk", alerts: true }],
@@ -37,9 +38,9 @@ describe("role buttons on Add / Edit user", () => {
   });
 
   it("Plant staff says what it opens here, from the servers' rules", () => {
-    expect(roleChoices(plant, []).find((x) => x.role === "plant_staff")?.hint).toBe("Floor Stock · Order Capture (view only, no amounts) · never Lab Records");
-    expect(roleChoices(["document_store", "complaint_box"], []).find((x) => x.role === "plant_staff")?.hint).toBe("Document Store · Complaint Box");
-    expect(roleChoices(["lab_records"], []).find((x) => x.role === "plant_staff")?.hint).toBe("never Lab Records");
+    expect(roleChoices(plant, []).find((x) => x.role === "plant_staff")?.hint).toBe("Employee · Order Capture (view only, no amounts)");
+    expect(roleChoices(["document_store", "complaint_box"], []).find((x) => x.role === "plant_staff")?.hint).toBe("Employee · opens no module here yet");
+    expect(roleChoices(["floor_stock", "attendance_salary"], []).find((x) => x.role === "plant_staff")?.hint).toBe("Employee · Attendance & Salary");
   });
 
   it("a held role for a module that is off stays visible (to remove it), marked off", () => {

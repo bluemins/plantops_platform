@@ -65,15 +65,15 @@ describe("login", () => {
     expect((await proxy(new NextRequest("http://localhost:3002/api/items", { method: "POST" }))).status).toBe(401);
   });
 
-  it("plant staff get a session", async () => {
+  it("plant staff alone are refused (Plant staff = employee, owner 2026-10-15)", async () => {
     platform.nextToken = await platform.loginToken(["plant_staff"]);
-    expect((await callback(new NextRequest("http://localhost:3002/sso/callback?code=abc"))).status).toBe(307);
+    expect((await callback(new NextRequest("http://localhost:3002/sso/callback?code=abc"))).status).toBe(403);
   });
 
-  it("roles: owner, store keeper and plant staff count, only the owner is owner", () => {
+  it("roles: owner, store keeper count; plant staff alone don't, only the owner is owner", () => {
     const s = (roles: string[]) => ({ tenant_id: TENANT, user_id: USER, roles, enabled_modules: ["floor_stock"], login_at: Date.now(), checked_at: Date.now() }) as never;
     expect(toStockUser(s(["store_keeper"]))).toMatchObject({ canCount: true, isOwner: false, isSupport: false });
-    expect(toStockUser(s(["plant_staff"]))).toMatchObject({ canCount: true, isOwner: false, isSupport: false });
+    expect(toStockUser(s(["plant_staff"]))).toMatchObject({ canCount: false, isOwner: false, isSupport: false });
     expect(toStockUser(s(["tenant_admin"]))).toMatchObject({ canCount: true, isOwner: true });
   });
 });

@@ -11,14 +11,18 @@ export function cbUser(tenantId: string, roles: RoleId[], name = roles.join("+")
   return toCbUser({ tenant_id: tenantId, user_id: userId, display_name: name, roles, enabled_modules: ["complaint_box"], login_at: now, checked_at: now });
 }
 
-/** A fresh plant: owner, complaint desk, plant staff, a store keeper (no Complaint Box role) and PlantOps support. */
+/**
+ * A fresh plant: owner, two complaint desk people (Kedar is also Plant staff), Plant staff only (no Complaint Box
+ * role since 2026-10-15), a store keeper (no Complaint Box role) and PlantOps support.
+ */
 export function plant() {
   const tenantId = randomUUID();
   return {
     tenantId,
     owner: cbUser(tenantId, ["tenant_admin"], "Sujata"),
     desk: cbUser(tenantId, ["complaint_desk"], "Atharv"),
-    staff: cbUser(tenantId, ["plant_staff"], "Kedar"),
+    staff: cbUser(tenantId, ["complaint_desk", "plant_staff"], "Kedar"),
+    general: cbUser(tenantId, ["plant_staff"], "Reeta"),
     keeper: cbUser(tenantId, ["store_keeper"], "Bindu"),
     support: supportUser(tenantId, randomUUID()),
   };

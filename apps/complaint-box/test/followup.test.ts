@@ -33,7 +33,7 @@ const status = async (id: string) => (await asOwner<{ status: string }>("select 
 const events = async (id: string) => (await asOwner<{ kind: string; text: string | null }>("select kind, text from complaint_box.complaint_events where complaint_id = $1 order by created_at, id", [id])).rows;
 
 describe("status rules per role", () => {
-  it("staff (complaint desk, plant staff) set In progress; only the owner resolves and reopens", async () => {
+  it("staff (complaint desk) set In progress; only the owner resolves and reopens", async () => {
     const { p, c } = await setup();
     expect(await refused(() => changeStatus(p.desk, c.id, { to: "resolved", expected: "open", text: "Replaced" }))).toEqual({ status: 403, message: "Only the plant owner can do this" });
     expect((await changeStatus(p.staff, c.id, { to: "in_progress", expected: "open" })).status).toBe("in_progress");

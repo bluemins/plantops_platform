@@ -5,14 +5,14 @@ import { whoFor } from "@/server/session";
 import { plant, refused } from "./helpers";
 
 const p = plant();
-const people = { owner: p.owner, desk: p.desk, staff: p.staff, keeper: p.keeper, support: p.support };
+const people = { owner: p.owner, desk: p.desk, general: p.general, keeper: p.keeper, support: p.support };
 
-// [action, owner, complaint desk, plant staff, store keeper, support]
+// [action, owner, complaint desk, plant staff only, store keeper, support]
 const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
-  ["read", true, true, true, false, true],
-  ["log", true, true, true, false, false],
-  ["note", true, true, true, false, false],
-  ["in_progress", true, true, true, false, false],
+  ["read", true, true, false, false, true],
+  ["log", true, true, false, false, false],
+  ["note", true, true, false, false, false],
+  ["in_progress", true, true, false, false, false],
   ["resolve", true, false, false, false, false],
   ["reopen", true, false, false, false, false],
   ["manage_items", true, false, false, false, false],
@@ -23,10 +23,11 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
 ];
 
 describe("who is who", () => {
-  it("owner wins; complaint desk and plant staff are staff; a store keeper or lab technician has no rights", () => {
+  it("owner wins; complaint desk is staff; plant staff alone, a store keeper or lab technician have no rights", () => {
     expect(whoFor(["tenant_admin", "complaint_desk"])).toBe("owner");
     expect(whoFor(["complaint_desk"])).toBe("staff");
-    expect(whoFor(["plant_staff"])).toBe("staff");
+    expect(whoFor(["plant_staff"])).toBeNull();
+    expect(whoFor(["plant_staff", "complaint_desk"])).toBe("staff");
     expect(whoFor(["store_keeper", "complaint_desk"])).toBe("staff");
     expect(whoFor(["store_keeper"])).toBeNull();
     expect(whoFor(["lab_technician", "lab_lead"])).toBeNull();
@@ -39,7 +40,7 @@ describe("the access table", () => {
     expect(TABLE.map((r) => r[0]).sort()).toEqual(Object.keys(ACCESS).sort());
   });
 
-  it.each(TABLE)("%s: owner %s, complaint desk %s, plant staff %s, store keeper %s, support %s", (action, ...expected) => {
+  it.each(TABLE)("%s: owner %s, complaint desk %s, plant staff only %s, store keeper %s, support %s", (action, ...expected) => {
     expect(Object.values(people).map((u) => can(u, action))).toEqual(expected);
   });
 

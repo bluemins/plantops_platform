@@ -48,7 +48,7 @@ describe("owner manages the list", () => {
     expect(await auditActions(p.tenantId)).toEqual(["item.add", "item.add", "item.update", "item.reorder", "item.update", "item.update"]);
   });
 
-  it("nobody else may change it: complaint desk, plant staff, store keeper, support", async () => {
+  it("nobody else may change it: complaint desk, store keeper, support", async () => {
     const it0 = await createItem(p.owner, { name: "Cap" });
     for (const [who, msg] of [
       [p.desk, "Only the plant owner can do this"],

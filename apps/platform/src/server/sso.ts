@@ -154,7 +154,7 @@ export async function getUserStatus(tenantId: string, userId: string): Promise<U
   });
 }
 
-/** Roles that work in one module (e.g. lab_records -> lab_technician, lab_lead; floor_stock -> store_keeper, plant_staff). */
+/** Roles that work in one module (e.g. lab_records -> lab_technician, lab_lead; floor_stock -> store_keeper; attendance_salary -> plant_staff). */
 const moduleRoles = (moduleId: ModuleId) => ROLE_IDS.filter((r) => roleWorksIn(r, moduleId));
 
 /**

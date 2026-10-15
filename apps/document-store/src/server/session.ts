@@ -1,7 +1,7 @@
 // Who is using Document Store right now (from the module kit's session cookies), and what they may do.
 import { redirect } from "next/navigation";
 import type { ModuleSession } from "@plantops/auth";
-import type { RoleId } from "@plantops/types";
+import { roleWorksIn, type RoleId } from "@plantops/types";
 import { schema, withTenant } from "./db";
 import { forbidden, HttpError } from "./http";
 import { kit } from "./kit";
@@ -27,7 +27,7 @@ export function toDocUser(s: ModuleSession): DocUser {
     name: s.display_name ?? "Document user",
     roles: s.roles,
     isOwner,
-    canManage: isOwner || s.roles.includes("document_keeper") || s.roles.includes("plant_staff"),
+    canManage: isOwner || s.roles.some((r) => roleWorksIn(r, "document_store")),
     isSupport: false,
   };
 }

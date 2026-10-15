@@ -2,7 +2,7 @@
 // "Who uses it"). Checked on the server every time; the screens only hide buttons the table already refuses.
 import { forbidden } from "./http";
 
-/** owner = tenant_admin; staff = complaint desk or plant staff (roleWorksIn); support = PlantOps, read-only */
+/** owner = tenant_admin; staff = complaint desk (roleWorksIn); support = PlantOps, read-only */
 export type Who = "owner" | "staff" | "support";
 
 export type Action =

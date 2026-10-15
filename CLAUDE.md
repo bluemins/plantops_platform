@@ -41,16 +41,13 @@ through the Lab Records API.
 - Module-level operational roles (examples): lab technician (Lab Records), lab lead (Lab Records: a lab
   technician who can also approve batches, release holds, verify records and set limits), store keeper (Floor
   Stock), maintenance technician (Preventive Management). Each sees only the module(s)/data it's entitled to.
-- **Plant staff** (`plant_staff`): a general worker not tied to one module. Works in every module the plant has
-  enabled, with that module's normal staff rights (never owner or lead rights), **except Lab Records**, which
-  stays with lab technicians and lab leads (`PLANT_STAFF_EXCLUDED`). New modules include plant staff
-  automatically unless added to that list. The rule is `roleWorksIn()` in `packages/types`. **Order Capture** is
-  excluded too, but plant staff may **view** it (`PLANT_STAFF_VIEW_ONLY` + `viewOnlyIn()`, owner 2026-10-14): orders,
-  customer, phone, products and quantities, never amounts, never writes, never its alerts.
-  **Decided to change (owner, 2026-10-15), applied with Attendance & Salary (Phase 8), not before:** Plant staff
-  becomes the "employee" mark. It opens Attendance & Salary (own attendance and overtime only; salary is owner-only)
-  and keeps the Order Capture view, and **stops working in Floor Stock, Document Store and Complaint Box** (they
-  need Store keeper / Document keeper / Complaint desk). Status log 2026-10-15.
+- **Plant staff** (`plant_staff`): marks **"this person is an employee"** (owner, 2026-10-15). Every employee can hold
+  it next to their work role (e.g. Store keeper + Plant staff). It works **only** in `PLANT_STAFF_MODULES`
+  (Attendance & Salary: own attendance and overtime; salary is owner-only), and may **view** Order Capture
+  (`PLANT_STAFF_VIEW_ONLY` + `viewOnlyIn()`, owner 2026-10-14): orders, customer, phone, products and quantities,
+  never amounts, never writes, never its alerts. Work in any other module needs that module's own role (Store
+  keeper, Document keeper, Complaint desk, Order desk, Lab technician / lead, Maintenance technician, Sales team).
+  New modules do **not** include plant staff. The rule is `roleWorksIn()` in `packages/types`.
 - A user can hold **more than one role** (e.g. lab technician AND store keeper in a small plant). tenant_admin
   is a role in `users`/`user_roles`, not a separate account type.
 - Login: plant users log in with **plant code + username + secret**. Staff use a 6-digit **PIN**; anyone holding
@@ -1334,10 +1331,8 @@ Not deployed (v0.14.0 isn't either).
   - **own attendance and overtime only**; **salary is visible to the owner only**
   - the Order Capture view (orders without amounts) stays
   - **no work in Floor Stock, Document Store or Complaint Box** any more; **not Marketing Contacts** either
-- **When:** the rule changes together with Attendance & Salary, so Plant staff is never a role that opens nothing.
-  Until then the live rule above is unchanged. Before that release: list the users who hold Plant staff without
-  Store keeper / Document keeper / Complaint desk, and Document Store documents whose responsible person is Plant
-  staff only, so the owner can give them the right role first.
+- **When:** first planned together with Attendance & Salary; **brought forward by the owner the same day** (v0.17.0,
+  below) after seeing a Plant-staff-only user open Floor Stock, Document Store and Complaint Box.
 - To settle in the Phase 8 plan: who marks attendance (the person, the owner, or a supervisor), and whether an owner
   appears in attendance.
 
@@ -1347,3 +1342,23 @@ role opens; roles for modules the plant hasn't switched on are hidden (a role so
 `roleWorksIn` / `viewOnlyIn` (`roleChoices` in `apps/platform/src/lib/permissions.ts`). Mobile is "optional, for
 Lab Records WhatsApp alerts" only for owners / lab leads. Tests: platform 298 (+4).
 **Live (2026-10-15):** `v0.16.1:production` (`8a9c749`), checks OK. **Not yet verified:** on screen.
+
+### 2026-10-15 — Plant staff = employee, applied now (v0.17.0)
+**Asked by the owner 2026-10-15** (reeta, Plant staff only, could open Floor Stock, Document Store and Complaint Box).
+No database change; the SSO token is unchanged.
+- `packages/types`: `PLANT_STAFF_EXCLUDED` replaced by the allow-list `PLANT_STAFF_MODULES = ["attendance_salary"]`;
+  `roleWorksIn("plant_staff", m)` is true only there. The Order Capture view (`viewOnlyIn`) is unchanged.
+- Floor Stock (`canCount`) and Document Store (`canManage`, responsible-person choices) now use `roleWorksIn`
+  instead of naming `plant_staff`; Complaint Box already did. Each module's own server refuses a Plant-staff-only
+  login (403).
+- Launcher: a Plant-staff-only user of a plant with Order Capture lands straight in Order Capture (view only).
+- Role buttons: Plant staff reads "Employee · <what it opens here>".
+- "Gets alerts" ticks for modules a person no longer works in are kept in the table but skipped at send time (the
+  existing re-check); they disappear from the form when the person's roles are next saved.
+- **Who it affects on the live copy (plant 001, read-only check 2026-10-15):** reeta (only Order Capture view
+  left); bindu and Gaja lose Document Store + Complaint Box; Dillip loses Floor Stock + Document Store (and his
+  Floor Stock alerts); Ramu loses Document Store. Anmol and Kedar keep everything. No document has a Plant staff
+  person as responsible.
+- Tests: platform 299, auth 52, Complaint Box 190 (Kedar in the test plant is now Complaint desk + Plant staff; a
+  Plant-staff-only person is refused everywhere), Floor Stock 146, Document Store 102.
+

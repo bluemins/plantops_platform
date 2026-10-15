@@ -102,13 +102,14 @@ describe("the item", () => {
 });
 
 describe("who may log a complaint", () => {
-  it("owner, complaint desk and plant staff; never support or a store keeper", async () => {
+  it("owner and complaint desk; never plant staff alone, support or a store keeper", async () => {
     const p = plant();
     const item_id = await withItem(p);
     const input = ComplaintInput.parse({ ...good, item_id });
     for (const u of [p.owner, p.desk, p.staff]) expect((await createComplaint(u, input)).ref).toMatch(/^C-\d{4}$/);
     expect(await refused(() => createComplaint(p.support, input))).toEqual({ status: 403, message: "PlantOps support view is read-only" });
     expect((await refused(() => createComplaint(p.keeper, input))).status).toBe(403);
+    expect((await refused(() => createComplaint(p.general, input))).status).toBe(403);
   });
 });
 

@@ -66,14 +66,13 @@ export function roleChoices(enabled: readonly string[], held: readonly string[])
 
 /** What Plant staff opens in this plant, from the same rules the servers use. */
 function plantStaffHint(enabled: readonly string[]): string {
-  if (!enabled.length) return "Staff work in the plant's modules, never Lab Records";
+  if (!enabled.length) return "Employee";
   const mods = gridModules(enabled);
   const parts = [
     ...mods.filter((m) => roleWorksIn("plant_staff", m)).map(moduleLabel),
     ...mods.filter((m) => viewOnlyIn(["plant_staff"], m)).map((m) => `${moduleLabel(m)} (${(VIEW_LABELS[m] ?? "view only").toLowerCase()})`),
   ];
-  if (mods.includes("lab_records")) parts.push("never Lab Records");
-  return parts.length ? parts.join(" · ") : "No module for Plant staff is switched on";
+  return ["Employee", ...(parts.length ? parts : ["opens no module here yet"])].join(" · ");
 }
 
 /** The key under the grid, in plain words. */
@@ -85,6 +84,6 @@ export const ROLE_MEANINGS: { kind: CellKind; label: string; text: string }[] = 
   { kind: "work", label: "Store keeper", text: "Daily stock count, adds items." },
   { kind: "work", label: "Complaint desk", text: "Logs complaints and follows them up." },
   { kind: "work", label: "Order desk", text: "Takes orders, sees amounts, marks them delivered or cancelled." },
-  { kind: "work", label: "Plant staff", text: "Normal staff work in each module, never Lab Records." },
+  { kind: "work", label: "Plant staff", text: "Employee: own attendance and overtime (Attendance & Salary)." },
   { kind: "view", label: "View only, no amounts", text: "Plant staff in Order Capture: sees orders, never prices." },
 ];
