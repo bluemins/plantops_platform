@@ -1346,4 +1346,4 @@ role opens; roles for modules the plant hasn't switched on are hidden (a role so
 "not switched on", so it can be removed); Plant staff lists what it opens in this plant, worked out from
 `roleWorksIn` / `viewOnlyIn` (`roleChoices` in `apps/platform/src/lib/permissions.ts`). Mobile is "optional, for
 Lab Records WhatsApp alerts" only for owners / lab leads. Tests: platform 298 (+4).
-**Not yet verified:** on screen; not deployed.
+**Live (2026-10-15):** `v0.16.1:production` (`8a9c749`), checks OK. **Not yet verified:** on screen.
