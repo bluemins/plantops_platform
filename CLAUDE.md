@@ -1361,4 +1361,7 @@ No database change; the SSO token is unchanged.
   person as responsible.
 - Tests: platform 299, auth 52, Complaint Box 190 (Kedar in the test plant is now Complaint desk + Plant staff; a
   Plant-staff-only person is refused everywhere), Floor Stock 146, Document Store 102.
+- **Live (2026-10-15):** `v0.17.0:production` (`232f02c`), checks OK. The owner had already moved everyone off Plant staff
+  except Gaja (Store keeper), so only she lost Document Store + Complaint Box. **Not yet verified:** a Plant-staff-only
+  login being refused by Floor Stock on the live copy.
 
