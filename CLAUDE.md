@@ -47,6 +47,10 @@ through the Lab Records API.
   automatically unless added to that list. The rule is `roleWorksIn()` in `packages/types`. **Order Capture** is
   excluded too, but plant staff may **view** it (`PLANT_STAFF_VIEW_ONLY` + `viewOnlyIn()`, owner 2026-10-14): orders,
   customer, phone, products and quantities, never amounts, never writes, never its alerts.
+  **Decided to change (owner, 2026-10-15), applied with Attendance & Salary (Phase 8), not before:** Plant staff
+  becomes the "employee" mark. It opens Attendance & Salary (own attendance and overtime only; salary is owner-only)
+  and keeps the Order Capture view, and **stops working in Floor Stock, Document Store and Complaint Box** (they
+  need Store keeper / Document keeper / Complaint desk). Status log 2026-10-15.
 - A user can hold **more than one role** (e.g. lab technician AND store keeper in a small plant). tenant_admin
   is a role in `users`/`user_roles`, not a separate account type.
 - Login: plant users log in with **plant code + username + secret**. Staff use a 6-digit **PIN**; anyone holding
@@ -1319,3 +1323,27 @@ Not deployed (v0.14.0 isn't either).
 - Tests: Order Capture 262 (+4), platform 294. Details: `apps/order-capture/NOTES.md`.
 - **Live (2026-10-14):** migration applied, `v0.16.0:production` (`4a0a749`), health checks OK. v0.15.0 (WhatsApp
   thank-you) was already live. **Not yet verified:** a note on screen and its notification.
+
+### 2026-10-15 — Roles: what Plant staff means (decided) + clearer role buttons (v0.16.1)
+**Decided by the owner (2026-10-15):**
+- One role per module: Lab Records = Lab technician / Lab lead; **Document Store = Document keeper** (not Store
+  keeper); Floor Stock = Store keeper; Complaint Box = Complaint desk; Order Capture = Order desk; Preventive Mgmt =
+  Maintenance technician; Marketing Contacts = a new **Sales team** role (Phase 9).
+- **Plant staff = "this person is an employee".** Every employee can hold it next to their work role (e.g. Store
+  keeper + Plant staff). With Attendance & Salary (Phase 8) it gives:
+  - **own attendance and overtime only**; **salary is visible to the owner only**
+  - the Order Capture view (orders without amounts) stays
+  - **no work in Floor Stock, Document Store or Complaint Box** any more; **not Marketing Contacts** either
+- **When:** the rule changes together with Attendance & Salary, so Plant staff is never a role that opens nothing.
+  Until then the live rule above is unchanged. Before that release: list the users who hold Plant staff without
+  Store keeper / Document keeper / Complaint desk, and Document Store documents whose responsible person is Plant
+  staff only, so the owner can give them the right role first.
+- To settle in the Phase 8 plan: who marks attendance (the person, the owner, or a supervisor), and whether an owner
+  appears in attendance.
+
+**Built (platform only, no database or permission change):** Add / Edit user role buttons now show the module each
+role opens; roles for modules the plant hasn't switched on are hidden (a role someone already holds stays, greyed,
+"not switched on", so it can be removed); Plant staff lists what it opens in this plant, worked out from
+`roleWorksIn` / `viewOnlyIn` (`roleChoices` in `apps/platform/src/lib/permissions.ts`). Mobile is "optional, for
+Lab Records WhatsApp alerts" only for owners / lab leads. Tests: platform 298 (+4).
+**Not yet verified:** on screen; not deployed.

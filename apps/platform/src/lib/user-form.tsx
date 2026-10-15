@@ -5,6 +5,7 @@ import { Button, Card, ErrorText, TextField } from "@plantops/ui";
 import { roleWorksIn, type ModuleId, type RoleId } from "@plantops/types";
 import { ROLE_LABELS } from "@/lib/api";
 import { moduleLabel } from "@/lib/modules";
+import { roleChoices } from "@/lib/permissions";
 
 /** A user as both the owner's and super_admin's user lists return it. */
 export type UserView = {
@@ -22,26 +23,33 @@ export type UserView = {
   locked: boolean;
 };
 
-const ROLES = Object.keys(ROLE_LABELS);
-
-export function RolePicker({ value, onChange }: { value: string[]; onChange: (roles: string[]) => void }) {
+/** Role buttons, each with the module it opens. Only roles for the plant's switched-on modules (see roleChoices). */
+export function RolePicker({ value, enabled = [], onChange }: { value: string[]; enabled?: string[]; onChange: (roles: string[]) => void }) {
   return (
     <div className="flex flex-wrap gap-2">
-      {ROLES.map((r) => {
-        const on = value.includes(r);
+      {roleChoices(enabled, value).map(({ role, label, hint, off }) => {
+        const on = value.includes(role);
         return (
           <button
-            key={r}
+            key={role}
             type="button"
-            onClick={() => onChange(on ? value.filter((x) => x !== r) : [...value, r])}
-            className={`min-h-11 rounded-full border px-4 text-sm font-medium ${on ? "border-(--brand) bg-(--brand) text-(--brand-contrast)" : "border-slate-300 bg-white text-slate-700"}`}
+            aria-pressed={on}
+            onClick={() => onChange(on ? value.filter((x) => x !== role) : [...value, role])}
+            className={`min-h-11 max-w-full rounded-2xl border px-4 py-1.5 text-left ${on ? "border-(--brand) bg-(--brand) text-(--brand-contrast)" : "border-slate-300 bg-white text-slate-700"} ${off ? "opacity-60" : ""}`}
           >
-            {ROLE_LABELS[r]}
+            <span className="block text-sm font-medium">{label}</span>
+            <span className={`block text-xs ${on ? "opacity-90" : "text-slate-500"}`}>{hint}</span>
           </button>
         );
       })}
     </div>
   );
+}
+
+/** WhatsApp is used only for Lab Records alerts to owners and lab leads; everyone else gets app notifications. */
+export function mobileLabel(roles: string[], enabled: string[]) {
+  const whatsapp = (roles.includes("tenant_admin") || roles.includes("lab_lead")) && (!enabled.length || enabled.includes("lab_records"));
+  return whatsapp ? "Mobile (optional, for Lab Records WhatsApp alerts)" : "Mobile (optional)";
 }
 
 /** Modules (switched on for the plant) that someone with these roles works in: the ones they can get alerts for. */
@@ -137,11 +145,11 @@ export function UserEditForm({
       {canEditUsername && (
         <TextField label="Username (for login)" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} autoCapitalize="none" required />
       )}
-      <TextField label="Mobile (for WhatsApp alerts)" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-      <TextField label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoCapitalize="none" />
+      <TextField label={mobileLabel(form.roles, enabledModules)} type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+      <TextField label="Email (optional)" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoCapitalize="none" />
       <div>
         <span className="mb-1 block text-sm font-medium text-slate-700">Roles</span>
-        <RolePicker value={form.roles} onChange={(roles) => setForm({ ...form, roles })} />
+        <RolePicker value={form.roles} enabled={enabledModules} onChange={(roles) => setForm({ ...form, roles })} />
       </div>
       <AlertPicker enabled={enabledModules} roles={form.roles} value={form.alert_modules} onChange={(alert_modules) => setForm({ ...form, alert_modules })} />
       {ownerChange && (

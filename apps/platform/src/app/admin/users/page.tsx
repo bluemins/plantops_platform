@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card, ErrorText, TextField } from "@plantops/ui";
 import { api } from "@/lib/api";
-import { RolePicker, TempSecret, UserCard, type UserView } from "@/lib/user-form";
+import { mobileLabel, RolePicker, TempSecret, UserCard, type UserView } from "@/lib/user-form";
 
 const emptyForm = { username: "", display_name: "", phone: "", email: "", roles: [] as string[] };
 
@@ -77,9 +77,9 @@ export default function UsersPage() {
         <form onSubmit={create} className="space-y-3">
           <TextField label="Name" value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} required />
           <TextField label="Username (for login)" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} autoCapitalize="none" required />
-          <TextField label="Mobile (for WhatsApp alerts, optional)" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <TextField label={mobileLabel(form.roles, enabled)} type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <TextField label="Email (optional)" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoCapitalize="none" />
-          <RolePicker value={form.roles} onChange={(roles) => setForm({ ...form, roles })} />
+          <RolePicker value={form.roles} enabled={enabled} onChange={(roles) => setForm({ ...form, roles })} />
           <Button type="submit" className="w-full">Add user</Button>
         </form>
       </Card>
