@@ -2,7 +2,7 @@
 // Tile hiding is only convenience - every module still checks access itself (CLAUDE.md flow step 5).
 import { and, eq, sql } from "drizzle-orm";
 import { canAccessModule } from "@plantops/auth";
-import { MODULE_IDS, PlanLimits, type ModuleId, type RoleId } from "@plantops/types";
+import { MODULE_IDS, OWNER_ONLY_ALERTS, PlanLimits, type ModuleId, type RoleId } from "@plantops/types";
 import type { CurrentUser } from "./auth";
 import { appDb, schema, superDb, withTenant, type PlatformDb, type PlatformTx } from "./db";
 import { enabledModules } from "./sso";
@@ -114,7 +114,7 @@ export async function buildLauncher(user: CurrentUser) {
     const info = await plantInfo(tx, user.tenantId, "/api/business/logo");
     const tiles = decideTiles(user.roles, info.enabled, available);
     const owner = user.roles.includes("tenant_admin");
-    const alertModules = (await loadAlertModules(tx, user.tenantId, [user.userId])).get(user.userId) ?? [];
+    const alertModules = ((await loadAlertModules(tx, user.tenantId, [user.userId])).get(user.userId) ?? []).filter((m) => !OWNER_ONLY_ALERTS.includes(m));
     return {
       // gets_alerts: owners always; others when the owner ticked them for a module (shows the "turn on" card)
       user: { display_name: user.displayName, roles: user.roles, gets_alerts: owner || alertModules.length > 0 },

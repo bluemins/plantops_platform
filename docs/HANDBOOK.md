@@ -36,6 +36,7 @@ Railway project "plantops-shared" (Singapore), environment "production"
   stock.bluemins.life ─► floor-stock     Floor Stock module (port 3002)
   complaints.bluemins.life ─► complaint-box  Complaint Box module (+ volume /data) (port 3004)
   orders.bluemins.life ─► order-capture  Order Capture module (port 3005)
+  attendance.bluemins.life ─► attendance-salary  Attendance (QR + location) (port 3006)
                          Postgres        one database, private (each app its own schema + login)
 
 GitHub repo bluemins/plantops_platform
@@ -60,7 +61,7 @@ They share **only the code**, and code reaches Railway in exactly one way: a pus
 
 | | Local (development) | Railway (production) |
 |---|---|---|
-| Addresses | `http://localhost:3000` / `:3001` / `:3003` / `:3002` / `:3004` / `:3005` | `https://app` / `lab` / `docs` / `stock` / `complaints` / `orders.bluemins.life` |
+| Addresses | `http://localhost:3000` / `:3001` / `:3003` / `:3002` / `:3004` / `:3005` / `:3006` | `https://app` / `lab` / `docs` / `stock` / `complaints` / `orders` / `attendance.bluemins.life` |
 | Settings and secrets | `.env` in the project folder | each service → **Variables** |
 | Database | Postgres on this computer (`plantops`; tests use `plantops_test`) | Railway's Postgres |
 | super_admin | `admin@plantops.local` | `contact@bluemins.life` |
@@ -225,7 +226,8 @@ A reset is always temporary: the person picks their own at the next login. More 
 | SSO signing key `SSO_PRIVATE_JWK_B64` | platform | (pasted, then file deleted) | ✔ |
 | Module secrets `MODULE_SECRET_*` | lab-records, document-store | `.env.railway.shared` | ✔ |
 | Session secrets `LAB_/DOC_SESSION_SECRET` | lab-records, document-store | (pasted, then file deleted) | ✔ |
-| `CRON_SECRET` | platform, lab-records, document-store, floor-stock, complaint-box, order-capture **and** GitHub environment `shared` | (pasted, then file deleted) | ✔ |
+| `CRON_SECRET` | platform, lab-records, document-store, floor-stock, complaint-box, order-capture, attendance-salary **and** GitHub environment `shared` | (pasted, then file deleted) | ✔ |
+| `ATTEND_SESSION_SECRET` | attendance-salary. **Also makes the QR key:** changing it stops every printed Attendance QR (print new ones) | (pasted, then file deleted) | ✔ |
 | super_admin password | (stored as a hash in the database) | not stored | ✔ |
 | Phone notification keys `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | platform | not stored (local dev has its own pair in `.env`) | ✔ |
 | Backup login `DATABASE_URL_BACKUP` (read-only) | GitHub environment `shared` only | `.env.railway.shared` | ✔ |
@@ -288,6 +290,8 @@ every day at **07:00 India time**, for each copy listed in it:
 - Complaint Box: "C-0042 open for N days" reminders (day 3, 10, 17… after logging / reopening) and notifications
   that waited in its outbox; skipped until `COMPLAINT_URL` is set
 - Order Capture: notifications that waited in its outbox (no reminders in v1); skipped until `ORDER_URL` is set
+- Attendance: notifications that waited in its outbox, then "N people didn't mark OUT yesterday" to each plant's
+  owners; skipped until `ATTENDANCE_URL` is set
 
 To check or run it: GitHub → **Actions** → *Daily jobs*. Confirm a successful run before relying on reminders;
 click **Run workflow** to run it now. A failed run sends GitHub's failure email.
@@ -295,7 +299,7 @@ If runs appear on every push, named `.github/workflows/daily.yml` instead of *Da
 file (a YAML mistake) and nothing runs. Until 2026-10-04 that was the case: a `run:` line containing `: ` must be
 written as `run: |` with the command on the next line.
 
-Its settings live in GitHub → Settings → **Environments** → `shared`: variables `APP_URL`, `LAB_URL`, `DOCS_URL`, `STOCK_URL`, `COMPLAINT_URL` and `ORDER_URL`,
+Its settings live in GitHub → Settings → **Environments** → `shared`: variables `APP_URL`, `LAB_URL`, `DOCS_URL`, `STOCK_URL`, `COMPLAINT_URL`, `ORDER_URL` and `ATTENDANCE_URL`,
 and the secret `CRON_SECRET`. If the repo is ever made public, GitHub pauses schedules after 60 days without
 commits.
 
@@ -364,6 +368,23 @@ notifications once they tap **Turn on** there. Design and phases: `docs/notifica
 **WhatsApp (Lab Records alerts): waiting for Meta approval.** Alerts are kept as "WhatsApp not set up yet".
 When approved, add `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_TEMPLATE` and `WHATSAPP_TEMPLATE_LANG` to
 **lab-records** → Variables.
+
+### Attendance: QR and location
+- **Setting up a plant (the owner, once):** Attendance → ⚙ Location & QR. Stand inside the plant and tap "Use my
+  current location" (or paste `lat, lng` from Google Maps), keep the circle at 200 m, Save. Then **Make the QR →
+  Print QR** and stick it where staff come in. Copies in several places all work.
+- **Reprinting** gives the same QR. **Make a new QR** stops every old print at once (use it if a photo of the QR has
+  gone outside the plant); the new one must be put up again.
+- **The QR key is never stored:** the app works it out from `ATTEND_SESSION_SECRET`, the plant and the QR's date.
+  Changing that secret therefore stops every printed QR too: print new ones for every plant using Attendance.
+- **Who is tracked:** everyone with the **Plant staff** role. An owner marks only if they also hold Plant staff.
+- **Location needs https.** Phones share their location only with the secure address, so marking can't be tried on
+  the LAN address (`http://192.168.1.2`); use the live copy.
+- **Honest limits:** indoor GPS can be 20–50 m off, so the circle is 200 m: it stops marking from home or the
+  market, not from the road outside the gate. A fake-GPS app on Android can fool any browser check; the owner's
+  Today board and the "tried to mark from far away" bell are the safety net.
+- **Mistakes:** only the owner fixes (Staff → person → day → add a time / cancel a mark, always with a reason).
+  Nothing is overwritten; the worker gets a notification.
 
 ## 11. Files, backups and data location
 

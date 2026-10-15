@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
-import { ModuleId, PlanLimits, RoleId, roleWorksIn } from "@plantops/types";
+import { ModuleId, OWNER_ONLY_ALERTS, PlanLimits, RoleId, roleWorksIn } from "@plantops/types";
 import { audit, type Actor } from "./audit";
 import { hashSecret, temporarySecret, validateSecret, type SecretKind } from "./crypto";
 import { schema, withTenant, type PlatformDb, type PlatformTx } from "./db";
@@ -159,6 +159,10 @@ async function setAlertModules(tx: PlatformTx, tenantId: string, userId: string,
     const [plan] = await tx.select({ m: tenantPlans.enabledModules }).from(tenantPlans).where(eq(tenantPlans.tenantId, tenantId));
     const enabled = new Set(plan?.m ?? []);
     for (const m of wanted) {
+      if (OWNER_ONLY_ALERTS.includes(m)) {
+        if (strict) throw badRequest(`Only owners get ${m === "attendance_salary" ? "Attendance" : "this module's"} alerts`);
+        continue; // dropped quietly (a stray row from before)
+      }
       const ok = enabled.has(m) && roles.some((r) => roleWorksIn(r, m));
       if (ok) keep.push(m);
       else if (strict) throw badRequest(enabled.has(m) ? "This person can only get alerts for modules they work in" : "That module is not switched on for this plant");

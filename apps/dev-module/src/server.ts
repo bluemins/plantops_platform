@@ -191,7 +191,7 @@ function serveModule(moduleId: ModuleId, creds: ModuleCredentials) {
 
 let started = 0;
 // Modules that now have a real app are served by that app, never by this placeholder.
-const REAL_APPS: ModuleId[] = ["lab_records", "document_store", "floor_stock", "complaint_box", "order_capture"]; // apps/lab-records, apps/document-store, apps/floor-stock, apps/complaint-box, apps/order-capture
+const REAL_APPS: ModuleId[] = ["lab_records", "document_store", "floor_stock", "complaint_box", "order_capture", "attendance_salary"]; // apps/lab-records, apps/document-store, apps/floor-stock, apps/complaint-box, apps/order-capture, apps/attendance-salary
 
 for (const id of MODULE_IDS) {
   if (REAL_APPS.includes(id)) continue;

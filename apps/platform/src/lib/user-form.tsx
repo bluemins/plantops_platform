@@ -5,7 +5,7 @@ import { Button, Card, ErrorText, TextField } from "@plantops/ui";
 import { roleWorksIn, type ModuleId, type RoleId } from "@plantops/types";
 import { ROLE_LABELS } from "@/lib/api";
 import { moduleLabel } from "@/lib/modules";
-import { roleChoices } from "@/lib/permissions";
+import { alertChoices, roleChoices } from "@/lib/permissions";
 
 /** A user as both the owner's and super_admin's user lists return it. */
 export type UserView = {
@@ -52,9 +52,6 @@ export function mobileLabel(roles: string[], enabled: string[]) {
   return whatsapp ? "Mobile (optional, for Lab Records WhatsApp alerts)" : "Mobile (optional)";
 }
 
-/** Modules (switched on for the plant) that someone with these roles works in: the ones they can get alerts for. */
-export const alertChoices = (enabled: string[], roles: string[]) =>
-  enabled.filter((m) => roles.some((r) => roleWorksIn(r as RoleId, m as ModuleId)));
 
 /**
  * "Gets alerts" tick boxes (notifications N2): besides the owners, only people ticked here get a module's app

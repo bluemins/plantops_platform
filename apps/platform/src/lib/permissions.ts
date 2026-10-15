@@ -1,7 +1,7 @@
 // The owner's "Who can do what" screen (/admin/permissions): what each person is in each module switched on for the
 // plant. Worked out from the SAME rules the servers enforce (roleWorksIn / viewOnlyIn in packages/types), so the
 // screen can't say something different from what actually happens. Text only; nothing here grants access.
-import { MODULE_IDS, ROLE_IDS, ROLE_MODULE, roleWorksIn, viewOnlyIn, type ModuleId, type RoleId } from "@plantops/types";
+import { MODULE_IDS, OWNER_ONLY_ALERTS, ROLE_IDS, ROLE_MODULE, roleWorksIn, viewOnlyIn, type ModuleId, type RoleId } from "@plantops/types";
 import { ROLE_LABELS } from "./api";
 import { moduleLabel } from "./modules";
 
@@ -16,11 +16,18 @@ export interface Cell {
 /** What a read-only viewer sees, per view-only module (packages/types PLANT_STAFF_VIEW_ONLY). */
 const VIEW_LABELS: Partial<Record<ModuleId, string>> = { order_capture: "View only, no amounts" };
 
+/**
+ * "Gets alerts" tick boxes: the modules (switched on for the plant) that someone with these roles works in. Owner-only
+ * modules (Attendance) are never offered. The server applies the same rule (setAlertModules).
+ */
+export const alertChoices = (enabled: string[], roles: string[]) =>
+  enabled.filter((m) => !OWNER_ONLY_ALERTS.includes(m as ModuleId) && roles.some((r) => roleWorksIn(r as RoleId, m as ModuleId)));
+
 /** One cell of the grid: null = no access ("–"). */
 export function cellFor(roles: readonly string[], alertModules: readonly string[], moduleId: ModuleId): Cell | null {
   const rs = roles as RoleId[];
   if (rs.includes("tenant_admin")) return { kind: "owner", label: "Owner", alerts: true };
-  const alerts = alertModules.includes(moduleId);
+  const alerts = alertModules.includes(moduleId) && !OWNER_ONLY_ALERTS.includes(moduleId); // owner-only: never a 🔔 for staff
   let working = rs.filter((r) => roleWorksIn(r, moduleId));
   if (working.includes("lab_lead")) working = working.filter((r) => r !== "lab_technician"); // a lead is a technician too
   if (working.length > 1) working = working.filter((r) => r !== "plant_staff"); // the module's own role says more

@@ -14,7 +14,8 @@ independently, with its own URL, Docker image and database schema.
 - `apps/order-capture` (built before Preventive Management, decided by the owner 2026-10-12)
 - `apps/preventive-mgmt`
 - `apps/amc`
-- `apps/attendance-salary`
+- `apps/attendance-salary` (version 1 = attendance only, built before Preventive Management, decided by the owner
+  2026-10-15; v0.18.0)
 - `apps/marketing-contacts`
 - `packages/auth` — SSO token verification + role guards, used by every module
 - `packages/ui` — shared UI components (tiles, buttons, forms)
@@ -106,7 +107,8 @@ working. Nothing is stored.
 screens stay PlantOps blue.
 
 **Every module app must** (all in `packages/auth`, wired up once by `createModule()` in `packages/module-kit`;
-`apps/lab-records`, `apps/document-store`, `apps/floor-stock`, `apps/complaint-box` and `apps/order-capture` use it):
+`apps/lab-records`, `apps/document-store`, `apps/floor-stock`, `apps/complaint-box`, `apps/order-capture` and
+`apps/attendance-salary` use it):
 `startModuleSession` at `/sso/callback`, keep the session with `sealSession`/`openSession` (own
 `SESSION_SECRET`, ≥ 32 chars), call `refreshModuleSession` on every request (12 h shift, 5-min re-check,
 15-min grace if the platform is unreachable), send users without a session to
@@ -163,7 +165,7 @@ prompt to add to a module phase is in `docs/notifications.md` ("N5+").
 - PostgreSQL, managed hosting. Hosting: Railway, Singapore region, one project (decided 2026-10-04 for low
   cost); India hosting later if a plant needs it. Public addresses: `app.bluemins.life` (platform),
   `lab.bluemins.life` (Lab Records), `docs.bluemins.life` (Document Store), `stock.bluemins.life` (Floor Stock),
-  `complaints.bluemins.life` (Complaint Box), `orders.bluemins.life` (Order Capture); `bluemins.life` itself stays a static site on GitHub Pages, DNS at
+  `complaints.bluemins.life` (Complaint Box), `orders.bluemins.life` (Order Capture), `attendance.bluemins.life` (Attendance); `bluemins.life` itself stays a static site on GitHub Pages, DNS at
   WordPress.com. Railway deploys the git branch `production` only (`main` never deploys). Running it:
   `docs/HANDBOOK.md`; setup steps: `docs/DEPLOY.md`; per-copy records: `docs/deployments/`.
 - S3-compatible storage for documents/reports. PDF reports via Puppeteer or react-pdf.
@@ -211,7 +213,8 @@ pilots.
 6. **Preventive Management module** — assets, PM schedules, task completion, history.
 7. **AMC module** — contracts, visit logs, renewals, invoicing (pairs with Preventive Management).
 8. **Attendance & Salary module.** Version 1 (attendance only: QR scan + location check, own calendar, owner view
-   and fixes) built **before Phase 6** (owner, 2026-10-15); plan and build prompts in `docs/ATTENDANCE_PHASE_PLAN.md`.
+   and fixes) built **before Phase 6** (owner, 2026-10-15) and released as v0.18.0; plan and build prompts in
+   `docs/ATTENDANCE_PHASE_PLAN.md`. Salary, overtime, leave and holidays come later.
 9. **Digital Marketing Contact Management module.**
 10. **Website + dedicated-instance/tenant provisioning tooling.**
 
@@ -334,7 +337,8 @@ WhatsApp, or setting them up. Existing email alerts stay as they are; notificati
 **N5+: inside each new module phase.** Every new module sends its own events with `kit.notify` from day one:
 - Preventive Management: task due / overdue, done, breakdown reported
 - AMC: contract expiring, visit due / done, invoice due
-- Attendance & Salary: not checked in, leave request, salary ready
+- Attendance & Salary: version 1 done in its own phase plan (v0.18.0): corrected, outside, no exit (owners only);
+  leave request / salary ready come with those features
 - Marketing Contacts: follow-up due
 - Complaint Box: done in its own phase plan (v0.12.0): new, resolved, reopened, still open, updated, storage
 - Order Capture: done in its own phase plan (v0.13.0): new order, delivered, cancelled
@@ -1366,3 +1370,51 @@ No database change; the SSO token is unchanged.
   except Gaja (Store keeper), so only she lost Document Store + Complaint Box. **Not yet verified:** a Plant-staff-only
   login being refused by Floor Stock on the live copy.
 
+### 2026-10-15 — Attendance (Attendance & Salary version 1) — built (v0.18.0)
+Built ahead of Phase 6, decided by the owner 2026-10-15. Design, phases and build prompts:
+`docs/ATTENDANCE_PHASE_PLAN.md`; module notes: `apps/attendance-salary/NOTES.md`.
+
+**Built** (`apps/attendance-salary` on :3006, on `packages/module-kit`):
+- **Platform** (no migration; module row since `0001`):
+  - `OWNER_ONLY_ALERTS = ["attendance_salary"]` in `packages/types`: no "Gets alerts" tick box (form and API refuse
+    it); `notifyPlant` ignores ticks there; `also_user_ids` + `only_listed` still reach the worker
+  - three `NOTIFICATION_KINDS` (+ flag `aboutYou`: in an owner-only module a non-owner sees only those in settings)
+  - tile "Mark attendance", owner link "⚙ Location & QR"; no 🔔 on the Permissions screen for staff
+  - `attendance_salary` in `SUPPORT_READY`; `alertChoices` moved to `src/lib/permissions.ts`
+- **Module schema** `attendance_salary`, login `attendance_app` (migration `0001`): 6 tables with `tenant_id` + FORCE
+  RLS, no DELETE; UPDATE only on the plant settings and the outbox retry columns. A scan stores distance and
+  accuracy, **never coordinates**. One access table (`src/server/access.ts`).
+- **Marking:** QR on the wall (`/scan?k=`), one big Mark IN / OUT, browser location; the server decides time and IN /
+  OUT and checks key, circle (200 m), accuracy (≤ 500 m), double tap (2 min), with a per-person lock. **The QR key
+  is never stored** (HMAC of `ATTEND_SESSION_SECRET` + plant + QR date; hash in the database): reprint any time;
+  "Make a new QR" stops old prints; changing the secret does too.
+- **Worker:** own month calendar and day view (24-hour bar, "added by owner: …", cancelled crossed out).
+- **Owner:** Today board, Staff (people who left keep their history), person pages with **Fix** (add a time /
+  cancel a mark, reason required, never in the future, cancel once, 409 if the day changed), month CSV, Recent
+  changes, Location & QR settings + A4 print.
+- **Pairing rules** in one pure function (`src/lib/sessions.ts`): blocks on the India date they start, "no exit"
+  after 16 h, "no entry", "changed"; nothing stored.
+- **Notifications (N5+):** corrected (worker only, phone + bell), outside (owners, bell, once per person per day),
+  no exit (owners, bell, daily job 07:00); outbox + `kit.retryOutbox`; Attendance step in `daily.yml`.
+- **Tile:** owner "N in now / N not marked today (from 11:00) / N no exit", "Set location & QR" until set up; workers
+  no badge. Support view read-only and logged.
+- **Tests:** Attendance 151, platform 312 (+13).
+
+**Decisions (owner, 2026-10-15):** printed QR + location check; one QR, the app decides IN / OUT; only the owner
+fixes, with a reason; everyone with Plant staff is tracked; 500 m accuracy, 2-minute double tap, 16-hour rule,
+200 m circle; owner-only alerts; Plant staff keeps the Order Capture view; "no exit" only after 16 h; a "Get alerts
+on this phone" link for workers; the QR drawn by the server and reprintable; workers' tiles without a badge.
+
+**Made while building:** the double-tap check before the "changed" 409; future dates 404; a fix may be on the page's
+day or the next morning (night shifts); the day stamp for stale fixes; "Set location & QR" tile badge; no
+notification when an owner fixes their own marks.
+
+**Verified on `pnpm dev`** (plant 002, temporary users, all removed afterwards): login through the platform (worker
+lands in Attendance, store keeper refused); scan screen in Chrome at 390 px with a faked location (1.4 km refused,
+40 m saved); settings and print; worker month and day; owner Today, Staff, a fix through the screen, Recent changes,
+CSV; Sujata's real bells ("outside", "no exit") and the worker's "corrected"; the tile numbers.
+
+**Not yet verified:** real phones (location needs https: Android, iPhone, Google Lens); the live deployment.
+
+**Next:** go live on the shared copy (`add-railway-module.sh`, service `attendance-salary`, DNS, `ATTENDANCE_URL`,
+deploy), then the owner's checklist at plant 001 (docs/HANDBOOK.md "Attendance: QR and location").

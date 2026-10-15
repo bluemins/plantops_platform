@@ -31,20 +31,21 @@ DOC_HOST=$(ask "Document Store address" "docs.bluemins.life")
 STOCK_HOST=$(ask "Floor Stock address" "stock.bluemins.life")
 COMPLAINT_HOST=$(ask "Complaint Box address" "complaints.bluemins.life")
 ORDER_HOST=$(ask "Order Capture address" "orders.bluemins.life")
+ATTEND_HOST=$(ask "Attendance address" "attendance.bluemins.life")
 SUPER_EMAIL=$(ask "super_admin login email" "")
 [ -n "$SUPER_EMAIL" ] || { echo "The super_admin email is required"; exit 1; }
 
 gen() { openssl rand -hex "$1"; }
-OWNER_PW=$(gen 16); APP_PW=$(gen 16); SUPER_PW=$(gen 16); LAB_PW=$(gen 16); DOC_PW=$(gen 16); STOCK_PW=$(gen 16); COMPLAINT_PW=$(gen 16); ORDER_PW=$(gen 16)
+OWNER_PW=$(gen 16); APP_PW=$(gen 16); SUPER_PW=$(gen 16); LAB_PW=$(gen 16); DOC_PW=$(gen 16); STOCK_PW=$(gen 16); COMPLAINT_PW=$(gen 16); ORDER_PW=$(gen 16); ATTEND_PW=$(gen 16)
 SUPER_ADMIN_PW=$(gen 12)
-LAB_SESSION=$(gen 32); DOC_SESSION=$(gen 32); STOCK_SESSION=$(gen 32); COMPLAINT_SESSION=$(gen 32); ORDER_SESSION=$(gen 32)
-LAB_SECRET=$(gen 32); DOC_SECRET=$(gen 32); STOCK_SECRET=$(gen 32); COMPLAINT_SECRET=$(gen 32); ORDER_SECRET=$(gen 32)
+LAB_SESSION=$(gen 32); DOC_SESSION=$(gen 32); STOCK_SESSION=$(gen 32); COMPLAINT_SESSION=$(gen 32); ORDER_SESSION=$(gen 32); ATTEND_SESSION=$(gen 32)
+LAB_SECRET=$(gen 32); DOC_SECRET=$(gen 32); STOCK_SECRET=$(gen 32); COMPLAINT_SECRET=$(gen 32); ORDER_SECRET=$(gen 32); ATTEND_SECRET=$(gen 32)
 CRON=$(gen 32)
 SSO_KEY=$(node scripts/generate-sso-key.mjs)
 
 echo "Creating database logins and the plantops database..."
 psql "$ADMIN_URL" -q -v ON_ERROR_STOP=1 \
-  -v owner_pw="$OWNER_PW" -v app_pw="$APP_PW" -v super_pw="$SUPER_PW" -v lab_pw="$LAB_PW" -v doc_pw="$DOC_PW" -v stock_pw="$STOCK_PW" -v complaint_pw="$COMPLAINT_PW" -v order_pw="$ORDER_PW" \
+  -v owner_pw="$OWNER_PW" -v app_pw="$APP_PW" -v super_pw="$SUPER_PW" -v lab_pw="$LAB_PW" -v doc_pw="$DOC_PW" -v stock_pw="$STOCK_PW" -v complaint_pw="$COMPLAINT_PW" -v order_pw="$ORDER_PW" -v attend_pw="$ATTEND_PW" \
   -f scripts/setup-railway-db.sql
 
 # From this computer: Railway's public proxy address, same host/port as the admin address.
@@ -69,6 +70,8 @@ MODULE_URL_COMPLAINT_BOX=https://$COMPLAINT_HOST
 MODULE_SECRET_COMPLAINT_BOX=$COMPLAINT_SECRET
 MODULE_URL_ORDER_CAPTURE=https://$ORDER_HOST
 MODULE_SECRET_ORDER_CAPTURE=$ORDER_SECRET
+MODULE_URL_ATTENDANCE_SALARY=https://$ATTEND_HOST
+MODULE_SECRET_ATTENDANCE_SALARY=$ATTEND_SECRET
 ENV
 
 cat > "$PASTE" <<ENV
@@ -137,12 +140,24 @@ ORDER_DATABASE_URL_APP=$(inner order_app "$ORDER_PW")
 ORDER_SESSION_SECRET=$ORDER_SESSION
 CRON_SECRET=$CRON
 
+##### attendance-salary  (domain: $ATTEND_HOST, port 3006; no volume. ATTEND_SESSION_SECRET also makes the QR key:
+##### changing it later means printing the QR again)
+PORT=3006
+RAILWAY_DOCKERFILE_PATH=apps/attendance-salary/Dockerfile
+PLATFORM_URL=https://$APP_HOST
+MODULE_URL_ATTENDANCE_SALARY=https://$ATTEND_HOST
+MODULE_SECRET_ATTENDANCE_SALARY=$ATTEND_SECRET
+ATTEND_DATABASE_URL_APP=$(inner attendance_app "$ATTEND_PW")
+ATTEND_SESSION_SECRET=$ATTEND_SESSION
+CRON_SECRET=$CRON
+
 ##### GitHub > Settings > Environments > "$COPY" (daily reminder jobs, .github/workflows/daily.yml)
 # variable LAB_URL   = https://$LAB_HOST
 # variable DOCS_URL  = https://$DOC_HOST
 # variable STOCK_URL = https://$STOCK_HOST
 # variable COMPLAINT_URL = https://$COMPLAINT_HOST
 # variable ORDER_URL = https://$ORDER_HOST
+# variable ATTENDANCE_URL = https://$ATTEND_HOST
 # secret   CRON_SECRET = $CRON
 ENV
 

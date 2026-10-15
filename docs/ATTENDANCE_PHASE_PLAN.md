@@ -8,6 +8,7 @@
 - "like any other app": staff and owner have different views
 
 It is to be built **before Phase 6 (Preventive Management)**, after v0.17.0 (Plant staff = employee) is deployed.
+**Built 2026-10-15 (phases 0–6), released as v0.18.0;** what was made is in `apps/attendance-salary/NOTES.md`.
 Salary is **not** in this version.
 
 Each migration is still shown to the owner before it runs (CLAUDE.md working rules). The decisions marked

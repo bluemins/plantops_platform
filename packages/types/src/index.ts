@@ -53,6 +53,13 @@ export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin" | "plant_staff">
 export const PLANT_STAFF_MODULES: readonly ModuleId[] = ["attendance_salary"];
 
 /**
+ * Modules whose alerts go to owners only (owner, 2026-10-15): nobody can be ticked for them ("Gets alerts"), and a
+ * ticked row is ignored when sending. An event about one person still reaches that person (also_user_ids +
+ * only_listed). Attendance: a worker must never see a colleague's attendance.
+ */
+export const OWNER_ONLY_ALERTS: readonly ModuleId[] = ["attendance_salary"];
+
+/**
  * Modules plant_staff may OPEN but not work in (owner, 2026-10-14): Order Capture shows them the orders (customer,
  * phone, products, quantities) read-only and without amounts. They stay out of roleWorksIn for these modules, so they
  * are never that module's staff, never ticked for its alerts and never in its alert contacts.
@@ -210,10 +217,11 @@ export type NotificationResult = z.infer<typeof NotificationResult>;
 /**
  * Every notification kind people can configure (N4): its module (null = PlantOps itself), a plain label for the
  * settings screen, `urgent` - always phone + bell and can't be changed (decided 2026-10-11) - and `bellOnly` - never
- * on phones anyway, so the only choice is bell or off.
+ * on phones anyway, so the only choice is bell or off. `aboutYou` - sent to the person it is about; in an
+ * OWNER_ONLY_ALERTS module these are the only kinds a non-owner can receive.
  * A kind not listed here can't be configured and is always delivered as sent.
  */
-export const NOTIFICATION_KINDS: Record<string, { module: ModuleId | null; label: string; urgent?: true; bellOnly?: true }> = {
+export const NOTIFICATION_KINDS: Record<string, { module: ModuleId | null; label: string; urgent?: true; bellOnly?: true; aboutYou?: true }> = {
   "floor_stock.count_saved": { module: "floor_stock", label: "Stock count saved" },
   "floor_stock.count_corrected": { module: "floor_stock", label: "Stock count corrected" },
   "floor_stock.low_stock": { module: "floor_stock", label: "Low stock" },
@@ -243,6 +251,9 @@ export const NOTIFICATION_KINDS: Record<string, { module: ModuleId | null; label
   "order_capture.delivered": { module: "order_capture", label: "Your order delivered", bellOnly: true },
   "order_capture.cancelled": { module: "order_capture", label: "Order cancelled", bellOnly: true },
   "order_capture.note": { module: "order_capture", label: "Note added to an order", bellOnly: true },
+  "attendance_salary.corrected": { module: "attendance_salary", label: "Your attendance changed by the owner", aboutYou: true },
+  "attendance_salary.outside": { module: "attendance_salary", label: "Mark refused: outside the plant", bellOnly: true },
+  "attendance_salary.no_exit": { module: "attendance_salary", label: "People who didn't mark OUT (morning)", bellOnly: true },
   "platform.user_locked": { module: null, label: "Someone locked out", urgent: true },
   "platform.support_opened": { module: null, label: "PlantOps support viewed your data", bellOnly: true },
   "platform.module_on": { module: null, label: "Module switched on" },

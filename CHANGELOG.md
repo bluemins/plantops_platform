@@ -4,6 +4,32 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.18.0 — 2026-10-15 — Attendance (version 1)
+
+**What's in it**
+- **New module: Attendance** (`attendance.bluemins.life`), version 1 of Attendance & Salary: attendance only, no
+  salary yet. Switched off for every plant until super_admin ticks it on the plan.
+- **Marking:** a worker scans the QR on the plant wall and taps **Mark IN / Mark OUT**. The phone's location is
+  checked against the plant's point and circle (200 m by default); only the distance is kept. The server decides the
+  time and IN or OUT. Marks from far away, rough locations and double taps are refused with a plain message.
+- **Who is tracked:** everyone with **Plant staff**. Workers see only their own month calendar and days (hours
+  worked, "no exit", "changed").
+- **The owner:** a **Today** board (inside now, came and left, not marked today, no exit yesterday), every person's
+  calendar, **fixes** (add a time / cancel a mark, always with a reason; nothing is overwritten), a **month CSV**,
+  Recent changes, and **Location & QR** settings (use your current location, circle size, print the QR, make a new
+  QR).
+- **Notifications:** "Your attendance on … was changed" to the worker (phone + bell); "… tried to mark IN from 1.4 km
+  away" and "N people didn't mark OUT on …" (07:00) to owners (bell). **Attendance alerts go to owners only**: there
+  is no "Gets alerts" tick box for Attendance, so a worker never hears about a colleague.
+- **Launcher:** the tile reads "Mark attendance" for workers; the owner sees "N in now · N not marked today · N no
+  exit" (or "Set location & QR" until the plant is set up) and a "⚙ Location & QR" link.
+- super_admin can open Attendance read-only for a plant (support view, logged for the owner).
+
+**Migrations:** Attendance `0001_attendance.sql` (new schema `attendance_salary`, login `attendance_app`). On an
+existing copy run `./scripts/add-railway-module.sh <copy> attendance_salary attendance_app ATTEND 3006 <address>`
+first (it creates the login and runs this migration), then `./scripts/railway-migrate.sh <copy>`. The platform has
+no migration in this release.
+
 ## v0.17.0 — 2026-10-15 — Plant staff means "employee"
 
 **What's in it**

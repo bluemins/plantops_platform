@@ -26,6 +26,7 @@ One Railway project in the **Singapore** region (lowest cost; data location is n
 | `floor-stock` | `apps/floor-stock/Dockerfile` | `/health` | `stock.bluemins.life` | no volume (everything is in the database) |
 | `complaint-box` | `apps/complaint-box/Dockerfile` | `/health` | `complaints.bluemins.life` | + its own volume at `/data` for complaint photos / videos (`COMPLAINT_STORAGE_DIR=/data/complaints`) |
 | `order-capture` | `apps/order-capture/Dockerfile` | `/health` | `orders.bluemins.life` | no volume (no files; everything is in the database) |
+| `attendance-salary` | `apps/attendance-salary/Dockerfile` | `/health` | `attendance.bluemins.life` | no volume (no files). Its `ATTEND_SESSION_SECRET` also makes the printed QR's key |
 
 Service settings are set in the Railway dashboard, following this page. The Dockerfile is chosen by the
 `RAILWAY_DOCKERFILE_PATH` variable, which is in each service's pasted block. Railway's old `railway.json`
@@ -107,12 +108,13 @@ tag you are deploying.
 
 ## Adding a module to a running copy
 
-For a copy set up before the module existed (the `shared` copy got Floor Stock, Complaint Box and Order Capture this way). Do it
+For a copy set up before the module existed (the `shared` copy got Floor Stock, Complaint Box, Order Capture and
+Attendance this way). Do it
 together with the release that contains the module, **before** pushing that release to `production`: the module's
 migration needs its database login to exist.
 
 **Order matters when the release also adds the module to the platform** (Complaint Box: platform migration `0013`;
-Order Capture: `0014`).
+Order Capture: `0014`; Attendance needs none: its module row exists since `0001`).
 Run the platform migration first:
 `PLANTOPS_ENV_FILE=$PWD/.env.railway.<copy> pnpm --filter @plantops/platform db:migrate`. The script registers the
 module by updating the row that migration creates. It now stops with a plain message if the row isn't there yet.
@@ -138,7 +140,8 @@ After the script, run `./scripts/railway-migrate.sh <copy>` once, so the backup 
    needs a **volume at `/data`** (right-click the service → *Attach volume*). Then delete the `.paste` file.
 3. **Address and DNS:** steps 6–7 above (`stock`, port 3002).
 4. **Daily job:** add the module's variable to the GitHub environment (`STOCK_URL` = `https://stock.bluemins.life`,
-   `COMPLAINT_URL` = `https://complaints.bluemins.life`, `ORDER_URL` = `https://orders.bluemins.life`). Its daily
+   `COMPLAINT_URL` = `https://complaints.bluemins.life`, `ORDER_URL` = `https://orders.bluemins.life`,
+   `ATTENDANCE_URL` = `https://attendance.bluemins.life`). Its daily
    (and, for Complaint Box, backup) step is skipped until it is set. Add the module's schema to the "every schema has
    data" list in `backup.yml` **after** its live migration, so each nightly dump is checked for it.
 5. **Release** as below (no other migration needed for this module), then run the checks.
@@ -196,10 +199,13 @@ Migrations stay; the older code works with them because they are backward-compat
 - Complaint Box: a complaint with a photo, redeploy `complaint-box`, and the photo still opens (the volume works).
 - Order Capture: an Order desk user saves an order on a phone; the owner gets "New order O-0001" (bell + phone) and
   the tile shows "1 pending".
+- Attendance: the owner sets the plant location and prints the QR (the tile stops saying "Set location & QR"); a Plant
+  staff worker scans it on a phone (https only) and marks IN; a mark from far away is refused and the owner gets
+  the bell; the owner fixes a forgotten OUT and the worker gets "Your attendance on … was changed".
 
 ## Good to know
 
-- **Ports.** Each service listens on its own port inside Railway (3000/3001/3003/3002/3004/3005, set by `PORT`). From
+- **Ports.** Each service listens on its own port inside Railway (3000/3001/3003/3002/3004/3005/3006, set by `PORT`). From
   outside, everything is normal HTTPS on its own address.
 - **Volume permissions.** Railway volumes can only be written by root, so `document-store` and `complaint-box` have
   `RAILWAY_RUN_UID=0`. If files move to S3-compatible storage later (`STORAGE_BUCKET`, see
