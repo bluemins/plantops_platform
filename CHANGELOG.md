@@ -4,6 +4,17 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.19.0 — 2026-10-16 — Floor Stock: "Made from" (preform → empty bottle)
+
+**What's in it**
+- **Sections & items:** a raw material or consumable counted in pieces gets a **"Made from"** button (owner only),
+  e.g. 1 BM 1L Empty Bottle = 18.5 g Preform 18.5. One step only; every change in Recent changes.
+- **"Can make"** adds the bottles the preform can still be blown into to the empty bottles counted ("799 ready +
+  16,214 from Preform 18.5"). Only the preform's damage allowance is taken off. Products sharing a preform show in
+  the same "make one OR the other" box.
+
+**Migrations:** none. Only the `floor-stock` service changes.
+
 ## v0.18.0 — 2026-10-15 — Attendance (version 1)
 
 **What's in it**
