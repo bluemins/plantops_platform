@@ -1,6 +1,8 @@
 // "Can make" setup (approved 2026-10-11, docs/FLOOR_STOCK_CAN_MAKE_PLAN.md), set on the Sections & items screen:
 //   * Contents (stock items): what 1 counted unit holds ("1 packet = 25,000 g"), a damage allowance, loose pieces
 //   * Recipe (finished items): what 1 bottle needs ("18.5 g Preform 18.5 g + 1 Blue cap + 1 Label 1L")
+//   * Made from (stock items counted in pieces, owner 2026-10-16): what 1 piece is made from ("1 BM 1L Empty Bottle
+//     = 18.5 g Preform 18.5"), one step deep only. Stored as a recipe on the stock item.
 // Owner only (checked here: the database can't tell an owner from a store keeper). Every save is audited. Nothing is
 // deleted: a recipe line taken out is switched off. The result is worked out when a screen opens (src/lib/recipe.ts).
 import { and, eq, inArray } from "drizzle-orm";
@@ -96,6 +98,8 @@ export async function setContent(user: StockUser, itemId: string, input: z.infer
     const row = await itemWithSection(tx, user.tenantId, itemId);
     if (!row) throw notFound("Item not found");
     if (row.kind !== "stock") throw badRequest("Contents are set on raw material and consumable items, not on finished goods");
+    const [madeFrom] = await tx.select({ id: recipes.id }).from(recipes).where(and(eq(recipes.tenantId, user.tenantId), eq(recipes.productItemId, itemId), eq(recipes.status, "active")));
+    if (madeFrom && input.content_measure !== "pcs") throw badRequest(`${row.item.name} is made from other materials, so 1 ${row.item.unit} must hold a number of pieces (pcs)`);
     if (input.second_is_pieces && !row.item.secondUnit) throw badRequest(`${row.item.name} has no second number to count as loose pieces`);
     if (input.second_is_pieces && input.content_measure !== "pcs") throw badRequest("Loose pieces only make sense when 1 unit holds a number of pieces (pcs)");
 
@@ -137,18 +141,30 @@ export async function setRecipe(user: StockUser, productId: string, input: z.inf
   return withTenant(user.tenantId, async (tx) => {
     const product = await itemWithSection(tx, user.tenantId, productId);
     if (!product) throw notFound("Item not found");
-    if (product.kind !== "finished") throw badRequest("A recipe is set on a finished goods item");
     if (product.item.status !== "active") throw badRequest(`${product.item.name} is switched off`);
+    // a recipe on a stock item = what 1 piece of it is made from
+    const madeFrom = product.kind === "stock";
+    const contents = new Map((await tx.select().from(materialContents).where(eq(materialContents.tenantId, user.tenantId))).map((r) => [r.itemId, contentOf(r)]));
+    const otherRecipes = new Map<string, RecipeView>([...(await recipeData(tx, user.tenantId)).recipes].filter(([id]) => id !== productId));
+    if (madeFrom && input.lines.length) {
+      if (input.case_size != null) throw badRequest("Bottles per box are set on finished goods only");
+      const c = contents.get(productId);
+      if (c && c.measure !== "pcs") throw badRequest(`${product.item.name} is set as 1 ${product.item.unit} = ${c.qty} ${c.measure}. "Made from" needs it counted in pieces (pcs).`);
+      if (ids.includes(productId)) throw badRequest(`${product.item.name} can't be made from itself`);
+      const stockIds = new Set((await tx.select({ id: items.id }).from(items).innerJoin(sections, eq(sections.id, items.sectionId)).where(and(eq(items.tenantId, user.tenantId), eq(sections.kind, "stock")))).map((r) => r.id));
+      const usedBy = [...otherRecipes].find(([id, r]) => stockIds.has(id) && r.lines.some((l) => l.material_item_id === productId));
+      if (usedBy) throw badRequest(`${product.item.name} is already a material other items are made from. "Made from" goes one step only.`);
+    }
 
     const mats = ids.length
       ? await tx.select({ item: items, kind: sections.kind }).from(items).innerJoin(sections, eq(sections.id, items.sectionId)).where(and(eq(items.tenantId, user.tenantId), inArray(items.id, ids)))
       : [];
-    const contents = new Map((await tx.select().from(materialContents).where(eq(materialContents.tenantId, user.tenantId))).map((r) => [r.itemId, contentOf(r)]));
     for (const l of input.lines) {
       const m = mats.find((x) => x.item.id === l.material_item_id);
       if (!m) throw badRequest("A material in this recipe is not one of this plant's items");
       if (m.kind !== "stock") throw badRequest(`${m.item.name} is a finished goods item; a recipe uses raw material and consumables`);
       if (m.item.status !== "active") throw badRequest(`${m.item.name} is switched off`);
+      if (madeFrom && otherRecipes.get(m.item.id)?.lines.length) throw badRequest(`${m.item.name} is itself made from other materials. "Made from" goes one step only.`);
       const have = contentKind(contents.get(m.item.id));
       if (kindOf(l.measure) !== have) {
         const c = contents.get(m.item.id);
@@ -199,6 +215,7 @@ export async function setRecipe(user: StockUser, productId: string, input: z.inf
       from: wasActive ? existing.filter((e) => e.status === "active").map((e) => describeLine({ qty: Number(e.qty), measure: e.measure }, allNames.get(e.materialItemId) ?? "?")) : [],
       to: input.lines.map((l) => describeLine(l, nameOf.get(l.material_item_id)!)),
       case_size: input.case_size ?? null,
+      ...(madeFrom ? { made_from: true, unit: product.item.unit } : {}),
     });
     return { id: productId, lines: input.lines.length };
   });
@@ -251,6 +268,7 @@ export async function canMakeFor(tx: StockTx, tenantId: string, lines: (typeof c
         closing: sum(mine.map((l) => Number(l.qty))),
         second_total: seconds.length ? sum(seconds) : null,
         content: data.contents.get(r.item.id) ?? null,
+        made_from: data.recipes.get(r.item.id)?.lines ?? null,
       };
     });
   return canMake(finished, materials);

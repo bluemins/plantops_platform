@@ -1418,3 +1418,16 @@ CSV; Sujata's real bells ("outside", "no exit") and the worker's "corrected"; th
 
 **Next:** go live on the shared copy (`add-railway-module.sh`, service `attendance-salary`, DNS, `ATTENDANCE_URL`,
 deploy), then the owner's checklist at plant 001 (docs/HANDBOOK.md "Attendance: QR and location").
+
+### 2026-10-16 — Floor Stock "Made from" (preform → empty bottle) — built (v0.19.0)
+**Reported by the owner:** "Can make" ignored the preforms: BM 1L showed 66 box from 2 pkt of empty bottles while
+12 pkt of Preform 18.5 were in stock. Plant 001's setup was also checked (read-only): caps without Contents (fixed by
+the owner the same day: D Blue = 8,000 pcs per box) and labels counted in pieces under the unit "bundle" since 12 Oct
+(the count is pre-filled from the day before; the owner to correct the count).
+- **Built:** a stock item counted in pieces can be "made from" other materials, one step deep (owner only, Sections
+  & items, audited). "Can make" adds what the preform can still make to the bottles counted; only the preform's
+  damage allowance counts (owner, 2026-10-16). Details: `apps/floor-stock/NOTES.md`.
+- **No database change** (a recipe on a stock item); platform and SSO token unchanged.
+- Tests: Floor Stock 158 (+12, incl. plant 001's 16 Oct numbers). Typecheck and build pass.
+**Not yet verified:** on screen; not deployed. After deploying, the owner sets "Made from" on the five Empty Bottle
+items.

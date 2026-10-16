@@ -3,7 +3,10 @@
 //   material on hand = closing × what 1 unit holds (+ loose pieces), less the damage allowance
 //   bottles          = the smallest of floor(on hand ÷ what 1 bottle needs), over the product's materials
 //   boxes            = floor(bottles ÷ bottles per box)
-// Products that share a material form one "OR" group: each is worked out as if all of it went to that product.
+// A material can be "made from" others, one step deep (an empty bottle is blown from a preform): its stock is the
+// pieces counted + the pieces its own materials can still make (only those materials' damage allowance counts).
+// Products that share a material (directly or through what it is made from) form one "OR" group: each is worked out
+// as if all of it went to that product.
 
 export const MEASURES = ["pcs", "g", "kg", "ml", "L", "m"] as const;
 export type Measure = (typeof MEASURES)[number];
@@ -34,6 +37,8 @@ export interface MaterialStock {
   closing: number;
   second_total: number | null;
   content: Content | null;
+  /** what 1 piece of it is made from (e.g. 18.5 g preform per empty bottle); null / empty = bought as it is */
+  made_from?: RecipeLine[] | null;
 }
 
 export interface RecipeLine {
@@ -55,8 +60,16 @@ export interface Product {
 
 export type Problem = { kind: "not_counted" | "measure_mismatch"; material: string };
 
+/** A "made from" material in a product's result: pieces counted + pieces its materials can still make. */
+export interface MadeMaterial {
+  material: string;
+  ready: number;
+  made: number;
+  from: string[];
+}
+
 export type ProductResult =
-  | { item_id: string; name: string; unit: string; status: "ok"; bottles: number; boxes: number | null; per_box: number | null; limiting: string[] }
+  | { item_id: string; name: string; unit: string; status: "ok"; bottles: number; boxes: number | null; per_box: number | null; limiting: string[]; made: MadeMaterial[] }
   | { item_id: string; name: string; unit: string; status: "problem"; problems: Problem[] }
   | { item_id: string; name: string; unit: string; status: "no_recipe" };
 
@@ -88,13 +101,37 @@ export function onHand(m: MaterialStock): { qty: number; kind: MeasureKind } {
   return { qty: round6(raw * (1 - c.damage_pct / 100)), kind: KIND[c.measure] };
 }
 
-type Computed = { result: ProductResult; perMaterial: Map<string, number> };
+type Computed = { result: ProductResult; perMaterial: Map<string, number>; perSource: Map<string, number> };
+
+/** The pieces a "made from" material's own materials can still make, by material and in all (the smallest). */
+function makeable(m: MaterialStock, stock: Map<string, MaterialStock>): { pieces: number; bySource: Map<string, number> } | { problems: Problem[] } {
+  const problems: Problem[] = [];
+  const bySource = new Map<string, number>();
+  for (const l of m.made_from ?? []) {
+    const src = stock.get(l.material_item_id);
+    if (!src || !src.counted) {
+      problems.push({ kind: "not_counted", material: src?.name ?? "a material" });
+      continue;
+    }
+    const have = onHand(src);
+    if (have.kind !== KIND[l.measure]) {
+      problems.push({ kind: "measure_mismatch", material: src.name });
+      continue;
+    }
+    bySource.set(l.material_item_id, Math.max(0, floorDiv(have.qty, l.qty * TO_BASE[l.measure])));
+  }
+  if (problems.length) return { problems };
+  return { pieces: Math.min(...bySource.values()), bySource };
+}
 
 function computeProduct(p: Product, stock: Map<string, MaterialStock>): Computed {
   const base = { item_id: p.item_id, name: p.name, unit: p.unit };
   const perMaterial = new Map<string, number>();
-  if (!p.lines || p.lines.length === 0) return { result: { ...base, status: "no_recipe" }, perMaterial };
+  // bottles a "made from" material's source alone is enough for (for the shared-material totals)
+  const perSource = new Map<string, number>();
+  if (!p.lines || p.lines.length === 0) return { result: { ...base, status: "no_recipe" }, perMaterial, perSource };
   const problems: Problem[] = [];
+  const made: MadeMaterial[] = [];
   for (const line of p.lines) {
     const m = stock.get(line.material_item_id);
     if (!m || !m.counted) {
@@ -106,13 +143,35 @@ function computeProduct(p: Product, stock: Map<string, MaterialStock>): Computed
       problems.push({ kind: "measure_mismatch", material: m.name });
       continue;
     }
-    perMaterial.set(line.material_item_id, Math.max(0, floorDiv(have.qty, line.qty * TO_BASE[line.measure])));
+    const need = line.qty * TO_BASE[line.measure];
+    let qty = have.qty;
+    if (m.made_from?.length) {
+      const extra = have.kind === "pieces" ? makeable(m, stock) : { problems: [{ kind: "measure_mismatch" as const, material: m.name }] };
+      if ("problems" in extra) {
+        problems.push(...extra.problems);
+        continue;
+      }
+      qty = round6(qty + extra.pieces);
+      made.push({ material: m.name, ready: Math.max(0, floorDiv(have.qty, 1)), made: extra.pieces, from: [...extra.bySource.keys()].map((id) => stock.get(id)!.name) });
+      for (const [id, pieces] of extra.bySource) perSource.set(id, Math.max(0, floorDiv(pieces, need)));
+    }
+    perMaterial.set(line.material_item_id, Math.max(0, floorDiv(qty, need)));
   }
-  if (problems.length) return { result: { ...base, status: "problem", problems }, perMaterial };
+  if (problems.length) return { result: { ...base, status: "problem", problems }, perMaterial, perSource };
   const bottles = Math.min(...perMaterial.values());
   const limiting = [...perMaterial.entries()].filter(([, n]) => n === bottles).map(([id]) => stock.get(id)!.name);
   const boxes = p.per_box === null ? null : Math.floor(bottles / p.per_box);
-  return { result: { ...base, status: "ok", bottles, boxes, per_box: p.per_box, limiting }, perMaterial };
+  return { result: { ...base, status: "ok", bottles, boxes, per_box: p.per_box, limiting, made }, perMaterial, perSource };
+}
+
+/** Every material a product uses, with how much of it 1 bottle needs (base measure): its recipe lines, and for a
+ *  "made from" material also what it is made from (18.5 g preform × 1 empty bottle). */
+function uses(p: Product, stock: Map<string, MaterialStock>): { id: string; need: number }[] {
+  return (p.lines ?? []).flatMap((l) => {
+    const need = round6(l.qty * TO_BASE[l.measure]);
+    const from = (stock.get(l.material_item_id)?.made_from ?? []).map((s) => ({ id: s.material_item_id, need: round6(s.qty * TO_BASE[s.measure] * need) }));
+    return [{ id: l.material_item_id, need }, ...from];
+  });
 }
 
 /**
@@ -122,15 +181,16 @@ function computeProduct(p: Product, stock: Map<string, MaterialStock>): Computed
 export function canMake(products: Product[], materials: MaterialStock[]): CanMakeGroup[] {
   const stock = new Map(materials.map((m) => [m.item_id, m]));
   const computed = products.map((p) => computeProduct(p, stock));
+  const used = products.map((p) => uses(p, stock));
 
   // union-find over products that share a material
   const parent = products.map((_, i) => i);
   const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i]!)));
   const firstUser = new Map<string, number>();
-  products.forEach((p, i) => {
-    for (const l of p.lines ?? []) {
-      const j = firstUser.get(l.material_item_id);
-      if (j === undefined) firstUser.set(l.material_item_id, i);
+  used.forEach((us, i) => {
+    for (const u of us) {
+      const j = firstUser.get(u.id);
+      if (j === undefined) firstUser.set(u.id, i);
       else parent[find(i)] = find(j);
     }
   });
@@ -143,15 +203,13 @@ export function canMake(products: Product[], materials: MaterialStock[]): CanMak
     if (members.length > 1) {
       const users = new Map<string, { i: number; need: number }[]>();
       for (const i of members) {
-        for (const l of products[i]!.lines ?? []) {
-          users.set(l.material_item_id, [...(users.get(l.material_item_id) ?? []), { i, need: round6(l.qty * TO_BASE[l.measure]) }]);
-        }
+        for (const u of used[i]!) users.set(u.id, [...(users.get(u.id) ?? []), { i, need: u.need }]);
       }
       for (const [materialId, us] of users) {
         if (us.length < 2) continue;
         const m = stock.get(materialId);
         const perProduct = us.flatMap(({ i }) => {
-          const n = computed[i]!.perMaterial.get(materialId);
+          const n = computed[i]!.perMaterial.get(materialId) ?? computed[i]!.perSource.get(materialId);
           return n === undefined ? [] : [{ name: products[i]!.name, bottles: n }];
         });
         const sameNeed = us.every((u) => u.need === us[0]!.need);

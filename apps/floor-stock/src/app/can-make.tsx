@@ -57,6 +57,11 @@ function ProductLine({ p, upTo }: { p: ProductResult; upTo?: boolean }) {
           <span className="w-full text-sm text-slate-500">
             {p.boxes !== null && p.per_box !== null && p.per_box > 1 ? `${num(p.bottles)} bottles · ` : ""}
             runs out first: {p.limiting.join(", ")}
+            {p.made.map((m) => (
+              <span key={m.material} className="block">
+                {m.material}: {num(m.ready)} ready + {num(m.made)} from {m.from.join(", ")}
+              </span>
+            ))}
             {p.boxes === null ? " · box size not available right now" : ""}
           </span>
         </>

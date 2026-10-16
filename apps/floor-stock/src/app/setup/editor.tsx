@@ -9,7 +9,7 @@ import type { SectionView, SetupItemView } from "@/server/setup";
 type Product = { id: string; label: string; active: boolean; per_box: number };
 type TemplatePreview = { name: string; kind: "finished" | "stock"; items: string[] }[];
 type Can = { owner: boolean; edit: boolean };
-type Editing = { kind: "section-new" } | { kind: "section"; id: string } | { kind: "item-new"; sectionId: string } | { kind: "item"; id: string } | { kind: "recipe"; id: string } | { kind: "contents"; id: string } | null;
+type Editing = { kind: "section-new" } | { kind: "section"; id: string } | { kind: "item-new"; sectionId: string } | { kind: "item"; id: string } | { kind: "recipe"; id: string } | { kind: "contents"; id: string } | { kind: "made-from"; id: string } | null;
 
 const KIND_TEXT = { finished: "Today production + closing stock", stock: "Closing stock only" } as const;
 const done = () => window.location.reload();
@@ -129,11 +129,17 @@ export function SetupEditor({ sections, products, template, can }: { sections: S
                               {section.kind === "finished" ? "Recipe" : "Contents"}
                             </SmallButton>
                           )}
+                          {can.owner && item.status === "active" && section.kind === "stock" && (!item.content || item.content.measure === "pcs") && (
+                            <SmallButton onClick={() => setEditing({ kind: "made-from", id: item.id })}>Made from</SmallButton>
+                          )}
                         </div>
                       )}
                     </div>
                     {editing?.kind === "recipe" && editing.id === item.id && <RecipeForm item={item} materials={materials} products={products} onClose={close} />}
                     {editing?.kind === "contents" && editing.id === item.id && <ContentsForm item={item} onClose={close} />}
+                    {editing?.kind === "made-from" && editing.id === item.id && (
+                      <RecipeForm item={item} madeFrom materials={materials.filter((m) => m.id !== item.id && !m.recipe?.lines.length)} products={products} onClose={close} />
+                    )}
                   </li>
                 ),
               )}
@@ -245,7 +251,11 @@ function ItemSummary({ item, products, finished, names, owner }: { item: SetupIt
     const parts = item.recipe.lines.map((l) => `${l.measure === "pcs" ? num(l.qty) : `${num(l.qty)} ${l.measure}`} ${names.get(l.material_item_id) ?? "?"}`);
     extra = `1 bottle = ${parts.join(" + ")}${perBox && perBox > 1 ? ` · ${perBox} per ${item.unit}` : ""}`;
   } else if (finished && owner) extra = "No recipe yet";
-  else if (!finished && item.content) extra = contentText(item.unit, item.content);
+  else if (!finished) {
+    const parts = [item.content ? contentText(item.unit, item.content) : ""];
+    if (item.recipe?.lines.length) parts.push(`1 pcs made from ${item.recipe.lines.map((l) => `${num(l.qty)} ${l.measure} ${names.get(l.material_item_id) ?? "?"}`).join(" + ")}`);
+    extra = parts.filter(Boolean).join(" · ") || null;
+  }
   return (
     <div className={`min-w-0 ${off ? "text-slate-400" : ""}`}>
       <p className="font-semibold">
@@ -317,8 +327,10 @@ function ContentsForm({ item, onClose }: { item: SetupItemView; onClose: () => v
 
 type Draft = { material_item_id: string; qty: string; measure: Measure };
 
-function RecipeForm({ item, materials, products, onClose }: { item: SetupItemView; materials: SetupItemView[]; products: Product[]; onClose: () => void }) {
-  const product = products.find((p) => p.id === item.sku_id);
+/** A finished item's recipe (1 bottle), or with `madeFrom` what 1 piece of a stock item is made from (one step). */
+function RecipeForm({ item, materials, products, madeFrom, onClose }: { item: SetupItemView; materials: SetupItemView[]; products: Product[]; madeFrom?: boolean; onClose: () => void }) {
+  const product = madeFrom ? undefined : products.find((p) => p.id === item.sku_id);
+  const one = madeFrom ? "1 piece" : "1 bottle";
   const byId = new Map(materials.map((m) => [m.id, m]));
   const [lines, setLines] = useState<Draft[]>(() =>
     item.recipe?.lines.length ? item.recipe.lines.map((l) => ({ material_item_id: l.material_item_id, qty: String(l.qty), measure: l.measure })) : [{ material_item_id: "", qty: "", measure: "pcs" }],
@@ -337,15 +349,15 @@ function RecipeForm({ item, materials, products, onClose }: { item: SetupItemVie
       const name = byId.get(l.material_item_id)?.name;
       if (!name) return setError("Pick a material on every line (or remove the line)");
       const q = Number(l.qty);
-      if (!Number.isFinite(q) || q <= 0) return setError(`Enter how much 1 bottle needs of ${name}`);
+      if (!Number.isFinite(q) || q <= 0) return setError(`Enter how much ${one} needs of ${name}`);
     }
     const size = caseSize.trim() === "" ? null : Number(caseSize);
     if (!product && size !== null && (!Number.isInteger(size) || size < 1)) return setError(`Bottles per ${item.unit} must be a whole number, 1 or more`);
-    if (!filled.length && !confirm(`Remove the recipe of ${item.name}? It will no longer show under "Can make".`)) return;
+    if (!filled.length && !confirm(madeFrom ? `Remove what ${item.name} is made from? Only the counted pieces will be used.` : `Remove the recipe of ${item.name}? It will no longer show under "Can make".`)) return;
     setBusy(true);
     const r = await api(`/api/recipes/${item.id}`, {
       method: "PUT",
-      body: { case_size: product ? null : size, lines: filled.map((l) => ({ material_item_id: l.material_item_id, qty: Number(l.qty), measure: l.measure })) },
+      body: { case_size: product || madeFrom ? null : size, lines: filled.map((l) => ({ material_item_id: l.material_item_id, qty: Number(l.qty), measure: l.measure })) },
     });
     setBusy(false);
     if (!r.ok) return setError(r.error);
@@ -353,8 +365,12 @@ function RecipeForm({ item, materials, products, onClose }: { item: SetupItemVie
   }
 
   return (
-    <FormBox title={`What makes 1 bottle of ${item.name}`} onSubmit={submit} busy={busy} error={error} onClose={onClose}>
-      {product ? (
+    <FormBox title={madeFrom ? `What 1 piece of ${item.name} is made from` : `What makes 1 bottle of ${item.name}`} onSubmit={submit} busy={busy} error={error} onClose={onClose}>
+      {madeFrom ? (
+        <p className="text-sm text-slate-600">
+          E.g. 1 empty bottle = 18.5 g preform. &quot;Can make&quot; then adds the pieces these materials can still make to the {item.unit} counted. Only their own damage allowance is taken off.
+        </p>
+      ) : product ? (
         <p className="text-sm text-slate-600">
           1 {item.unit} = {product.per_box} bottle{product.per_box === 1 ? "" : "s"} (from the product {product.label})
         </p>
@@ -376,7 +392,7 @@ function RecipeForm({ item, materials, products, onClose }: { item: SetupItemVie
                 ))}
               </Select>
               <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2">
-                <TextField label="1 bottle needs" type="number" inputMode="decimal" min={0} step="0.01" value={l.qty} onChange={(e) => setLine(i, { qty: e.target.value })} />
+                <TextField label={`${one} needs`} type="number" inputMode="decimal" min={0} step="0.01" value={l.qty} onChange={(e) => setLine(i, { qty: e.target.value })} />
                 <Select label="In" value={l.measure} onChange={(v) => setLine(i, { measure: v as Measure })}>
                   {choicesFor(m).map((x) => (
                     <option key={x} value={x}>

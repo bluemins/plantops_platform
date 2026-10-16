@@ -90,6 +90,17 @@ page (the version shown). Worked out when the page opens (`src/lib/recipe.ts`), 
 - **Database** (migration `0004_recipes.sql`): new tables `material_contents`, `recipes`, `recipe_lines`, all with
   `tenant_id` + FORCE RLS; `stock_app` SELECT / INSERT / column UPDATE, no DELETE (a recipe line taken out is
   switched off). No existing table was changed.
+- **Made from** (v0.19.0, asked by the owner 2026-10-16: empty bottles are blown from preform): the owner gives a
+  stock item counted in pieces a "Made from" on Sections & items (1 BM 1L Empty Bottle = 18.5 g Preform 18.5). It
+  is stored as a recipe on that stock item (no database change) and audited as `recipe.set` with `made_from: true`
+  ("BM 1L Empty Bottle made from (1 pcs): …").
+  - Its stock in "Can make" = pieces counted + pieces its materials can still make; only those materials' damage
+    allowance counts (owner, 2026-10-16). The product line shows "799 ready + 16,214 from Preform 18.5".
+  - One step only: a material something is made from can't itself be made from something, and nothing is made from
+    itself. The item stays counted in pieces (its Contents can't become g / ml while it has a Made from).
+  - Products sharing a material through what it is made from join the same OR group (plant 001: all five bottled
+    products are one group, through the shared preform and caps). Example with plant 001's count of 16 Oct in
+    `test/recipe-math.test.ts`: BM 1L 66 box before → up to 1,333 box, the D Blue cap runs out first.
 
 ## Rules that are easy to get wrong
 - **Who may do what** is checked in `src/server/setup.ts` / `counts.ts`, because the database login can't tell

@@ -122,6 +122,75 @@ describe("can make", () => {
   });
 });
 
+// Plant 001's count of 16 Oct 2026 (owner, 2026-10-16): empty bottles are blown from preform, so they are
+// "made from" it; BM 1L / DM 1L share Preform 18.5, the BM products share D Blue caps, the DM products yellow caps.
+describe("made from (one step: preform → empty bottle → product)", () => {
+  const pcs = (n: number, damage = 0.01): Content => ({ qty: n, measure: "pcs", second_is_pieces: false, damage_pct: damage });
+  const bottle = (id: string, closing: number, per: number, preform: string, grams: number): MaterialStock => ({ ...mat(id, closing, pcs(per)), made_from: [line(preform, grams, "g")] });
+  const stock = [
+    mat("Preform 18.5", 12, preformPacket(0.01)),
+    mat("Preform 12.5", 7, preformPacket(0.01)),
+    mat("Preform 9.4", 1, preformPacket(0.01)),
+    mat("Preform 32", 2, preformPacket(0.01)),
+    bottle("BM 1L Empty Bottle", 2, 400, "Preform 18.5", 18.5),
+    bottle("DM 1L Empty Bottle", 3.5, 400, "Preform 18.5", 18.5),
+    bottle("BM 500ml Empty Bottle", 4, 800, "Preform 12.5", 12.5),
+    bottle("BM 250ml Empty Bottle", 1, 1200, "Preform 9.4", 9.4),
+    bottle("DM 2L Empty Bottle", 0.5, 200, "Preform 32", 32),
+    mat("Screw cap D Blue", 2, pcs(8000)),
+    mat("Screw cap yellow", 2, pcs(8000, 0.001)),
+    mat("BM 1L label", 8.8, pcs(5000)),
+  ];
+  const groups = canMake(
+    [
+      product("BM 1L", 12, [line("BM 1L Empty Bottle", 1), line("BM 1L label", 1), line("Screw cap D Blue", 1)]),
+      product("BM 500ml", 24, [line("BM 500ml Empty Bottle", 1), line("Screw cap D Blue", 1)]),
+      product("BM 250ml", 35, [line("BM 250ml Empty Bottle", 1), line("Screw cap D Blue", 1)]),
+      product("DM 1L", 12, [line("DM 1L Empty Bottle", 1), line("Screw cap yellow", 1)]),
+      product("DM 2L", 9, [line("DM 2L Empty Bottle", 1), line("Screw cap yellow", 1)]),
+    ],
+    stock,
+  );
+  const [g] = groups;
+
+  it("all five share something: one OR group", () => {
+    expect(groups).toHaveLength(1);
+    expect(g!.products.map((p) => p.name)).toEqual(["BM 1L", "BM 500ml", "BM 250ml", "DM 1L", "DM 2L"]);
+  });
+
+  it("BM 1L: 799 ready + 16,214 from Preform 18.5; the cap runs out first at 15,998 bottles = 1,333 box", () => {
+    expect(g!.products[0]).toMatchObject({ status: "ok", bottles: 15998, boxes: 1333, limiting: ["Screw cap D Blue"], made: [{ material: "BM 1L Empty Bottle", ready: 799, made: 16214, from: ["Preform 18.5"] }] });
+  });
+
+  it("the other products", () => {
+    expect(g!.products.slice(1)).toMatchObject([
+      { name: "BM 500ml", bottles: 15998, boxes: 666, limiting: ["Screw cap D Blue"], made: [{ ready: 3199, made: 13998 }] },
+      { name: "BM 250ml", bottles: 3858, boxes: 110, limiting: ["BM 250ml Empty Bottle"], made: [{ ready: 1199, made: 2659 }] },
+      { name: "DM 1L", bottles: 15999, boxes: 1333, limiting: ["Screw cap yellow"], made: [{ ready: 1399, made: 16214 }] },
+      { name: "DM 2L", bottles: 1661, boxes: 184, limiting: ["DM 2L Empty Bottle"], made: [{ ready: 99, made: 1562 }] },
+    ]);
+  });
+
+  it("Preform 18.5 is shared by BM 1L and DM 1L: enough for 16,214 bottles in total", () => {
+    expect(g!.shared.find((s) => s.material === "Preform 18.5")).toEqual({ material: "Preform 18.5", total_bottles: 16214, per_product: [{ name: "BM 1L", bottles: 16214 }, { name: "DM 1L", bottles: 16214 }] });
+  });
+
+  it("without a Made from, only the counted bottles count (66 box, as before)", () => {
+    const [x] = canMake([product("BM 1L", 12, [line("B", 1), line("Screw cap D Blue", 1)])], [mat("B", 2, pcs(400)), mat("Screw cap D Blue", 2, pcs(8000))]);
+    expect(x!.products[0]).toMatchObject({ bottles: 799, boxes: 66, limiting: ["B"], made: [] });
+  });
+
+  it("the preform not counted: can't work it out, and says which", () => {
+    const [x] = canMake([product("A", 1, [line("B", 1)])], [bottle("B", 1, 400, "P", 18.5), { ...mat("P", 0, preformPacket(0)), counted: false }]);
+    expect(x!.products[0]).toMatchObject({ status: "problem", problems: [{ kind: "not_counted", material: "P" }] });
+  });
+
+  it("2 empty bottles per product: the preform's share is halved", () => {
+    const [x] = canMake([product("A", 1, [line("B", 2)])], [bottle("B", 0, 400, "P", 10), mat("P", 1, { qty: 1000, measure: "g", second_is_pieces: false, damage_pct: 0 })]);
+    expect(x!.products[0]).toMatchObject({ bottles: 50, made: [{ ready: 0, made: 100 }] });
+  });
+});
+
 describe("summary text", () => {
   it("reads like the owner would say it", () => {
     expect(contentText("packet", preformPacket(0.01))).toBe("1 packet = 25,000 g · damage 0.01%");

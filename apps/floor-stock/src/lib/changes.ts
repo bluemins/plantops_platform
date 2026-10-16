@@ -46,6 +46,7 @@ export function describeChange(action: string, target: string | null, details: R
     }
     case "recipe.set": {
       const list = (v: unknown) => (Array.isArray(v) && v.length ? v.join(" + ") : "none");
+      if (details.made_from) return `${name} made from (1 pcs): ${list(details.from)} → ${list(details.to)}`;
       return `Recipe of ${name} (1 bottle): ${list(details.from)} → ${list(details.to)}`;
     }
     case "count.correct":

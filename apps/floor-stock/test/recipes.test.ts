@@ -154,9 +154,8 @@ describe("who may set it", () => {
 });
 
 describe("what may go into a recipe", () => {
-  it("a recipe belongs on a finished goods item; contents on a stock item", async () => {
+  it("contents belong on a stock item", async () => {
     const p = await canMakePlant();
-    expect((await refused(() => setRecipe(p.owner, p.preform, { lines: [] }))).message).toMatch(/finished goods item/);
     expect((await refused(() => setContent(p.owner, p.bm, PACKET))).message).toMatch(/not on finished goods/);
   });
 
@@ -194,6 +193,68 @@ describe("what may go into a recipe", () => {
     expect(ContentInput.safeParse({ ...PACKET, damage_pct: 100 }).success).toBe(false);
     expect(ContentInput.safeParse({ ...PACKET, damage_pct: 0.00001 }).success).toBe(false);
     expect(ContentInput.safeParse({ ...PACKET, content_measure: "lbs" }).success).toBe(false);
+  });
+});
+
+describe("made from (empty bottle blown from preform, owner 2026-10-16)", () => {
+  async function bottlePlant() {
+    const p = await canMakePlant();
+    await setContent(p.owner, p.preform, PACKET);
+    await setContent(p.owner, p.cap, { content_qty: 500, content_measure: "pcs", second_is_pieces: false, damage_pct: 0 });
+    const bottle = await createItem(p.owner, { section_id: p.raw, name: "BM 1L Empty Bottle", unit: "pkt" });
+    await setContent(p.owner, bottle.id, { content_qty: 400, content_measure: "pcs", second_is_pieces: false, damage_pct: 0.01 });
+    await setRecipe(p.owner, bottle.id, { lines: [{ material_item_id: p.preform, qty: 18.5, measure: "g" }] });
+    await setRecipe(p.owner, p.bm, { lines: [{ material_item_id: bottle.id, qty: 1, measure: "pcs" }, { material_item_id: p.cap, qty: 1, measure: "pcs" }] });
+    return { ...p, bottle: bottle.id };
+  }
+  /** 2 pkt of bottles, 1 packet of preform, 6 boxes of caps */
+  const bottleCount = (p: Awaited<ReturnType<typeof bottlePlant>>): CountInput => {
+    const c = count(p, {}, 1);
+    return { ...c, lines: [...c.lines, { item_id: p.bottle, kind: "stock", qty: 2 }] };
+  };
+
+  it("the day view adds the bottles the preform can make to the bottles counted", async () => {
+    const p = await bottlePlant();
+    await submitCount(p.keeper, bottleCount(p), at(TODAY));
+    const [g] = (await dayView(p.owner, TODAY))!.can_make;
+    // 799 ready + 1,351 from 1 packet = 2,150 bottles; caps 3,000
+    expect(g!.products[0]).toMatchObject({ name: "BM 1L", bottles: 2150, boxes: 179, limiting: ["BM 1L Empty Bottle"], made: [{ material: "BM 1L Empty Bottle", ready: 799, made: 1351, from: ["Preform 18.5 g"] }] });
+  });
+
+  it("shown on Sections & items and in Recent changes", async () => {
+    const p = await bottlePlant();
+    expect((await listSetup(p.keeper)).flatMap((s) => s.items).find((i) => i.id === p.bottle)!.recipe).toEqual({ case_size: null, lines: [{ material_item_id: p.preform, qty: 18.5, measure: "g" }] });
+    expect((await recentChanges(p.owner)).map((c) => c.text)).toContain("BM 1L Empty Bottle made from (1 pcs): none → 18.5 g Preform 18.5 g");
+  });
+
+  it("owner only", async () => {
+    const p = await bottlePlant();
+    expect((await refused(() => setRecipe(p.keeper, p.bottle, { lines: [] }))).status).toBe(403);
+  });
+
+  it("one step only, never itself, counted in pieces, no box size", async () => {
+    const p = await bottlePlant();
+    const g = (id: string) => ({ material_item_id: id, qty: 1, measure: "pcs" as const });
+    // what the bottle is made from can't itself be made from something
+    const ring = await createItem(p.owner, { section_id: p.raw, name: "Neck ring", unit: "pcs" });
+    await setRecipe(p.owner, p.bottle, { lines: [{ material_item_id: p.preform, qty: 18.5, measure: "g" }, g(ring.id)] });
+    expect((await refused(() => setRecipe(p.owner, ring.id, { lines: [g(p.cap)] }))).message).toMatch(/one step only/);
+    // the bottle is made from preform, so nothing can be made from the bottle
+    expect((await refused(() => setRecipe(p.owner, p.cap, { lines: [g(p.bottle)] }))).message).toMatch(/one step only/);
+    expect((await refused(() => setRecipe(p.owner, p.cap, { lines: [g(p.cap)] }))).message).toMatch(/made from itself/);
+    expect((await refused(() => setRecipe(p.owner, p.label, { case_size: 12, lines: [g(p.cap)] }))).message).toMatch(/finished goods only/);
+    // the bottle's contents must stay pieces; a material counted by weight can't be made from something
+    expect((await refused(() => setContent(p.owner, p.bottle, { ...PACKET }))).message).toMatch(/must hold a number of pieces/);
+    const roll = await createItem(p.owner, { section_id: p.raw, name: "Roll", unit: "roll" });
+    await setContent(p.owner, roll.id, PACKET);
+    expect((await refused(() => setRecipe(p.owner, roll.id, { lines: [g(p.cap)] }))).message).toMatch(/counted in pieces/);
+  });
+
+  it("taken out again: only the counted bottles count", async () => {
+    const p = await bottlePlant();
+    await setRecipe(p.owner, p.bottle, { lines: [] });
+    await submitCount(p.keeper, bottleCount(p), at(TODAY));
+    expect((await dayView(p.owner, TODAY))!.can_make[0]!.products[0]).toMatchObject({ bottles: 799, made: [] });
   });
 });
 
