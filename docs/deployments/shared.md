@@ -15,6 +15,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | Floor Stock | https://stock.bluemins.life (since 2026-10-08) |
 | Complaint Box | https://complaints.bluemins.life (since 2026-10-12) |
 | Order Capture | https://orders.bluemins.life (since 2026-10-13) |
+| Attendance | https://attendance.bluemins.life (v0.18.0; recorded afterwards on 2026-10-16) |
 | DNS | WordPress.com (bluemins.life itself stays on GitHub Pages) |
 | super_admin login | contact@bluemins.life (password in the password manager) |
 | Secrets | Railway variables + password manager entry "PlantOps railway shared"; `.env.railway.shared` on Rocky's computer |
@@ -25,7 +26,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | WhatsApp | not set up (waiting for Meta approval) |
 | File storage | Railway volume (move to S3-compatible storage + backups before real plant documents) |
 | Backups | nightly 02:00 IST, encrypted (`age`), to Cloudflare R2 bucket `plantops-backup` (`backup.yml`): database dump (30 days, read-only login `plantops_backup`) + Document Store files. Private key in the password manager. Practice restore done 2026-10-11 |
-| Runs release | v0.17.0 (`production` = commit `232f02c`) |
+| Runs release | v0.19.0 (`production` = commit `b12380b`) |
 
 ## History
 | Date | What |
@@ -50,3 +51,4 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | 2026-10-14 | v0.16.0 live (Order Capture: notes after an order is saved). `railway-migrate.sh shared` applied Order Capture `0004_order_notes.sql` before the deploy (other apps up to date); checked on the live database: `order_events` allows kind `note` with text required, `order_app` still has no UPDATE / DELETE on it. `git push origin v0.16.0:production` (`4a0a749`). Checks: new `/api/orders/<id>/notes` refuses without login (401); `orders` `/health` database OK and login redirect; JWKS + Lab / Docs / Stock / Complaints health OK. Not yet tried on screen: adding a note to a real order, the bell notification, the new kind on `/notifications`. |
 | 2026-10-15 | v0.16.1 live (clearer role buttons on Add / Edit user; platform screen only, no migration, no access change). `git push origin v0.16.1:production` (`8a9c749`). Checks: the live Users screen code has the new texts; JWKS and `/login` 200; Lab / Docs / Stock / Complaints / Orders `/health` database OK. Not yet looked at on screen by the owner. |
 | 2026-10-15 | v0.17.0 live (Plant staff = employee: no longer opens Floor Stock, Document Store, Complaint Box or Marketing Contacts; keeps the Order Capture view; no migration). Before the deploy the owner had moved everyone off Plant staff except Gaja (Store keeper + Plant staff), so only Gaja lost Document Store + Complaint Box. `git push origin v0.17.0:production` (`232f02c`). Checks: the live Users screen code has the new Plant staff text; JWKS and `/login` 200; Lab / Docs / Stock / Complaints / Orders `/health` database OK. Not yet tried: a Plant-staff-only login refused by Floor Stock on the live copy. |
+| 2026-10-16 | v0.18.0 (Attendance) and v0.19.0 (Floor Stock "Made from") live, recorded afterwards during Salary Phase 0: `production` = `b12380b`; `attendance.bluemins.life/health` 200 with the database OK; the owner says Attendance is in use at plant 001. Not recorded at deploy time: the `add-railway-module.sh` run, DNS, the `attendance-salary` service variables, GitHub variable `ATTENDANCE_URL` and a green Daily jobs run with the Attendance step. |

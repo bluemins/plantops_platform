@@ -12,16 +12,18 @@
   (off by default). With it on, the worker sees **their own** calculation for **months ticked Paid** only. Without
   it, staff see attendance only.
 
+**Phase 0 done (2026-10-16):** every item that was *(to confirm)* is settled (see "Phase 0: Readiness").
+
 It builds on Attendance version 1 (v0.18.0, `apps/attendance-salary`, `docs/ATTENDANCE_PHASE_PLAN.md`). To be
-released as **v0.19.0**. Each migration is still shown to the owner before it runs (CLAUDE.md working rules). Items
-marked *(to confirm)* were filled in while writing this plan and are confirmed by the owner in Phase 0.
+released as **v0.20.0** (v0.19.0 went to Floor Stock "Made from"). Each migration is still shown to the owner before
+it runs (CLAUDE.md working rules).
 
 **Mock-ups (approved basis, 2026-10-16):** https://claude.ai/artifact/AYP7ZJ5fhZ38m2aBT3f8mJ
 1. Salary tab with the checking panel (PC) 2. Staff → person: Salary box and Advances (PC) 3. Salary tab (phone)
 4. Checking panel (phone) 5. Worker's own calendar with overtime 6. Mark paid (owner) 7. Worker's own salary slip
 (paid month, permission on).
 Differences from the mock-ups agreed in this plan: the Salary box also has **Paid leave per month** (default 2) and
-optional **Joined on / Last day** dates *(to confirm)*.
+optional **Joined on / Last day** dates (confirmed in Phase 0).
 
 ## Purpose
 At the end of the month the owner wants to see, per person, how many days they were present, half present and
@@ -38,14 +40,14 @@ from them; nothing is typed twice. The owner can still check any figure with the
 | New tables | `salary_settings`, `salary_advances`, `salary_visibility`, `salary_payments`, `salary_payment_undos` |
 | Pure rules | `apps/attendance-salary/src/lib/salary.ts` (next to `sessions.ts`) |
 | New notification kinds | `attendance_salary.salary_review` (owners), `attendance_salary.salary_paid` (the worker) |
-| Release | v0.19.0 |
+| Release | v0.20.0 |
 
 ## Agreed design (owner, 2026-10-16)
 
 ### Who sees what
 | | Owner (`tenant_admin`, with or without Plant staff) | Worker (Plant staff) | PlantOps support |
 |---|---|---|---|
-| Salary tab, salary settings, advances | yes, edit | **never** | read-only, logged *(to confirm)* |
+| Salary tab, salary settings, advances | yes, edit | **never** | read-only, logged on the owner's Support access page |
 | Mark paid / undo paid; "Can see own salary" tick | yes | no | no |
 | Salary CSV | yes (audited) | no | no |
 | Own month: present / half / absent counts | — | yes | — |
@@ -63,7 +65,8 @@ For one person and one calendar month (India dates):
 
 1. **Counted days** = every day of the month that is **over** (today and later are not counted: an open month says
    "so far"), and inside the person's employment: from **Joined on** (blank = the first day of the first salary
-   setting's month) to **Last day** (blank = still working) *(to confirm)*.
+   setting's month) to **Last day** (blank = still working). A person who has left (no longer active Plant staff)
+   still appears on the Salary tab for every month they were on salary.
 2. **Worked minutes per day** come from `sessions.ts` (`WorkDay.minutes`): complete blocks only. A "no exit" day
    counts 0 until the owner fixes it, so it shows as absent. The owner should fix missed OUTs before the month-end
    review (the review notification says how many are left).
@@ -82,8 +85,8 @@ For one person and one calendar month (India dates):
      than the monthly salary.
    - never below 0.
 9. **Overtime** (only if "Gets overtime" in that month's setting): for each counted day, worked − S when positive;
-   added up for the month. Exact minutes, shown as hours with up to 2 decimals *(to confirm: or counted only in full
-   30-minute steps)*. **Overtime pay** = hours × the person's rate. Without "Gets overtime": no hours, no pay, "—" on
+   added up for the month. **Exact minutes** (owner, Phase 0: no rounding to 30-minute steps; 8 h 40 m on an 8 h
+   shift = 40 minutes), shown as hours with up to 2 decimals. **Overtime pay** = hours × the person's rate. Without "Gets overtime": no hours, no pay, "—" on
    screens, and the extra hours only help reach a full day.
 10. **Advances** = the sum of the person's advance entries dated in that month (corrections are negative entries).
 11. **Carried in** = what the previous month left unpaid the other way round: if last month's remaining was below 0,
@@ -92,7 +95,9 @@ For one person and one calendar month (India dates):
 12. **Remaining to pay** = earned + overtime pay − advances − carried in ± adjustment from last month (rule 14). Below 0 → shown in red, "carries to
     <next month>".
 13. **Money**: stored and worked out in whole paise (integers, like Order Capture). Day's pay, earned and overtime pay
-    are rounded to the nearest paise once each; screens show the nearest rupee.
+    are rounded to the nearest paise once each; screens show the nearest rupee. Order Capture's helpers
+    (`apps/order-capture/src/lib/money.ts`) are the model, but apps don't share code, so `salary.ts` has its own
+    copy that also runs in the browser.
 14. **Paid months are frozen.** Ticking Paid saves that month's full calculation (every input and result above, plus
     the advance entries and the rules version) as it stands at that moment. From then on:
     - the worker (with permission) and the Salary tab show the **frozen** figures for that month
@@ -118,7 +123,7 @@ for a month is **not on salary** that month and is left out of the Salary tab (l
   - monthly salary (₹, > 0), shift hours a day (1–16, step 0.5; hint "full day ≥ 8 h · half day ≥ 4 h"), paid leave
     per month (0–10, step 0.5, default 2), **Gets overtime** tick box (off by default) with **overtime rate (₹ /
     hour)** shown and required only when ticked, **from month** (this month or a later one; an earlier month needs a
-    reason, ≥ 3 characters *(to confirm)*), optional Joined on / Last day *(to confirm)*.
+    reason, ≥ 3 characters), optional Joined on / Last day.
   - **Can see own salary** tick box (off by default; not tied to a month): "Shows <name> how their salary was
     worked out, for months you tick Paid." Saved on its own (new row, audited, Recent changes).
   - **History** list: "From Oct 2026: ₹12,000 · 8 h · overtime ₹60/h — bluemins, 1 Oct".
@@ -183,17 +188,16 @@ for a month is **not on salary** that month and is left out of the Salary tab (l
 
 | 5 | `attendance_salary.salary_paid` | Owner ticks Paid, **only if the person has Can see own salary** | **The worker only** (`also_user_ids` + `only_listed`) | "Your October salary is paid" / "Tap to see how it was worked out" | `/my/salary/<YYYY-MM>` | `paid:<payment id>` | Phone + bell; not urgent; `aboutYou` |
 
-*(to confirm: #4's day and time, or none at all.)* No notification for undo, for advances or for setting changes;
+#4 on the last day at 07:00 IST (confirmed in Phase 0). No notification for undo, for advances or for setting changes;
 nothing about money ever reaches a worker without permission. Both kinds go into `NOTIFICATION_KINDS`, through
 `kit.notify` and the existing outbox / `kit.retryOutbox`.
 
 ### Standard pieces
 - **Recent changes:** salary set / changed, advance added, advance corrected, Can see own salary on / off, marked
   paid, paid undone (owner + support).
-- **Support view:** Salary tab and person salary sections read-only, page views logged *(to confirm)*; every write
-  refused.
+- **Support view:** Salary tab and person salary sections read-only, page views logged; every write refused.
 - **Tile:** unchanged (no money on the launcher).
-- **Backups:** no files; the two tables are in the nightly dump with the schema.
+- **Backups:** no files; the five tables are in the nightly dump with the schema.
 
 ### Not in this version
 Weekly offs and holidays; leave requests or leave types; printed / PDF payslips; partial payments during the month
@@ -213,7 +217,7 @@ salary_settings  (append-only; the newest row for a person and from_month wins)
   paid_leave_halfdays int    -- 0–20 (= 0–10 days in half days), default 4 (= 2 days)
   gets_overtime boolean
   ot_rate_paise int null     -- required (> 0) when gets_overtime, null otherwise
-  joined_on date null, left_on date null   -- (to confirm); left_on ≥ joined_on
+  joined_on date null, left_on date null   -- left_on ≥ joined_on
   reason text null           -- required (≥ 3) when from_month is before the current month (server rule)
   created_by uuid, created_by_name text, created_at timestamptz
 
@@ -261,14 +265,14 @@ and a short dated note in `apps/attendance-salary/NOTES.md`.
 
 | Phase | What | Result |
 |---|---|---|
-| **0** | Readiness | v0.18.0 live and in use; this plan checked against the code; *(to confirm)* items settled |
+| **0** | Readiness ✅ 2026-10-16 | v0.18.0 live and in use; this plan checked against the code; open items settled |
 | **1** | Database, access, platform kinds | Migration 0002, access table rows, the two kinds in `packages/types` |
 | **2** | The rules | `src/lib/salary.ts` pure functions + month / carry / frozen-month calculation from the database |
 | **3** | Person page: salary and advances | Salary box with history, Gets overtime, Can see own salary, advances with corrections, Recent changes |
 | **4** | Salary tab and checking panel | Month table, totals, phone list, CSV, the client-only checking panel |
 | **5** | Paid and the worker's slip | Mark paid / undo, frozen figures, adjustments, My salary + slip with permission, salary_paid notification |
 | **6** | Worker counts, review notification, support | Worker counts + overtime on the calendar, the review notification, support read-only |
-| **7** | Release and deploy | Docs, v0.19.0, migration on the live copy, deploy, the owner's checklist at plant 001 |
+| **7** | Release and deploy | Docs, v0.20.0, migration on the live copy, deploy, the owner's checklist at plant 001 |
 
 ### Phase 0: Readiness
 - v0.18.0 committed, tagged and live (`docs/deployments/shared.md`); Attendance switched on at plant 001.
@@ -278,6 +282,15 @@ and a short dated note in `apps/attendance-salary/NOTES.md`.
 - The owner confirms or changes each *(to confirm)* item: support sees salary; Joined on / Last day; overtime in exact
   minutes vs 30-minute steps; an earlier "from month" needs a reason; the review notification's day and time.
 - Exit: the owner says "start".
+
+**Done 2026-10-16:**
+- v0.18.0 and v0.19.0 committed, tagged and pushed; `production` = `b12380b` (v0.19.0); `attendance.bluemins.life/health`
+  OK with the database. Attendance in use at plant 001 (owner).
+- Checked against the code; changes made to this plan: release v0.20.0 (v0.19.0 was taken); five tables, not two;
+  `salary.ts` gets its own paise helpers (apps don't share code); a worker's My attendance is `/`, an owner with
+  Plant staff has it on `/my` (both use `my-month.tsx`); people who left stay on the Salary tab for their months.
+- Owner's answers: Joined on / Last day **yes** (optional); overtime in **exact minutes**; support sees salary
+  **read-only, logged**; an earlier from month **needs a reason**; review notification on the **last day at 07:00**.
 
 ### Phase 1: Database, access, platform kinds
 - Migration `0002_salary.sql` (above); show it first; apply to dev + test.
@@ -351,8 +364,9 @@ and a short dated note in `apps/attendance-salary/NOTES.md`.
 - Check the confirm and the slip at 390 px in headless Chrome.
 
 ### Phase 6: Worker counts, review notification, support
-- Worker `/` (My attendance): present / half / absent counts and overtime hours (only with Gets overtime); calendar
-  cells with hours and "+N h" (mock-up 5); same on the owner's person calendar.
+- Worker `/` and an owner-with-Plant-staff's `/my` (My attendance, both `my-month.tsx`): present / half / absent
+  counts and overtime hours (only with Gets overtime); calendar cells with hours and "+N h" (mock-up 5); same on the
+  owner's person calendar.
 - `salary_review` in `src/server/notify.ts`, sent by the daily job on the last day of the month (`salary_tenants()`),
   with the number of unfixed no-exit days and people without a setting; outbox as for the other kinds.
 - Support: Salary tab and salary sections read-only, views logged, every salary write refused.
@@ -362,7 +376,7 @@ and a short dated note in `apps/attendance-salary/NOTES.md`.
 
 ### Phase 7: Release and deploy
 - `apps/attendance-salary/NOTES.md` (rules, tables, access table), CLAUDE.md dated status note (and Phase 8's line:
-  salary built), `docs/HANDBOOK.md` "Attendance: salary at month end", `docs/deployments/shared.md`; v0.19.0.
+  salary built), `docs/HANDBOOK.md` "Attendance: salary at month end", `docs/deployments/shared.md`; v0.20.0.
 - Live, one step at a time: migration 0002 on the shared copy (as for earlier module migrations, see HANDBOOK);
   deploy `attendance-salary` and `platform` (new kind) from `production`; checks: `/health`, the Salary tab 401 / 403
   for a worker session, the daily job with a wrong secret 401.
@@ -533,10 +547,10 @@ Before anything else, read the "Shared header" in docs/SALARY_PHASE_PLAN.md (Bui
 for this whole session.
 
 Phase 7 (Release and deploy) of docs/SALARY_PHASE_PLAN.md:
-1. Docs: apps/attendance-salary/NOTES.md (the rules, the two tables, the access table, what's not in this version),
+1. Docs: apps/attendance-salary/NOTES.md (the rules, the five tables, the access table, what's not in this version),
    a dated CLAUDE.md status note (and Phase 8's line: salary built), docs/HANDBOOK.md "Attendance: salary at month
    end", docs/deployments/shared.md. Run every app's tests, typecheck and all builds.
-2. Ask me before committing; then commit "Release v0.19.0: Salary", tag v0.19.0 and push main.
+2. Ask me before committing; then commit "Release v0.20.0: Salary", tag v0.20.0 and push main.
 3. Ask me before touching the live copy. Then, one step at a time with my OK: migration 0002 on the shared copy,
    production branch, deploy attendance-salary and platform, and the live checks in the plan.
 4. Give me the owner's checklist for plant 001 from the plan, and record what was verified in the deploy record.
