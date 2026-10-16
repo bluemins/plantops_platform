@@ -497,15 +497,18 @@ Tests: the Phase 4 list in the plan. Then check both screens in headless Chrome 
 Before anything else, read the "Shared header" in docs/SALARY_PHASE_PLAN.md (Build prompts section) and follow it
 for this whole session.
 
-Build Phase 5 (Worker view, notification, support) of docs/SALARY_PHASE_PLAN.md, following mock-up 5:
-- worker's My attendance: present / half / absent counts and overtime hours (only with Gets overtime that month);
-  calendar cells with the day's hours and "+N h"; the same on the owner's person calendar; never a rupee amount
-- attendance_salary.salary_review in src/server/notify.ts, sent by POST /api/cron/daily on the last day of the month
-  (India date) to owners, plants from salary_tenants(), with the unfixed no-exit days and people without salary;
-  dedupe salary_review:<YYYY-MM>; through kit.notify and the existing outbox
-- support: every salary page read-only with page views logged, every salary write refused
-Tests: the Phase 5 list in the plan, including a check that no worker page or API answer contains "₹". On pnpm dev,
-run the daily job with a faked last-day date and show me the owner's bell.
+Build Phase 5 (Paid and the worker's slip) of docs/SALARY_PHASE_PLAN.md, following mock-ups 6 and 7:
+- the Paid column and confirm on the Salary tab; POST /api/salary/pay (saves the frozen figures from
+  src/lib/salary.ts; 409 if the remaining changed or the month is already paid; allowed from the month's last day)
+  and POST /api/salary/pay/undo (reason, once); audit + Recent changes
+- paid rows show the frozen figures and "Changed after payment: ₹X → next month"; the next month shows "Adjustment
+  from <month>"; totals add Paid / still to pay
+- worker /my/salary and /my/salary/<YYYY-MM>: only when the owner ticked "Can see own salary", only paid (not undone)
+  months, only their own, built from the frozen figures; 404 in every other case
+- attendance_salary.salary_paid to the worker only (also_user_ids + only_listed), only with permission, through the
+  outbox
+Tests: the Phase 5 list in the plan. Then on pnpm dev (plant 002, temporary users and data, removed afterwards):
+mark a month paid for a worker with permission and one without, log in as each and show me what they see at 390 px.
 ```
 
 ### Phase 6 prompt
@@ -513,7 +516,23 @@ run the daily job with a faked last-day date and show me the owner's bell.
 Before anything else, read the "Shared header" in docs/SALARY_PHASE_PLAN.md (Build prompts section) and follow it
 for this whole session.
 
-Phase 6 (Release and deploy) of docs/SALARY_PHASE_PLAN.md:
+Build Phase 6 (Worker counts, review notification, support) of docs/SALARY_PHASE_PLAN.md, following mock-up 5:
+- worker's My attendance: present / half / absent counts and overtime hours (only with Gets overtime that month);
+  calendar cells with the day's hours and "+N h"; the same on the owner's person calendar; never a rupee amount
+- attendance_salary.salary_review in src/server/notify.ts, sent by POST /api/cron/daily on the last day of the month
+  (India date) to owners, plants from salary_tenants(), with the unfixed no-exit days and people without salary;
+  dedupe salary_review:<YYYY-MM>; through kit.notify and the existing outbox
+- support: every salary page read-only with page views logged, every salary write refused
+Tests: the Phase 6 list in the plan, including a check that no attendance page or API answer for a worker contains
+"₹". On pnpm dev, run the daily job with a faked last-day date and show me the owner's bell.
+```
+
+### Phase 7 prompt
+```text
+Before anything else, read the "Shared header" in docs/SALARY_PHASE_PLAN.md (Build prompts section) and follow it
+for this whole session.
+
+Phase 7 (Release and deploy) of docs/SALARY_PHASE_PLAN.md:
 1. Docs: apps/attendance-salary/NOTES.md (the rules, the two tables, the access table, what's not in this version),
    a dated CLAUDE.md status note (and Phase 8's line: salary built), docs/HANDBOOK.md "Attendance: salary at month
    end", docs/deployments/shared.md. Run every app's tests, typecheck and all builds.
@@ -528,7 +547,7 @@ Phase 6 (Release and deploy) of docs/SALARY_PHASE_PLAN.md:
 Before anything else, read the "Shared header" in docs/SALARY_PHASE_PLAN.md (Build prompts section) and follow it
 for this whole session.
 
-Build the whole of docs/SALARY_PHASE_PLAN.md, phases 0 to 6, in order, in this session. For each phase: enter plan
+Build the whole of docs/SALARY_PHASE_PLAN.md, phases 0 to 7, in order, in this session. For each phase: enter plan
 mode, show me the plan for that phase only, wait for my approval, build it with its tests, run the tests of every
 touched app, typecheck and build, add the dated NOTES.md note, then stop and give me a short plain-language summary
 and ask whether to start the next phase. Show every migration before running it. Never commit, push or touch the
