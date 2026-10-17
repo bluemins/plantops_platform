@@ -243,13 +243,13 @@ and a short dated note in `apps/attendance-salary/NOTES.md`.
 | **0** | Readiness | v0.20.1 live; this plan checked against the code; open items settled ✅ 2026-10-17; mock-ups approved |
 | **A1** | Per-day: database and rules ✅ 2026-10-17 | Migration 0003, rule 15, `RULES_VERSION` 2, server loading |
 | **A2** | Per-day: screens ✅ 2026-10-17 | Salary box Pay choice, Salary tab, checking panel, CSV, slip |
-| **A3** | Release v0.21.0 | Docs, migration on the live copy, deploy, the owner sets one per-day person |
+| **A3** | Release v0.21.0 ✅ 2026-10-17 (live; owner step open) | Docs, migration on the live copy, deploy, the owner sets one per-day person |
 | **B1** | Claims: database, access, platform ✅ 2026-10-17 | Migration 0004, access rows, three kinds, plan storage limit |
 | **B2** | Claims: rules ✅ 2026-10-17 | Rules 16–19, `RULES_VERSION` 3, claims in the month calculation and frozen figures |
 | **B3** | Worker: My claims ✅ 2026-10-17 | Tab, list, + Field duty, + Expense with photos, withdraw, claim_new notification |
 | **B4** | Owner: Claims tab and rates ✅ 2026-10-17 | TA / DA rates in the Salary box, Claims tab, approve / not approve / cancel, owner entries, claim_decided |
 | **B5** | Salary tab, slip, standard pieces ✅ 2026-10-17 | Columns, panel, CSV, mark-paid warning, slip, review count, tile, support, backup, storage notification |
-| **B6** | Release v0.22.0 | Docs, volume + `BACKUP_*`, migration on the live copy, deploy, the owner's checklist |
+| **B6** | Release v0.22.0 ✅ 2026-10-17 (live; owner checklist open) | Docs, volume + `BACKUP_*`, migration on the live copy, deploy, the owner's checklist |
 
 ### Phase 0: Readiness
 - v0.20.1 committed, tagged and live (`docs/deployments/shared.md`).

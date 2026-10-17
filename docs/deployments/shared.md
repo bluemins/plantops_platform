@@ -7,7 +7,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 |---|---|
 | Status | **Live** since 2026-10-04 (first checks in progress) |
 | Hosting | Railway, region Singapore |
-| Railway project | `plantops-shared`, environment `production`; services `Postgres`, `platform`, `lab-records`, `document-store` (+ `document-store-volume` at `/data`), `floor-stock`, `complaint-box` (volume at `/data`: to confirm), `order-capture` (no volume), `attendance-salary` (no volume) |
+| Railway project | `plantops-shared`, environment `production`; services `Postgres`, `platform`, `lab-records`, `document-store` (+ `document-store-volume` at `/data`), `floor-stock`, `complaint-box` (volume at `/data`: to confirm), `order-capture` (no volume), `attendance-salary` (volume at `/data` since v0.22.0, `ATTEND_STORAGE_DIR=/data/attendance`) |
 | Deploys from | git branch `production` (pushing `main` does not deploy) |
 | Platform | https://app.bluemins.life |
 | Lab Records | https://lab.bluemins.life |
@@ -26,7 +26,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | WhatsApp | not set up (waiting for Meta approval) |
 | File storage | Railway volume (move to S3-compatible storage + backups before real plant documents) |
 | Backups | nightly 02:00 IST, encrypted (`age`), to Cloudflare R2 bucket `plantops-backup` (`backup.yml`): database dump (30 days, read-only login `plantops_backup`) + Document Store files. Private key in the password manager. Practice restore done 2026-10-11 |
-| Runs release | v0.21.0 (`production` = commit `f434f67`) |
+| Runs release | v0.22.0 (`production` = commit `688faf6`) |
 
 ## History
 | Date | What |
@@ -55,6 +55,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | 2026-10-17 | v0.20.0 live (Salary): `production` = `340a9bf`, pushed at 05:58 UTC; recorded afterwards with v0.20.1. `railway-migrate.sh shared` (run for v0.20.1) reported every app up to date, so Attendance `0002_salary.sql` is applied. |
 | 2026-10-17 | v0.20.1 live (Order Capture: rate per product line in "Copy as WhatsApp message", note + Amount per order, no grand total; no migration). `git push origin v0.20.1:production` (`89d5aae`). Railway reported all seven services deployed; every `/health` database OK, JWKS 200, Orders login redirect. Not yet tried on screen: copying O-0001 and checking its rates against the order page. |
 | 2026-10-17 | v0.21.0 live (Attendance & Salary: per-day pay). `railway-migrate.sh shared` applied Attendance `0003_per_day_pay.sql` before the deploy (every other app up to date); checked on the live database: `salary_settings` has `pay_basis` (default monthly) and `day_rate_paise` with the new checks, `monthly_paise` may be empty, `attendance_app` still SELECT + INSERT only, all 9 saved settings read monthly. `git push origin v0.21.0:production` (`f434f67`) at 07:14 UTC. Checks: Attendance, Lab, Docs, Stock, Complaints, Orders `/health` database OK; JWKS 200; `/salary` without a session → PlantOps login; `POST /api/salary/settings` without a session 401. Not yet tried on screen: a per-day person at plant 001. |
+| 2026-10-17 | v0.22.0 live (Attendance & Salary: field duty TA / DA and expense claims with bill photos). Attendance `0004_claims.sql` applied at 08:17 UTC (`railway-migrate.sh shared` later reported every app up to date); checked on the live database: `salary_claims`, `salary_claim_decisions`, `salary_claim_files` with FORCE RLS, `attendance_app` SELECT + INSERT only, `salary_settings.km_rate_paise` / `da_day_paise` present. `production` = `688faf6` (pushed by the owner). The owner added a volume at `/data` on `attendance-salary`, `ATTEND_STORAGE_DIR=/data/attendance`, `RAILWAY_RUN_UID=0` and the five `BACKUP_*` variables (first set with an empty `ATTEND_STORAGE_DIR`, corrected the same day), and the GitHub variable `ATTENDANCE_BACKUP_FILES=on`. Checks: Attendance, Lab, Docs, Stock, Complaints, Orders `/health` database OK; JWKS and `/login` 200; `/claims`, `/my/claims` and a claim photo without a session → PlantOps login; `POST /api/claims` and `/api/claims/photo` without a session 401; `/api/cron/backup` with no / wrong secret 401. R2 keys were pasted into a Claude Code chat during setup: rotate them if wanted. Not yet checked: `platform` running `688faf6` in the Railway dashboard, a worker session refused on `/claims`, a real bill photo surviving a redeploy, the first nightly backup with Attendance files. |
 
 ## v0.20.0 (Salary): owner's checklist at plant 001
 From `docs/SALARY_PHASE_PLAN.md` Phase 7; how-to in `docs/HANDBOOK.md` "Attendance: salary at month end". Tick each
@@ -77,3 +78,13 @@ From `docs/SALARY_EXTRAS_PHASE_PLAN.md` Phase A3; how-to in `docs/HANDBOOK.md` "
 2. [ ] Salary tab: the person has the "per day" tag and "₹… / day"; tap the name and check the checking panel against
    the notebook (present days × rate, half days at half).
 
+## v0.22.0 (field duty and expenses): owner's checklist at plant 001
+From `docs/SALARY_EXTRAS_PHASE_PLAN.md` Phase B6; how-to in `docs/HANDBOOK.md` (claims). Tick when done and date it.
+1. [ ] Staff → each field-staff person → Salary box: set **TA per km** and **DA per day**, from this month.
+2. [ ] A worker sends a field-duty claim and an expense with a bill photo from their phone; the owner's phone gets the
+   notification. A worker without the owner role who opens `/claims` gets "not found".
+3. [ ] Approve one, do not approve the other (with a reason); the worker gets a notification for each.
+4. [ ] Salary tab: TA / DA / Expenses columns; check one person with the checking panel.
+5. [ ] After the next redeploy of `attendance-salary`, the bill photo still opens (proves it is on the volume).
+6. [ ] The next night's Nightly backup run is green and has the photo under `files/attendance_salary/`.
+7. [ ] At month end: mark paid; the slip (with "Can see own salary") shows the claims.
