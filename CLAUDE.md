@@ -1296,7 +1296,8 @@ Asked by the owner 2026-10-14; mock-ups approved the same day. No database chang
   `roleWorksIn` for Order Capture, so they are never ticked for its alerts (the new-order alert carries the amount).
   A plant-staff-only user who also works in Floor Stock now sees the tile screen.
 - **"Copy as WhatsApp message"** on the Pending tab: tick orders (Select all / Clear apply to the orders shown),
-  then one message for the day's delivery; amounts and a total only for people who see amounts.
+  then one message for the day's delivery; the rate per product line and each order's amount only for people who
+  see amounts (no grand total since 2026-10-17, owner).
 - **Owner's Permissions screen** (`/admin/permissions`, "Permissions" on the dashboard): read-only grid of users ×
   switched-on modules with each person's role there, "View only, no amounts", 🔔 for alerts, disabled users greyed,
   and a key. Worked out with the same rules the servers use (`src/lib/permissions.ts`); changes stay on Manage users.

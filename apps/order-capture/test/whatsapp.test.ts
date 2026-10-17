@@ -18,20 +18,20 @@ const leaf: CopyOrder = { ref: "O-0013", customer: "Green Leaf Restaurant", phon
 const hide = (o: CopyOrder): CopyOrder => ({ ...o, lines: withoutAmounts(o.lines), total: null });
 
 describe("the WhatsApp message", () => {
-  it("Order desk / owner: every ticked order with its amount, then the total", () => {
+  it("Order desk / owner: every ticked order with the rate per product, note and amount, no grand total", () => {
     expect(whatsappText([sai, leaf], NOW)).toBe(
       [
         "*Delivery – 14 Oct – 2 orders*",
-        "*O-0009* · Hotel Sai Palace\n+91 98765 43210 · Puri\n- SampleAqua 1L: 10 box\n- 20 L jar: 5 jar\nNote: Deliver before 10 am\nAmount: ₹1,375",
-        "*O-0013* · Green Leaf Restaurant\n+91 99370 44556 · Puri\n- SampleAqua 500ml: 4 box\nAmount: ₹442",
-        "*Total: ₹1,817*",
+        "*O-0009* · Hotel Sai Palace\n+91 98765 43210 · Puri\n- SampleAqua 1L: 10 box × ₹120\n- 20 L jar: 5 jar × ₹35\nNote: Deliver before 10 am\nAmount: ₹1,375",
+        "*O-0013* · Green Leaf Restaurant\n+91 99370 44556 · Puri\n- SampleAqua 500ml: 4 box × ₹110.50\nAmount: ₹442",
       ].join("\n\n"),
     );
   });
 
-  it("plant staff: the same orders with no amount and no total", () => {
+  it("plant staff: the same orders with no rates and no amount", () => {
     const text = whatsappText([hide(sai), hide(leaf)], NOW);
     expect(text).not.toContain("₹");
+    expect(text).not.toContain(" × ₹");
     expect(text).not.toContain("Amount");
     expect(text).toContain("- 20 L jar: 5 jar");
     expect(text.split("\n\n")).toHaveLength(3);

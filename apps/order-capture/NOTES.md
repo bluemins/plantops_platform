@@ -369,7 +369,9 @@ Asked by the owner 2026-10-14; mock-ups approved the same day.
 - **Copy as WhatsApp message** (`src/lib/whatsapp.ts`, `src/app/order-cards.tsx`): Pending tab only; a tick box per
   card, Select all / Clear (the orders shown, so search and dates apply), a sticky bar "Copy N orders as WhatsApp
   message". Message: "*Delivery – 14 Oct – N orders*", then per order ref + customer, phone + place, product lines,
-  note, and Amount + a grand total only for people who see amounts. Ticks are not saved. Clipboard refused (plain
+  note, and Amount + a grand total only for people who see amounts. **Changed 2026-10-17 (owner):** each product
+  line shows its rate ("- Bluemins 1L (1 L × 12): 20 box × ₹120"); each order keeps its note and Amount; the grand
+  Total at the end is gone; plant staff still get no rates or amounts. Ticks are not saved. Clipboard refused (plain
   http on a phone) → the text is shown to select.
 - No database change; the SSO token is unchanged.
 - **Tests:** Order Capture 243 (+11): access table with the plant-staff column, no amounts in the list / order /

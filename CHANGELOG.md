@@ -4,6 +4,14 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.20.1 — 2026-10-17 — Order Capture: rates in the WhatsApp message
+
+**What's in it**
+- **"Copy as WhatsApp message"** (Pending tab): each product line now shows its rate ("20 box × ₹80"); each order
+  keeps its note and Amount; the grand Total at the end is gone. Plant staff still get no rates or amounts.
+
+**Migrations:** none. Service that changes: `order-capture`.
+
 ## v0.20.0 — 2026-10-17 — Attendance & Salary: Salary (version 2)
 
 **What's in it**
