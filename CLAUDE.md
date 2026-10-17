@@ -1629,7 +1629,7 @@ alert. Platform and SSO token unchanged. Notes: `apps/attendance-salary/NOTES.md
 **Live (2026-10-17):** migration `0007` applied, `v0.24.0:production` (`cea5736`), checks OK
 (`docs/deployments/shared.md`). **Not yet verified:** on screen.
 
-### 2026-10-17 — Job applications — built (v0.25.0)
+### 2026-10-17 — Job applications — live (v0.25.0, deployed 2026-10-17)
 Asked by the owner 2026-10-17. Design, mock-ups, phases and build prompts: `docs/JOB_APPLICATIONS_PHASE_PLAN.md`; one
 dated note per phase in `apps/job-applications/NOTES.md`; how to use it: `docs/HANDBOOK.md` "Job applications".
 
@@ -1664,5 +1664,16 @@ transaction; Recent changes in the form's order; photos (not PDFs) locked down w
 real photo send and a PDF send; Sujata's bells; tile numbers; status, 409, note, CSV, Remove now; the daily job
 deleting the removed file.
 
-**Not yet verified:** the live deployment; real phones (iPhone photos); Turnstile with real keys; deletes in the real
-backup bucket; which address header Railway's proxy sends (the hourly limit).
+**Live (2026-10-17):** `v0.25.0:production` (`1ea1c09`) at `https://jobs.bluemins.life`, new service
+`job-applications` (volume at `/data`, `JOBS_DEFAULT_PLANT=001`); migrations platform `0016` and Job applications
+`0001`; GitHub `JOBS_URL` / `JOBS_BACKUP_FILES`; Daily jobs and Backup green; every live check passed; plant 001 has
+switched it on (5 positions). Record: `docs/deployments/shared.md`.
+
+**Pending** (`docs/deployments/shared.md`, "Pending: Job applications"):
+- Turnstile keys added but not active on the form yet
+- delete the `.paste` file and update the password manager copy of `.env.railway.shared`
+- a Daily jobs run with a (!) icon
+- the owner's plant 001 checklist (openings, QR poster, HR desk, test sends from Android and iPhone, status / note /
+  CSV, Remove now)
+- not yet seen live: the volume across a redeploy, the daily job deleting a file and its R2 copy, Railway's address
+  header for the 20-per-hour limit

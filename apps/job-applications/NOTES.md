@@ -171,3 +171,15 @@ the check; all rows, files, bells and users removed afterwards):
   - `setup-railway-db.sh` / `.sql` (new copies)
   - CHANGELOG v0.25.0, CLAUDE.md, HANDBOOK "Job applications", DEPLOY
 - Live steps and checks: `docs/deployments/shared.md`.
+- **Live 2026-10-17** at https://jobs.bluemins.life (`production` = `1ea1c09`): platform `0016` and Job applications `0001`
+  applied, new service `job-applications` with a volume at `/data`, DNS + HTTPS, `JOBS_URL` / `JOBS_BACKUP_FILES` in
+  GitHub, Daily jobs and Backup green, every live check passed. Plant 001 switched it on and entered 5 positions.
+  Record: `docs/deployments/shared.md`.
+- **Pending** (details in `docs/deployments/shared.md`, "Pending: Job applications"):
+  1. Turnstile keys added but the form doesn't show the check yet (variable names / staged deploy)
+  2. delete `.env.railway.shared.job_applications.paste`; update the password manager copy of `.env.railway.shared`
+  3. a Daily jobs run with a (!) icon to look at
+  4. the owner's plant 001 checklist (all openings, QR poster, HR desk, test sends from Android + iPhone, status /
+     note / CSV, Remove now)
+  5. not yet seen live: the volume across a redeploy, a file + backup copy deleted by the daily job, Railway's
+     address header for the hourly limit

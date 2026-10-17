@@ -7,7 +7,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 |---|---|
 | Status | **Live** since 2026-10-04 (first checks in progress) |
 | Hosting | Railway, region Singapore |
-| Railway project | `plantops-shared`, environment `production`; services `Postgres`, `platform`, `lab-records`, `document-store` (+ `document-store-volume` at `/data`), `floor-stock`, `complaint-box` (volume at `/data`: to confirm), `order-capture` (no volume), `attendance-salary` (volume at `/data` since v0.22.0, `ATTEND_STORAGE_DIR=/data/attendance`) |
+| Railway project | `plantops-shared`, environment `production`; services `Postgres`, `platform`, `lab-records`, `document-store` (+ `document-store-volume` at `/data`), `floor-stock`, `complaint-box` (volume at `/data`: to confirm), `order-capture` (no volume), `attendance-salary` (volume at `/data` since v0.22.0, `ATTEND_STORAGE_DIR=/data/attendance`), `job-applications` (volume at `/data`, `JOBS_STORAGE_DIR=/data/jobs`, since v0.25.0) |
 | Deploys from | git branch `production` (pushing `main` does not deploy) |
 | Platform | https://app.bluemins.life |
 | Lab Records | https://lab.bluemins.life |
@@ -16,6 +16,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | Complaint Box | https://complaints.bluemins.life (since 2026-10-12) |
 | Order Capture | https://orders.bluemins.life (since 2026-10-13) |
 | Attendance | https://attendance.bluemins.life (v0.18.0; recorded afterwards on 2026-10-16) |
+| Job applications | https://jobs.bluemins.life (public job page; since 2026-10-17, v0.25.0). `JOBS_DEFAULT_PLANT=001` |
 | DNS | WordPress.com (bluemins.life itself stays on GitHub Pages) |
 | super_admin login | contact@bluemins.life (password in the password manager) |
 | Secrets | Railway variables + password manager entry "PlantOps railway shared"; `.env.railway.shared` on Rocky's computer |
@@ -26,7 +27,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | WhatsApp | not set up (waiting for Meta approval) |
 | File storage | Railway volume (move to S3-compatible storage + backups before real plant documents) |
 | Backups | nightly 02:00 IST, encrypted (`age`), to Cloudflare R2 bucket `plantops-backup` (`backup.yml`): database dump (30 days, read-only login `plantops_backup`) + Document Store files. Private key in the password manager. Practice restore done 2026-10-11 |
-| Runs release | v0.24.0 (`production` = commit `cea5736`) |
+| Runs release | v0.25.0 (`production` = commit `1ea1c09`) |
 
 ## History
 | Date | What |
@@ -91,4 +92,29 @@ From `docs/SALARY_EXTRAS_PHASE_PLAN.md` Phase B6; how-to in `docs/HANDBOOK.md` (
 | 2026-10-17 | v0.22.1 live (Attendance: claims only for field staff). `railway-migrate.sh shared` applied Attendance `0005_field_staff.sql` (other apps up to date), then `git push origin v0.22.1:production` (`024b57e`), both run by the owner. Checks: `attendance.bluemins.life/health` database OK; read-only on the live database: 11 people with a salary setting at plant 001, **none ticked** (nobody had a TA / DA rate yet) and no claims on record, so nobody sees My claims until the owner ticks Field staff. **To do (owner):** tick Field staff on Dillip and Kedar (Staff → person → Salary box, from Oct 2026), add their TA / DA rates if wanted; check that Bindu has no My claims tab. |
 | 2026-10-17 | v0.23.0 live (Attendance: Office staff, Supervisor, Permanent / Temporary). `railway-migrate.sh shared` applied platform `0015_attendance_roles.sql` and Attendance `0006_desk_and_staff_type.sql` (others up to date); checked read-only on the live database: roles `office_staff` / `supervisor` (Attendance), `staff_type` default permanent, `not_marked_hour` default 10, `punches_desk_check`, `attendance_app` may UPDATE only `not_marked_hour` on `plant_settings` and still has no UPDATE on `salary_settings` / `punches`. `git push origin v0.23.0:production` (`0f28102`); the new Attendance code answered after about 2 minutes. Checks: `attendance` `/health` database OK; `/api/cron/morning` 401 with a wrong secret; `/api/desk/mark` and `/api/settings/not-marked` 401 without a session; `/desk` without a session → PlantOps login; tile 401 without a ticket; platform `/login` and JWKS 200; Lab / Docs / Stock / Complaints / Orders `/health` database OK. The morning step of `evening.yml` uses the existing GitHub variable `ATTENDANCE_URL` (first run at 08:00 IST, then hourly to 11:00). **Not yet verified:** the owner's checklist below; the first morning run; real phones. **Owner's checklist (plant 001):** (1) Manage users: give one office person Office staff + Plant staff, and one person Supervisor + Plant staff; (2) Office staff marks IN for a worker without a phone from the office (Attendance → Mark for someone); the supervisor's bell shows it; (3) Office staff fixes a wrong time; the owner's bell shows "… changed …'s attendance"; the worker gets "Your attendance was changed"; (4) Office staff gives an advance; the owner's phone buzzes; Office staff can't open the Salary tab; (5) next morning: the not-marked alert at the chosen hour (Attendance → Settings, default 10:00); (6) set Temporary on the temporary workers (Staff → person → Salary box → Staff type); the Salary tab shows the Manpower cost split. Also still open from v0.22.1: tick Field staff on Dillip and Kedar. |
 | 2026-10-17 | v0.24.0 live (Attendance: "Ask for DA" on a field duty). `railway-migrate.sh shared` applied Attendance `0007_claim_wants_da.sql` (others up to date); checked read-only: check `salary_claims_wants_da_check` present, `attendance_app` still SELECT + INSERT only on `salary_claims`, no claims on the live copy yet (nothing to convert). `git push origin v0.24.0:production` (`cea5736`). Checks: the new form code ("Ask for DA (food allowance)") is served; `attendance` `/health` database OK; `POST /api/claims` 401 without a session; `/my/claims/new` → PlantOps login; JWKS and Lab / Docs / Stock / Complaints / Orders health 200. **Not yet tried on screen:** Dillip sending a field duty with DA unticked, and the owner's card showing "no DA asked". |
+| 2026-10-17 | v0.25.0 live (Job applications, new module). Platform migration `0016_job_applications.sql` applied first (module + role `hr_desk`); `add-railway-module.sh shared job_applications jobs_app JOBS 3007 jobs.bluemins.life` created `jobs_app`, applied Job applications `0001` and registered the module; `railway-migrate.sh shared` (all up to date, backup grants). Checked read-only: 9 tables FORCE RLS, `jobs_app` no DELETE / not owner / no BYPASSRLS, module row `https://jobs.bluemins.life`, backup login can read the schema. `git push origin v0.25.0:production` (`1ea1c09`); platform on v0.25.0 after ~75 s; JWKS and all six module health checks OK. New Railway service `job-applications` (branch `production`, healthcheck `/health`, volume at `/data`, `JOBS_DEFAULT_PLANT=001`, `CRON_SECRET` + `BACKUP_*` as document-store); `jobs` CNAME + `_railway-verify` TXT at WordPress.com, Let's Encrypt certificate issued. GitHub variables `JOBS_URL`, `JOBS_BACKUP_FILES=on`; Backup #13 and Daily jobs #31 green. Live checks: `/health` OK; bare address 404 "not available" before plant 001 switched it on, then its page (5 positions); no cookie on public pages; `/applications` → PlantOps login; `/api/app/…` 401; tile without ticket 401; cron / backup wrong secret 401; a send from another website 403; unknown code 404. `backup.yml` now also requires `job_applications` in each dump. **Pending:** see the Job applications list below. |
 
+## Pending: Job applications (v0.25.0, 2026-10-17)
+1. **Turnstile not active yet:** the keys were added to `job-applications` and it was redeployed, but the apply form
+   doesn't show the spam check. Check the names are exactly `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET`, both filled,
+   any staged change applied, and the newest deployment started after adding them; then re-check `/apply`.
+2. **Delete `.env.railway.shared.job_applications.paste`** from Rocky's computer (still there on 2026-10-17) once its
+   values are in Railway and the password manager; also update the password manager copy of `.env.railway.shared`
+   (it gained `MODULE_URL_JOB_APPLICATIONS` / `MODULE_SECRET_JOB_APPLICATIONS`).
+3. **A "Daily jobs" run with a (!) icon** next to #31 on 2026-10-17: check whether it was a cancelled duplicate or a
+   failure.
+4. **Owner's checklist at plant 001:**
+   - openings complete (5 of the 13 table rows so far; the Lab Assistant qualification text was cut off in the
+     sheet; "Account [Tally]" was typed with square brackets)
+   - print the QR poster (Openings → Print QR poster)
+   - give the person who calls applicants **HR desk**, and tick "Gets Job applications alerts" if they should get
+     the bell
+   - send a test application from an **Android** phone and an **iPhone** (camera photo of a CV): reference J-0001,
+     owner's bell, tile "1 new"
+   - open it, Call / WhatsApp, change the status, add a note, download the CSV
+   - **Remove now** on the test application(s), then the next daily job deletes the files (also from R2)
+5. **Not yet seen live:**
+   - a redeploy keeps resume files (the volume)
+   - the daily job deleting a file and its R2 backup copy (`files.removed` in the Daily jobs output)
+   - which address header Railway's proxy sends: the 20-per-hour limit counts it. If many people are refused at once,
+     the proxy may be giving one shared address.
