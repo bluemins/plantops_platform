@@ -1,8 +1,8 @@
 # Salary extras (Attendance & Salary, version 3): Phase Plan and Build Prompts
 
 **Status:** Asked by the owner on 2026-10-17 (after v0.20.1). The answers below and the five proposed items were
-confirmed the same day, and the mock-ups approved. **Part A (per-day pay) built 2026-10-17, release v0.21.0**
-(phase notes in `apps/attendance-salary/NOTES.md`); next is Phase B1.
+confirmed the same day, and the mock-ups approved. **Part A (per-day pay) built 2026-10-17, release v0.21.0;
+Part B (claims) built 2026-10-17, release v0.22.0** (phase notes in `apps/attendance-salary/NOTES.md`).
 
 Three additions to the salary built in version 2 (`docs/SALARY_PHASE_PLAN.md`, v0.20.0):
 1. **Per-day workers:** some people are paid a **day rate** instead of a monthly salary, plus overtime as today.
@@ -244,11 +244,11 @@ and a short dated note in `apps/attendance-salary/NOTES.md`.
 | **A1** | Per-day: database and rules ✅ 2026-10-17 | Migration 0003, rule 15, `RULES_VERSION` 2, server loading |
 | **A2** | Per-day: screens ✅ 2026-10-17 | Salary box Pay choice, Salary tab, checking panel, CSV, slip |
 | **A3** | Release v0.21.0 | Docs, migration on the live copy, deploy, the owner sets one per-day person |
-| **B1** | Claims: database, access, platform | Migration 0004, access rows, three kinds, plan storage limit |
-| **B2** | Claims: rules | Rules 16–19, `RULES_VERSION` 3, claims in the month calculation and frozen figures |
-| **B3** | Worker: My claims | Tab, list, + Field duty, + Expense with photos, withdraw, claim_new notification |
-| **B4** | Owner: Claims tab and rates | TA / DA rates in the Salary box, Claims tab, approve / not approve / cancel, owner entries, claim_decided |
-| **B5** | Salary tab, slip, standard pieces | Columns, panel, CSV, mark-paid warning, slip, review count, tile, support, backup, storage notification |
+| **B1** | Claims: database, access, platform ✅ 2026-10-17 | Migration 0004, access rows, three kinds, plan storage limit |
+| **B2** | Claims: rules ✅ 2026-10-17 | Rules 16–19, `RULES_VERSION` 3, claims in the month calculation and frozen figures |
+| **B3** | Worker: My claims ✅ 2026-10-17 | Tab, list, + Field duty, + Expense with photos, withdraw, claim_new notification |
+| **B4** | Owner: Claims tab and rates ✅ 2026-10-17 | TA / DA rates in the Salary box, Claims tab, approve / not approve / cancel, owner entries, claim_decided |
+| **B5** | Salary tab, slip, standard pieces ✅ 2026-10-17 | Columns, panel, CSV, mark-paid warning, slip, review count, tile, support, backup, storage notification |
 | **B6** | Release v0.22.0 | Docs, volume + `BACKUP_*`, migration on the live copy, deploy, the owner's checklist |
 
 ### Phase 0: Readiness

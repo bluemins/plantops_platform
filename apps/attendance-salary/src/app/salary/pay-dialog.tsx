@@ -58,6 +58,9 @@ export function PayDialog({ row, month, today, onClose }: { row: TabRow; month: 
         <div className="space-y-1 rounded-xl bg-slate-100 p-3 text-sm">
           {line("Salary earned", paiseText(r.earnedPaise))}
           {row.getsOvertime && line(`Overtime ${hoursText(r.otMinutes)} h × ${paiseText(row.otRatePaise ?? 0)}`, `+${paiseText(r.otPayPaise)}`)}
+          {r.taPaise !== 0 && line("TA", `+${paiseText(r.taPaise)}`)}
+          {r.daPaise !== 0 && line("DA", `+${paiseText(r.daPaise)}`)}
+          {r.expensesPaise !== 0 && line("Expenses", `+${paiseText(r.expensesPaise)}`)}
           {r.advancesPaise !== 0 && line("Advances", `−${paiseText(r.advancesPaise)}`)}
           {r.carriedInPaise !== 0 && line(`Carried in from ${monthOnly(row.prevMonth)}`, `−${paiseText(r.carriedInPaise)}`)}
           {r.adjustmentPaise !== 0 && line(`Adjustment from ${monthOnly(row.adjustmentFrom ?? row.prevMonth)}`, `${r.adjustmentPaise > 0 ? "+" : ""}${paiseText(r.adjustmentPaise)}`)}
@@ -71,6 +74,12 @@ export function PayDialog({ row, month, today, onClose }: { row: TabRow; month: 
             </p>
           )}
         </div>
+        {row.claimsWaiting > 0 && (
+          <p role="alert" className="rounded-xl bg-amber-100 p-3 text-sm text-amber-950">
+            {row.claimsWaiting} {row.claimsWaiting === 1 ? "claim" : "claims"} for {monthOnly(month)} {row.claimsWaiting === 1 ? "is" : "are"} still waiting. Approve or reject{" "}
+            {row.claimsWaiting === 1 ? "it" : "them"} first; if you approve {row.claimsWaiting === 1 ? "it" : "them"} later {row.claimsWaiting === 1 ? "it comes" : "they come"} as an adjustment next month.
+          </p>
+        )}
         <div className="grid gap-3 sm:grid-cols-[1fr_1.4fr]">
           <label className="block space-y-1 text-sm font-semibold">
             <span>Paid on</span>

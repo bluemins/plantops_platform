@@ -5,9 +5,13 @@
 #                   <bucket>/files/document_store/... (files are kept as long as the app keeps them: forever)
 #   Complaint Box   POST <COMPLAINT_URL>/api/cron/backup: the same for complaint photos / videos, into
 #                   <bucket>/files/complaint_box/... (skipped while COMPLAINT_URL is unset)
+#   Attendance      POST <ATTENDANCE_URL>/api/cron/backup: the same for bill photos of expense claims, into
+#                   <bucket>/files/attendance_salary/... (skipped until ATTENDANCE_BACKUP_FILES is "on": set it once
+#                   the attendance-salary service has its five BACKUP_* variables and v0.22.0 is live)
 # Each copy is a GitHub environment (Settings > Environments) with:
 #   secrets    DATABASE_URL_BACKUP, BACKUP_ACCESS_KEY_ID, BACKUP_SECRET_ACCESS_KEY, CRON_SECRET
-#   variables  BACKUP_BUCKET, BACKUP_ENDPOINT, BACKUP_RECIPIENT (public key only), DOCS_URL, COMPLAINT_URL
+#   variables  BACKUP_BUCKET, BACKUP_ENDPOINT, BACKUP_RECIPIENT (public key only), DOCS_URL, COMPLAINT_URL,
+#              ATTENDANCE_URL, ATTENDANCE_BACKUP_FILES
 # Only the public key is here; the private key that opens backups is in the owner's password manager.
 # A failed step fails the run, and GitHub emails the repo owner. "Run workflow" runs it by hand.
 name: Backup
@@ -55,7 +59,7 @@ jobs:
           /usr/lib/postgresql/18/bin/pg_dump "$DATABASE_URL_BACKUP" --format=custom --file=plantops.dump
           # a usable dump has the data of every PlantOps schema
           /usr/lib/postgresql/18/bin/pg_restore --list plantops.dump > contents.txt
-          for schema in platform lab_records document_store floor_stock complaint_box order_capture; do
+          for schema in platform lab_records document_store floor_stock complaint_box order_capture attendance_salary; do
             grep -q " TABLE DATA $schema " contents.txt || { echo "No $schema data in the dump"; exit 1; }
           done
           echo "Dump: $(du -h plantops.dump | cut -f1), $(grep -c ' TABLE DATA ' contents.txt) tables"
@@ -91,6 +95,16 @@ jobs:
         if: ${{ !cancelled() && vars.COMPLAINT_URL != '' }}
         env:
           URL: ${{ vars.COMPLAINT_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -sS --max-time 120 -o result.json -w '%{http_code}' -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/backup")
+          cat result.json; echo
+          [ "$code" = 200 ] && jq -e '.status == "ok"' result.json >/dev/null
+
+      - name: Attendance files
+        if: ${{ !cancelled() && vars.ATTENDANCE_URL != '' && vars.ATTENDANCE_BACKUP_FILES == 'on' }}
+        env:
+          URL: ${{ vars.ATTENDANCE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           code=$(curl -sS --max-time 120 -o result.json -w '%{http_code}' -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/backup")

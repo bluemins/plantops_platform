@@ -6,6 +6,7 @@ import { staffList } from "@/server/people";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../header";
 import { OwnerNav } from "../owner-nav";
+import { waitingClaims } from "@/server/claims";
 
 /** Owner (and support): everyone tracked, A-Z, then people who are no longer Plant staff (their history stays). */
 export default async function StaffPage() {
@@ -25,7 +26,7 @@ export default async function StaffPage() {
   return (
     <div className="space-y-4">
       <Header user={user} plant={plant} />
-      <OwnerNav user={user} current="staff" />
+      <OwnerNav user={user} current="staff" claimsWaiting={await waitingClaims(user)} />
       <h1 className="text-xl font-bold">Staff</h1>
       {list.platformDown && <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">PlantOps can&apos;t be reached right now; showing people from their marks.</p>}
       <Card>

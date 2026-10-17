@@ -97,14 +97,21 @@ export async function seedPlant(tenantId: string) {
     values ('${tenantId}', '${worker}', 'Ramu', '2026-09-01', '2026-09-30', 904000, 904000, '{"rules": 1}', '${owner}', 'Sujata') returning id`);
   const undo = await one(`insert into attendance_salary.salary_payment_undos (tenant_id, payment_id, reason, created_by, created_by_name)
     values ('${tenantId}', '${payment}', 'paid the wrong month', '${owner}', 'Sujata') returning id`);
-  return { worker, owner, scan, fix, cancel, outbox, setting, advance, correction, visibility, payment, undo };
+  // claims (migration 0004): an expense with a bill photo, approved
+  const claim = await one(`insert into attendance_salary.salary_claims (tenant_id, user_id, user_name, kind, on_date, amount_paise, note, created_by, created_by_name)
+    values ('${tenantId}', '${worker}', 'Ramu', 'expense', '2026-10-16', 45000, 'diesel for generator', '${worker}', 'Ramu') returning id`);
+  const decision = await one(`insert into attendance_salary.salary_claim_decisions (tenant_id, claim_id, decision, created_by, created_by_name)
+    values ('${tenantId}', '${claim}', 'approved', '${owner}', 'Sujata') returning id`);
+  const file = await one(`insert into attendance_salary.salary_claim_files (tenant_id, claim_id, storage_key, content_type, size_bytes, sha256, created_by, created_by_name)
+    values ('${tenantId}', '${claim}', 'tenant/${tenantId}/${randomUUID()}', 'image/jpeg', 1234, '${"a".repeat(64)}', '${worker}', 'Ramu') returning id`);
+  return { worker, owner, scan, fix, cancel, outbox, setting, advance, correction, visibility, payment, undo, claim, decision, file };
 }
 
 /** The tables in the attendance_salary schema (the guard tests compare against this list). */
 export const TABLES = [
   "audit_log", "notification_outbox", "plant_settings", "punch_cancels", "punches",
-  "salary_advances", "salary_payment_undos", "salary_payments", "salary_settings", "salary_visibility",
-  "support_views",
+  "salary_advances", "salary_claim_decisions", "salary_claim_files", "salary_claims", "salary_payment_undos",
+  "salary_payments", "salary_settings", "salary_visibility", "support_views",
 ];
 /** The salary tables (migration 0002): select and insert only for the app login. */
 export const SALARY_TABLES = ["salary_advances", "salary_payment_undos", "salary_payments", "salary_settings", "salary_visibility"];

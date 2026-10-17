@@ -3,6 +3,7 @@
 // 2026-10-15): a worker sees "IN since 9:02" inside the app. The owner's numbers come from the Today board, so the
 // tile and Today never disagree.
 import type { ModuleSummary } from "@plantops/types";
+import { waitingClaims } from "./claims";
 import { withTenant } from "./db";
 import { readSettings } from "./settings";
 import { supportUser, type AtUser } from "./session";
@@ -24,5 +25,10 @@ export async function summaryFor(tenantId: string, view: "owner" | "staff", now:
   if (b.inside.length) badges.push({ text: `${b.inside.length} in now`, tone: "info" });
   if (b.notMarked.length && istHour(now) >= NOT_MARKED_FROM_HOUR) badges.push({ text: `${b.notMarked.length} not marked today`, tone: "warn" });
   if (b.noExitYesterday.length) badges.push({ text: `${b.noExitYesterday.length} no exit`, tone: "warn" });
-  return { badges: badges.length ? badges : [{ text: "All in order", tone: "ok" }] };
+  // claims waiting for the owner (docs/SALARY_EXTRAS_PHASE_PLAN.md "Standard pieces"); never money on the launcher
+  const claims = await waitingClaims(viewer);
+  if (claims) badges.push({ text: `${claims} ${claims === 1 ? "claim" : "claims"} waiting`, tone: "warn" });
+  // at most 3 badges (the launcher contract): "in now" makes way first
+  if (badges.length > 3) badges.splice(badges.findIndex((x) => x.tone === "info"), 1);
+  return { badges: badges.length ? badges.slice(0, 3) : [{ text: "All in order", tone: "ok" }] };
 }

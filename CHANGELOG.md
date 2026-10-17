@@ -4,6 +4,30 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.22.0 — 2026-10-17 — Attendance & Salary: field duty and expense claims
+
+**What's in it**
+- **Claims from the phone** (My claims, for anyone with a salary setting): **field duty** (km travelled + where) and
+  **expenses** (amount + what for + up to 3 bill photos, shrunk on the phone). Today back to 31 days, one field duty
+  per day, withdraw while waiting. Workers see their km and the amounts they typed, never TA / DA rupees.
+- **The owner decides** (new **Claims** tab with the waiting count): Approve, Not approve (with a reason the worker
+  sees), Cancel an approved one; TA / DA shown at each person's rates. The owner can also enter claims for someone on
+  their Staff page (approved at once).
+- **TA ₹ per km and DA ₹ per field-duty day** per person in the Salary box (blank = none), Monthly or Per day people.
+- **Salary:** only approved claims count: TA = km × rate, DA = field-duty days × rate, plus expenses, added to
+  "remaining to pay". Shown on the Salary tab (columns, "claims waiting" banner), checking panel, CSV, mark paid
+  (warns about waiting claims) and the worker's slip. A claim decided after payment comes as an adjustment next month.
+- **Notifications:** new claim (owners), your claim approved / not approved / cancelled (the worker only), storage 80 %
+  / 95 % full (owners); the month-end review counts waiting claims; the owner's tile shows "N claims waiting".
+- **Plan limit** "Attendance & Salary storage (MB)" on the plan screen.
+
+**Migrations:** Attendance `0004_claims.sql`: `salary_settings` gets `km_rate_paise` and `da_day_paise` (empty for
+every existing row); three new append-only tables (`salary_claims`, `salary_claim_decisions`, `salary_claim_files`),
+FORCE RLS, `attendance_app` SELECT + INSERT only. Services that change: `attendance-salary`, `platform` (three
+notification kinds, the storage limit field). **New settings:** a volume at `/data` on `attendance-salary` with
+`ATTEND_STORAGE_DIR=/data/attendance`, `RAILWAY_RUN_UID=0` and the five `BACKUP_*` (as on `complaint-box`); GitHub
+variable `ATTENDANCE_BACKUP_FILES=on` once that is live (turns on the nightly bill-photo backup step).
+
 ## v0.21.0 — 2026-10-17 — Attendance & Salary: per-day pay
 
 **What's in it**

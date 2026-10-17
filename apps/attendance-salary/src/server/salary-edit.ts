@@ -24,6 +24,9 @@ const MAX_PAISE = 1_000_000_000;
 const MAX_OT_RATE_PAISE = 10_000_000;
 /** ₹1,00,000 a day, the largest day rate (the database checks it too). */
 const MAX_DAY_RATE_PAISE = 10_000_000;
+/** TA ≤ ₹1,000 a km and DA ≤ ₹1,00,000 a day (the database checks them too). */
+const MAX_KM_RATE_PAISE = 100_000;
+const MAX_DA_DAY_PAISE = 10_000_000;
 
 const Expect = z.uuid().nullable();
 const OptDay = z
@@ -91,6 +94,9 @@ export const SettingInput = z.object({
   shift_hours: z.number(),
   /** monthly only; per day always saves 0 */
   leave_days: z.number().nullish(),
+  /** TA ₹ per km and DA ₹ per field-duty day as typed; blank = none (docs/SALARY_EXTRAS_PHASE_PLAN.md) */
+  ta_rate: z.string().max(20).nullish(),
+  da_rate: z.string().max(20).nullish(),
   gets_overtime: z.boolean(),
   ot_rate: z.string().max(20).nullish(),
   /** "YYYY-MM" */
@@ -108,6 +114,9 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
   // only the fields of the chosen basis count; the other one is saved empty whatever the browser sent
   const monthlyPaise = perDay ? null : rupees(input.monthly ?? "", "Monthly salary");
   const dayRatePaise = perDay ? rupees(input.day_rate ?? "", "Day rate", MAX_DAY_RATE_PAISE) : null;
+  // both work the same for Monthly and Per day people; blank = this person gets no TA / DA
+  const kmRatePaise = input.ta_rate?.trim() ? rupees(input.ta_rate, "TA per km", MAX_KM_RATE_PAISE) : null;
+  const daDayPaise = input.da_rate?.trim() ? rupees(input.da_rate, "DA per day", MAX_DA_DAY_PAISE) : null;
   const shiftMinutes = Math.round(input.shift_hours * 60);
   if (!(input.shift_hours >= 1 && input.shift_hours <= 16) || shiftMinutes % 30 !== 0 || shiftMinutes !== input.shift_hours * 60) {
     throw badRequest("Shift hours: 1 to 16, in steps of half an hour (8 or 8.5)");
@@ -136,6 +145,8 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
         payBasis: input.pay_basis,
         monthlyPaise,
         dayRatePaise,
+        kmRatePaise,
+        daDayPaise,
         shiftMinutes,
         paidLeaveHalfdays: halves,
         getsOvertime: input.gets_overtime,
@@ -153,6 +164,8 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
       basis: input.pay_basis,
       monthly: monthlyPaise,
       day_rate: dayRatePaise,
+      km_rate: kmRatePaise,
+      da_day: daDayPaise,
       shift: shiftMinutes,
       leave: halves,
       ot_rate: otRatePaise,
@@ -257,6 +270,9 @@ export interface HistoryRow {
   payBasis: PayBasis;
   monthlyPaise: number | null;
   dayRatePaise: number | null;
+  /** TA per km / DA per field-duty day (null = none) */
+  kmRatePaise: number | null;
+  daDayPaise: number | null;
   shiftMinutes: number;
   paidLeaveHalfdays: number;
   getsOvertime: boolean;
@@ -316,6 +332,8 @@ export async function salaryPanel(user: AtUser, personId: string, month: string)
       payBasis: s.payBasis,
       monthlyPaise: s.monthlyPaise,
       dayRatePaise: s.dayRatePaise,
+      kmRatePaise: s.kmRatePaise,
+      daDayPaise: s.daDayPaise,
       shiftMinutes: s.shiftMinutes,
       paidLeaveHalfdays: s.paidLeaveHalfdays,
       getsOvertime: s.getsOvertime,

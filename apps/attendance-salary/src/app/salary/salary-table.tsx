@@ -24,6 +24,11 @@ function RowNotes({ r, month }: { r: TabRow; month: string }) {
           Adjustment from {monthOnly(r.adjustmentFrom ?? r.prevMonth)}: {signed(r.result.adjustmentPaise)}
         </span>
       )}
+      {r.claimsWaiting > 0 && (
+        <span className="hidden text-xs font-semibold text-amber-800 lg:block">
+          {r.claimsWaiting} {r.claimsWaiting === 1 ? "claim" : "claims"} waiting
+        </span>
+      )}
     </>
   );
 }
@@ -69,6 +74,9 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
                 <th className={th}>OT hours</th>
                 <th className={th}>Earned</th>
                 <th className={th}>OT pay</th>
+                <th className={th}>TA</th>
+                <th className={th}>DA</th>
+                <th className={th}>Expenses</th>
                 <th className={th}>Advances</th>
                 <th className={th}>Carried in</th>
                 <th className={th}>Remaining</th>
@@ -96,6 +104,9 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
                   <td className={td}>{r.getsOvertime ? hoursText(r.result.otMinutes) : "—"}</td>
                   <td className={td}>{rupeesText(r.result.earnedPaise)}</td>
                   <td className={td}>{r.getsOvertime ? rupeesText(r.result.otPayPaise) : "—"}</td>
+                  <td className={td}>{r.kmRatePaise || r.result.taPaise ? rupeesText(r.result.taPaise) : "—"}</td>
+                  <td className={td}>{r.daDayPaise || r.result.daPaise ? rupeesText(r.result.daPaise) : "—"}</td>
+                  <td className={td}>{rupeesText(r.result.expensesPaise)}</td>
                   <td className={td}>{rupeesText(r.result.advancesPaise)}</td>
                   <td className={td}>{rupeesText(r.result.carriedInPaise)}</td>
                   <td className={`${td} font-bold ${r.result.remainingPaise < 0 ? "text-red-700" : ""}`}>{rupeesText(r.result.remainingPaise)}</td>
@@ -113,6 +124,9 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
                 <td colSpan={5} />
                 <td className={td}>{rupeesText(t.earnedPaise)}</td>
                 <td className={td}>{rupeesText(t.otPayPaise)}</td>
+                <td className={td}>{rupeesText(t.taPaise)}</td>
+                <td className={td}>{rupeesText(t.daPaise)}</td>
+                <td className={td}>{rupeesText(t.expensesPaise)}</td>
                 <td className={td}>{rupeesText(t.advancesPaise)}</td>
                 <td className={td}>{rupeesText(t.carriedInPaise)}</td>
                 <td className={td}>{rupeesText(t.remainingPaise)}</td>
@@ -130,6 +144,10 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
             const parts = [`${r.counts.present} P`, `${r.counts.half} ½`, `${r.counts.absent} A`];
             if (r.payBasis === "per_day") parts.unshift(payText(r));
             if (r.getsOvertime) parts.push(`OT ${hoursText(r.result.otMinutes)} h`);
+            // claims (mock-up 6): "TA ₹546 · DA ₹900 · Exp ₹1,650", only what there is
+            if (r.result.taPaise) parts.push(`TA ${rupeesText(r.result.taPaise)}`);
+            if (r.result.daPaise) parts.push(`DA ${rupeesText(r.result.daPaise)}`);
+            if (r.result.expensesPaise) parts.push(`Exp ${rupeesText(r.result.expensesPaise)}`);
             if (r.result.advancesPaise) parts.push(`Adv ${rupeesText(r.result.advancesPaise)}`);
             if (r.result.carriedInPaise) parts.push(`carried ${rupeesText(r.result.carriedInPaise)}`);
             return (
@@ -142,6 +160,11 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
                       {r.former && <span className="ml-1 text-xs font-normal text-slate-500">(left)</span>}
                     </span>
                     <span className="block text-xs text-slate-600">{parts.join(" · ")}</span>
+                    {r.claimsWaiting > 0 && (
+                      <span className="block text-xs font-semibold text-amber-800">
+                        {r.claimsWaiting} {r.claimsWaiting === 1 ? "claim" : "claims"} waiting
+                      </span>
+                    )}
                     {r.payment && <span className="block text-xs font-semibold text-emerald-800">✓ Paid {fmtDayLong(r.payment.paidOn).replace(/^\w+, /, "")}</span>}
                     <RowNotes r={r} month={tab.month} />
                   </span>

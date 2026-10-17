@@ -4,8 +4,7 @@ import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../header";
 import { MyMonth } from "../my-month";
-import { MyTabs } from "../my-tabs";
-import { canSeeOwnSalary } from "@/server/salary-slip";
+import { MyTabs, myTabs } from "../my-tabs";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
@@ -21,7 +20,7 @@ export default async function MyPage({ searchParams }: { searchParams: Search })
       <a href="/" className="text-sm font-semibold text-(--brand)">
         ← Today
       </a>
-      {(await canSeeOwnSalary(user)) && <MyTabs attendanceHref="/my" current="attendance" />}
+      <MyTabs {...await myTabs(user)} current="attendance" />
       <MyMonth user={user} month={typeof sp.m === "string" ? sp.m : null} base="/my" />
     </div>
   );

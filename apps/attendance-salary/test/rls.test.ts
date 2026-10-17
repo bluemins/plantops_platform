@@ -43,6 +43,10 @@ describe("row-level security", () => {
       await dbError(asApp(b.tenantId, `insert into attendance_salary.punches (tenant_id, user_id, user_name, kind, at, source, reason, created_by, created_by_name) values ('${a.tenantId}', gen_random_uuid(), 'X', 'in', now(), 'owner', 'planted', gen_random_uuid(), 'x')`)),
     ).toMatch(/row-level security/);
     expect(await dbError(asApp(b.tenantId, `insert into attendance_salary.audit_log (tenant_id, actor, action) values ('${a.tenantId}', 'x', 'x')`))).toMatch(/row-level security/);
+    // claims (migration 0004): plant B can't plant a claim, a decision or a photo in plant A
+    expect(await dbError(asApp(b.tenantId, `insert into attendance_salary.salary_claims (tenant_id, user_id, user_name, kind, on_date, amount_paise, note, created_by, created_by_name) values ('${a.tenantId}', gen_random_uuid(), 'X', 'expense', '2026-10-16', 100, 'planted', gen_random_uuid(), 'x')`))).toMatch(/row-level security/);
+    expect(await dbError(asApp(b.tenantId, `insert into attendance_salary.salary_claim_decisions (tenant_id, claim_id, decision, created_by, created_by_name) values ('${a.tenantId}', '${ids.claim}', 'approved', gen_random_uuid(), 'x')`))).toMatch(/row-level security/);
+    expect(await dbError(asApp(b.tenantId, `insert into attendance_salary.salary_claim_files (tenant_id, claim_id, storage_key, content_type, size_bytes, sha256, created_by, created_by_name) values ('${a.tenantId}', '${ids.claim}', 'tenant/x/y', 'image/jpeg', 10, '${"c".repeat(64)}', gen_random_uuid(), 'x')`))).toMatch(/row-level security/);
     expect((await asApp(b.tenantId, `update attendance_salary.plant_settings set radius_m = 2000 where tenant_id = '${a.tenantId}'`)).rowCount).toBe(0);
     expect((await asApp(b.tenantId, `update attendance_salary.notification_outbox set attempts = 9 where id = '${ids.outbox}'`)).rowCount).toBe(0);
     // plant B can't correct plant A's advance or undo plant A's payment (the keys include the plant)

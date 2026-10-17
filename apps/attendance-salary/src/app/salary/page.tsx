@@ -10,6 +10,7 @@ import { requirePageUser } from "@/server/session";
 import { Header } from "../header";
 import { OwnerNav } from "../owner-nav";
 import { SalaryTable } from "./salary-table";
+import { waitingClaims } from "@/server/claims";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
@@ -23,11 +24,13 @@ export default async function SalaryPage({ searchParams }: { searchParams: Searc
   const month = typeof sp.month === "string" ? sp.month : istMonth();
   const [plant, tab] = await Promise.all([kit.branding(user.tenantId), orNotFound(salaryTab(user, month))]);
   const t = tab.totals;
+  // claims (docs/SALARY_EXTRAS_PHASE_PLAN.md mock-up 6): TA + DA + approved expenses of everyone this month
+  const claimsPaise = t.taPaise + t.daPaise + t.expensesPaise;
 
   return (
     <div className="space-y-4">
       <Header user={user} plant={plant} />
-      <OwnerNav user={user} current="salary" />
+      <OwnerNav user={user} current="salary" claimsWaiting={await waitingClaims(user)} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -54,15 +57,25 @@ export default async function SalaryPage({ searchParams }: { searchParams: Searc
         )}
       </div>
 
+      {tab.claimsWaiting > 0 && (
+        <a href={`/claims?month=${tab.month}&status=waiting`} className="flex min-h-12 items-center justify-between gap-3 rounded-xl bg-amber-100 px-4 font-bold text-amber-950">
+          <span>
+            {tab.claimsWaiting} {tab.claimsWaiting === 1 ? "claim" : "claims"} waiting for {fmtMonth(tab.month).split(" ")[0]}
+          </span>
+          <span>Review ›</span>
+        </a>
+      )}
+
       {tab.rows.length === 0 ? (
         <Card>No one has a salary for {fmtMonth(tab.month)}. Set one on a person&apos;s Staff page.</Card>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${claimsPaise ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
             {(
               [
                 ["Salary earned", t.earnedPaise],
                 ["Overtime pay", t.otPayPaise],
+                ...(claimsPaise ? ([["TA + DA + expenses", claimsPaise]] as const) : []),
                 ["Advances taken", t.advancesPaise],
               ] as const
             ).map(([label, v]) => (
@@ -75,7 +88,8 @@ export default async function SalaryPage({ searchParams }: { searchParams: Searc
               <p className="text-sm">Remaining to pay</p>
               <p className="mt-1 text-3xl font-extrabold tabular-nums">{rupeesText(t.toPayPaise)}</p>
               <p className="mt-1 text-xs sm:hidden">
-                Earned {rupeesText(t.earnedPaise)} · OT {rupeesText(t.otPayPaise)} · Advances {rupeesText(t.advancesPaise)}
+                Earned {rupeesText(t.earnedPaise)} · OT {rupeesText(t.otPayPaise)}
+                {claimsPaise ? ` · Claims ${rupeesText(claimsPaise)}` : ""} · Advances {rupeesText(t.advancesPaise)}
               </p>
               {tab.paidPaise > 0 && (
                 <p className="mt-1 text-xs">

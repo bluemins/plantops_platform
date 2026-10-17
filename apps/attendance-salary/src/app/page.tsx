@@ -4,11 +4,11 @@ import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
 import { Header } from "./header";
 import { MyMonth } from "./my-month";
-import { MyTabs } from "./my-tabs";
-import { canSeeOwnSalary } from "@/server/salary-slip";
+import { MyTabs, myTabs } from "./my-tabs";
 import { OwnerNav } from "./owner-nav";
 import { TodayView } from "./today";
 import { todayBoard } from "@/server/today";
+import { waitingClaims } from "@/server/claims";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
@@ -34,7 +34,7 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
     return (
       <div className="space-y-4">
         <Header user={user} plant={plant} />
-        {(await canSeeOwnSalary(user)) && <MyTabs attendanceHref="/" current="attendance" />}
+        <MyTabs {...await myTabs(user)} current="attendance" />
         <MyMonth user={user} month={typeof sp.m === "string" ? sp.m : null} base="/" />
       </div>
     );
@@ -44,7 +44,7 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
   return (
     <div className="space-y-4">
       <Header user={user} plant={plant} />
-      <OwnerNav user={user} current="today" />
+      <OwnerNav user={user} current="today" claimsWaiting={await waitingClaims(user)} />
       <TodayView user={user} board={board} />
       {can(user, "see_own") && (
         <a href="/my" className="flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-white font-semibold">

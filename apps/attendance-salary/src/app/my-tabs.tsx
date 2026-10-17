@@ -1,8 +1,17 @@
+import { can } from "@/server/access";
+import { hasOwnClaims } from "@/server/claims";
+import { canSeeOwnSalary } from "@/server/salary-slip";
+import type { AtUser } from "@/server/session";
+
+type Current = "attendance" | "claims" | "salary";
+
 /**
- * "My attendance · My salary" (mock-up 7), shown ONLY to someone the owner allowed to see their own salary. Without
- * that permission there are no tabs at all, so nothing hints that a salary page exists.
+ * "My attendance · My claims · My salary" (docs/SALARY_EXTRAS_PHASE_PLAN.md mock-ups 2 and 7). My claims only for
+ * someone with a salary setting; My salary ONLY when the owner allowed them to see their own salary. With neither
+ * there are no tabs at all, so nothing hints that those pages exist.
  */
-export function MyTabs({ attendanceHref, current }: { attendanceHref: string; current: "attendance" | "salary" }) {
+export function MyTabs({ attendanceHref, current, claims, salary }: { attendanceHref: string; current: Current; claims: boolean; salary: boolean }) {
+  if (!claims && !salary) return null;
   const tab = (href: string, label: string, on: boolean) => (
     <a
       href={href}
@@ -15,7 +24,14 @@ export function MyTabs({ attendanceHref, current }: { attendanceHref: string; cu
   return (
     <nav aria-label="Mine" className="flex flex-wrap gap-1.5">
       {tab(attendanceHref, "My attendance", current === "attendance")}
-      {tab("/my/salary", "My salary", current === "salary")}
+      {claims && tab("/my/claims", "My claims", current === "claims")}
+      {salary && tab("/my/salary", "My salary", current === "salary")}
     </nav>
   );
+}
+
+/** Which tabs this person has, worked out on the server: `<MyTabs {...await myTabs(user)} current="…" />`. */
+export async function myTabs(user: AtUser) {
+  const [claims, salary] = await Promise.all([hasOwnClaims(user), canSeeOwnSalary(user)]);
+  return { attendanceHref: can(user, "see_everyone") ? "/my" : "/", claims, salary };
 }

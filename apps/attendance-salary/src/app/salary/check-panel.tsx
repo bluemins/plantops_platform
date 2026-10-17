@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { fmtMonth } from "@/lib/days";
-import { DAYS_FOR_PAY, halvesText, hoursText, monthPay, paiseText, panelInput, rupeesText, type PanelField } from "@/lib/salary";
+import { DAYS_FOR_PAY, halvesText, hoursText, kmText, monthPay, paiseText, panelInput, rupeesText, type PanelField } from "@/lib/salary";
 import type { TabRow } from "@/server/salary-tab";
 
 const box = "min-h-10 w-full min-w-0 rounded-lg border border-slate-300 px-2 text-right text-base tabular-nums focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)";
@@ -31,6 +31,12 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
   if (row.getsOvertime) {
     fields.push(["otHours", "Overtime hours", Math.round((row.input.otMinutes / 60) * 100) / 100]);
     fields.push(["otRate", "Overtime ₹ / hour", (row.input.otRatePaise ?? 0) / 100]);
+  }
+  // claims (mock-up 6): shown when the person has a TA / DA rate or any claim money this month
+  if (row.kmRatePaise || row.daDayPaise || row.input.taPaise || row.input.daPaise || row.input.expensesPaise) {
+    fields.push(["ta", "TA (₹)", row.input.taPaise / 100]);
+    fields.push(["da", "DA (₹)", row.input.daPaise / 100]);
+    fields.push(["expenses", "Expenses (₹)", row.input.expensesPaise / 100]);
   }
   fields.push(["advances", "Advances (₹)", row.input.advancesPaise / 100]);
   fields.push(["carried", "Carried in (₹)", row.input.carriedInPaise / 100]);
@@ -101,6 +107,9 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
           : line(`Paid days ${halvesText(yours.paidHalves)} × day's pay`, paiseText(yours.earnedPaise))}
         {line("Salary earned", paiseText(yours.earnedPaise), true)}
         {row.getsOvertime && line(`Overtime ${hoursText(yours.otMinutes)} h × ${paiseText(yin.otRatePaise ?? 0)}`, `+${paiseText(yours.otPayPaise)}`)}
+        {yours.taPaise !== 0 && line(`TA${row.kmTenths ? ` (${kmText(row.kmTenths)} km)` : ""}`, `+${paiseText(yours.taPaise)}`)}
+        {yours.daPaise !== 0 && line(`DA${row.fieldDutyDays ? ` (${row.fieldDutyDays} ${row.fieldDutyDays === 1 ? "day" : "days"})` : ""}`, `+${paiseText(yours.daPaise)}`)}
+        {yours.expensesPaise !== 0 && line("Expenses", `+${paiseText(yours.expensesPaise)}`)}
         {line("Advances", `−${paiseText(yours.advancesPaise)}`)}
         {line(`Carried in from ${fmtMonth(row.prevMonth)}`, yours.carriedInPaise ? `−${paiseText(yours.carriedInPaise)}` : "₹0")}
         {yours.adjustmentPaise !== 0 && line(`Adjustment from ${fmtMonth(row.adjustmentFrom ?? row.prevMonth)}`, `${yours.adjustmentPaise > 0 ? "+" : ""}${paiseText(yours.adjustmentPaise)}`)}

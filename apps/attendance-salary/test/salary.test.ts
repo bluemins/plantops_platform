@@ -175,7 +175,7 @@ describe("per-day pay from the database (Salary extras rule 15)", () => {
     expect(nov!.chain.live).toMatchObject({ dayPayPaise: R(450), leaveUsedHalves: 0, earnedPaise: R(21 * 450), remainingPaise: R(9450) });
     // a per-day month frozen now carries the rules version and the pay basis
     const f = freezeMonth(nov!);
-    expect(f).toMatchObject({ rules: 2, setting: { payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450) }, input: { payBasis: "per_day", monthlyPaise: 0, dayRatePaise: R(450) } });
+    expect(f).toMatchObject({ rules: 3, setting: { payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450) }, input: { payBasis: "per_day", monthlyPaise: 0, dayRatePaise: R(450) } });
   });
 
   it("28. a slip frozen before per-day pay (rules 1) still opens, as monthly", async () => {
@@ -204,3 +204,69 @@ describe("per-day pay from the database (Salary extras rule 15)", () => {
     expect(slip.figures.result.remainingPaise).toBe(R(12000));
   });
 });
+
+describe("claims from the database (Salary extras rules 16-19)", () => {
+  const claim = async (u: AtUser, kind: "field_duty" | "expense", onDate: string, value: number, by = u) =>
+    ((await asApp(
+      u.tenantId,
+      `insert into attendance_salary.salary_claims (tenant_id, user_id, user_name, kind, on_date, km_tenths, amount_paise, note, created_by, created_by_name)
+       values ('${u.tenantId}', '${u.userId}', '${u.name}', '${kind}', '${onDate}', ${kind === "field_duty" ? Math.round(value * 10) : "null"}, ${kind === "expense" ? R(value) : "null"}, 'for the plant', '${by.userId}', '${by.name}') returning id`,
+    )).rows[0] as { id: string }).id;
+  const decide = (u: AtUser, claimId: string, decision: string, reason: string | null = null) =>
+    asApp(u.tenantId, `insert into attendance_salary.salary_claim_decisions (tenant_id, claim_id, decision, reason, created_by, created_by_name) values ('${u.tenantId}', '${claimId}', '${decision}', ${reason ? `'${reason}'` : "null"}, gen_random_uuid(), 'Sujata')`);
+  const rates = (u: AtUser, km: number, da: number) =>
+    asApp(
+      u.tenantId,
+      `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, monthly_paise, shift_minutes, paid_leave_halfdays, gets_overtime, ot_rate_paise, km_rate_paise, da_day_paise, created_by, created_by_name)
+       values ('${u.tenantId}', '${u.userId}', '${u.name}', '2026-10-01', ${R(12000)}, 480, 4, true, ${R(60)}, ${R(km)}, ${R(da)}, gen_random_uuid(), 'Sujata')`,
+    );
+
+  it("29. worked example B from real marks and claims: ₹12,136; the status is the newest decision; attendance unchanged", async () => {
+    const p = plant();
+    const w = p.worker;
+    await rates(w, 3, 150);
+    for (let d = 1; d <= 14; d++) await workDay(w, day(d), 9);
+    for (let d = 15; d <= 26; d++) await workDay(w, day(d), 8);
+    for (const d of [27, 28]) await workDay(w, day(d), 5);
+    await advance(w, "2026-10-10", 3000);
+    for (const [d, km] of [[2, 30], [6, 28], [9, 35], [13, 31], [20, 26], [27, 32]] as const) await decide(w, await claim(w, "field_duty", day(d), km), "approved");
+    await decide(w, await claim(w, "expense", day(9), 1200), "approved");
+    await decide(w, await claim(w, "expense", day(16), 450), "approved");
+    await claim(w, "expense", day(22), 300); // waiting
+    await decide(w, await claim(w, "expense", day(24), 800), "rejected", "no bill");
+    const cancelled = await claim(w, "expense", day(25), 999);
+    await decide(w, cancelled, "approved");
+    await decide(w, cancelled, "cancelled", "paid in cash already");
+    await decide(w, await claim(w, "field_duty", day(30), 50), "withdrawn");
+    // the field-duty day on the 30th had no marks: still absent
+    const oct = (await salaryMonths(p.owner, "2026-10", { now: NOW })).people[0]!.current!;
+    expect(oct.counts).toEqual({ present: 26, half: 2, absent: 3, otMinutes: 14 * 60 });
+    expect(Object.fromEntries(oct.claims.map((c) => [`${c.onDate} ${c.kind}`, c.status]))).toMatchObject({
+      "2026-10-22 expense": "waiting", "2026-10-24 expense": "rejected", "2026-10-25 expense": "cancelled", "2026-10-30 field_duty": "withdrawn", "2026-10-02 field_duty": "approved",
+    });
+    expect(oct.claimTotals).toMatchObject({ fieldDutyDays: 6, kmTenths: 1820, taPaise: R(546), daPaise: R(900), expensesPaise: R(1650), waiting: 1 });
+    expect(oct.chain.live).toMatchObject({ earnedPaise: R(11200), otPayPaise: R(840), advancesPaise: R(3000), remainingPaise: R(12136) });
+    // frozen now: rules 3, the eight counted claims and the rates
+    const f = freezeMonth(oct);
+    expect(f).toMatchObject({ rules: 3, fieldDutyDays: 6, kmTenths: 1820, setting: { kmRatePaise: R(3), daDayPaise: R(150) } });
+    expect(f.claims).toHaveLength(8);
+  });
+
+  it("30. a claim counts in the month of its date; another plant's claims never mix in", async () => {
+    const a = plant();
+    const b = plant();
+    const w = a.worker;
+    await rates(w, 3, 150);
+    const inB: AtUser = { ...w, tenantId: b.tenantId };
+    await rates(inB, 3, 150);
+    await decide(w, await claim(w, "expense", "2026-10-31", 450), "approved");
+    await decide(w, await claim(w, "expense", "2026-11-01", 200), "approved");
+    await decide(inB, await claim(inB, "expense", "2026-10-15", 9999), "approved");
+    const { people } = await salaryMonths(a.owner, "2026-11", { personId: w.userId, now: NOW });
+    const [o, n] = people[0]!.months;
+    expect(o!.claimTotals.expensesPaise).toBe(R(450));
+    expect(n!.claimTotals.expensesPaise).toBe(R(200));
+    expect(o!.claims.map((c) => c.amountPaise)).toEqual([R(450)]);
+  });
+});
+

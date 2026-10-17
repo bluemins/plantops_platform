@@ -5,12 +5,15 @@
 import { describe, expect, it } from "vitest";
 import { asApp, asOwner, dbError, plant, seedPlant, TABLES } from "./helpers";
 
-/** Every column of the five salary tables (migration 0002), in table order; each gets its own refused UPDATE. */
+/** Every column of the salary tables (migrations 0002-0004), in table order; each gets its own refused UPDATE. */
 const SALARY_COLUMNS: Record<string, string[]> = {
   salary_advances: ["id", "tenant_id", "user_id", "user_name", "on_date", "amount_paise", "note", "corrects_id", "reason", "created_by", "created_by_name", "created_at"],
+  salary_claim_decisions: ["id", "tenant_id", "claim_id", "decision", "reason", "created_by", "created_by_name", "created_at"],
+  salary_claim_files: ["id", "tenant_id", "claim_id", "storage_key", "content_type", "size_bytes", "sha256", "created_by", "created_by_name", "created_at"],
+  salary_claims: ["id", "tenant_id", "user_id", "user_name", "kind", "on_date", "km_tenths", "amount_paise", "note", "created_by", "created_by_name", "created_at"],
   salary_payment_undos: ["id", "tenant_id", "payment_id", "reason", "created_by", "created_by_name", "created_at"],
   salary_payments: ["id", "tenant_id", "user_id", "user_name", "month", "paid_on", "paid_paise", "remaining_paise", "figures", "note", "created_by", "created_by_name", "created_at"],
-  salary_settings: ["id", "tenant_id", "user_id", "user_name", "from_month", "monthly_paise", "shift_minutes", "paid_leave_halfdays", "gets_overtime", "ot_rate_paise", "joined_on", "left_on", "reason", "created_by", "created_by_name", "created_at", "pay_basis", "day_rate_paise"],
+  salary_settings: ["id", "tenant_id", "user_id", "user_name", "from_month", "monthly_paise", "shift_minutes", "paid_leave_halfdays", "gets_overtime", "ot_rate_paise", "joined_on", "left_on", "reason", "created_by", "created_by_name", "created_at", "pay_basis", "day_rate_paise", "km_rate_paise", "da_day_paise"],
   salary_visibility: ["id", "tenant_id", "user_id", "user_name", "can_see", "created_by", "created_by_name", "created_at"],
 };
 
@@ -82,7 +85,7 @@ describe("append-only for attendance_app", () => {
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(110);
+    expect(list.length).toBe(148);
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 
@@ -287,5 +290,129 @@ describe("database checks on salary rows", () => {
     expect((await asApp(tp, undo(id, "'paid the wrong month'"))).rowCount).toBe(1);
     expect(await dbError(asApp(tp, undo(id, "'again'")))).toMatch(/duplicate|unique/);
     expect(await dbError(asApp(tp, undo(crypto.randomUUID(), "'no such payment'")))).toMatch(/foreign key/);
+  });
+});
+
+// ---------- claims (migration 0004, docs/SALARY_EXTRAS_PHASE_PLAN.md "Database") ----------
+
+describe("database checks on claims", () => {
+  const p = plant();
+  const tp = p.tenantId;
+  const worker = crypto.randomUUID();
+  const by = "gen_random_uuid(), 'Sujata'";
+  const other = plant();
+
+  const claim = (over: Record<string, string> = {}, tenant = tp) => {
+    const v = { kind: "'field_duty'", km: "420", amount: "null", note: "'Cuttack delivery'", ...over };
+    return asApp(
+      tenant,
+      `insert into attendance_salary.salary_claims (tenant_id, user_id, user_name, kind, on_date, km_tenths, amount_paise, note, created_by, created_by_name)
+       values ('${tenant}', '${worker}', 'Anmol', ${v.kind}, '2026-10-18', ${v.km}, ${v.amount}, ${v.note}, ${by}) returning id`,
+    );
+  };
+  const newClaim = async (over: Record<string, string> = {}, tenant = tp) => ((await claim(over, tenant)).rows[0] as { id: string }).id;
+  const decide = (claimId: string, decision: string, reason = "null", tenant = tp) =>
+    asApp(tenant, `insert into attendance_salary.salary_claim_decisions (tenant_id, claim_id, decision, reason, created_by, created_by_name) values ('${tenant}', '${claimId}', '${decision}', ${reason}, ${by})`);
+  const photo = (claimId: string, over: Record<string, string> = {}, tenant = tp) => {
+    const v = { key: `'tenant/${tenant}/${crypto.randomUUID()}'`, type: "'image/jpeg'", size: "2048", sha: `'${"b".repeat(64)}'`, ...over };
+    return asApp(
+      tenant,
+      `insert into attendance_salary.salary_claim_files (tenant_id, claim_id, storage_key, content_type, size_bytes, sha256, created_by, created_by_name)
+       values ('${tenant}', '${claimId}', ${v.key}, ${v.type}, ${v.size}, ${v.sha}, ${by})`,
+    );
+  };
+  const rates = (km: string, da: string) =>
+    asApp(
+      tp,
+      `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, monthly_paise, shift_minutes, gets_overtime, km_rate_paise, da_day_paise, created_by, created_by_name)
+       values ('${tp}', '${worker}', 'Anmol', '2026-10-01', 1200000, 480, false, ${km}, ${da}, ${by})`,
+    );
+
+  it("valid rows: field duty with 0 km (DA only), an expense, approve then cancel, a bill photo; TA / DA rates", async () => {
+    expect((await claim({ km: "0" })).rowCount).toBe(1);
+    const exp = await newClaim({ kind: "'expense'", km: "null", amount: "45000", note: "'diesel for generator'" });
+    expect((await decide(exp, "approved")).rowCount).toBe(1);
+    expect((await decide(exp, "cancelled", "'paid in cash already'")).rowCount).toBe(1);
+    expect((await photo(exp)).rowCount).toBe(1);
+    expect((await photo(exp, { type: "'image/webp'", size: "10485760" })).rowCount).toBe(1); // 10 MB is the most
+    expect((await rates("300", "15000")).rowCount).toBe(1); // TA ₹3 / km, DA ₹150 / day
+    expect((await rates("100000", "10000000")).rowCount).toBe(1); // ₹1,000 / km, ₹1 lakh / day
+  });
+
+  it.each([
+    ["field duty with an amount", { amount: "45000" }],
+    ["field duty without km", { km: "null" }],
+    ["an expense with km", { kind: "'expense'", amount: "45000" }],
+    ["an expense without an amount", { kind: "'expense'", km: "null" }],
+    ["an expense of ₹0", { kind: "'expense'", km: "null", amount: "0" }],
+    ["an expense over ₹10 lakh", { kind: "'expense'", km: "null", amount: "100000001" }],
+    ["km below 0", { km: "-1" }],
+    ["km of 10,000", { km: "100000" }],
+    ["a note of 2 characters", { note: "' ab '" }],
+    ["a note of 201 characters", { note: `'${"x".repeat(201)}'` }],
+    ["an unknown kind", { kind: "'advance'" }],
+  ])("claims: refuses %s", async (_, over) => {
+    expect(await dbError(claim(over))).toMatch(/check constraint/);
+  });
+
+  it("decisions: a reason exactly for 'not approved' and 'cancelled', at least 3 characters", async () => {
+    const c = await newClaim();
+    expect(await dbError(decide(c, "rejected"))).toMatch(/check constraint/);
+    expect(await dbError(decide(c, "approved", "'fine'"))).toMatch(/check constraint/);
+    expect(await dbError(decide(c, "withdrawn", "'mine'"))).toMatch(/check constraint/);
+    expect(await dbError(decide(c, "rejected", "' no '"))).toMatch(/check constraint/);
+    expect(await dbError(decide(c, "unknown"))).toMatch(/check constraint/);
+    const d = await newClaim();
+    await decide(d, "approved");
+    expect(await dbError(decide(d, "cancelled"))).toMatch(/check constraint/);
+  });
+
+  it("decisions: decided once, cancelled once", async () => {
+    const a = await newClaim();
+    expect((await decide(a, "approved")).rowCount).toBe(1);
+    expect(await dbError(decide(a, "approved"))).toMatch(/duplicate|unique/);
+    expect(await dbError(decide(a, "rejected", "'wrong km'"))).toMatch(/duplicate|unique/);
+    expect((await decide(a, "cancelled", "'paid twice'")).rowCount).toBe(1);
+    expect(await dbError(decide(a, "cancelled", "'again'"))).toMatch(/duplicate|unique/);
+    const w = await newClaim();
+    expect((await decide(w, "withdrawn")).rowCount).toBe(1);
+    expect(await dbError(decide(w, "approved"))).toMatch(/duplicate|unique/);
+  });
+
+  it("decisions and photos: only for a claim that exists in the same plant", async () => {
+    const mine = await newClaim();
+    const theirs = await newClaim({}, other.tenantId);
+    expect(await dbError(decide(crypto.randomUUID(), "approved"))).toMatch(/foreign key/);
+    expect(await dbError(decide(theirs, "approved"))).toMatch(/foreign key/); // another plant's claim
+    expect(await dbError(photo(crypto.randomUUID()))).toMatch(/foreign key/);
+    expect(await dbError(photo(theirs))).toMatch(/foreign key/);
+    expect(await dbError(decide(mine, "approved", "null", other.tenantId))).toMatch(/foreign key/);
+  });
+
+  it.each([
+    ["a PDF", { type: "'application/pdf'" }],
+    ["a video", { type: "'video/mp4'" }],
+    ["0 bytes", { size: "0" }],
+    ["over 10 MB", { size: "10485761" }],
+    ["a bad fingerprint", { sha: "'abc'" }],
+  ])("photos: refuses %s", async (_, over) => {
+    const c = await newClaim({ kind: "'expense'", km: "null", amount: "45000" });
+    expect(await dbError(photo(c, over))).toMatch(/check constraint/);
+  });
+
+  it("photos: the same storage key twice is refused", async () => {
+    const c = await newClaim({ kind: "'expense'", km: "null", amount: "45000" });
+    const key = `'tenant/${tp}/${crypto.randomUUID()}'`;
+    expect((await photo(c, { key })).rowCount).toBe(1);
+    expect(await dbError(photo(c, { key }))).toMatch(/duplicate|unique/);
+  });
+
+  it.each([
+    ["a TA rate of 0", ["0", "null"]],
+    ["a TA rate over ₹1,000 a km", ["100001", "null"]],
+    ["a DA rate of 0", ["null", "0"]],
+    ["a DA rate over ₹1 lakh a day", ["null", "10000001"]],
+  ])("settings: refuses %s", async (_, [km, da]) => {
+    expect(await dbError(rates(km!, da!))).toMatch(/check constraint/);
   });
 });

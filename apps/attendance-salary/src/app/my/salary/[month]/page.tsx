@@ -1,12 +1,11 @@
 import { addMonths, fmtDayLong, fmtMonth } from "@/lib/days";
-import { DAYS_FOR_PAY, halvesText, hoursText, paiseText, rupeesText } from "@/lib/salary";
-import { can } from "@/server/access";
+import { DAYS_FOR_PAY, halvesText, hoursText, kmText, paiseText, rupeesText } from "@/lib/salary";
 import { kit } from "@/server/kit";
 import { orNotFound } from "@/server/pages";
 import { mySlip } from "@/server/salary-slip";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../../../header";
-import { MyTabs } from "../../../my-tabs";
+import { MyTabs, myTabs } from "../../../my-tabs";
 
 const shortDay = (ymd: string) => fmtDayLong(ymd).replace(/^\w+, /, "");
 const monthOnly = (ym: string) => fmtMonth(ym).split(" ")[0];
@@ -40,7 +39,7 @@ export default async function MySlipPage({ params }: { params: Promise<{ month: 
   return (
     <div className="space-y-4">
       <Header user={user} plant={plant} />
-      <MyTabs attendanceHref={can(user, "see_everyone") ? "/my" : "/"} current="salary" />
+      <MyTabs {...await myTabs(user)} current="salary" />
       <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
         <div className="flex items-baseline justify-between gap-2">
           <h1 className="text-xl font-bold">{fmtMonth(month)}</h1>
@@ -70,6 +69,30 @@ export default async function MySlipPage({ params }: { params: Promise<{ month: 
           {line("Salary earned", paiseText(r.earnedPaise), true)}
           {ot && line(`Overtime ${hoursText(r.otMinutes)} h × ${paiseText(f.input.otRatePaise ?? 0)}`, `+${paiseText(r.otPayPaise)}`)}
         </div>
+        {f.fieldDutyDays > 0 && (
+          <div className="space-y-1 border-t border-slate-100 pt-2 text-sm">
+            <p className="text-xs font-semibold tracking-wide text-slate-600 uppercase">Field duty</p>
+            {line("Field duty", `${f.fieldDutyDays} ${f.fieldDutyDays === 1 ? "day" : "days"} · ${kmText(f.kmTenths)} km`)}
+            {r.taPaise !== 0 && line(`TA ${kmText(f.kmTenths)} km × ${paiseText(f.setting.kmRatePaise ?? 0)}`, `+${paiseText(r.taPaise)}`)}
+            {r.daPaise !== 0 && line(`DA ${f.fieldDutyDays} ${f.fieldDutyDays === 1 ? "day" : "days"} × ${paiseText(f.setting.daDayPaise ?? 0)}`, `+${paiseText(r.daPaise)}`)}
+          </div>
+        )}
+        {f.claims.some((c) => c.kind === "expense") && (
+          <div className="space-y-1 border-t border-slate-100 pt-2 text-sm">
+            <p className="text-xs font-semibold tracking-wide text-slate-600 uppercase">Expenses</p>
+            {f.claims
+              .filter((c) => c.kind === "expense")
+              .map((c, i) => (
+                <div key={i} className="flex justify-between gap-3">
+                  <span className="min-w-0 break-words">
+                    {shortDay(c.onDate)} · {c.note}
+                  </span>
+                  <span className="tabular-nums">+{paiseText(c.amountPaise ?? 0)}</span>
+                </div>
+              ))}
+            {line("Expenses", `+${paiseText(r.expensesPaise)}`, true)}
+          </div>
+        )}
         {f.advances.length > 0 && (
           <div className="space-y-1 border-t border-slate-100 pt-2 text-sm">
             <p className="text-xs font-semibold tracking-wide text-slate-600 uppercase">Advances taken</p>

@@ -23,7 +23,11 @@ export type Action =
   | "salary_edit" // salary settings, advances, "Can see own salary"
   | "salary_pay" // mark a month paid / undo paid
   | "salary_export" // salary CSV
-  | "see_own_salary"; // own salary slips: only with "Can see own salary" AND a paid month (checked in the query)
+  | "see_own_salary" // own salary slips: only with "Can see own salary" AND a paid month (checked in the query)
+  // claims (docs/SALARY_EXTRAS_PHASE_PLAN.md "Who sees what")
+  | "claim_own" // send own field-duty / expense claims, add photos, withdraw a waiting one, My claims
+  | "claim_view" // the Claims tab: anyone's claims and photos (support: read-only)
+  | "claim_decide"; // approve / not approve / cancel; enter a claim for someone
 
 export const ACCESS: Record<Action, readonly Who[]> = {
   mark: ["owner_worker", "worker"],
@@ -40,6 +44,9 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   salary_pay: ["owner", "owner_worker"],
   salary_export: ["owner", "owner_worker"],
   see_own_salary: ["owner_worker", "worker"],
+  claim_own: ["owner_worker", "worker"],
+  claim_view: ["owner", "owner_worker", "support"],
+  claim_decide: ["owner", "owner_worker"],
 };
 
 /** What the user is, for this table. null = no Attendance rights at all (e.g. a store keeper only). */
@@ -54,6 +61,8 @@ export function requireAccess(user: Actor, action: Action) {
   if (can(user, action)) return;
   // nothing may hint that someone's own salary pages exist: "not found", never "not allowed"
   if (action === "see_own_salary") throw notFound();
+  // a worker never learns that the Claims tab or anyone else's claims exist
+  if (action === "claim_view" && user.who === "worker") throw notFound();
   if (user.who === "support") throw forbidden("PlantOps support view is read-only");
   if (user.who === "owner" && (action === "mark" || action === "see_own")) {
     throw forbidden("Owners don't mark attendance. Add Plant staff to yourself on Manage users to mark.");

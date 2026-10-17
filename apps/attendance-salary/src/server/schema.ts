@@ -1,7 +1,7 @@
 // Drizzle table definitions mirroring db/migrations/*.sql (the SQL files are the source of truth).
 // Plant coordinates are numeric in the database and strings here ("20.296100"). A scan has no coordinates at all.
 import { bigint, boolean, date, integer, jsonb, numeric, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import type { PayBasis } from "@/lib/salary";
+import type { ClaimKind, PayBasis } from "@/lib/salary";
 
 export const at = pgSchema("attendance_salary");
 const ts = (name: string) => timestamp(name, { withTimezone: true });
@@ -90,6 +90,8 @@ export const salarySettings = at.table("salary_settings", {
   payBasis: text("pay_basis").$type<PayBasis>().notNull().default("monthly"),
   monthlyPaise: money("monthly_paise"),
   dayRatePaise: integer("day_rate_paise"),
+  kmRatePaise: integer("km_rate_paise"),
+  daDayPaise: integer("da_day_paise"),
   shiftMinutes: integer("shift_minutes").notNull(),
   paidLeaveHalfdays: integer("paid_leave_halfdays").notNull().default(4),
   getsOvertime: boolean("gets_overtime").notNull(),
@@ -149,6 +151,48 @@ export const salaryPaymentUndos = at.table("salary_payment_undos", {
   tenantId: uuid("tenant_id").notNull(),
   paymentId: uuid("payment_id").notNull(),
   reason: text("reason").notNull(),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+// ---------- claims (migration 0004): append-only; a claim's status is its newest decision (none = waiting) ----------
+export type ClaimDecision = "approved" | "rejected" | "withdrawn" | "cancelled";
+
+export const salaryClaims = at.table("salary_claims", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  userId: uuid("user_id").notNull(),
+  userName: text("user_name").notNull(),
+  kind: text("kind").$type<ClaimKind>().notNull(),
+  onDate: day("on_date").notNull(),
+  kmTenths: integer("km_tenths"),
+  amountPaise: money("amount_paise"),
+  note: text("note").notNull(),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const salaryClaimDecisions = at.table("salary_claim_decisions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  claimId: uuid("claim_id").notNull(),
+  decision: text("decision").$type<ClaimDecision>().notNull(),
+  reason: text("reason"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const salaryClaimFiles = at.table("salary_claim_files", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  claimId: uuid("claim_id").notNull(),
+  storageKey: text("storage_key").notNull(),
+  contentType: text("content_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  sha256: text("sha256").notNull(),
   createdBy: uuid("created_by").notNull(),
   createdByName: text("created_by_name").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),

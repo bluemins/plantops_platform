@@ -2,18 +2,19 @@
 
 Version 1 (attendance) released as **v0.18.0** (2026-10-15): `docs/ATTENDANCE_PHASE_PLAN.md`. Version 2 (salary)
 released as **v0.20.0** (2026-10-17): `docs/SALARY_PHASE_PLAN.md`. Version 3 (salary extras) Part A, per-day pay,
-released as **v0.21.0** (2026-10-17): `docs/SALARY_EXTRAS_PHASE_PLAN.md`. Build notes per phase are further down.
+released as **v0.21.0** (2026-10-17), Part B, field duty and expense claims, as **v0.22.0** (2026-10-17):
+`docs/SALARY_EXTRAS_PHASE_PLAN.md`. Build notes per phase are further down.
 
 ## At a glance
 | | |
 |---|---|
 | Module id / role | `attendance_salary` / **Plant staff** (`plant_staff`; works only here, `PLANT_STAFF_MODULES`) |
-| App / port | `apps/attendance-salary`, `:3006`; live `https://attendance.bluemins.life` (service `attendance-salary`, no volume) |
-| Database | schema `attendance_salary`, login `attendance_app` (no BYPASSRLS, not the owner); 11 tables, FORCE RLS, no DELETE anywhere; the five salary tables are SELECT + INSERT only |
-| Migrations | `0001_attendance.sql` (v0.18.0), `0002_salary.sql` (v0.20.0), `0003_per_day_pay.sql` (v0.21.0, per-day pay) |
-| Env | `ATTEND_DATABASE_URL_APP`, `ATTEND_SESSION_SECRET` (also makes the QR key), `MODULE_URL_ATTENDANCE_SALARY`, `MODULE_SECRET_ATTENDANCE_SALARY`, `PLATFORM_URL`, `CRON_SECRET` |
-| Jobs | `POST /api/cron/daily` (07:00 IST, `daily.yml` step "Attendance", GitHub variable `ATTENDANCE_URL`): outbox, "didn't mark OUT yesterday", and on the month's last day the salary review |
-| Notifications | `corrected` (worker only, phone + bell), `outside` (owners, bell), `no_exit` (owners, bell), `salary_review` (owners, last day, phone + bell), `salary_paid` (the worker only, only with "Can see own salary"); owner-only module (`OWNER_ONLY_ALERTS`) |
+| App / port | `apps/attendance-salary`, `:3006`; live `https://attendance.bluemins.life` (service `attendance-salary`, volume at `/data` for bill photos since v0.22.0) |
+| Database | schema `attendance_salary`, login `attendance_app` (no BYPASSRLS, not the owner); 14 tables, FORCE RLS, no DELETE anywhere; the eight salary and claim tables are SELECT + INSERT only |
+| Migrations | `0001_attendance.sql` (v0.18.0), `0002_salary.sql` (v0.20.0), `0003_per_day_pay.sql` (v0.21.0, per-day pay), `0004_claims.sql` (v0.22.0, claims) |
+| Env | `ATTEND_DATABASE_URL_APP`, `ATTEND_SESSION_SECRET` (also makes the QR key), `MODULE_URL_ATTENDANCE_SALARY`, `MODULE_SECRET_ATTENDANCE_SALARY`, `PLATFORM_URL`, `CRON_SECRET`; bill photos: `ATTEND_STORAGE_DIR` (live `/data/attendance`, with `RAILWAY_RUN_UID=0`) or `ATTEND_STORAGE_BUCKET` + `STORAGE_*`; backup: the five `BACKUP_*` |
+| Jobs | `POST /api/cron/daily` (07:00 IST, `daily.yml` step "Attendance", GitHub variable `ATTENDANCE_URL`): outbox, "didn't mark OUT yesterday", and on the month's last day the salary review; `POST /api/cron/backup` (02:00 IST, `backup.yml` step "Attendance files", on with GitHub variable `ATTENDANCE_BACKUP_FILES=on`): new bill photos, encrypted, to R2 |
+| Notifications | `corrected` (worker only, phone + bell), `outside` (owners, bell), `no_exit` (owners, bell), `salary_review` (owners, last day, phone + bell), `salary_paid` (the worker only, only with "Can see own salary"), `claim_new` (owners), `claim_decided` (the worker only), `storage` (owners, 80 % / 95 %); owner-only module (`OWNER_ONLY_ALERTS`) |
 
 ## Who may do what (`src/server/access.ts`, the one table)
 | Action | Owner | Owner + Plant staff | Plant staff | PlantOps support |
@@ -31,6 +32,9 @@ released as **v0.21.0** (2026-10-17): `docs/SALARY_EXTRAS_PHASE_PLAN.md`. Build 
 | Mark paid / undo (`salary_pay`) | ✔ | ✔ | – | – |
 | Salary CSV (`salary_export`) | ✔ | ✔ | – | – |
 | Own salary slips (`see_own_salary`) | – | ✔ | ✔ | – |
+| Send own claims, add photos, withdraw, My claims (`claim_own`) | – | ✔ (approved at once) | ✔ | – |
+| Claims tab, anyone's claims and photos (`claim_view`) | ✔ | ✔ | – (404) | read-only |
+| Approve / not approve / cancel, enter for someone (`claim_decide`) | ✔ | ✔ | – | – |
 
 Own salary slips are shown **only** when the owner ticked "Can see own salary" for that person, **only** for months
 ticked Paid (not undone), **only** their own, from the frozen figures. Every other case is 404 (never 403), so
@@ -64,6 +68,11 @@ Full text and numbering: `docs/SALARY_PHASE_PLAN.md` "The rules".
   day rate × (present + ½ × half days), rounded once; absent days earn nothing; no paid leave (saved as 0); no full /
   part month difference. Overtime, advances, carry and paid months as for monthly people. Months frozen before
   v0.21.0 (`rules: 1`) read as monthly.
+- **Claims (rules 16-19, v0.22.0):** only **approved** claims count, in the month of their date. TA = the month's
+  approved field-duty km added up × the TA rate, rounded once; DA = dates with approved field duty × the DA rate (two
+  on one date = one day); no rate = ₹0; expenses = the approved amounts; remaining adds TA + DA + expenses. A field-duty
+  day never changes attendance. A claim approved or cancelled after the month was paid comes next month as the usual
+  adjustment. Paid months freeze the counted claims (`RULES_VERSION` 3; earlier months read as no claims).
 - **Money** in whole paise as plain numbers (≤ ₹1 crore); rounded to the paisa once each for day's pay, the
   deduction (unpaid days × day's pay as shown), earned and overtime pay; screens show the nearest rupee, the slip
   and the dialog the exact amount.
@@ -80,11 +89,17 @@ Full text and numbering: `docs/SALARY_PHASE_PLAN.md` "The rules".
 | `salary_visibility` | "Can see own salary" on / off; the newest row wins, no row = off |
 | `salary_payments` | a month ticked Paid: paid amount (remaining or 0), frozen remaining, frozen `figures`, paid on, note |
 | `salary_payment_undos` | undoing a payment (once per payment, with a reason) |
+| `salary_claims` | one claim (`0004`): field duty (km in tenths) or expense (paise), date, what for, who entered it; never changes |
+| `salary_claim_decisions` | approved / not approved / withdrawn (once) and cancelled (once, only after approved); the status is the newest |
+| `salary_claim_files` | bill photos of expenses (JPEG / PNG / WebP ≤ 10 MB, sha256, storage key); never replaced or deleted |
 
 `salary_tenants()` (security definer, plant ids only) lists plants for the month-end review.
 
 ## Not in this version
-Weekly offs and holidays; leave requests or leave types; printed / PDF payslips; partial payments during the month
+Salary extras (v0.21.0 / v0.22.0): advance requests from workers; claims for another person by a worker; a mileage log
+per vehicle or GPS distance; km rates per vehicle; PDF bills (photos only); partial approval; claims outside a salary
+month; "approve all"; DA or TA as a fixed monthly amount; claims in Hindi / Odia. Salary (v0.20.0): weekly offs and
+holidays; leave requests or leave types; printed / PDF payslips; partial payments during the month
 (record them as advances); deductions other than advances (PF, ESI, TDS); salary in Hindi / Odia; a worker seeing an
 unpaid month; "mark all as paid". From version 1 still: a worker asking for a correction; a supervisor role; marking
 for another person; a gate tablet; a selfie at the scan; reports beyond the two CSVs.
@@ -372,3 +387,129 @@ Plan: `docs/SALARY_EXTRAS_PHASE_PLAN.md`. Part A (per-day pay) to be released as
   (with a past-month reason), history and Recent changes text, the Salary tab table and phone list, the panel with a
   typed ₹500 ("₹1,250 more than auto"), the CSV, marked paid at exactly ₹9,850, the worker's slip; no sideways scroll.
   Everything removed afterwards and plant 002's module list restored.
+
+## 2026-10-17: Salary extras Phase B1 (claims: database, access, platform)
+- Migration `0004_claims.sql` (approved by the owner): `salary_settings.km_rate_paise` (TA per km, ≤ ₹1,000) and
+  `da_day_paise` (DA per field-duty day, ≤ ₹1 lakh), empty = none; three new tables, all `tenant_id` + FORCE RLS +
+  `tenant_isolation`, `attendance_app` SELECT + INSERT only:
+  - `salary_claims`: one claim per row, field duty (`km_tenths` 0-99,999) or expense (`amount_paise` ≤ ₹10 lakh),
+    `note` 3-200; the kind decides which of the two is set
+  - `salary_claim_decisions`: approved / rejected / withdrawn / cancelled; a reason exactly for rejected and cancelled;
+    partial unique indexes = decided once, cancelled once; the newest row is the status (none = waiting)
+  - `salary_claim_files`: bill photos (JPEG / PNG / WebP, 1 byte-10 MB); **additions approved with the migration:**
+    `storage_key` unique and a `sha256` fingerprint (as Complaint Box)
+  - decisions and photos reference a claim of the same plant (two-column key)
+  Applied to dev; the test database rebuilds from the migrations.
+- Server rules that need several rows (only waiting → approved / rejected / withdrawn, only approved → cancelled, one
+  field duty per person and date, 3 photos and only on expenses) come with the API in B3 / B4.
+- Access table: `claim_own` (owner + Plant staff, Plant staff), `claim_view` (owner, owner + Plant staff, support),
+  `claim_decide` (owner, owner + Plant staff). A worker asking for `claim_view` gets **404** (like `see_own_salary`).
+- `packages/types`: `attendance_salary.claim_new` (owners), `claim_decided` (`aboutYou`, the worker), `storage`
+  (owners); none urgent or bell only. Platform: "Attendance & Salary storage (MB)" in `MODULE_LIMIT_FIELDS`
+  (`limits.modules.attendance_salary.storage_mb`), shown on the plan screen when Attendance is on.
+- Tests: Attendance 315 (+27; 14-table guard, 148 refused statements, the claim checks, cross-plant inserts, access
+  rows), platform 313 (+1; eight kinds, worker's three, the storage limit saved and read back).
+
+## 2026-10-17: Salary extras Phase B2 (claims: rules)
+- `src/lib/salary.ts`: `Claim` / `ClaimStatus`, `claimTotals(claims, rates)` (**rules 16-18**: TA = approved km added
+  up × TA rate, rounded once; DA = dates with approved field duty × DA rate; expenses = approved amounts; no rate = ₹0;
+  only approved claims count), `PayInput` / `PayResult` carry `taPaise`, `daPaise`, `expensesPaise`, **rule 19** in
+  `monthPay` (remaining adds them). `SalarySetting` has `kmRatePaise` / `daDayPaise`. `RULES_VERSION` 3; `FrozenMonth`
+  keeps the counted claims, field-duty days and km; `readFrozen` gives months frozen before (rules 1-2) ₹0 and no
+  claims. A claim approved or cancelled after payment needs no new code: the live month changes, so the carry chain's
+  "Changed after payment" / adjustment does it.
+- `src/server/claims.ts`: `loadClaims` (status = cancelled if cancelled, else the one decision, else waiting; never by
+  timestamps), photo counts, who decided and why. `salaryMonths` loads them; each `SalaryMonth` has `claims` (every
+  status) and `claimTotals`; `freezeMonth` saves them. Drizzle definitions for the three tables and two columns.
+- Attendance never reads claims: a field-duty day stays absent without marks.
+- Tests: Attendance 325 (+10): worked example B (₹12,136) pure and from real marks and claims, 42.5 km, km summed
+  before rounding, one DA per date, no rate, every non-approved status, an adjustment after payment and back, attendance
+  unchanged, claims by date, isolation.
+
+## 2026-10-17: Salary extras Phase B3 (worker: My claims)
+- `src/server/claims.ts`: `insertClaim` (the plan's rules, shared with the owner's entries in B4: date not in the
+  future and ≥ the earliest allowed, a salary setting for that month, field duty only with a TA or DA rate that month,
+  km 0-9,999.9 with one decimal, amount > ₹0 and ≤ ₹10 lakh with 2 decimals, note 3-200, **one waiting-or-approved
+  field duty per person and date** (409 "You already sent field duty for 17 Oct"), audited `claim.sent`); `sendClaim`
+  (`claim_own`, 31 days back, inside the person's lock; an owner who is also Plant staff: approved at once, no
+  notification), `withdrawClaim` (own waiting claim only; someone else's 404; decided 409), `myClaims` (own month
+  only; 404 without a salary setting, for a future month or before the first salary month), `uploadClaimPhoto`,
+  `readClaimPhoto`, `photoIds`.
+- Routes: `POST /api/claims`, `POST /api/claims/photo?claim=<id>` (raw body, `handleUpload`), `POST
+  /api/claims/withdraw`, `GET /claim-photos/<id>` (private, nosniff, no-store).
+- Photos (as Complaint Box): type by content (JPEG / PNG / WebP, else 415), ≤ 10 MB (413), 3 per expense (409), by
+  whoever entered the claim within 24 h while it is waiting, the plan's storage limit (413) with the **storage**
+  notification at 80 % / 95 % (#8, owners, dedupe `storage:<step>:<plan MB>`). **Made while building:** an owner's own
+  entry is approved at once, so photos may also be added to an approved claim **that owner entered** (otherwise owners
+  could never attach a bill). Photos are served to the claim's person, the owner and support (logged), else 404.
+  Storage: `ATTEND_STORAGE_DIR` (default `.data/attendance`) or `ATTEND_STORAGE_BUCKET` + the shared `STORAGE_*`.
+- Screens (mock-ups 2-4): tabs "My attendance · My claims · My salary" (`myTabs`: My claims with any salary setting,
+  My salary only with "Can see own salary"), `/my/claims` with month arrows, "+ Field duty" (only with a TA / DA rate)
+  and "+ Expense", "Approved this month: field duty N days · N km · expenses ₹N", cards with status, reason, thumbnails,
+  Withdraw and "+ Photo"; `/my/claims/new?kind=…` with photos shrunk on the phone (`src/lib/upload.ts`, a copy of
+  Complaint Box's helper). Never a TA / DA rupee on these screens.
+- `attendance_salary.claim_new` (#6) to the owners after the answer, through `kit.notify` (outbox on failure): "Expense
+  from Anmol: ₹450" / "Field duty from Anmol: 18 Oct, 42 km", body = the note, dedupe `claim:<id>`.
+- Recent changes: `claim.sent`, `claim.entered`, `claim.withdrawn`.
+- Tests: Attendance 341 (+16, `test/claims-worker.test.ts`).
+- Checked on `pnpm dev` (plant 002 with Attendance switched on for the check, a temporary owner + worker on salary with
+  TA ₹3 / DA ₹150, headless Chromium at 390 px): field duty sent, the same day again refused with the plan's message,
+  an expense with a real 3000 × 2000 photo (stored 1600 × 1067, 24 KB), My claims with the thumbnail, no TA / DA rupees;
+  both owners' bells had the two "new claim" notifications. Everything removed afterwards (rows, the photo file, the
+  notifications) and plant 002's module list restored.
+
+## 2026-10-17: Salary extras Phase B4 (owner: Claims tab and rates)
+- Salary box (mock-up 1): "Field duty" with **TA ₹ per km** (up to 2 decimals, ≤ ₹1,000) and **DA ₹ per day** (≤ ₹1
+  lakh), both optional, from a month like the rest; `POST /api/salary/settings` takes `ta_rate` / `da_rate`; the
+  history line and Recent changes add "· TA ₹3/km · DA ₹150/day". They work the same for Monthly and Per day people.
+- `src/server/claims.ts`: `claimsTab` (`claim_view`: owner + support; a worker 404), `waitingClaims` (every month, for
+  "Claims (N)" in the owner nav), `personClaims`, `decideClaim` (`claim_decide`; approve / not approve a **waiting**
+  claim, cancel an **approved** one; reason 3-300 for not approving and cancelling; inside the person's lock, re-read
+  there, so a withdrawal or another owner's decision gives 409 "Just changed: this claim was withdrawn by Ramu…"),
+  `enterClaim` (Staff → person: approved at once, any date from the first salary month to today, same one-field-duty-a-
+  day rule, no "new claim"). Each owner card has TA / DA at that person's rates for the claim's month ("no TA rate"
+  without one). Routes `POST /api/claims/decide`, `POST /api/claims/enter`.
+- Screens: owner nav **Claims (N)**; `/claims` (mock-up 5): month arrows, Waiting (N) / Approved / Not approved / All,
+  a person filter, cards with "TA ₹126 (42 km × ₹3) · DA ₹150", thumbnails, who sent / entered it and when, Approve /
+  Not approve (reason "B Anmol sees this") / Cancel approval…; Staff → person: "Claims · <month>" under Advances with
+  "+ Field duty" / "+ Expense" for the owner (the same form as the worker's, `person` mode).
+- `attendance_salary.claim_decided` (#7): to the worker only (`also_user_ids` + `only_listed`), "Your expense on 18 Oct
+  was approved / was not approved: <reason> / was cancelled: <reason>", body = what they typed, dedupe
+  `decision:<id>`; never for an owner's own claim. **Link `/my/claims?m=<YYYY-MM>`** (the page's own month parameter;
+  the plan wrote `?month=`).
+- Recent changes: `claim.approved`, `claim.rejected`, `claim.cancelled`, `claim.entered`.
+- **Made while building:** a worker adding a photo to their own claim that the owner entered gets the plain "Only the
+  person who entered this claim can add its photos" (someone else's claim stays 404).
+- Tests: Attendance 351 (+10, `test/claims-owner.test.ts`).
+- Checked on `pnpm dev` (plant 002, temporary owner + worker, headless Chromium at 1280 and 390 px): the Salary box with
+  TA 3 / DA 150 and the history line, the Claims tab with "Claims (2)" and "TA ₹126 (42 km × ₹3) · DA ₹150", approve and
+  not approve with a reason through the screen, the person page section, the worker's list after the decisions; the
+  worker alone got the two "your claim" notifications. Everything removed afterwards.
+
+## 2026-10-17: Salary extras Phase B5 (Salary tab, slip, standard pieces)
+- Salary tab (mock-up 6): **TA, DA, Expenses** columns between OT pay and Advances (and in the total row), "TA ₹546 · DA
+  ₹900 · Exp ₹1,650" on the phone line, a "TA + DA + expenses" totals tile (and "Claims ₹X" on the phone), a banner
+  "N claims waiting for October · Review ›" → `/claims?month=…&status=waiting`, "N claims waiting" under a name.
+  `TabRow` has the month's rates, field-duty days, km and waiting claims (the frozen ones for a paid month; waiting is
+  always live).
+- Checking panel: TA / DA / Expenses (₹) boxes when the person has a rate or claim money (`panelInput` fields `ta`,
+  `da`, `expenses`; the same `monthPay`).
+- CSV: "Field duty days", "Km", "TA rate", "TA", "DA rate", "DA", "Expenses", "Claims waiting" after "Overtime pay" (in
+  the file's existing wording; the plan wrote `field_duty_days`…).
+- Mark paid: TA / DA / Expenses lines, and "1 claim for September is still waiting. Approve or reject it first; if you
+  approve it later it comes as an adjustment next month." Paying is still allowed.
+- Slip (mock-up 7, frozen figures): "Field duty 2 days · 60.5 km", "TA 60.5 km × ₹3", "DA 2 days × ₹150", each
+  approved expense (date · what for) and "Expenses"; months frozen before claims show none of it.
+- Month-end review body adds "N claims waiting"; the owner's tile adds "N claims waiting" (warn; at most 3 badges, "in
+  now" makes way); support's log names "the Claims tab" and "a bill photo".
+- Backup: `POST /api/cron/backup` (`backupNewFiles("attendance_salary", …)`, CRON_SECRET; "not set up" without the
+  `BACKUP_*` variables); `backup.yml` step "Attendance files" **skipped until the GitHub variable
+  `ATTENDANCE_BACKUP_FILES` is `on`** (made while building: `ATTENDANCE_URL` is already set for the daily jobs, and the
+  workflow runs from `main`, so it would fail every night before v0.22.0 and its `BACKUP_*` variables are live); the
+  dump check now includes the `attendance_salary` schema. Dev dependency `age-encryption` (as Complaint Box) for the
+  backup test.
+- Tests: Attendance 364 (+13, `test/claims-salary.test.ts`; `salary-tab.test.ts` totals gained the three fields).
+- Checked on `pnpm dev` (plant 002, temporary owner + worker with September marks and claims, headless Chromium at 1280
+  and 390 px): the Salary tab with the banner, the tile and the columns (TA ₹181.50 for 60.5 km, DA ₹300, expenses
+  ₹450, ₹12,932), the panel "Matches the automatic figure", the mark-paid warning, paying, and the worker's slip
+  without the waiting claim. Everything removed afterwards and plant 002's module list restored.

@@ -218,8 +218,9 @@ pilots.
    `docs/ATTENDANCE_PHASE_PLAN.md`. Version 2 (**salary**: monthly salary ÷ 30, paid leave, overtime per person,
    advances, Salary tab with checking panel, mark paid, worker's own slip with permission) built and released as
    v0.20.0 (2026-10-17); plan `docs/SALARY_PHASE_PLAN.md`. Version 3 (salary extras, plan
-   `docs/SALARY_EXTRAS_PHASE_PLAN.md`): Part A **per-day pay** v0.21.0 (2026-10-17); Part B (field-duty TA / DA,
-   expense claims with bill photos) v0.22.0, next. Weekly offs, holidays and leave requests come later.
+   `docs/SALARY_EXTRAS_PHASE_PLAN.md`): Part A **per-day pay** v0.21.0 (2026-10-17); Part B **field-duty TA / DA and
+   expense claims** with bill photos and owner approval v0.22.0 (2026-10-17). Weekly offs, holidays and leave requests
+   come later.
 9. **Digital Marketing Contact Management module.**
 10. **Website + dedicated-instance/tenant provisioning tooling.**
 
@@ -344,7 +345,8 @@ WhatsApp, or setting them up. Existing email alerts stay as they are; notificati
 - AMC: contract expiring, visit due / done, invoice due
 - Attendance & Salary: version 1 done in its own phase plan (v0.18.0): corrected, outside, no exit (owners only);
   version 2 (v0.20.0): salary review (owners, last day of the month), salary paid (the worker, only with "Can see own
-  salary"); leave request comes with that feature
+  salary"); version 3 (v0.22.0): new claim (owners), claim decided (the worker only), storage (owners); leave request
+  comes with that feature
 - Marketing Contacts: follow-up due
 - Complaint Box: done in its own phase plan (v0.12.0): new, resolved, reopened, still open, updated, storage
 - Order Capture: done in its own phase plan (v0.13.0): new order, delivered, cancelled
@@ -824,7 +826,7 @@ Decided with the owner: stay on Railway Hobby (no built-in backups) and run our 
 dumps the database with a new read-only login `plantops_backup` (SELECT only + BYPASSRLS; approved by the owner
 2026-10-11) and each file-storing app copies its new files (`backupNewFiles` in `packages/module-kit/src/backup.ts`,
 `POST /api/cron/backup`), all `age`-encrypted to one private Cloudflare R2 bucket. Dumps kept 30 days, files
-forever. Only the public key is on servers / in GitHub. **New modules that store files** (e.g. Complaint Box
+forever. Only the public key is on servers / in GitHub. **New modules that store files** (Complaint Box, and Attendance's bill photos since v0.22.0; e.g. Complaint Box
 photos) add the backup route and the five `BACKUP_*` variables. Setup checklist and restore: HANDBOOK.md
 section 11. Tests: module-kit 12, Document Store 90.
 
@@ -1508,3 +1510,39 @@ worker with worked example A's September marks, headless Chromium at 1280 and 39
 saved through the Salary box, the Salary tab and panel, the CSV, marked paid at exactly ₹9,850, the worker's slip.
 
 **Not yet verified:** the live deployment; the owner setting one per-day person at plant 001.
+
+### 2026-10-17 — Salary extras Part B: field duty and expense claims — built (v0.22.0)
+Asked by the owner 2026-10-17. Design, phases and build prompts: `docs/SALARY_EXTRAS_PHASE_PLAN.md`; module notes
+(B1-B5): `apps/attendance-salary/NOTES.md`.
+
+**Built** (in `apps/attendance-salary`; SSO token unchanged):
+- **Database:** Attendance migration `0004_claims.sql` (approved by the owner): `salary_settings.km_rate_paise` (TA per
+  km) / `da_day_paise` (DA per day); `salary_claims`, `salary_claim_decisions` (decided once, cancelled once, reason for
+  not approved / cancelled), `salary_claim_files` (bill photos, + sha256 and unique storage key, approved with the
+  migration); FORCE RLS, `attendance_app` SELECT + INSERT only. 14 tables.
+- **Rules 16-19** in `src/lib/salary.ts` (`claimTotals`): only approved claims; TA = km × rate (rounded once), DA = days
+  × rate, expenses added up; remaining adds them; `RULES_VERSION` 3; paid months freeze the counted claims.
+- **Worker (My claims):** field duty and expenses with up to 3 photos (shrunk on the phone), 31 days back, one field
+  duty a day, withdraw while waiting; km and own amounts only, never TA / DA rupees.
+- **Owner:** TA / DA rates in the Salary box; Claims tab with the waiting count (approve / not approve with reason /
+  cancel, 409 on a stale claim); claims on the person page and entries for someone (approved at once); Salary tab
+  columns, banner, panel boxes, CSV, mark-paid warning; slip lines; review count; tile badge; support read-only.
+- **Files:** `packages/module-kit` storage in Attendance's own folder (`ATTEND_STORAGE_DIR`) or bucket; nightly backup
+  `POST /api/cron/backup` + `backup.yml` step (on with the GitHub variable `ATTENDANCE_BACKUP_FILES`).
+- **Platform:** three `NOTIFICATION_KINDS` (claim_new, claim_decided `aboutYou`, storage), "Attendance & Salary storage
+  (MB)" on the plan screen. No platform migration.
+- **Tests:** Attendance 364 (+59 since v0.21.0), platform 313.
+
+**Decisions (owner, 2026-10-17):** the plan as written (two releases, 31 days back, what a worker sees, an owner's own
+claims approved at once, 3 photos per expense, TA / DA for monthly people too). **Made while building:** owners may add
+photos to an entry they made (it is approved at once); the worker's link is `/my/claims?m=`; CSV headers in the file's
+wording; the backup step waits for `ATTENDANCE_BACKUP_FILES`; `age-encryption` as a test dependency.
+
+**Verified on `pnpm dev`** (plant 002 with Attendance switched on only for each check, temporary owner + worker, headless
+Chromium at 390 and 1280 px; all rows, photo files and notifications removed afterwards): a worker's field duty and
+expense with a real photo (stored 1600 × 1067), the same day twice refused, the owners' "new claim" bells, approve and
+not approve through the Claims tab with the worker's "your claim" bells, the Salary box rates, the Salary tab / panel /
+CSV with TA / DA / expenses, the mark-paid warning, paying, and the worker's slip.
+
+**Not yet verified:** the live deployment; real phones (a photo from Android / iPhone); the owner's checklist at plant 001.
+

@@ -17,6 +17,8 @@ export function describeView(path: string) {
   if (path === "/staff") return "the staff list";
   if (path.startsWith("/staff/")) return "a person's attendance and salary";
   if (path.startsWith("/salary")) return "the Salary tab";
+  if (path.startsWith("/claims")) return "the Claims tab";
+  if (path.startsWith("/claim-photos/")) return "a bill photo";
   if (path.startsWith("/settings")) return "the settings";
   if (path.startsWith("/changes")) return "Recent changes";
   return "the Today board";

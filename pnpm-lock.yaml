@@ -230,6 +230,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.0
         version: 19.3.0(@types/react@19.3.0)
+      age-encryption:
+        specifier: ^0.3.1
+        version: 0.3.1
       jose:
         specifier: ^6.2.0
         version: 6.2.12

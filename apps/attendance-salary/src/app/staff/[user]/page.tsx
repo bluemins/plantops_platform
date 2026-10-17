@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { can } from "@/server/access";
+import { personClaims } from "@/server/claims";
 import { monthFor } from "@/server/calendar";
 import { kit } from "@/server/kit";
 import { fromMonthChoices, salaryPanel } from "@/server/salary-edit";
@@ -9,6 +10,7 @@ import { requirePageUser } from "@/server/session";
 import { CalendarKey, MonthCalendar } from "../../calendar";
 import { Header } from "../../header";
 import { Advances } from "./advances";
+import { PersonClaims } from "./claims";
 import { SalaryBox, SalaryReadOnly, VisibilityTick } from "./salary-box";
 import { SalaryStrip } from "./salary-strip";
 
@@ -26,6 +28,7 @@ export default async function PersonMonthPage({ params, searchParams }: { params
   const sp = await searchParams;
   const [plant, view] = await Promise.all([kit.branding(user.tenantId), orNotFound(monthFor(user, personId, typeof sp.m === "string" ? sp.m : null))]);
   const salary = can(user, "salary_view") ? await salaryPanel(user, personId, view.month) : null;
+  const claims = can(user, "claim_view") ? await personClaims(user, personId, view.month) : null;
   const statuses = await monthStatuses(user, personId, view.month, new Map(view.days.map((d) => [d.date, d])));
   const name = view.name ?? "This person";
   return (
@@ -49,6 +52,7 @@ export default async function PersonMonthPage({ params, searchParams }: { params
             <SalaryReadOnly applies={salary.applies} history={salary.history} canSee={salary.canSee} name={name} />
           )}
           <Advances personId={personId} month={salary.month} today={salary.today} firstDate={salary.firstAdvanceDate} entries={salary.advances} expect={salary.expect.advance} editable={can(user, "salary_edit")} />
+          {claims && salary.history.length > 0 && <PersonClaims personId={personId} month={salary.month} claims={claims} canDecide={can(user, "claim_decide")} />}
         </>
       )}
     </div>

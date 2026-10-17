@@ -1,4 +1,5 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 /** Points the module at the *test* database. Tests never touch dev data. */
@@ -12,6 +13,9 @@ export function loadTestEnv() {
   process.env.MODULE_SECRET_ATTENDANCE_SALARY = "attendance-module-test-secret";
   process.env.ATTEND_SESSION_SECRET = "attendance-test-session-secret-0123456789abc";
   delete process.env.MODULE_URL_ATTENDANCE_SALARY;
+  // bill photos go to a fresh temporary folder, never a bucket
+  process.env.ATTEND_STORAGE_DIR = mkdtempSync(path.join(tmpdir(), "plantops-attendance-test-"));
+  delete process.env.ATTEND_STORAGE_BUCKET;
   // no real platform in tests: a closed port answers "unreachable" at once; tests that need one start the fake platform
   process.env.PLATFORM_URL = "http://127.0.0.1:9";
 }

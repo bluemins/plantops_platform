@@ -6,6 +6,7 @@ import { settingsFor } from "@/server/settings";
 import { Header } from "../header";
 import { OwnerNav } from "../owner-nav";
 import { SettingsEditor } from "./editor";
+import { waitingClaims } from "@/server/claims";
 
 /** Owner: Location & QR (mock-up "Owner · Settings"). PlantOps support sees it read-only. */
 export default async function SettingsPage() {
@@ -15,7 +16,7 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-5">
       <Header user={user} plant={plant} />
-      <OwnerNav user={user} current="settings" />
+      <OwnerNav user={user} current="settings" claimsWaiting={await waitingClaims(user)} />
       <h1 className="text-2xl font-bold">Location &amp; QR</h1>
       <SettingsEditor initial={settings} canEdit={can(user, "settings")} />
     </div>

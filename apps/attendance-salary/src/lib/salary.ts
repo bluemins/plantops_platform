@@ -9,7 +9,7 @@
 import { monthDays } from "./days";
 
 /** Saved with every payment's frozen figures; raise it whenever a rule here changes. */
-export const RULES_VERSION = 2;
+export const RULES_VERSION = 3;
 /** Rule 7: a day's pay is always the monthly salary ÷ 30, whatever the month's length. */
 export const DAYS_FOR_PAY = 30;
 
@@ -58,6 +58,10 @@ export interface SalarySetting {
   monthlyPaise: number | null;
   /** per-day people only (null for monthly) */
   dayRatePaise: number | null;
+  /** TA per km of approved field duty (rule 16); null = no TA */
+  kmRatePaise: number | null;
+  /** DA per date with approved field duty (rule 17); null = no DA */
+  daDayPaise: number | null;
   shiftMinutes: number;
   paidLeaveHalfdays: number;
   getsOvertime: boolean;
@@ -173,6 +177,10 @@ export interface PayInput extends DayCounts {
   otRatePaise: number | null;
   /** rule 10: the month's advance entries added up (corrections are negative) */
   advancesPaise: number;
+  /** rules 16-18 (claimTotals): TA, DA and expenses of the month's APPROVED claims */
+  taPaise: number;
+  daPaise: number;
+  expensesPaise: number;
   /** rule 11: taken off this month because last month ended below 0 (a positive number) */
   carriedInPaise: number;
   /** rule 14: "Adjustment from <last month>", + or − */
@@ -198,10 +206,14 @@ export interface PayResult {
   /** rule 9: 0 without "Gets overtime" */
   otMinutes: number;
   otPayPaise: number;
+  /** rules 16-18: passed through from the input */
+  taPaise: number;
+  daPaise: number;
+  expensesPaise: number;
   advancesPaise: number;
   carriedInPaise: number;
   adjustmentPaise: number;
-  /** rule 12: below 0 carries to the next month */
+  /** rule 12 (19): below 0 carries to the next month */
   remainingPaise: number;
 }
 
@@ -230,8 +242,8 @@ export function monthPay(i: PayInput): PayResult {
   // rule 9: overtime only with "Gets overtime" and a rate; exact minutes
   const otMinutes = i.getsOvertime && i.otRatePaise ? i.otMinutes : 0;
   const otPayPaise = otMinutes ? Math.round((otMinutes * i.otRatePaise!) / 60) : 0;
-  // rule 12
-  const remainingPaise = earnedPaise + otPayPaise - i.advancesPaise - i.carriedInPaise + i.adjustmentPaise;
+  // rule 12, extended by rule 19: approved TA, DA and expenses are added
+  const remainingPaise = earnedPaise + otPayPaise + i.taPaise + i.daPaise + i.expensesPaise - i.advancesPaise - i.carriedInPaise + i.adjustmentPaise;
   return {
     absentHalves,
     leaveUsedHalves,
@@ -242,6 +254,9 @@ export function monthPay(i: PayInput): PayResult {
     earnedPaise,
     otMinutes,
     otPayPaise,
+    taPaise: i.taPaise,
+    daPaise: i.daPaise,
+    expensesPaise: i.expensesPaise,
     advancesPaise: i.advancesPaise,
     carriedInPaise: i.carriedInPaise,
     adjustmentPaise: i.adjustmentPaise,
@@ -249,10 +264,77 @@ export function monthPay(i: PayInput): PayResult {
   };
 }
 
+// ---------- claims: field duty (TA / DA) and expenses (docs/SALARY_EXTRAS_PHASE_PLAN.md rules 16-19) ----------
+
+export type ClaimKind = "field_duty" | "expense";
+/** waiting = no decision yet; otherwise the newest decision */
+export type ClaimStatus = "waiting" | "approved" | "rejected" | "withdrawn" | "cancelled";
+
+export interface Claim {
+  id: string;
+  kind: ClaimKind;
+  /** "YYYY-MM-DD" (India date); the claim counts in this date's month */
+  onDate: string;
+  /** field duty only: km in tenths (42.5 km = 425) */
+  kmTenths: number | null;
+  /** expenses only */
+  amountPaise: number | null;
+  note: string;
+  status: ClaimStatus;
+}
+
+/** A counted claim as a paid month's slip keeps it. */
+export interface FrozenClaim {
+  kind: ClaimKind;
+  onDate: string;
+  kmTenths: number | null;
+  amountPaise: number | null;
+  note: string;
+}
+
+export interface ClaimTotals {
+  /** rule 17: dates with approved field duty (two on one date = one day) */
+  fieldDutyDays: number;
+  /** rule 16: approved field-duty km added up, in tenths */
+  kmTenths: number;
+  taPaise: number;
+  daPaise: number;
+  /** rule 18 */
+  expensesPaise: number;
+  /** claims still waiting for the owner (count 0) */
+  waiting: number;
+  /** the approved claims that counted, oldest date first */
+  counted: FrozenClaim[];
+}
+
+/** "42.5", "182", "0": km from tenths. */
+export const kmText = (tenths: number) => String(tenths / 10);
+
+/**
+ * Rules 16-18 for one person's month. Only APPROVED claims count; waiting, not approved, withdrawn and cancelled ones
+ * count 0. TA = all approved km added up × the TA rate, rounded to the paisa once; DA = the number of dates with
+ * approved field duty × the DA rate; no rate = ₹0 (the km and days still show). Attendance is never touched.
+ */
+export function claimTotals(claims: readonly Claim[], rates: { kmRatePaise: number | null; daDayPaise: number | null }): ClaimTotals {
+  const approved = claims.filter((c) => c.status === "approved").sort((a, b) => (a.onDate < b.onDate ? -1 : a.onDate > b.onDate ? 1 : 0));
+  const duty = approved.filter((c) => c.kind === "field_duty");
+  const kmTenths = duty.reduce((sum, c) => sum + (c.kmTenths ?? 0), 0);
+  const fieldDutyDays = new Set(duty.map((c) => c.onDate)).size;
+  return {
+    fieldDutyDays,
+    kmTenths,
+    taPaise: rates.kmRatePaise ? Math.round((kmTenths * rates.kmRatePaise) / 10) : 0,
+    daPaise: rates.daDayPaise ? fieldDutyDays * rates.daDayPaise : 0,
+    expensesPaise: approved.filter((c) => c.kind === "expense").reduce((sum, c) => sum + (c.amountPaise ?? 0), 0),
+    waiting: claims.filter((c) => c.status === "waiting").length,
+    counted: approved.map((c) => ({ kind: c.kind, onDate: c.onDate, kmTenths: c.kmTenths, amountPaise: c.amountPaise, note: c.note })),
+  };
+}
+
 // ---------- the owner's checking panel (docs/SALARY_PHASE_PLAN.md "Owner: checking panel") ----------
 
 /** The panel's boxes: days, hours and rupees as typed. */
-export type PanelField = "monthly" | "dayRate" | "present" | "half" | "absent" | "leave" | "otHours" | "otRate" | "advances" | "carried";
+export type PanelField = "ta" | "da" | "expenses" | "monthly" | "dayRate" | "present" | "half" | "absent" | "leave" | "otHours" | "otRate" | "advances" | "carried";
 
 /**
  * The panel's typed boxes -> monthPay()'s input, so the panel runs exactly the server's arithmetic. An empty or
@@ -279,6 +361,10 @@ export function panelInput(auto: PayInput, typed: Partial<Record<PanelField, str
     otMinutes: Math.round(n("otHours", auto.otMinutes / 60) * 60),
     otRatePaise: auto.getsOvertime ? paise("otRate", auto.otRatePaise ?? 0) : auto.otRatePaise,
     advancesPaise: paise("advances", auto.advancesPaise),
+    // claims (rules 16-18): the month's TA, DA and approved expenses in rupees
+    taPaise: paise("ta", auto.taPaise),
+    daPaise: paise("da", auto.daPaise),
+    expensesPaise: paise("expenses", auto.expensesPaise),
     carriedInPaise: paise("carried", auto.carriedInPaise),
   };
 }
@@ -353,10 +439,14 @@ export interface FrozenAdvance {
 export interface FrozenMonth {
   rules: number;
   month: string;
-  setting: { payBasis: PayBasis; monthlyPaise: number | null; dayRatePaise: number | null; shiftMinutes: number; paidLeaveHalfdays: number; getsOvertime: boolean; otRatePaise: number | null; joinedOn: string | null; leftOn: string | null };
+  setting: { payBasis: PayBasis; monthlyPaise: number | null; dayRatePaise: number | null; kmRatePaise: number | null; daDayPaise: number | null; shiftMinutes: number; paidLeaveHalfdays: number; getsOvertime: boolean; otRatePaise: number | null; joinedOn: string | null; leftOn: string | null };
   counted: Counted;
   counts: DayCounts;
   advances: FrozenAdvance[];
+  /** rules 16-18: the approved claims that counted, with the field-duty days and km (rules 3+; empty before) */
+  claims: FrozenClaim[];
+  fieldDutyDays: number;
+  kmTenths: number;
   adjustmentFrom: string | null;
   /** exactly what monthPay() was given, and what it gave */
   input: PayInput;
@@ -365,13 +455,19 @@ export interface FrozenMonth {
 
 /**
  * A paid month's saved figures as this version reads them. Months frozen with `rules: 1` (before per-day pay) have no
- * pay basis: they read as monthly. The saved numbers are shown as they are, never worked out again.
+ * pay basis: they read as monthly; months frozen before claims (`rules` 1-2) have no TA, DA, expenses or claims: they
+ * read as ₹0 and none. The saved numbers are shown as they are, never worked out again.
  */
 export function readFrozen(f: FrozenMonth): FrozenMonth {
-  if (f.rules >= 2) return f;
+  if (f.rules >= RULES_VERSION) return f;
+  const noClaims = { taPaise: 0, daPaise: 0, expensesPaise: 0 };
   return {
     ...f,
-    setting: { ...f.setting, payBasis: f.setting.payBasis ?? "monthly", dayRatePaise: f.setting.dayRatePaise ?? null },
-    input: { ...f.input, payBasis: f.input.payBasis ?? "monthly", dayRatePaise: f.input.dayRatePaise ?? null },
+    setting: { ...f.setting, payBasis: f.setting.payBasis ?? "monthly", dayRatePaise: f.setting.dayRatePaise ?? null, kmRatePaise: f.setting.kmRatePaise ?? null, daDayPaise: f.setting.daDayPaise ?? null },
+    claims: f.claims ?? [],
+    fieldDutyDays: f.fieldDutyDays ?? 0,
+    kmTenths: f.kmTenths ?? 0,
+    input: { ...noClaims, ...f.input, payBasis: f.input.payBasis ?? "monthly", dayRatePaise: f.input.dayRatePaise ?? null },
+    result: { ...noClaims, ...f.result },
   };
 }

@@ -410,10 +410,30 @@ Salary lives in the Attendance module (v0.20.0). Only the owner sees money; work
 - **CSV:** Salary tab → Download CSV (one row per person, rupees with 2 decimals for a spreadsheet).
 - **Not done by the app:** weekly offs, holidays, leave requests, PF / ESI / TDS, printed payslips.
 
+### Attendance: field duty and expenses (v0.22.0)
+Workers send **claims** from the phone; the owner approves them; only approved ones are paid with that month's salary.
+- **Set the rates (once per person):** Staff → the person → Salary box → **Field duty**: **TA ₹ per km** and **DA ₹
+  per day** (both optional; blank = no TA / DA), from a month like the rest. Works for Monthly and Per day people.
+- **Workers:** My claims → **+ Field duty** (date, km, where; only shown when that month has a TA or DA rate; one per
+  day) or **+ Expense** (date, amount, what for, up to 3 bill photos). Up to 31 days back. They can **Withdraw** while
+  it waits. Field duty never marks anyone present: they still scan the QR.
+- **Owner:** the bell says "Expense from Anmol: ₹450". Open **Claims** (the tab shows how many wait): **Approve** or
+  **Not approve** (write why: the worker sees it). An approved claim can be **Cancelled** later with a reason. The card
+  shows TA / DA at that person's rates ("TA ₹126 (42 km × ₹3) · DA ₹150").
+- **Entering for someone:** Staff → the person → **Claims** → + Field duty / + Expense: approved at once, any date from
+  their first salary month.
+- **Month end:** the Salary tab shows TA, DA and Expenses per person and "N claims waiting · Review". Decide them before
+  **Mark paid** (the dialog warns); one approved later comes as an adjustment next month. The worker's slip (with "Can
+  see own salary") lists field duty, TA, DA and each expense.
+- **Photos** are kept on the server (`attendance-salary-volume`) and copied, encrypted, to the nightly backup.
+
 ## 11. Files, backups and data location
 
 - **Uploaded documents** are on `document-store-volume`, mounted at `/data`. `DOC_STORAGE_DIR=/data/documents`,
   and `RAILWAY_RUN_UID=0` lets the app write there.
+- **Bill photos of expense claims** (v0.22.0) are on Attendance's **own** `attendance-salary-volume` at `/data`
+  (`ATTEND_STORAGE_DIR=/data/attendance`, `RAILWAY_RUN_UID=0`); the backup step needs the GitHub variable
+  `ATTENDANCE_BACKUP_FILES=on`.
 - **Complaint photos / videos** are on Complaint Box's **own** `complaint-box-volume` at `/data`
   (`COMPLAINT_STORAGE_DIR=/data/complaints`, `RAILWAY_RUN_UID=0`). Never Document Store's volume or bucket.
 - **Backups: every night, encrypted, outside Railway** (Railway's own Backups tab needs the Pro plan). The
@@ -445,7 +465,8 @@ Salary lives in the Attendance module (v0.20.0). Only the owner sees money; work
      - variables `BACKUP_BUCKET`, `BACKUP_ENDPOINT`, `BACKUP_RECIPIENT` (= the public key) (`DOCS_URL` is there)
   7. Railway → `document-store` → Variables: `BACKUP_BUCKET`, `BACKUP_ENDPOINT`, `BACKUP_ACCESS_KEY_ID`,
      `BACKUP_SECRET_ACCESS_KEY`, `BACKUP_RECIPIENT`. Every app that stores files gets the same five (also
-     `complaint-box`, plus `COMPLAINT_URL` in GitHub for its backup step).
+     `complaint-box`, plus `COMPLAINT_URL` in GitHub for its backup step; and `attendance-salary`, plus
+     `ATTENDANCE_BACKUP_FILES=on` in GitHub for its step).
   8. GitHub → Actions → **Backup** → Run workflow. All steps green; then `pnpm backup list` shows the dump.
   9. Do a practice restore (below) once, and again every few months.
 

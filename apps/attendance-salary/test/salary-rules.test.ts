@@ -5,6 +5,7 @@ import { monthDays } from "@/lib/days";
 import { workDays, type Mark } from "@/lib/sessions";
 import {
   carryChain,
+  claimTotals,
   countDays,
   countedDates,
   dayStatuses,
@@ -16,6 +17,7 @@ import {
   settingFor,
   toPaise,
   type ChainInput,
+  type Claim,
   type FrozenMonth,
   type PayInput,
   type SalarySetting,
@@ -39,6 +41,9 @@ const base: PayInput = {
   getsOvertime: true,
   otRatePaise: R(60),
   advancesPaise: R(3000),
+  taPaise: 0,
+  daPaise: 0,
+  expensesPaise: 0,
   carriedInPaise: 0,
   adjustmentPaise: 0,
 };
@@ -196,7 +201,7 @@ describe("day statuses", () => {
 
 describe("which setting applies", () => {
   const s = (fromMonth: string, monthlyRupees: number, createdAt: string): SalarySetting => ({
-    id: `${fromMonth}-${createdAt}`, fromMonth, payBasis: "monthly", monthlyPaise: R(monthlyRupees), dayRatePaise: null, shiftMinutes: 480, paidLeaveHalfdays: 4, getsOvertime: false, otRatePaise: null, joinedOn: null, leftOn: null, createdAt,
+    id: `${fromMonth}-${createdAt}`, fromMonth, payBasis: "monthly", monthlyPaise: R(monthlyRupees), dayRatePaise: null, kmRatePaise: null, daDayPaise: null, shiftMinutes: 480, paidLeaveHalfdays: 4, getsOvertime: false, otRatePaise: null, joinedOn: null, leftOn: null, createdAt,
   });
 
   it("14. a setting from November leaves October unchanged; the newest of the same month wins", () => {
@@ -371,7 +376,7 @@ describe("per-day pay (rule 15)", () => {
 
   it("A7. monthly in October, per day from November: October is unchanged (₹9,040)", () => {
     const row = (fromMonth: string, over: Partial<SalarySetting>): SalarySetting => ({
-      id: fromMonth, fromMonth, payBasis: "monthly", monthlyPaise: R(12000), dayRatePaise: null, shiftMinutes: 480, paidLeaveHalfdays: 4, getsOvertime: true, otRatePaise: R(60), joinedOn: null, leftOn: null, createdAt: `${fromMonth}-01T10:00:00Z`, ...over,
+      id: fromMonth, fromMonth, payBasis: "monthly", monthlyPaise: R(12000), dayRatePaise: null, kmRatePaise: null, daDayPaise: null, shiftMinutes: 480, paidLeaveHalfdays: 4, getsOvertime: true, otRatePaise: R(60), joinedOn: null, leftOn: null, createdAt: `${fromMonth}-01T10:00:00Z`, ...over,
     });
     const rows = [row("2026-10", {}), row("2026-11", { payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450), paidLeaveHalfdays: 0 })];
     const inputFor = (month: string, counts: Partial<PayInput>): ChainInput => {
@@ -408,6 +413,87 @@ describe("per-day pay (rule 15)", () => {
     expect(f.input).toMatchObject({ payBasis: "monthly", dayRatePaise: null, monthlyPaise: R(12000) });
     expect(f.result).toEqual(result);
     expect(f.result.remainingPaise).toBe(R(9040));
+  });
+});
+
+// ---------- claims: TA / DA / expenses (docs/SALARY_EXTRAS_PHASE_PLAN.md rules 16-19; Phase B2's list) ----------
+
+describe("claims (rules 16-19)", () => {
+  let n = 0;
+  const duty = (onDate: string, km: number, status: Claim["status"] = "approved"): Claim => ({ id: `c${++n}`, kind: "field_duty", onDate, kmTenths: Math.round(km * 10), amountPaise: null, note: "delivery", status });
+  const expense = (onDate: string, rupees: number, status: Claim["status"] = "approved", note = "diesel"): Claim => ({ id: `c${++n}`, kind: "expense", onDate, kmTenths: null, amountPaise: R(rupees), note, status });
+  const rates = { kmRatePaise: R(3), daDayPaise: R(150) };
+  const withClaims = (t: ReturnType<typeof claimTotals>): PayInput => ({ ...base, taPaise: t.taPaise, daPaise: t.daPaise, expensesPaise: t.expensesPaise });
+
+  /** Worked example B's October: field duty on 6 dates, 182 km; two approved expenses, one waiting, one not approved. */
+  const exampleB = () => [
+    duty("2026-10-02", 30), duty("2026-10-06", 28), duty("2026-10-09", 35), duty("2026-10-13", 31), duty("2026-10-20", 26), duty("2026-10-27", 32),
+    expense("2026-10-09", 1200, "approved", "pump repair parts"), expense("2026-10-16", 450, "approved", "diesel for generator"),
+    expense("2026-10-22", 300, "waiting"), expense("2026-10-24", 800, "rejected"),
+  ];
+
+  it("B1. worked example B: TA ₹546 + DA ₹900 + expenses ₹1,650 on top of ₹9,040 = ₹12,136", () => {
+    const t = claimTotals(exampleB(), rates);
+    expect(t).toMatchObject({ fieldDutyDays: 6, kmTenths: 1820, taPaise: R(546), daPaise: R(900), expensesPaise: R(1650), waiting: 1 });
+    expect(t.counted.map((c) => [c.onDate, c.kind])).toEqual([
+      ["2026-10-02", "field_duty"], ["2026-10-06", "field_duty"], ["2026-10-09", "field_duty"], ["2026-10-09", "expense"],
+      ["2026-10-13", "field_duty"], ["2026-10-16", "expense"], ["2026-10-20", "field_duty"], ["2026-10-27", "field_duty"],
+    ]);
+    const r = monthPay(withClaims(t));
+    expect(r).toMatchObject({ earnedPaise: R(11200), otPayPaise: R(840), taPaise: R(546), daPaise: R(900), expensesPaise: R(1650), remainingPaise: R(12136) });
+    expect(rupeesText(r.remainingPaise)).toBe("₹12,136");
+  });
+
+  it("B2. km with a decimal: 42.5 km × ₹3 = ₹127.50", () => {
+    expect(claimTotals([duty("2026-10-05", 42.5)], rates).taPaise).toBe(12750);
+  });
+
+  it("B3. km are added up before rounding once: 3 × 0.1 km at ₹2.55 = ₹0.77 (not 3 × ₹0.26)", () => {
+    const t = claimTotals([duty("2026-10-05", 0.1), duty("2026-10-06", 0.1), duty("2026-10-07", 0.1)], { kmRatePaise: 255, daDayPaise: null });
+    expect(t).toMatchObject({ kmTenths: 3, taPaise: 77 });
+  });
+
+  it("B4. two field-duty claims on one date count one DA day (the server stops this; the rule is safe anyway)", () => {
+    const t = claimTotals([duty("2026-10-05", 20), duty("2026-10-05", 15)], rates);
+    expect(t).toMatchObject({ fieldDutyDays: 1, kmTenths: 350, daPaise: R(150), taPaise: R(105) });
+  });
+
+  it("B5. no TA rate → ₹0 TA (the km still count); no DA rate → ₹0 DA; 0 km is DA only", () => {
+    expect(claimTotals([duty("2026-10-05", 42)], { kmRatePaise: null, daDayPaise: R(150) })).toMatchObject({ kmTenths: 420, taPaise: 0, daPaise: R(150) });
+    expect(claimTotals([duty("2026-10-05", 42)], { kmRatePaise: R(3), daDayPaise: null })).toMatchObject({ fieldDutyDays: 1, taPaise: R(126), daPaise: 0 });
+    expect(claimTotals([duty("2026-10-05", 0)], rates)).toMatchObject({ taPaise: 0, daPaise: R(150) });
+  });
+
+  it("B6. waiting, not approved, withdrawn and cancelled claims count 0", () => {
+    for (const status of ["waiting", "rejected", "withdrawn", "cancelled"] as const) {
+      const t = claimTotals([duty("2026-10-05", 42, status), expense("2026-10-06", 450, status)], rates);
+      expect(t, status).toMatchObject({ fieldDutyDays: 0, kmTenths: 0, taPaise: 0, daPaise: 0, expensesPaise: 0, counted: [], waiting: status === "waiting" ? 2 : 0 });
+    }
+  });
+
+  it("B7. a claim approved after the month was paid: one adjustment next month; cancelled later, it goes back", () => {
+    const month = (m: string, extra: Partial<PayInput>, paid: ChainInput["paid"]): ChainInput => ({ month: m, paid, input: { ...base, present: 31, half: 0, absent: 0, otMinutes: 0, getsOvertime: false, otRatePaise: null, advancesPaise: 0, ...extra } });
+    const paidAt = (rupees: number) => ({ paymentId: crypto.randomUUID(), paidOn: "2026-10-31", paidPaise: R(rupees), remainingPaise: R(rupees) });
+    // October paid at ₹12,000; then a ₹450 expense dated October is approved
+    const approved = carryChain([month("2026-10", { expensesPaise: R(450) }, paidAt(12000)), month("2026-11", {}, null), month("2026-12", {}, null)]);
+    expect(approved[0]!.changedPaise).toBe(R(450));
+    expect(approved[1]!.live).toMatchObject({ adjustmentPaise: R(450), remainingPaise: R(12450) });
+    expect(approved[1]!.adjustmentFrom).toBe("2026-10");
+    expect(approved[2]!.live.adjustmentPaise).toBe(0); // once
+    // November is paid with the +₹450 in it, then the October claim is cancelled: the ₹450 comes back out of December
+    const cancelled = carryChain([month("2026-10", {}, paidAt(12000)), month("2026-11", {}, paidAt(12450)), month("2026-12", {}, null)]);
+    expect(cancelled[0]!.changedPaise).toBe(0);
+    expect(cancelled[1]!.changedPaise).toBe(-R(450));
+    expect(cancelled[2]!.live).toMatchObject({ adjustmentPaise: -R(450), remainingPaise: R(11550) });
+  });
+
+  it("B8. field duty never changes the day's attendance: the counts come from marks only", () => {
+    const c = countedDates("2026-10", "2026-11-01", null, null)!;
+    const marks = new Map([["2026-10-05", { minutes: 0 }]]);
+    const counts = countDays(dayStatuses(marks, 480, c.dates, false));
+    // a field-duty day on 5 Oct with no marks stays absent; claimTotals takes no attendance and gives none
+    expect(counts).toMatchObject({ present: 0, absent: 31 });
+    expect(Object.keys(claimTotals([duty("2026-10-05", 42)], rates))).not.toContain("present");
   });
 });
 

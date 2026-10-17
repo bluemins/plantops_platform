@@ -1,13 +1,12 @@
 import { Card } from "@plantops/ui";
 import { fmtDayLong, fmtMonth } from "@/lib/days";
 import { rupeesText } from "@/lib/salary";
-import { can } from "@/server/access";
 import { kit } from "@/server/kit";
 import { orNotFound } from "@/server/pages";
 import { myPayments } from "@/server/salary-slip";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../../header";
-import { MyTabs } from "../../my-tabs";
+import { MyTabs, myTabs } from "../../my-tabs";
 
 /** A worker's paid months (only with the owner's "Can see own salary"; 404 otherwise), newest first. */
 export default async function MySalaryPage() {
@@ -16,7 +15,7 @@ export default async function MySalaryPage() {
   return (
     <div className="space-y-4">
       <Header user={user} plant={plant} />
-      <MyTabs attendanceHref={can(user, "see_everyone") ? "/my" : "/"} current="salary" />
+      <MyTabs {...await myTabs(user)} current="salary" />
       {paid.length === 0 ? (
         <Card>No paid months yet. A month shows here once the owner marks it paid.</Card>
       ) : (

@@ -8,6 +8,7 @@ import { addMonths, istDay, istMonth, monthDays, validMonth } from "@/lib/days";
 import {
   RULES_VERSION,
   carryChain,
+  claimTotals,
   countDays,
   countedDates,
   dayStatuses,
@@ -15,6 +16,7 @@ import {
   readFrozen,
   settingFor,
   type ChainMonth,
+  type ClaimTotals,
   type Counted,
   type DayCounts,
   type DayResult,
@@ -26,6 +28,7 @@ import {
 } from "@/lib/salary";
 import { workDays } from "@/lib/sessions";
 import { can, requireAccess } from "./access";
+import { loadClaims, type ClaimRow } from "./claims";
 import { schema, withTenant, type AtTx } from "./db";
 import { notFound } from "./http";
 import { loadMarks } from "./people";
@@ -67,6 +70,8 @@ export interface SalaryData {
   advances: AdvanceRow[];
   /** paid months that are not undone */
   payments: PaymentRow[];
+  /** claims with their status (only approved ones count: rules 16-19) */
+  claims: ClaimRow[];
 }
 
 const ym = (date: string) => date.slice(0, 7);
@@ -83,9 +88,11 @@ export async function loadSalaryData(tx: AtTx, tenantId: string, personId?: stri
       ? (await tx.select({ id: salaryPaymentUndos.paymentId }).from(salaryPaymentUndos).where(and(eq(salaryPaymentUndos.tenantId, tenantId), inArray(salaryPaymentUndos.paymentId, ids)))).map((u) => u.id)
       : [],
   );
+  const claims = await loadClaims(tx, tenantId, { personId });
   return {
     settings: settings.map((r) => ({ ...r, fromMonth: ym(r.fromMonth) })),
     advances,
+    claims,
     payments: payments
       .filter((p) => !undone.has(p.id))
       .map((p) => ({ paymentId: p.id, userId: p.userId, month: ym(p.month), paidOn: p.paidOn, paidPaise: p.paidPaise, remainingPaise: p.remainingPaise, figures: p.figures, note: p.note, createdByName: p.createdByName, createdAt: p.createdAt })),
@@ -103,6 +110,10 @@ export interface SalaryMonth {
   advances: AdvanceRow[];
   /** the paid month's row (null when not paid, or undone) */
   payment: PaymentRow | null;
+  /** the month's claims, every status (dated in this month) */
+  claims: ClaimRow[];
+  /** rules 16-18 from the approved ones, at this month's TA / DA rates */
+  claimTotals: ClaimTotals;
   chain: ChainMonth;
 }
 
@@ -127,6 +138,7 @@ function personMonths(userId: string, data: SalaryData, days: ReadonlyMap<string
     const counted = countedDates(m, today, setting.joinedOn ?? `${first}-01`, setting.leftOn);
     if (!counted) continue; // not employed on any day of this month
     const dayResults = dayStatuses(days, setting.shiftMinutes, counted.dates, setting.getsOvertime);
+    const claims = data.claims.filter((c) => c.userId === userId && ym(c.onDate) === m);
     months.push({
       month: m,
       setting,
@@ -135,6 +147,8 @@ function personMonths(userId: string, data: SalaryData, days: ReadonlyMap<string
       counts: countDays(dayResults),
       advances: data.advances.filter((a) => a.userId === userId && ym(a.onDate) === m),
       payment: data.payments.filter((p) => p.userId === userId && p.month === m).at(-1) ?? null,
+      claims,
+      claimTotals: claimTotals(claims, setting),
     });
   }
   const chain = carryChain(
@@ -151,6 +165,9 @@ function personMonths(userId: string, data: SalaryData, days: ReadonlyMap<string
         getsOvertime: x.setting.getsOvertime,
         otRatePaise: x.setting.otRatePaise,
         advancesPaise: x.advances.reduce((sum, a) => sum + a.amountPaise, 0),
+        taPaise: x.claimTotals.taPaise,
+        daPaise: x.claimTotals.daPaise,
+        expensesPaise: x.claimTotals.expensesPaise,
       },
     })),
   );
@@ -205,6 +222,9 @@ export function payInputOf(c: SalaryMonth): PayInput {
     getsOvertime: c.setting.getsOvertime,
     otRatePaise: c.setting.otRatePaise,
     advancesPaise: r.advancesPaise,
+    taPaise: r.taPaise,
+    daPaise: r.daPaise,
+    expensesPaise: r.expensesPaise,
     carriedInPaise: r.carriedInPaise,
     adjustmentPaise: r.adjustmentPaise,
   };
@@ -216,10 +236,14 @@ export function freezeMonth(c: SalaryMonth): FrozenMonth {
   return {
     rules: RULES_VERSION,
     month: c.month,
-    setting: { payBasis: s.payBasis, monthlyPaise: s.monthlyPaise, dayRatePaise: s.dayRatePaise, shiftMinutes: s.shiftMinutes, paidLeaveHalfdays: s.paidLeaveHalfdays, getsOvertime: s.getsOvertime, otRatePaise: s.otRatePaise, joinedOn: s.joinedOn, leftOn: s.leftOn },
+    setting: { payBasis: s.payBasis, monthlyPaise: s.monthlyPaise, dayRatePaise: s.dayRatePaise, kmRatePaise: s.kmRatePaise, daDayPaise: s.daDayPaise, shiftMinutes: s.shiftMinutes, paidLeaveHalfdays: s.paidLeaveHalfdays, getsOvertime: s.getsOvertime, otRatePaise: s.otRatePaise, joinedOn: s.joinedOn, leftOn: s.leftOn },
     counted: c.counted,
     counts: c.counts,
     advances: c.advances.map((a) => ({ onDate: a.onDate, amountPaise: a.amountPaise, note: a.amountPaise < 0 ? `Correction: ${a.reason ?? ""}` : a.note })),
+    // rules 16-18: the approved claims that counted (the slip lists them; waiting / not approved ones are left out)
+    claims: c.claimTotals.counted,
+    fieldDutyDays: c.claimTotals.fieldDutyDays,
+    kmTenths: c.claimTotals.kmTenths,
     adjustmentFrom: c.chain.adjustmentFrom,
     input: payInputOf(c),
     result: c.chain.live,

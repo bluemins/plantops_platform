@@ -11,6 +11,9 @@ import * as superUserRoute from "@/app/api/super/tenants/[id]/users/[userId]/rou
 import * as moduleNotifyRoute from "@/app/api/m/tenants/[tid]/notifications/route";
 import * as inboxRoute from "@/app/api/notifications/route";
 import * as settingsRoute from "@/app/api/notifications/settings/route";
+import * as superPlanRoute from "@/app/api/super/tenants/[id]/plan/route";
+import * as planRoute from "@/app/api/tenants/[id]/plan/route";
+import { emptyPlan, moduleLimitFormValues, planBody } from "@/lib/plan-body";
 import { sha256 } from "@/server/crypto";
 import { MODULES } from "@/lib/modules";
 import { alertChoices, cellFor } from "@/lib/permissions";
@@ -140,18 +143,19 @@ describe("owner-only alerts", () => {
 });
 
 describe("notification settings", () => {
-  it("the owner sees the five Attendance kinds; outside and no exit are bell only, none urgent", async () => {
+  it("the owner sees the eight Attendance kinds; outside and no exit are bell only, none urgent", async () => {
     const list = (await settings(A.adminCookie)).filter((s) => s.kind.startsWith("attendance_salary."));
     expect(list.map((s) => s.kind).sort()).toEqual([
-      "attendance_salary.corrected", "attendance_salary.no_exit", "attendance_salary.outside",
-      "attendance_salary.salary_paid", "attendance_salary.salary_review",
+      "attendance_salary.claim_decided", "attendance_salary.claim_new", "attendance_salary.corrected", "attendance_salary.no_exit",
+      "attendance_salary.outside", "attendance_salary.salary_paid", "attendance_salary.salary_review", "attendance_salary.storage",
     ]);
     expect(list.filter((s) => s.bell_only).map((s) => s.kind).sort()).toEqual(["attendance_salary.no_exit", "attendance_salary.outside"]);
     expect(list.some((s) => s.urgent)).toBe(false);
   });
 
   it("a worker sees only the kinds about themselves, and can't set the owners' kinds", async () => {
-    expect((await settings(worker.cookie)).map((s) => s.kind).sort()).toEqual(["attendance_salary.corrected", "attendance_salary.salary_paid"]);
+    expect((await settings(worker.cookie)).map((s) => s.kind).sort()).toEqual(["attendance_salary.claim_decided", "attendance_salary.corrected", "attendance_salary.salary_paid"]);
+    expect((await setSetting(worker.cookie, "attendance_salary.claim_new", "off")).status).toBe(400); // owners' kind
     expect((await setSetting(worker.cookie, "attendance_salary.salary_paid", "bell")).status).toBe(200);
     expect((await setSetting(worker.cookie, "attendance_salary.salary_review", "off")).status).toBe(400);
     expect((await setSetting(worker.cookie, "attendance_salary.corrected", "bell")).status).toBe(200);
@@ -165,3 +169,20 @@ describe("notification settings", () => {
     expect((await settings(Q.adminCookie)).some((s) => s.kind.startsWith("attendance_salary."))).toBe(false);
   });
 });
+
+describe("Attendance storage limit on the plan (Salary extras Part B: bill photos)", () => {
+  it("planBody sets and clears it, keeps the other limits, and the module reads it back", async () => {
+    const v = { ...emptyPlan, enabled_modules: ["attendance_salary", "complaint_box"], cb_storage_mb: "500", att_storage_mb: "200" };
+    expect(planBody(v).limits.modules).toEqual({ complaint_box: { storage_mb: 500 }, attendance_salary: { storage_mb: 200 } });
+    expect(planBody({ ...v, att_storage_mb: "" }, { attendance_salary: { storage_mb: 5 } }).limits.modules).toEqual({ complaint_box: { storage_mb: 500 } });
+
+    const sa = await makeSuperAdmin();
+    const P = await makePlant({ modules: ["attendance_salary"] });
+    const body = planBody({ ...emptyPlan, enabled_modules: ["attendance_salary"], att_storage_mb: "200" });
+    expect((await call(superPlanRoute.PUT as Handler, { cookie: sa.cookie, method: "PUT", body, params: { id: P.tenantId } })).status).toBe(200);
+    const plan = await call(planRoute.GET as Handler, { headers: ATT, params: { id: P.tenantId } });
+    expect(plan.body.limits.modules.attendance_salary).toEqual({ storage_mb: 200 });
+    expect(moduleLimitFormValues(plan.body.limits.modules).att_storage_mb).toBe("200");
+  });
+});
+

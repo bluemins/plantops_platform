@@ -7,6 +7,7 @@ import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../header";
 import { OwnerNav } from "../owner-nav";
+import { waitingClaims } from "@/server/claims";
 
 /** Owner (and support, read-only): settings, new QR, fixes and CSV downloads, newest first. */
 export default async function ChangesPage() {
@@ -16,7 +17,7 @@ export default async function ChangesPage() {
   return (
     <div className="space-y-4">
       <Header user={user} plant={plant} />
-      <OwnerNav user={user} current="changes" />
+      <OwnerNav user={user} current="changes" claimsWaiting={await waitingClaims(user)} />
       <h1 className="text-xl font-bold">Recent changes</h1>
       {changes.length === 0 ? (
         <Card>Nothing changed yet.</Card>

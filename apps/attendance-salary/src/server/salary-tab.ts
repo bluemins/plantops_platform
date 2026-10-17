@@ -4,7 +4,7 @@
 // audited). Nothing is stored.
 import { csv } from "@plantops/module-kit/csv";
 import { addMonths, monthDays } from "@/lib/days";
-import { halvesText, hoursText, type DayCounts, type PayBasis, type PayInput, type PayResult } from "@/lib/salary";
+import { halvesText, hoursText, kmText, type DayCounts, type PayBasis, type PayInput, type PayResult } from "@/lib/salary";
 import { requireAccess } from "./access";
 import { audit } from "./audit";
 import { withTenant } from "./db";
@@ -45,6 +45,12 @@ export interface TabRow {
   changedPaise: number;
   /** "Can see own salary" for this person */
   canSee: boolean;
+  /** claims (rules 16-18): the month's rates, approved field-duty days and km, and claims still waiting */
+  kmRatePaise: number | null;
+  daDayPaise: number | null;
+  fieldDutyDays: number;
+  kmTenths: number;
+  claimsWaiting: number;
 }
 
 export interface SalaryTab {
@@ -57,7 +63,9 @@ export interface SalaryTab {
   daysOver: number;
   complete: boolean;
   rows: TabRow[];
-  totals: { salaryPaise: number; earnedPaise: number; otPayPaise: number; advancesPaise: number; carriedInPaise: number; remainingPaise: number; toPayPaise: number };
+  totals: { salaryPaise: number; earnedPaise: number; otPayPaise: number; taPaise: number; daPaise: number; expensesPaise: number; advancesPaise: number; carriedInPaise: number; remainingPaise: number; toPayPaise: number };
+  /** claims still waiting for the owner in this month (the "Review" banner) */
+  claimsWaiting: number;
   /** "Ramu −₹2,100 carries to November" parts */
   negatives: { name: string; remainingPaise: number; to: string }[];
   /** active Plant staff with no salary this month (null = the platform couldn't be reached) */
@@ -108,6 +116,12 @@ export async function salaryTab(user: AtUser, month: string, now: Date = new Dat
       payment: c.payment ? { id: c.payment.paymentId, paidOn: c.payment.paidOn, paidPaise: c.payment.paidPaise, byName: c.payment.createdByName, note: c.payment.note } : null,
       changedPaise: c.chain.changedPaise,
       canSee: visible.get(p.userId) ?? false,
+      // a paid month shows what was frozen; waiting claims are always the live count (they don't count either way)
+      kmRatePaise: frozen ? frozen.setting.kmRatePaise : c.setting.kmRatePaise,
+      daDayPaise: frozen ? frozen.setting.daDayPaise : c.setting.daDayPaise,
+      fieldDutyDays: frozen ? frozen.fieldDutyDays : c.claimTotals.fieldDutyDays,
+      kmTenths: frozen ? frozen.kmTenths : c.claimTotals.kmTenths,
+      claimsWaiting: c.claimTotals.waiting,
     });
   }
   const sum = (f: (r: TabRow) => number) => rows.reduce((s, r) => s + f(r), 0);
@@ -127,11 +141,15 @@ export async function salaryTab(user: AtUser, month: string, now: Date = new Dat
       salaryPaise: sum((r) => r.input.monthlyPaise),
       earnedPaise: sum((r) => r.result.earnedPaise),
       otPayPaise: sum((r) => r.result.otPayPaise),
+      taPaise: sum((r) => r.result.taPaise),
+      daPaise: sum((r) => r.result.daPaise),
+      expensesPaise: sum((r) => r.result.expensesPaise),
       advancesPaise: sum((r) => r.result.advancesPaise),
       carriedInPaise: sum((r) => r.result.carriedInPaise),
       remainingPaise: sum((r) => r.result.remainingPaise),
       toPayPaise: sum((r) => Math.max(0, r.result.remainingPaise)),
     },
+    claimsWaiting: sum((r) => r.claimsWaiting),
     negatives: rows.filter((r) => r.carriesTo).map((r) => ({ name: r.name, remainingPaise: r.result.remainingPaise, to: r.carriesTo! })),
     noSalary: staff.platformDown ? null : staff.active.filter((p) => !onSalary.has(p.userId)),
     payable: view.today >= payableFrom(month),
@@ -147,6 +165,7 @@ export const SALARY_CSV_HEADER = [
   "Monthly salary", "Pay basis", "Day rate", "Shift hours", "Paid leave allowed (days)",
   "Present", "Half days", "Absent", "Paid leave used (days)", "Unpaid days", "Day's pay", "Earned",
   "Overtime", "Overtime hours", "Overtime rate", "Overtime pay",
+  "Field duty days", "Km", "TA rate", "TA", "DA rate", "DA", "Expenses", "Claims waiting",
   "Advances", "Carried in", "Adjustment", "Remaining",
 ];
 
@@ -183,6 +202,15 @@ export async function salaryCsv(user: AtUser, month: string, now: Date = new Dat
       r.getsOvertime ? hoursText(x.otMinutes) : "",
       r.getsOvertime && r.otRatePaise ? rupees(r.otRatePaise) : "",
       r.getsOvertime ? rupees(x.otPayPaise) : "",
+      // claims (rules 16-18): blank rate = this person gets no TA / DA that month
+      r.fieldDutyDays,
+      kmText(r.kmTenths),
+      r.kmRatePaise ? rupees(r.kmRatePaise) : "",
+      rupees(x.taPaise),
+      r.daDayPaise ? rupees(r.daDayPaise) : "",
+      rupees(x.daPaise),
+      rupees(x.expensesPaise),
+      r.claimsWaiting,
       rupees(x.advancesPaise),
       rupees(x.carriedInPaise),
       rupees(x.adjustmentPaise),
