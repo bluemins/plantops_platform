@@ -26,7 +26,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | WhatsApp | not set up (waiting for Meta approval) |
 | File storage | Railway volume (move to S3-compatible storage + backups before real plant documents) |
 | Backups | nightly 02:00 IST, encrypted (`age`), to Cloudflare R2 bucket `plantops-backup` (`backup.yml`): database dump (30 days, read-only login `plantops_backup`) + Document Store files. Private key in the password manager. Practice restore done 2026-10-11 |
-| Runs release | v0.19.0 (`production` = commit `b12380b`) |
+| Runs release | v0.20.1 (`production` = commit `89d5aae`) |
 
 ## History
 | Date | What |
@@ -52,6 +52,8 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | 2026-10-15 | v0.16.1 live (clearer role buttons on Add / Edit user; platform screen only, no migration, no access change). `git push origin v0.16.1:production` (`8a9c749`). Checks: the live Users screen code has the new texts; JWKS and `/login` 200; Lab / Docs / Stock / Complaints / Orders `/health` database OK. Not yet looked at on screen by the owner. |
 | 2026-10-15 | v0.17.0 live (Plant staff = employee: no longer opens Floor Stock, Document Store, Complaint Box or Marketing Contacts; keeps the Order Capture view; no migration). Before the deploy the owner had moved everyone off Plant staff except Gaja (Store keeper + Plant staff), so only Gaja lost Document Store + Complaint Box. `git push origin v0.17.0:production` (`232f02c`). Checks: the live Users screen code has the new Plant staff text; JWKS and `/login` 200; Lab / Docs / Stock / Complaints / Orders `/health` database OK. Not yet tried: a Plant-staff-only login refused by Floor Stock on the live copy. |
 | 2026-10-16 | v0.18.0 (Attendance) and v0.19.0 (Floor Stock "Made from") live, recorded afterwards during Salary Phase 0: `production` = `b12380b`; `attendance.bluemins.life/health` 200 with the database OK; the owner says Attendance is in use at plant 001. Not recorded at deploy time: the `add-railway-module.sh` run, DNS, the `attendance-salary` service variables, GitHub variable `ATTENDANCE_URL` and a green Daily jobs run with the Attendance step. |
+| 2026-10-17 | v0.20.0 live (Salary): `production` = `340a9bf`, pushed at 05:58 UTC; recorded afterwards with v0.20.1. `railway-migrate.sh shared` (run for v0.20.1) reported every app up to date, so Attendance `0002_salary.sql` is applied. |
+| 2026-10-17 | v0.20.1 live (Order Capture: rate per product line in "Copy as WhatsApp message", note + Amount per order, no grand total; no migration). `git push origin v0.20.1:production` (`89d5aae`). Railway reported all seven services deployed; every `/health` database OK, JWKS 200, Orders login redirect. Not yet tried on screen: copying O-0001 and checking its rates against the order page. |
 
 ## v0.20.0 (Salary): owner's checklist at plant 001
 From `docs/SALARY_PHASE_PLAN.md` Phase 7; how-to in `docs/HANDBOOK.md` "Attendance: salary at month end". Tick each
