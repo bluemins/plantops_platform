@@ -94,7 +94,8 @@ export function handleUpload<C>(maxBytes: number, fn: (req: Request, body: Buffe
   };
 }
 
-async function readBody(req: Request, maxBytes: number): Promise<Buffer> {
+/** The request body, read up to `maxBytes` and never more (413 with `tooBig`, or the files message). */
+export async function readBody(req: Request, maxBytes: number, tooBig?: string): Promise<Buffer> {
   if (!req.body) return Buffer.alloc(0);
   const chunks: Uint8Array[] = [];
   let size = 0;
@@ -105,9 +106,41 @@ async function readBody(req: Request, maxBytes: number): Promise<Buffer> {
     size += value.byteLength;
     if (size > maxBytes) {
       await reader.cancel();
-      throw new HttpError(413, `Files can be at most ${Math.round(maxBytes / 1024 / 1024)} MB`);
+      throw new HttpError(413, tooBig ?? `Files can be at most ${Math.round(maxBytes / 1024 / 1024)} MB`);
     }
     chunks.push(value);
   }
   return Buffer.concat(chunks);
+}
+
+// ---------- rate limit (public pages: Job applications' form) ----------
+
+/**
+ * The sender's address as our host's proxy saw it: Railway's X-Real-IP, else the LAST X-Forwarded-For entry (the one
+ * the proxy added; earlier entries are whatever the sender typed). Only for counting; never stored.
+ */
+export function clientIp(req: Request) {
+  const real = req.headers.get("x-real-ip")?.trim();
+  if (real) return real;
+  const forwarded = req.headers.get("x-forwarded-for")?.split(",").map((s) => s.trim()).filter(Boolean);
+  return forwarded?.at(-1) || "unknown";
+}
+
+const buckets = new Map<string, { count: number; resetAt: number }>();
+
+/** At most `max` calls per `key` in a fixed window (in memory, per server). Over the limit: 429 with `message`. */
+export function rateLimit(key: string, max: number, windowMs: number, message = "Too many attempts. Please try again later.", now = Date.now()) {
+  if (buckets.size > 10_000) for (const [k, b] of buckets) if (b.resetAt <= now) buckets.delete(k);
+  const b = buckets.get(key);
+  if (!b || b.resetAt <= now) {
+    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    return;
+  }
+  if (b.count >= max) throw new HttpError(429, message);
+  b.count++;
+}
+
+/** Tests: forget every count. */
+export function resetRateLimits() {
+  buckets.clear();
 }

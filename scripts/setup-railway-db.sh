@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # One-time setup of a hosted PlantOps copy (Railway). See docs/DEPLOY.md. Example:
 #   ./scripts/setup-railway-db.sh shared
-# - Asks for the copy's Railway Postgres address (DATABASE_PUBLIC_URL), its six web addresses and the
+# - Asks for the copy's Railway Postgres address (DATABASE_PUBLIC_URL), its web addresses and the
 #   super_admin email.
-# - Creates the eight database logins and the `plantops` database (scripts/setup-railway-db.sql).
+# - Creates the database logins (one per app) and the `plantops` database (scripts/setup-railway-db.sql).
 # - Generates every secret for this copy and writes two files (never committed, matched by .env.* in .gitignore):
 #     .env.railway.<copy>        used from this computer: migrations, seed (scripts/railway-migrate.sh)
 #     .env.railway.<copy>.paste  one block per Railway service, for its Variables > Raw Editor
@@ -32,20 +32,21 @@ STOCK_HOST=$(ask "Floor Stock address" "stock.bluemins.life")
 COMPLAINT_HOST=$(ask "Complaint Box address" "complaints.bluemins.life")
 ORDER_HOST=$(ask "Order Capture address" "orders.bluemins.life")
 ATTEND_HOST=$(ask "Attendance address" "attendance.bluemins.life")
+JOBS_HOST=$(ask "Job applications address" "jobs.bluemins.life")
 SUPER_EMAIL=$(ask "super_admin login email" "")
 [ -n "$SUPER_EMAIL" ] || { echo "The super_admin email is required"; exit 1; }
 
 gen() { openssl rand -hex "$1"; }
-OWNER_PW=$(gen 16); APP_PW=$(gen 16); SUPER_PW=$(gen 16); LAB_PW=$(gen 16); DOC_PW=$(gen 16); STOCK_PW=$(gen 16); COMPLAINT_PW=$(gen 16); ORDER_PW=$(gen 16); ATTEND_PW=$(gen 16)
+OWNER_PW=$(gen 16); APP_PW=$(gen 16); SUPER_PW=$(gen 16); LAB_PW=$(gen 16); DOC_PW=$(gen 16); STOCK_PW=$(gen 16); COMPLAINT_PW=$(gen 16); ORDER_PW=$(gen 16); ATTEND_PW=$(gen 16); JOBS_PW=$(gen 16)
 SUPER_ADMIN_PW=$(gen 12)
-LAB_SESSION=$(gen 32); DOC_SESSION=$(gen 32); STOCK_SESSION=$(gen 32); COMPLAINT_SESSION=$(gen 32); ORDER_SESSION=$(gen 32); ATTEND_SESSION=$(gen 32)
-LAB_SECRET=$(gen 32); DOC_SECRET=$(gen 32); STOCK_SECRET=$(gen 32); COMPLAINT_SECRET=$(gen 32); ORDER_SECRET=$(gen 32); ATTEND_SECRET=$(gen 32)
+LAB_SESSION=$(gen 32); DOC_SESSION=$(gen 32); STOCK_SESSION=$(gen 32); COMPLAINT_SESSION=$(gen 32); ORDER_SESSION=$(gen 32); ATTEND_SESSION=$(gen 32); JOBS_SESSION=$(gen 32)
+LAB_SECRET=$(gen 32); DOC_SECRET=$(gen 32); STOCK_SECRET=$(gen 32); COMPLAINT_SECRET=$(gen 32); ORDER_SECRET=$(gen 32); ATTEND_SECRET=$(gen 32); JOBS_SECRET=$(gen 32)
 CRON=$(gen 32)
 SSO_KEY=$(node scripts/generate-sso-key.mjs)
 
 echo "Creating database logins and the plantops database..."
 psql "$ADMIN_URL" -q -v ON_ERROR_STOP=1 \
-  -v owner_pw="$OWNER_PW" -v app_pw="$APP_PW" -v super_pw="$SUPER_PW" -v lab_pw="$LAB_PW" -v doc_pw="$DOC_PW" -v stock_pw="$STOCK_PW" -v complaint_pw="$COMPLAINT_PW" -v order_pw="$ORDER_PW" -v attend_pw="$ATTEND_PW" \
+  -v owner_pw="$OWNER_PW" -v app_pw="$APP_PW" -v super_pw="$SUPER_PW" -v lab_pw="$LAB_PW" -v doc_pw="$DOC_PW" -v stock_pw="$STOCK_PW" -v complaint_pw="$COMPLAINT_PW" -v order_pw="$ORDER_PW" -v attend_pw="$ATTEND_PW" -v jobs_pw="$JOBS_PW" \
   -f scripts/setup-railway-db.sql
 
 # From this computer: Railway's public proxy address, same host/port as the admin address.
@@ -72,6 +73,8 @@ MODULE_URL_ORDER_CAPTURE=https://$ORDER_HOST
 MODULE_SECRET_ORDER_CAPTURE=$ORDER_SECRET
 MODULE_URL_ATTENDANCE_SALARY=https://$ATTEND_HOST
 MODULE_SECRET_ATTENDANCE_SALARY=$ATTEND_SECRET
+MODULE_URL_JOB_APPLICATIONS=https://$JOBS_HOST
+MODULE_SECRET_JOB_APPLICATIONS=$JOBS_SECRET
 ENV
 
 cat > "$PASTE" <<ENV
@@ -151,6 +154,23 @@ ATTEND_DATABASE_URL_APP=$(inner attendance_app "$ATTEND_PW")
 ATTEND_SESSION_SECRET=$ATTEND_SESSION
 CRON_SECRET=$CRON
 
+##### job-applications  (domain: $JOBS_HOST, port 3007; volume mounted at /data. Copy the five BACKUP_* from
+##### document-store once backups are set up; Turnstile keys can come later, docs/HANDBOOK.md)
+PORT=3007
+RAILWAY_DOCKERFILE_PATH=apps/job-applications/Dockerfile
+PLATFORM_URL=https://$APP_HOST
+MODULE_URL_JOB_APPLICATIONS=https://$JOBS_HOST
+MODULE_SECRET_JOB_APPLICATIONS=$JOBS_SECRET
+JOBS_DATABASE_URL_APP=$(inner jobs_app "$JOBS_PW")
+JOBS_SESSION_SECRET=$JOBS_SESSION
+JOBS_STORAGE_DIR=/data/jobs
+RAILWAY_RUN_UID=0
+CRON_SECRET=$CRON
+# the plant whose job page is at the bare address, e.g. 001
+JOBS_DEFAULT_PLANT=
+TURNSTILE_SITE_KEY=
+TURNSTILE_SECRET=
+
 ##### GitHub > Settings > Environments > "$COPY" (daily reminder jobs, .github/workflows/daily.yml)
 # variable LAB_URL   = https://$LAB_HOST
 # variable DOCS_URL  = https://$DOC_HOST
@@ -158,6 +178,7 @@ CRON_SECRET=$CRON
 # variable COMPLAINT_URL = https://$COMPLAINT_HOST
 # variable ORDER_URL = https://$ORDER_HOST
 # variable ATTENDANCE_URL = https://$ATTEND_HOST
+# variable JOBS_URL = https://$JOBS_HOST   (and JOBS_BACKUP_FILES = on once backups are set up)
 # secret   CRON_SECRET = $CRON
 ENV
 

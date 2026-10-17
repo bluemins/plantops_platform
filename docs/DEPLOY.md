@@ -114,7 +114,7 @@ together with the release that contains the module, **before** pushing that rele
 migration needs its database login to exist.
 
 **Order matters when the release also adds the module to the platform** (Complaint Box: platform migration `0013`;
-Order Capture: `0014`; Attendance needs none: its module row exists since `0001`).
+Order Capture: `0014`; Job applications: `0016`; Attendance needs none: its module row exists since `0001`).
 Run the platform migration first:
 `PLANTOPS_ENV_FILE=$PWD/.env.railway.<copy> pnpm --filter @plantops/platform db:migrate`. The script registers the
 module by updating the row that migration creates. It now stops with a plain message if the row isn't there yet.
@@ -131,8 +131,10 @@ After the script, run `./scripts/railway-migrate.sh <copy>` once, so the backup 
 
    It adds two lines to `.env.railway.<copy>` (update your password-manager copy) and writes
    `.env.railway.<copy>.<module>.paste` with only what that module needs. `CRON_SECRET` is always included. The Brevo
-   lines appear only for modules that send email; modules that store files (Document Store, Complaint Box) get
-   their storage folder, `RAILWAY_RUN_UID=0` and the five `BACKUP_*`. A module without files (Floor Stock,
+   lines appear only for modules that send email; modules that store files (Document Store, Complaint Box, Job
+   applications) get their storage folder, `RAILWAY_RUN_UID=0` and the five `BACKUP_*`. Job applications also gets
+   `JOBS_DEFAULT_PLANT=` (the plant at the bare address, `001` on the shared copy) and the two Turnstile lines (fill
+   them in later, docs/HANDBOOK.md "Job applications"). A module without files (Floor Stock,
    Order Capture) needs no volume and no `BACKUP_*`.
 2. **Service.** Create the `floor-stock` service exactly like step 3 of "Setting up a new copy" (branch
    `production`, Healthcheck `/health`, Singapore). Paste the `.paste` block into its Variables → Raw Editor.
@@ -141,7 +143,8 @@ After the script, run `./scripts/railway-migrate.sh <copy>` once, so the backup 
 3. **Address and DNS:** steps 6–7 above (`stock`, port 3002).
 4. **Daily job:** add the module's variable to the GitHub environment (`STOCK_URL` = `https://stock.bluemins.life`,
    `COMPLAINT_URL` = `https://complaints.bluemins.life`, `ORDER_URL` = `https://orders.bluemins.life`,
-   `ATTENDANCE_URL` = `https://attendance.bluemins.life`). Its daily
+   `ATTENDANCE_URL` = `https://attendance.bluemins.life`, `JOBS_URL` = `https://jobs.bluemins.life` plus
+   `JOBS_BACKUP_FILES` = `on` once its `BACKUP_*` are set). Its daily
    (and, for Complaint Box, backup) step is skipped until it is set. Add the module's schema to the "every schema has
    data" list in `backup.yml` **after** its live migration, so each nightly dump is checked for it.
 5. **Release** as below (no other migration needed for this module), then run the checks.
@@ -199,6 +202,11 @@ Migrations stay; the older code works with them because they are backward-compat
 - Complaint Box: a complaint with a photo, redeploy `complaint-box`, and the photo still opens (the volume works).
 - Order Capture: an Order desk user saves an order on a phone; the owner gets "New order O-0001" (bell + phone) and
   the tile shows "1 pending".
+- Job applications: `https://<jobs address>/health` OK; the bare address says "This page is not available" until the
+  default plant switches the module on, then shows its page. `/applications` without a session goes to the PlantOps
+  login. A test application from a phone (photo CV) gives J-0001; the owner gets the bell and the tile says "1 new";
+  Remove now on it, then *Daily jobs* → Run workflow, and the file is gone (redeploy first to check the volume keeps
+  files).
 - Attendance: the owner sets the plant location and prints the QR (the tile stops saying "Set location & QR"); a Plant
   staff worker scans it on a phone (https only) and marks IN; a mark from far away is refused and the owner gets
   the bell; the owner fixes a forgotten OUT and the worker gets "Your attendance on … was changed".

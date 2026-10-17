@@ -1,11 +1,12 @@
 // Where a module's uploaded files live (moved here from Document Store so every module shares it). Two drivers:
 //   * local disk (development, or a single server with a volume)
 //   * S3-compatible object storage, when the module's bucket is set
-// Files are written once and never changed or deleted. Keys are random: "tenant/<tenant_id>/<uuid>" - any
+// Files are written once and never changed. Only Job applications ever removes one (personal data kept 12 months, or
+// the owner's "Remove now"); every other module never calls remove(). Keys are random: "tenant/<tenant_id>/<uuid>" - any
 // original file name is only kept as data in the database. Each module uses its OWN folder / bucket, so one
 // module's backup never copies another module's files.
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { s3Client, type S3Settings } from "./s3";
 
@@ -14,6 +15,8 @@ export interface FileStorage {
   get(key: string): Promise<Buffer>;
   /** Every stored key (for the backup copy). */
   list(): Promise<string[]>;
+  /** Deletes one file; a missing file counts as removed. Job applications only (see above). */
+  remove(key: string): Promise<void>;
 }
 
 const KEY = /^tenant\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/;
@@ -40,6 +43,9 @@ export function localStorage(dir: string): FileStorage {
       for (const t of tenants) for (const f of await readdir(path.join(dir, "tenant", t))) keys.push(`tenant/${t}/${f}`);
       return keys.filter((k) => KEY.test(k));
     },
+    async remove(key) {
+      await unlink(fileFor(key)).catch((err: NodeJS.ErrnoException) => (err.code === "ENOENT" ? undefined : Promise.reject(err)));
+    },
   };
 }
 
@@ -51,6 +57,10 @@ export function s3Storage(o: S3Settings): FileStorage {
     put: (key, data, contentType) => client.put(key, data, contentType),
     get: (key) => client.get(key),
     list: () => client.list("tenant/"),
+    async remove(key) {
+      if (!KEY.test(key)) throw new Error("Invalid storage key");
+      await client.delete!(key);
+    },
   };
 }
 

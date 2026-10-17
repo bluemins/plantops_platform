@@ -110,3 +110,13 @@ jobs:
           code=$(curl -sS --max-time 120 -o result.json -w '%{http_code}' -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/backup")
           cat result.json; echo
           [ "$code" = 200 ] && jq -e '.status == "ok"' result.json >/dev/null
+
+      - name: Job applications files
+        if: ${{ !cancelled() && vars.JOBS_URL != '' && vars.JOBS_BACKUP_FILES == 'on' }}
+        env:
+          URL: ${{ vars.JOBS_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -sS --max-time 120 -o result.json -w '%{http_code}' -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/backup")
+          cat result.json; echo
+          [ "$code" = 200 ] && jq -e '.status == "ok"' result.json >/dev/null

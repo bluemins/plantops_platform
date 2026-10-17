@@ -16,7 +16,8 @@
     "./s3": "./src/s3.ts",
     "./backup": "./src/backup.ts",
     "./storage": "./src/storage.ts",
-    "./phone": "./src/phone.ts"
+    "./phone": "./src/phone.ts",
+    "./photo": "./src/photo.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

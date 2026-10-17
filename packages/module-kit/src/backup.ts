@@ -56,6 +56,21 @@ export async function decryptBackup(data: Buffer, identity: string): Promise<Buf
 export const backupKeyFor = (moduleId: string, key: string) => `files/${moduleId}/${key}.age`;
 
 /**
+ * Deletes the backup copy of one file (Job applications' removal after 12 months or "Remove now": the personal data
+ * must go from the backup too). "not set up" when there is no backup bucket. Every other module never calls it.
+ */
+export async function removeBackupCopy(moduleId: string, key: string, opts: { settings?: BackupSettings | null; target?: S3Client } = {}): Promise<"removed" | "not set up"> {
+  if (!/^[a-z_]+$/.test(moduleId)) throw new Error("Invalid module id");
+  if (key.includes("..") || key.startsWith("/")) throw new Error("Invalid file key");
+  const settings = opts.settings === undefined ? backupSettings() : opts.settings;
+  if (!settings) return "not set up";
+  const target = opts.target ?? s3Client(settings);
+  if (!target.delete) throw new Error("This backup bucket client can't delete");
+  await target.delete(backupKeyFor(moduleId, key));
+  return "removed";
+}
+
+/**
  * Copies the files that are not in the backup bucket yet. Stops starting new files after `timeLimitMs`; the rest
  * ("waiting") go on the next run. One unreadable file doesn't stop the others, but makes the run "failed".
  */

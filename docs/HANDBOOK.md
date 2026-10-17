@@ -457,6 +457,35 @@ the Today board, the Staff list or the Salary tab, and don't mark their own atte
 - Launcher tiles: Office staff see "Attendance desk", supervisors "Today board", both with attendance numbers, never
   money.
 
+### Job applications: public page, Turnstile, QR poster, removal (v0.25.0)
+- **Switching it on for a plant:** super_admin → the plant → plan → tick Job applications (optionally set "Job
+  applications storage (MB)"). Give the person who calls applicants the **HR desk** role on Manage users; tick "Gets
+  Job applications alerts" if they should get the bell. Plant staff never see it.
+- **The public page:** `jobs.bluemins.life` shows the plant in `JOBS_DEFAULT_PLANT` (001 on the shared copy); any
+  other plant is at `jobs.bluemins.life/<plant code>`. A plant that is unknown, suspended or hasn't switched the module
+  on gets "This page is not available" (the same answer for every reason, so nobody can find plant codes this way).
+  Don't give a plant the code `APPLY`: `/apply` is the default plant's form.
+- **Openings (owner):** Job applications → Openings: + Add (position, group, short tag, description, minimum
+  qualification, good to have), the on / off switch, ↑ ↓ within a group, the message at the top of the page. Switched-off
+  positions vanish from the public page at once; nothing is deleted, and applications keep the name they applied for.
+  People can always "just send their resume" (Any job), even with no position on.
+- **The QR poster:** Openings → Print QR poster (A4, "We are hiring" + the QR of the public address). The address is
+  taken from `MODULE_URL_JOB_APPLICATIONS`, so it is the real `https://jobs…` one.
+- **Spam rules:** a hidden trap field; **20 sends per internet connection per hour** (a hiring drive on one mobile
+  network still works); one application per phone per position per 30 days; files checked by their contents (PDF,
+  JPEG, PNG, WebP only); a full storage plan closes the form and tells the owners.
+- **Turning Turnstile on** (Cloudflare's free "are you human?" check): Cloudflare → Turnstile → Add widget, name
+  "PlantOps jobs", hostname `jobs.bluemins.life`, mode Managed. Put the **Site key** in `TURNSTILE_SITE_KEY` and the
+  **Secret key** in `TURNSTILE_SECRET` on the `job-applications` service (both, or neither). Never in a file. When
+  Cloudflare can't be reached, a send is refused with "try again in a minute".
+- **Kept 12 months:** applicants agree to that on the form. The daily job removes applications sent more than 12 months
+  ago (with notes and resume files), and deletes the files from storage **and the backup bucket**. The owner's
+  **Remove now** (on an application, with a reason, e.g. "the applicant asked") does the same at once; only the line
+  "J-0042 removed: <reason>" stays in Recent changes. Nightly database dumps are kept 30 days, so a removed applicant is
+  gone everywhere within 30 days.
+- **The hourly limit counts the sender's address** as Railway's proxy passes it on. If many different people are
+  refused at once ("Too many applications from this connection"), tell me: the proxy may be giving one shared address.
+
 ## 11. Files, backups and data location
 
 - **Uploaded documents** are on `document-store-volume`, mounted at `/data`. `DOC_STORAGE_DIR=/data/documents`,
@@ -464,6 +493,10 @@ the Today board, the Staff list or the Salary tab, and don't mark their own atte
 - **Bill photos of expense claims** (v0.22.0) are on Attendance's **own** `attendance-salary-volume` at `/data`
   (`ATTEND_STORAGE_DIR=/data/attendance`, `RAILWAY_RUN_UID=0`); the backup step needs the GitHub variable
   `ATTENDANCE_BACKUP_FILES=on`.
+- **Resumes** (v0.25.0) are on Job applications' **own** `job-applications-volume` at `/data`
+  (`JOBS_STORAGE_DIR=/data/jobs`, `RAILWAY_RUN_UID=0`); the backup step needs the GitHub variable
+  `JOBS_BACKUP_FILES=on`. **This is the only module whose files are ever deleted** (12-month removal, Remove now): the
+  daily job deletes them from the volume and their copy from the backup bucket.
 - **Complaint photos / videos** are on Complaint Box's **own** `complaint-box-volume` at `/data`
   (`COMPLAINT_STORAGE_DIR=/data/complaints`, `RAILWAY_RUN_UID=0`). Never Document Store's volume or bucket.
 - **Backups: every night, encrypted, outside Railway** (Railway's own Backups tab needs the Pro plan). The
@@ -473,7 +506,9 @@ the Today board, the Staff list or the Salary tab, and don't mark their own atte
     (`db/<copy>/plantops-<copy>-<date>.dump.age`), kept **30 days**.
   - **Files:** each app that stores files (Document Store, Complaint Box) copies its **new** files there
     (`files/<module>/tenant/<plant>/<file>.age`). Files are never changed or deleted in PlantOps, so the copies
-    are kept as long as the app keeps them: forever.
+    are kept as long as the app keeps them: forever. **Except Job applications:** its resumes are removed after 12
+    months or by the owner's Remove now, and the daily job deletes their backup copy too (the R2 token's *Object Read
+    & Write* allows that).
   - Everything is encrypted with `age`. GitHub and Railway hold only the **public** key, which can lock but not
     open. The **private** key ("PlantOps backup key") is only in your password manager. **Lose it and the
     backups can't be opened by anyone.** Keep two copies.
@@ -495,8 +530,8 @@ the Today board, the Staff list or the Salary tab, and don't mark their own atte
      - variables `BACKUP_BUCKET`, `BACKUP_ENDPOINT`, `BACKUP_RECIPIENT` (= the public key) (`DOCS_URL` is there)
   7. Railway → `document-store` → Variables: `BACKUP_BUCKET`, `BACKUP_ENDPOINT`, `BACKUP_ACCESS_KEY_ID`,
      `BACKUP_SECRET_ACCESS_KEY`, `BACKUP_RECIPIENT`. Every app that stores files gets the same five (also
-     `complaint-box`, plus `COMPLAINT_URL` in GitHub for its backup step; and `attendance-salary`, plus
-     `ATTENDANCE_BACKUP_FILES=on` in GitHub for its step).
+     `complaint-box`, plus `COMPLAINT_URL` in GitHub for its backup step; `attendance-salary`, plus
+     `ATTENDANCE_BACKUP_FILES=on` in GitHub for its step; and `job-applications`, plus `JOBS_BACKUP_FILES=on`).
   8. GitHub → Actions → **Backup** → Run workflow. All steps green; then `pnpm backup list` shows the dump.
   9. Do a practice restore (below) once, and again every few months.
 

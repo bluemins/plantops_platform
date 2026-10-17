@@ -3,7 +3,7 @@
 --   plantops_owner  owns tables, runs migrations (BYPASSRLS: also used by SECURITY DEFINER functions)
 --   platform_app    every plant-user request; always subject to row-level security
 --   platform_super  super_admin routes only; BYPASSRLS
---   lab_app, doc_app, stock_app, complaint_app, order_app, attendance_app  one login per module; never the owner, always under
+--   lab_app, doc_app, stock_app, complaint_app, order_app, attendance_app, jobs_app  one login per module; never the owner, always under
 --   row-level security
 -- Each module's tables and exact permissions come from its migrations (run as plantops_owner).
 SELECT 'CREATE ROLE plantops_owner' WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'plantops_owner') \gexec
@@ -15,6 +15,7 @@ SELECT 'CREATE ROLE stock_app' WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE ro
 SELECT 'CREATE ROLE complaint_app' WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'complaint_app') \gexec
 SELECT 'CREATE ROLE order_app' WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'order_app') \gexec
 SELECT 'CREATE ROLE attendance_app' WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'attendance_app') \gexec
+SELECT 'CREATE ROLE jobs_app' WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'jobs_app') \gexec
 
 ALTER ROLE plantops_owner LOGIN BYPASSRLS PASSWORD :'owner_pw';
 ALTER ROLE platform_app LOGIN NOBYPASSRLS PASSWORD :'app_pw';
@@ -25,5 +26,6 @@ ALTER ROLE stock_app LOGIN NOBYPASSRLS PASSWORD :'stock_pw';
 ALTER ROLE complaint_app LOGIN NOBYPASSRLS PASSWORD :'complaint_pw';
 ALTER ROLE order_app LOGIN NOBYPASSRLS PASSWORD :'order_pw';
 ALTER ROLE attendance_app LOGIN NOBYPASSRLS PASSWORD :'attend_pw';
+ALTER ROLE jobs_app LOGIN NOBYPASSRLS PASSWORD :'jobs_pw';
 
 SELECT 'CREATE DATABASE plantops OWNER plantops_owner' WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'plantops') \gexec

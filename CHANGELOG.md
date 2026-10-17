@@ -4,6 +4,31 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.25.0 — 2026-10-17 — Job applications (new module)
+
+**What's in it**
+- **A public job page** at `jobs.bluemins.life` (plant 001, set by `JOBS_DEFAULT_PLANT`) and `jobs.bluemins.life/<plant
+  code>`: the plant's open positions grouped by area, one page per position, and an apply form without a login: name,
+  mobile, where they live, the position or "Any job", and a resume (one PDF up to 5 MB or 1–3 photos, shrunk on the
+  phone), with a consent tick ("kept for 12 months"). The applicant gets a reference (J-0001…).
+- **Spam rules:** a hidden trap field, 20 sends per connection per hour, one application per phone per position per
+  30 days, files checked by their contents, and Cloudflare Turnstile once its keys are set.
+- **New role HR desk** (Manage users): sees all applications, calls / WhatsApps, changes the status (New, Called,
+  Shortlisted, Hired, Not suitable), adds notes. Can be ticked for "Gets Job applications alerts".
+- **Owner:** Openings (positions with on / off, order, application counts, the page message, Copy link, a printable QR
+  poster), Recent changes, CSV, and **Remove now** with a reason. Plant staff get nothing in this module.
+- **Personal data is kept 12 months:** the daily job removes older applications, and their files from storage and the
+  backup. The first PlantOps module that ever deletes data, only through two locked-down database functions.
+- **Notifications:** "New job application" (bell; owners + ticked HR desk; never the phone number), storage 80 % /
+  95 % / full (owners). Tile: "N new", "N this week", "Public page has no openings". Support view read-only and logged.
+- **Platform:** the plant code is now in the branding answer modules get (server to server).
+
+**Migrations:** platform `0016_job_applications.sql` (module row + role `hr_desk`); Job applications
+`0001_job_applications.sql` (new schema `job_applications`, login `jobs_app`: 9 tables with FORCE row-level security,
+SELECT + INSERT and a few column UPDATEs, no DELETE; the removal functions). Run the platform migration first, then
+`./scripts/add-railway-module.sh <copy> job_applications jobs_app JOBS 3007 <address>` (docs/DEPLOY.md). SSO token
+unchanged.
+
 ## v0.24.0 — 2026-10-17 — Attendance & Salary: "Ask for DA" on a field duty
 
 **What's in it**

@@ -1,4 +1,4 @@
-import { AlertContact, NotificationInput, NotificationResult, TenantBranding, TenantPlan, TenantSku, UserStatus, type ModuleId } from "@plantops/types";
+import { AlertContact, NotificationInput, NotificationResult, PublicPlant, TenantBranding, TenantPlan, TenantSku, UserStatus, type ModuleId } from "@plantops/types";
 
 /** How a module app identifies itself to the platform (server-to-server only, never from the browser). */
 export interface ModuleCredentials {
@@ -56,6 +56,19 @@ export async function fetchTenantPlan(c: ModuleCredentials, tenantId: string) {
 /** Plant name, brand colour and logo path, so the module looks like the plant's other screens. Cache briefly. */
 export async function fetchBranding(c: ModuleCredentials, tenantId: string) {
   return TenantBranding.parse(await call(c, `/api/m/tenants/${tenantId}/branding`));
+}
+
+/**
+ * Job applications' public page: the plant behind a plant code (only an active plant with the module switched on).
+ * null = no such plant for this page (the platform gives one 404 for every reason). Throws if the platform can't say.
+ */
+export async function fetchPlantByCode(c: ModuleCredentials, code: string): Promise<PublicPlant | null> {
+  try {
+    return PublicPlant.parse(await call(c, `/api/m/plants/by-code/${encodeURIComponent(code)}`));
+  } catch (err) {
+    if (err instanceof PlatformRequestError && err.status === 404) return null;
+    throw err;
+  }
 }
 
 /** Owners + this module's staff with phone numbers, for alerts (e.g. WhatsApp on a failed test). */

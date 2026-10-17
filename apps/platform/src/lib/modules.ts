@@ -21,6 +21,7 @@ export const MODULES: Record<ModuleId, { label: string; icon: string; staff: str
     staffBy: { office_staff: "Attendance desk", supervisor: "Today board" },
     setup: { label: "⚙ Location & QR", path: "/settings" },
   },
+  job_applications: { label: "Job applications", icon: "📋", staff: "Applications", setup: { label: "⚙ Openings", path: "/openings" } },
   marketing_contacts: { label: "Marketing Contacts", icon: "📣", staff: "Contacts & follow-ups" },
 };
 

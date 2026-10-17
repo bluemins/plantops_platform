@@ -117,7 +117,8 @@ Each opening has:
     storage notification;
   - **spam rules:**
     - a hidden trap field (filled → answer "sent" but save nothing)
-    - at most 5 sends per IP per hour (in memory, per server; the IP is never stored)
+    - at most 20 sends per IP per hour (in memory, per server; the IP is never stored). Was 5; raised by the owner
+      on 2026-10-17 so a hiring drive on one mobile network isn't blocked
     - **one application per phone per opening per 30 days** ("You already applied on 12 Oct. We have your details.")
       — "Any job" counts as one opening
     - **Cloudflare Turnstile** (free) when `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET` are set; without them the other
@@ -303,7 +304,7 @@ short dated note in `apps/job-applications/NOTES.md`.
   trap field; IP rate limit; 30-day repeat rule; Turnstile when configured; reference under the advisory lock; files
   then rows in one transaction; consent version + time.
 - Tests: every field rule; PDF / photos accepted; renamed `.exe`, SVG, HTML, oversized PDF, 4 photos refused; trap
-  field saves nothing but answers "sent"; 6th send in an hour refused; repeat phone within 30 days refused, after 30
+  field saves nothing but answers "sent"; 21st send in an hour refused; repeat phone within 30 days refused, after 30
   days or for another position accepted; storage full → closed + no row; Turnstile success / failure / server down
   against a fake server; same request key twice → one application; two parallel sends → different references;
   tenant / opening ids from the form ignored (opening must be an open opening of that plant); a switched-off opening
@@ -445,7 +446,7 @@ Build Phase 4 (Sending an application) of docs/JOB_APPLICATIONS_PHASE_PLAN.md:
 - mock-up screens 3 (apply form: Any job or a position, name, mobile, place, PDF or 1-3 photos shrunk on the phone,
   consent tick) and 4 (sent, with the reference)
 - POST /api/apply/<code> (multipart) with every server rule in "Sending an application": plant from the code, field
-  checks, file sniffing and limits, storage limit, trap field, 5 per IP per hour, one per phone per opening per 30
+  checks, file sniffing and limits, storage limit, trap field, 20 per IP per hour, one per phone per opening per 30
   days, Turnstile when configured, reference under the per-plant advisory lock, files then rows, consent version and
   time, one-time request key (not crypto.randomUUID)
 - TURNSTILE_SITE_KEY / TURNSTILE_SECRET in the env reader and .env.example (empty), never real keys

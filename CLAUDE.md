@@ -16,6 +16,8 @@ independently, with its own URL, Docker image and database schema.
 - `apps/amc`
 - `apps/attendance-salary` (version 1 = attendance, built before Preventive Management, decided by the owner
   2026-10-15; v0.18.0. Version 2 = salary, v0.20.0, 2026-10-17. Office staff + Supervisor roles, v0.23.0)
+- `apps/job-applications` (public job page + applicants for owner / HR desk; built before Preventive Management, decided
+  by the owner 2026-10-17; v0.25.0)
 - `apps/marketing-contacts`
 - `packages/auth` — SSO token verification + role guards, used by every module
 - `packages/ui` — shared UI components (tiles, buttons, forms)
@@ -57,6 +59,11 @@ through the Lab Records API.
   slip or claim. A Supervisor sees the Today board read-only, gets a bell for every IN / OUT and the morning
   "not marked" alert. Neither is tracked or paid unless they also hold Plant staff. Inside Attendance a person's roles
   become a set of capacities (owner, employee, office, supervisor) in one access table (`src/server/access.ts`).
+- **HR desk** (`hr_desk`), Job applications only (owner, 2026-10-17; v0.25.0): sees every application, calls /
+  WhatsApps, changes the status and adds notes. Openings, CSV and "Remove now" are owner-only. Plant staff never work in
+  Job applications. Its public page (`jobs.bluemins.life`, `/<plant code>`) is the **only PlantOps page strangers can
+  write to**, without a login; the plant comes from the address only (`GET /api/m/plants/by-code/:code`, Job
+  applications' credentials only, one 404 for every refusal).
 - A user can hold **more than one role** (e.g. lab technician AND store keeper in a small plant). tenant_admin
   is a role in `users`/`user_roles`, not a separate account type.
 - Login: plant users log in with **plant code + username + secret**. Staff use a 6-digit **PIN**; anyone holding
@@ -119,8 +126,9 @@ working. Nothing is stored. The request's `view` says whose tile it is (owner, s
 screens stay PlantOps blue.
 
 **Every module app must** (all in `packages/auth`, wired up once by `createModule()` in `packages/module-kit`;
-`apps/lab-records`, `apps/document-store`, `apps/floor-stock`, `apps/complaint-box`, `apps/order-capture` and
-`apps/attendance-salary` use it):
+`apps/lab-records`, `apps/document-store`, `apps/floor-stock`, `apps/complaint-box`, `apps/order-capture`,
+`apps/attendance-salary` and `apps/job-applications` use it; Job applications lands logins on `homePath: "/applications"`
+because its `/` is the public page):
 `startModuleSession` at `/sso/callback`, keep the session with `sealSession`/`openSession` (own
 `SESSION_SECRET`, ≥ 32 chars), call `refreshModuleSession` on every request (12 h shift, 5-min re-check,
 15-min grace if the platform is unreachable), send users without a session to
@@ -177,7 +185,8 @@ prompt to add to a module phase is in `docs/notifications.md` ("N5+").
 - PostgreSQL, managed hosting. Hosting: Railway, Singapore region, one project (decided 2026-10-04 for low
   cost); India hosting later if a plant needs it. Public addresses: `app.bluemins.life` (platform),
   `lab.bluemins.life` (Lab Records), `docs.bluemins.life` (Document Store), `stock.bluemins.life` (Floor Stock),
-  `complaints.bluemins.life` (Complaint Box), `orders.bluemins.life` (Order Capture), `attendance.bluemins.life` (Attendance); `bluemins.life` itself stays a static site on GitHub Pages, DNS at
+  `complaints.bluemins.life` (Complaint Box), `orders.bluemins.life` (Order Capture), `attendance.bluemins.life` (Attendance),
+  `jobs.bluemins.life` (Job applications, public); `bluemins.life` itself stays a static site on GitHub Pages, DNS at
   WordPress.com. Railway deploys the git branch `production` only (`main` never deploys). Running it:
   `docs/HANDBOOK.md`; setup steps: `docs/DEPLOY.md`; per-copy records: `docs/deployments/`.
 - S3-compatible storage for documents/reports. PDF reports via Puppeteer or react-pdf.
@@ -233,6 +242,9 @@ pilots.
    expense claims** with bill photos and owner approval v0.22.0 (2026-10-17). Weekly offs, holidays and leave requests
    come later.
 9. **Digital Marketing Contact Management module.**
+
+Also built ahead of Phase 6 (owner, 2026-10-17): **Job applications** (public job page + applicants), v0.25.0; plan and
+build prompts in `docs/JOB_APPLICATIONS_PHASE_PLAN.md`.
 10. **Website + dedicated-instance/tenant provisioning tooling.**
 
 Plan each phase in detail only when you reach it — later phases will be shaped by what earlier ones actually
@@ -360,6 +372,8 @@ WhatsApp, or setting them up. Existing email alerts stay as they are; notificati
   advance given (owners, phone), office fix (owners, bell), every IN / OUT (supervisors only, bell), not marked by the
   plant's hour (owners + supervisors, phone); leave request comes with that feature
 - Marketing Contacts: follow-up due
+- Job applications: done in its own phase plan (v0.25.0): new application (owners + ticked HR desk, bell), storage
+  80 % / 95 % / full (owners only)
 - Complaint Box: done in its own phase plan (v0.12.0): new, resolved, reopened, still open, updated, storage
 - Order Capture: done in its own phase plan (v0.13.0): new order, delivered, cancelled
 
@@ -1615,3 +1629,40 @@ alert. Platform and SSO token unchanged. Notes: `apps/attendance-salary/NOTES.md
 **Live (2026-10-17):** migration `0007` applied, `v0.24.0:production` (`cea5736`), checks OK
 (`docs/deployments/shared.md`). **Not yet verified:** on screen.
 
+### 2026-10-17 — Job applications — built (v0.25.0)
+Asked by the owner 2026-10-17. Design, mock-ups, phases and build prompts: `docs/JOB_APPLICATIONS_PHASE_PLAN.md`; one
+dated note per phase in `apps/job-applications/NOTES.md`; how to use it: `docs/HANDBOOK.md` "Job applications".
+
+**Built** (`apps/job-applications` on :3007, on `packages/module-kit` with `homePath: "/applications"`):
+- **Platform:** migration `0016_job_applications.sql` (module + role **HR desk**); tile 📋 "Applications" with the
+  owner's "⚙ Openings"; plan limit "Job applications storage (MB)"; two `NOTIFICATION_KINDS`; `GET
+  /api/m/plants/by-code/:code` (Job applications only, `{ tenant_id, name }`, one 404 for every refusal); `code` in the
+  branding answer; `SUPPORT_READY`.
+- **Module schema** `job_applications`, login `jobs_app` (migration `0001`): 9 tables with FORCE RLS, SELECT + INSERT
+  and listed column UPDATEs, **no DELETE**. The first deletes in any module are security-definer functions only:
+  `purge_applications` (12 months, the applicant's consent) and `remove_application` (owner's Remove now, with a
+  reason); their files are queued in `file_removals` and deleted from storage **and the backup bucket** by the daily job.
+- **Public page:** openings by group, one page per position, apply form (one PDF ≤ 5 MB or 1–3 photos shrunk on the
+  phone, consent `v1`), reference J-0001… Spam rules: trap field, 20 sends per connection per hour (owner, 2026-10-17),
+  one per phone per position per 30 days, files checked by their bytes, Turnstile when its keys are set (refused when
+  Cloudflare can't be reached). Figtree font served by the app itself.
+- **Owner / HR desk:** list with status chips, search and position filter; application page with Call / WhatsApp,
+  resume, status (409 "Just changed by …"), notes, history, "Applied before"; owner Openings (switch, order, page
+  message, Copy link, QR poster), Recent changes, CSV, Remove now, Support access.
+- **Shared code:** `packages/module-kit` gains `photo.ts` (moved from Complaint Box), `rateLimit` / `clientIp` /
+  `readBody`, `plantByCode`, `homePath`, and deletes used only here (`FileStorage.remove`, `S3Client.delete`,
+  `removeBackupCopy`); `packages/auth` `fetchPlantByCode`.
+- **Tests:** Job applications 122, platform 331, module-kit 69, auth 57, Complaint Box 190 (unchanged).
+
+**Decisions (owner, 2026-10-17):** the plan as written (bare address = plant 001, HR desk, the owner's four columns +
+group + short tag, "just send your resume", 12 months); Phases 4–6 built together; 20 sends an hour; Turnstile down =
+refused.
+**Made while building (in NOTES.md):** the plant code added to the branding answer; files written inside the save's
+transaction; Recent changes in the form's order; photos (not PDFs) locked down when served.
+
+**Verified on `pnpm dev`** (plant 002, temporary users, all removed): every screen at 390 px against the mock-ups; a
+real photo send and a PDF send; Sujata's bells; tile numbers; status, 409, note, CSV, Remove now; the daily job
+deleting the removed file.
+
+**Not yet verified:** the live deployment; real phones (iPhone photos); Turnstile with real keys; deletes in the real
+backup bucket; which address header Railway's proxy sends (the hourly limit).

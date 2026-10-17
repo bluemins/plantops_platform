@@ -90,16 +90,27 @@ ENV
   ;;
 esac
 case "$MODULE" in
-  document_store|complaint_box) cat >> "$PASTE" <<ENV
+  document_store|complaint_box|job_applications) cat >> "$PASTE" <<ENV
 # This module stores files: attach a volume at /data to the service, and copy the five BACKUP_* values from
 # document-store (nightly encrypted copy, docs/HANDBOOK.md "Backups").
-${PREFIX}_STORAGE_DIR=/data/$(echo "$MODULE" | sed 's/^complaint_box$/complaints/; s/^document_store$/documents/')
+${PREFIX}_STORAGE_DIR=/data/$(echo "$MODULE" | sed 's/^complaint_box$/complaints/; s/^document_store$/documents/; s/^job_applications$/jobs/')
 RAILWAY_RUN_UID=0
 BACKUP_BUCKET=
 BACKUP_ENDPOINT=
 BACKUP_ACCESS_KEY_ID=
 BACKUP_SECRET_ACCESS_KEY=
 BACKUP_RECIPIENT=
+ENV
+  ;;
+esac
+
+case "$MODULE" in
+  job_applications) cat >> "$PASTE" <<ENV
+# The plant whose job page is at the bare address (e.g. 001); other plants are at /<plant code>.
+JOBS_DEFAULT_PLANT=
+# Cloudflare Turnstile (free spam check, docs/HANDBOOK.md): both keys or neither; can be added later.
+TURNSTILE_SITE_KEY=
+TURNSTILE_SECRET=
 ENV
   ;;
 esac

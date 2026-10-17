@@ -45,6 +45,7 @@ export const gridModules = (enabled: readonly string[]) => MODULE_IDS.filter((m)
 const ROLE_HINTS: Partial<Record<RoleId, string>> = {
   office_staff: "Attendance: marks for others, fixes times, advances (no salaries)",
   supervisor: "Attendance: Today board and IN / OUT alerts",
+  hr_desk: "Job applications: see and call applicants",
 };
 
 /** A role button on Add / Edit user: what it opens, and whether its module is switched off for the plant. */
@@ -102,5 +103,6 @@ export const ROLE_MEANINGS: { kind: CellKind; label: string; text: string }[] = 
   { kind: "work", label: "Plant staff", text: "Employee: own attendance and overtime (Attendance & Salary)." },
   { kind: "work", label: "Office staff", text: "Attendance: marks for people without a phone, fixes times, gives advances. Never salaries." },
   { kind: "work", label: "Supervisor", text: "Attendance: the Today board (read-only) and an alert for every IN / OUT." },
+  { kind: "work", label: "HR desk", text: "Job applications: sees applicants, calls them, changes status, adds notes." },
   { kind: "view", label: "View only, no amounts", text: "Plant staff in Order Capture: sees orders, never prices." },
 ];

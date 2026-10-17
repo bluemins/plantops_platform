@@ -12,6 +12,7 @@ import {
   fetchAlertContacts,
   fetchBranding,
   fetchLogo,
+  fetchPlantByCode,
   fetchSkus,
   fetchTenantPlan,
   fetchUnread,
@@ -31,7 +32,7 @@ import {
   type ModuleSession,
   type SupportSession,
 } from "@plantops/auth";
-import type { AlertContact, ModuleId, NotificationInput, TenantBranding, TenantPlan, TenantSku } from "@plantops/types";
+import type { AlertContact, ModuleId, NotificationInput, PublicPlant, TenantBranding, TenantPlan, TenantSku } from "@plantops/types";
 import { safeNext } from "./safe-next";
 
 export interface ModuleEnv {
@@ -73,6 +74,11 @@ export interface ModuleConfig {
   env: ModuleEnv;
   /** where notifications wait when the platform can't be reached (N4); without it they are only logged */
   outbox?: OutboxStore;
+  /**
+   * Where a login (without `next`) and the support view land. Default "/". Job applications uses "/applications":
+   * its "/" is the public job page.
+   */
+  homePath?: string;
 }
 
 const CACHE_MS = 60_000;
@@ -94,6 +100,7 @@ function shouldKeep(err: unknown) {
 
 export function createModule(config: ModuleConfig) {
   const { moduleId, label, env } = config;
+  const homePath = config.homePath ?? "/";
   const SESSION_COOKIE = `plantops_${moduleId}`; // modules on one host must not share a cookie
   /** super_admin's read-only support view: a separate cookie, never mixed up with a plant user's session */
   const SUPPORT_COOKIE = `plantops_${moduleId}_support`;
@@ -129,6 +136,26 @@ export function createModule(config: ModuleConfig) {
   const plan = cached<TenantPlan | null>("plan", (t) => fetchTenantPlan(creds(), t), null);
   /** Owners + this module's staff (names, phones, emails, roles). null if the platform can't be reached. */
   const contacts = cached<AlertContact[] | null>("contacts", (t) => fetchAlertContacts(creds(), t), null);
+  /**
+   * Job applications' public page: the plant behind a plant code, or null (unknown, suspended, module off). Cached a
+   * minute per code, "not found" too, so trying many codes doesn't reach the platform each time. Throws when the
+   * platform can't be reached and nothing is cached (the page then says "try again later", not "not available").
+   */
+  async function plantByCode(code: string, now = Date.now()): Promise<PublicPlant | null> {
+    const cache = (g[`__${moduleId}_plantByCode`] ??= new Map()) as Cache<PublicPlant | null>;
+    const key = code.toUpperCase();
+    const hit = cache.get(key);
+    if (hit && now - hit.at < CACHE_MS) return hit.value;
+    try {
+      const value = await fetchPlantByCode(creds(), key);
+      if (cache.size > 1000) cache.clear(); // many made-up codes: start again rather than grow
+      cache.set(key, { at: now, value });
+      return value;
+    } catch (err) {
+      if (hit) return hit.value;
+      throw err;
+    }
+  }
   /** Unread notifications of one person, for the header bell. Cached 30 s; null if the platform can't say. */
   async function unread(tenantId: string, userId: string): Promise<number | null> {
     const cache = (g[`__${moduleId}_unread`] ??= new Map()) as Cache<number>;
@@ -269,7 +296,7 @@ a{display:inline-block;margin-top:12px;padding:12px 18px;border-radius:12px;back
     if (!code) return messagePage(400, `This login link is incomplete. Please open ${label} from PlantOps again.`);
     try {
       const session = await startModuleSession(creds(), code, keys());
-      const res = relativeRedirect(safeNext(req.nextUrl.searchParams.get("next")));
+      const res = relativeRedirect(safeNext(req.nextUrl.searchParams.get("next"), homePath));
       res.cookies.set(sessionCookie(await sealCookie(session)));
       return res;
     } catch (err) {
@@ -284,7 +311,7 @@ a{display:inline-block;margin-top:12px;padding:12px 18px;border-radius:12px;back
     if (!code) return messagePage(400, "This support link is incomplete. Open it again from the PlantOps plant dashboard.");
     try {
       const s = await startSupportSession(creds(), code, keys());
-      const res = relativeRedirect("/");
+      const res = relativeRedirect(homePath);
       res.cookies.set(supportCookie(await sealSupportCookie(s), s.expires_at));
       return res;
     } catch (err) {
@@ -330,6 +357,7 @@ a{display:inline-block;margin-top:12px;padding:12px 18px;border-radius:12px;back
     products,
     plan,
     contacts,
+    plantByCode,
     notify,
     retryOutbox,
     unread,

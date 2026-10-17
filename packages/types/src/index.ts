@@ -10,6 +10,7 @@ export const MODULE_IDS = [
   "preventive_mgmt",
   "amc",
   "attendance_salary",
+  "job_applications",
   "marketing_contacts",
 ] as const;
 export const ModuleId = z.enum(MODULE_IDS);
@@ -28,6 +29,7 @@ export const ROLE_IDS = [
   "plant_staff",
   "office_staff",
   "supervisor",
+  "hr_desk",
 ] as const;
 export const RoleId = z.enum(ROLE_IDS);
 export type RoleId = z.infer<typeof RoleId>;
@@ -49,6 +51,8 @@ export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin" | "plant_staff">
   office_staff: "attendance_salary",
   /** Attendance: the Today board (read-only) and IN / OUT alerts */
   supervisor: "attendance_salary",
+  /** Job applications: sees and calls applicants, changes status, adds notes (openings, CSV and Remove now are owner-only) */
+  hr_desk: "job_applications",
 };
 
 /**
@@ -190,8 +194,17 @@ export const TenantBranding = z.object({
   brand_color: z.string().nullable(),
   /** platform path; fetch it with module credentials */
   logo_url: z.string().nullable(),
+  /** the plant code (Job applications builds the plant's public link from it); optional for an older platform */
+  code: z.string().optional(),
 });
 export type TenantBranding = z.infer<typeof TenantBranding>;
+
+/**
+ * GET /api/m/plants/by-code/:code (Job applications only): which plant a public job page belongs to. Only an active
+ * plant with Job applications switched on; nothing else about it.
+ */
+export const PublicPlant = z.object({ tenant_id: z.uuid(), name: z.string() });
+export type PublicPlant = z.infer<typeof PublicPlant>;
 
 /**
  * GET /api/m/tenants/:tid/alert-contacts - active owners plus users holding one of the calling module's
@@ -301,6 +314,8 @@ export const NOTIFICATION_KINDS: Record<
   "attendance_salary.desk_fix": { module: "attendance_salary", label: "Attendance changed by Office staff", bellOnly: true },
   "attendance_salary.scan": { module: "attendance_salary", label: "Someone marked IN / OUT", bellOnly: true, roles: ["supervisor"], noOwners: true },
   "attendance_salary.not_marked": { module: "attendance_salary", label: "People not marked (morning)", roles: ["supervisor"] },
+  "job_applications.new": { module: "job_applications", label: "New job application", bellOnly: true },
+  "job_applications.storage": { module: "job_applications", label: "Job applications storage nearly full" },
   "platform.user_locked": { module: null, label: "Someone locked out", urgent: true },
   "platform.support_opened": { module: null, label: "PlantOps support viewed your data", bellOnly: true },
   "platform.module_on": { module: null, label: "Module switched on" },

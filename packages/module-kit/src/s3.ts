@@ -9,6 +9,8 @@ export interface S3Client {
   get(key: string): Promise<Buffer>;
   /** Every key that starts with `prefix` (all pages). */
   list(prefix: string): Promise<string[]>;
+  /** Deletes one object (a missing one counts as deleted). Only Job applications uses it (12-month removal). */
+  delete?(key: string): Promise<void>;
 }
 
 const sha256Hex = (data: string | Buffer) => createHash("sha256").update(data).digest("hex");
@@ -17,7 +19,7 @@ const hmac = (key: Buffer | string, data: string) => createHmac("sha256", key).u
 const rfc3986 = (s: string) => encodeURIComponent(s).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 
 export function s3Client(o: S3Settings): S3Client {
-  async function send(method: "PUT" | "GET", key: string, opts: { body?: Buffer; contentType?: string; query?: Record<string, string> } = {}) {
+  async function send(method: "PUT" | "GET" | "DELETE", key: string, opts: { body?: Buffer; contentType?: string; query?: Record<string, string> } = {}) {
     const url = new URL(`${o.endpoint.replace(/\/$/, "")}/${o.bucket}${key ? `/${key}` : ""}`);
     const query = Object.entries(opts.query ?? {}).sort(([a], [b]) => (a < b ? -1 : 1));
     const canonicalQuery = query.map(([k, v]) => `${rfc3986(k)}=${rfc3986(v)}`).join("&");
@@ -37,7 +39,7 @@ export function s3Client(o: S3Settings): S3Client {
     headers.authorization = `AWS4-HMAC-SHA256 Credential=${o.accessKey}/${scope}, SignedHeaders=${signed.join(";")}, Signature=${signature}`;
     const { host: _host, ...sendHeaders } = headers;
     const res = await fetch(url, { method, headers: sendHeaders, body: opts.body ? new Uint8Array(opts.body) : undefined, signal: AbortSignal.timeout(30_000) });
-    if (!res.ok) throw new Error(`File storage ${method} failed: ${res.status}`);
+    if (!res.ok && !(method === "DELETE" && res.status === 404)) throw new Error(`File storage ${method} failed: ${res.status}`);
     return res;
   }
   return {
@@ -58,6 +60,10 @@ export function s3Client(o: S3Settings): S3Client {
         token = /<IsTruncated>true<\/IsTruncated>/.test(xml) ? unescapeXml(/<NextContinuationToken>([^<]*)<\/NextContinuationToken>/.exec(xml)?.[1] ?? "") : "";
       } while (token);
       return keys;
+    },
+    async delete(key) {
+      if (!key) throw new Error("A key is needed to delete");
+      await send("DELETE", key);
     },
   };
 }

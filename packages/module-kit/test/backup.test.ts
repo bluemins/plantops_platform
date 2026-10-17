@@ -5,8 +5,9 @@ import { createHash, createHmac } from "node:crypto";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { generateX25519Identity, identityToRecipient } from "age-encryption";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { backupKeyFor, backupNewFiles, backupRoute, backupSettings, decryptBackup, encryptBackup, type BackupSettings, type BackupSource } from "../src/backup";
+import { backupKeyFor, backupNewFiles, backupRoute, backupSettings, decryptBackup, encryptBackup, removeBackupCopy, type BackupSettings, type BackupSource } from "../src/backup";
 import { s3Client } from "../src/s3";
+import { s3Storage } from "../src/storage";
 
 const SECRET = "test-secret-key";
 const sha = (d: string | Buffer) => createHash("sha256").update(d).digest("hex");
@@ -56,6 +57,10 @@ beforeAll(async () => {
       if (req.method === "PUT") {
         objects.set(key, body);
         return res.writeHead(200).end();
+      }
+      if (req.method === "DELETE") {
+        objects.delete(key);
+        return res.writeHead(204).end();
       }
       const found = objects.get(key);
       return found ? res.writeHead(200).end(found) : res.writeHead(404).end();
@@ -169,6 +174,33 @@ describe("backupNewFiles", () => {
   it("does nothing while backup is not set up", async () => {
     expect(await backupNewFiles("document_store", source({ [`${T}/a`]: "x" }), { settings: null })).toEqual({ status: "not set up" });
     expect(requests).toEqual([]);
+  });
+});
+
+describe("removing a file from S3 storage (Job applications only)", () => {
+  it("deletes that one key, signed; a missing file counts as removed; a bad key is refused", async () => {
+    const files = s3Storage(settings);
+    const key = "tenant/00000000-0000-4000-8000-000000000001/00000000-0000-4000-8000-0000000000aa";
+    await files.put(key, Buffer.from("cv"), "application/pdf");
+    await files.remove(key);
+    expect(objects.has(key)).toBe(false);
+    await files.remove(key);
+    await expect(files.remove("../etc/passwd")).rejects.toThrow(/Invalid storage key/);
+  });
+});
+
+describe("removing a backup copy (Job applications only)", () => {
+  it("deletes exactly that file's copy, signed; a missing copy is fine; no bucket = not set up", async () => {
+    const T = "tenant/00000000-0000-4000-8000-000000000001";
+    await backupNewFiles("job_applications", source({ [`${T}/aaa`]: "cv", [`${T}/bbb`]: "cv2" }), { settings });
+    expect(await removeBackupCopy("job_applications", `${T}/aaa`, { settings })).toBe("removed");
+    expect([...objects.keys()]).toEqual([backupKeyFor("job_applications", `${T}/bbb`)]);
+    expect(requests.at(-1)).toBe(`DELETE /backups/${backupKeyFor("job_applications", `${T}/aaa`)}`);
+    expect(await removeBackupCopy("job_applications", `${T}/aaa`, { settings })).toBe("removed"); // already gone
+    expect(await removeBackupCopy("job_applications", `${T}/bbb`, { settings: null })).toBe("not set up");
+    await expect(removeBackupCopy("job_applications", "../x", { settings })).rejects.toThrow(/file key/);
+    await expect(removeBackupCopy("../x", `${T}/bbb`, { settings })).rejects.toThrow(/module id/);
+    await expect(removeBackupCopy("job_applications", `${T}/bbb`, { settings: { ...settings, secretKey: "wrong" } })).rejects.toThrow(/403/);
   });
 });
 

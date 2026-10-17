@@ -48,7 +48,7 @@ describe("role buttons on Add / Edit user", () => {
   });
 
   it("offers every role when the module list did not load", () => {
-    expect(roleChoices([], []).map((x) => x.role)).toHaveLength(11); // + Office staff, Supervisor (0015)
+    expect(roleChoices([], []).map((x) => x.role)).toHaveLength(12); // + Office staff, Supervisor (0015), HR desk (0016)
     expect(roleChoices([], []).every((x) => !x.off)).toBe(true);
   });
 });

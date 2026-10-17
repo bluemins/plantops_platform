@@ -262,7 +262,7 @@ export const superUpdateSku = (admin: CurrentSuperAdmin, tenantId: string, skuId
 export const getBranding = (tenantId: string) =>
   withTenant(tenantId, async (tx) => {
     const b = await readBusiness(tx, tenantId, `/api/m/tenants/${tenantId}/logo`);
-    return { tenant_id: tenantId, name: b.name, brand_color: b.brand_color, logo_url: b.logo_url };
+    return { tenant_id: tenantId, name: b.name, brand_color: b.brand_color, logo_url: b.logo_url, code: b.code };
   });
 
 export const getLogoForModule = (tenantId: string) => withTenant(tenantId, (tx) => readLogo(tx, tenantId));
