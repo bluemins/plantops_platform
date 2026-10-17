@@ -26,7 +26,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | WhatsApp | not set up (waiting for Meta approval) |
 | File storage | Railway volume (move to S3-compatible storage + backups before real plant documents) |
 | Backups | nightly 02:00 IST, encrypted (`age`), to Cloudflare R2 bucket `plantops-backup` (`backup.yml`): database dump (30 days, read-only login `plantops_backup`) + Document Store files. Private key in the password manager. Practice restore done 2026-10-11 |
-| Runs release | v0.22.0 (`production` = commit `688faf6`) |
+| Runs release | v0.22.1 (`production` = commit `024b57e`) |
 
 ## History
 | Date | What |
@@ -88,3 +88,4 @@ From `docs/SALARY_EXTRAS_PHASE_PLAN.md` Phase B6; how-to in `docs/HANDBOOK.md` (
 5. [ ] After the next redeploy of `attendance-salary`, the bill photo still opens (proves it is on the volume).
 6. [ ] The next night's Nightly backup run is green and has the photo under `files/attendance_salary/`.
 7. [ ] At month end: mark paid; the slip (with "Can see own salary") shows the claims.
+| 2026-10-17 | v0.22.1 live (Attendance: claims only for field staff). `railway-migrate.sh shared` applied Attendance `0005_field_staff.sql` (other apps up to date), then `git push origin v0.22.1:production` (`024b57e`), both run by the owner. Checks: `attendance.bluemins.life/health` database OK; read-only on the live database: 11 people with a salary setting at plant 001, **none ticked** (nobody had a TA / DA rate yet) and no claims on record, so nobody sees My claims until the owner ticks Field staff. **To do (owner):** tick Field staff on Dillip and Kedar (Staff → person → Salary box, from Oct 2026), add their TA / DA rates if wanted; check that Bindu has no My claims tab. |
