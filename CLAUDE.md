@@ -1677,3 +1677,11 @@ switched it on (5 positions). Record: `docs/deployments/shared.md`.
   CSV, Remove now)
 - not yet seen live: the volume across a redeploy, the daily job deleting a file and its R2 copy, Railway's address
   header for the 20-per-hour limit
+
+### 2026-10-17 — Stability plan started (no new features)
+Decided by the owner 2026-10-17: with v0.25.0 live, the next stretch is stability and bug fixing, not new modules.
+Plan, issue list, live checklist, how to analyse each module, performance / uptime targets and build prompts:
+`docs/STABILITY_PLAN.md` (phases S0–S6). Bug fixes ship as small patch releases (v0.25.x).
+**No email anywhere (owner, 2026-10-17):** Brevo is dropped. Every alert, including Document Store expiry reminders,
+goes by app notifications only (bell + phone push via the installed PWA). The mail code stays in
+`packages/module-kit` unused; no module queues email when no mailer is set (patch B-02 in the stability plan).
