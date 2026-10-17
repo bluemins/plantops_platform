@@ -12,6 +12,7 @@ import { staffList, type Person } from "./people";
 import { frozenOf, payInputOf, salaryMonths } from "./salary";
 import { payableFrom } from "./salary-pay";
 import { visibilityMap } from "./salary-slip";
+import type { StaffType } from "./schema";
 import type { AtUser } from "./session";
 
 export interface TabRow {
@@ -24,6 +25,8 @@ export interface TabRow {
   countedDays: number;
   /** monthly or per day (rule 15); from the frozen figures for a paid month */
   payBasis: PayBasis;
+  /** Permanent / Temporary from the month's setting (docs/ATTENDANCE_ROLES_PHASE_PLAN.md R4); never in the rules */
+  staffType: StaffType;
   /** per-day people's day rate (null for monthly people) */
   dayRatePaise: number | null;
   shiftMinutes: number;
@@ -64,6 +67,11 @@ export interface SalaryTab {
   complete: boolean;
   rows: TabRow[];
   totals: { salaryPaise: number; earnedPaise: number; otPayPaise: number; taPaise: number; daPaise: number; expensesPaise: number; advancesPaise: number; carriedInPaise: number; remainingPaise: number; toPayPaise: number };
+  /**
+   * The manpower cost split by staff type (mock-up 9): people, cost = earned + overtime + TA + DA + expenses, and
+   * remaining to pay (positive remainders), each the sum of that type's rows.
+   */
+  split: Record<StaffType, { people: number; costPaise: number; toPayPaise: number }>;
   /** claims still waiting for the owner in this month (the "Review" banner) */
   claimsWaiting: number;
   /** "Ramu −₹2,100 carries to November" parts */
@@ -79,6 +87,9 @@ export interface SalaryTab {
   paidPaise: number;
   stillToPayPaise: number;
 }
+
+/** One person's manpower cost for the month: earned + overtime + TA + DA + expenses (advances are not a cost). */
+export const costOf = (r: TabRow) => r.result.earnedPaise + r.result.otPayPaise + r.result.taPaise + r.result.daPaise + r.result.expensesPaise;
 
 /** Owner and PlantOps support: the month's table. A bad or future month: 404. */
 export async function salaryTab(user: AtUser, month: string, now: Date = new Date()): Promise<SalaryTab> {
@@ -102,6 +113,7 @@ export async function salaryTab(user: AtUser, month: string, now: Date = new Dat
       fullMonth: c.counted.fullMonth,
       countedDays: c.counted.dates.length,
       payBasis: input.payBasis,
+      staffType: c.setting.staffType ?? "permanent",
       dayRatePaise: input.dayRatePaise,
       shiftMinutes: c.setting.shiftMinutes,
       paidLeaveHalfdays: c.setting.paidLeaveHalfdays,
@@ -149,6 +161,13 @@ export async function salaryTab(user: AtUser, month: string, now: Date = new Dat
       remainingPaise: sum((r) => r.result.remainingPaise),
       toPayPaise: sum((r) => Math.max(0, r.result.remainingPaise)),
     },
+    split: Object.fromEntries(
+      (["permanent", "temporary"] as const).map((type) => {
+        const of = rows.filter((r) => r.staffType === type);
+        const s = (f: (r: TabRow) => number) => of.reduce((n, r) => n + f(r), 0);
+        return [type, { people: of.length, costPaise: s(costOf), toPayPaise: s((r) => Math.max(0, r.result.remainingPaise)) }];
+      }),
+    ) as SalaryTab["split"],
     claimsWaiting: sum((r) => r.claimsWaiting),
     negatives: rows.filter((r) => r.carriesTo).map((r) => ({ name: r.name, remainingPaise: r.result.remainingPaise, to: r.carriesTo! })),
     noSalary: staff.platformDown ? null : staff.active.filter((p) => !onSalary.has(p.userId)),
@@ -162,7 +181,7 @@ export async function salaryTab(user: AtUser, month: string, now: Date = new Dat
 
 export const SALARY_CSV_HEADER = [
   "Name", "Month", "Full or part month", "Counted days",
-  "Monthly salary", "Pay basis", "Day rate", "Shift hours", "Paid leave allowed (days)",
+  "Monthly salary", "Pay basis", "Staff type", "Day rate", "Shift hours", "Paid leave allowed (days)",
   "Present", "Half days", "Absent", "Paid leave used (days)", "Unpaid days", "Day's pay", "Earned",
   "Overtime", "Overtime hours", "Overtime rate", "Overtime pay",
   "Field duty days", "Km", "TA rate", "TA", "DA rate", "DA", "Expenses", "Claims waiting",
@@ -188,6 +207,7 @@ export async function salaryCsv(user: AtUser, month: string, now: Date = new Dat
       r.countedDays,
       perDay ? "" : rupees(r.input.monthlyPaise),
       perDay ? "per day" : "monthly",
+      r.staffType,
       perDay && r.dayRatePaise ? rupees(r.dayRatePaise) : "",
       hoursText(r.shiftMinutes),
       perDay ? "" : halvesText(r.paidLeaveHalfdays),

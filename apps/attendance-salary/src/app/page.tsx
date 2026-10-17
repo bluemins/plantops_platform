@@ -13,15 +13,15 @@ import { waitingClaims } from "@/server/claims";
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
 /**
- * Attendance home. A worker: their own month. The owner (and support): the Today board, and "My attendance" for an
- * owner who is also Plant staff.
+ * Attendance home. A worker: their own month. The owner, Office staff, a Supervisor (read-only) and support: the Today
+ * board, and "My attendance" for anyone who is also Plant staff (a button for owners, a tab for the others).
  */
 export default async function HomePage({ searchParams }: { searchParams: Search }) {
   const user = await requirePageUser("/");
   const sp = await searchParams;
   const plant = await kit.branding(user.tenantId);
 
-  if (!can(user, "see_everyone") && !can(user, "see_own")) {
+  if (!can(user, "see_today") && !can(user, "see_own")) {
     return (
       <div className="space-y-5">
         <Header user={user} plant={plant} />
@@ -30,7 +30,7 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
     );
   }
 
-  if (!can(user, "see_everyone")) {
+  if (!can(user, "see_today")) {
     return (
       <div className="space-y-4">
         <Header user={user} plant={plant} />
@@ -46,7 +46,7 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
       <Header user={user} plant={plant} />
       <OwnerNav user={user} current="today" claimsWaiting={await waitingClaims(user)} />
       <TodayView user={user} board={board} />
-      {can(user, "see_own") && (
+      {user.isOwner && can(user, "see_own") && (
         <a href="/my" className="flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-white font-semibold">
           My attendance
         </a>

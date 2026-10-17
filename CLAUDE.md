@@ -15,7 +15,7 @@ independently, with its own URL, Docker image and database schema.
 - `apps/preventive-mgmt`
 - `apps/amc`
 - `apps/attendance-salary` (version 1 = attendance, built before Preventive Management, decided by the owner
-  2026-10-15; v0.18.0. Version 2 = salary, v0.20.0, 2026-10-17)
+  2026-10-15; v0.18.0. Version 2 = salary, v0.20.0, 2026-10-17. Office staff + Supervisor roles, v0.23.0)
 - `apps/marketing-contacts`
 - `packages/auth` — SSO token verification + role guards, used by every module
 - `packages/ui` — shared UI components (tiles, buttons, forms)
@@ -49,7 +49,14 @@ through the Lab Records API.
   (`PLANT_STAFF_VIEW_ONLY` + `viewOnlyIn()`, owner 2026-10-14): orders, customer, phone, products and quantities,
   never amounts, never writes, never its alerts. Work in any other module needs that module's own role (Store
   keeper, Document keeper, Complaint desk, Order desk, Lab technician / lead, Maintenance technician, Sales team).
-  New modules do **not** include plant staff. The rule is `roleWorksIn()` in `packages/types`.
+  New modules do **not** include plant staff. The rule is `roleWorksIn()` in `packages/types`; "is an employee"
+  (tracked and paid in Attendance) is `isEmployee()` = holds Plant staff.
+- **Office staff** (`office_staff`) and **Supervisor** (`supervisor`), Attendance & Salary only (owner, 2026-10-17;
+  v0.23.0, `docs/ATTENDANCE_ROLES_PHASE_PLAN.md`). Office staff mark IN / OUT for people without a phone ("Mark for
+  someone", office phone at the plant), fix times and give advances, never for themselves, and never see a salary,
+  slip or claim. A Supervisor sees the Today board read-only, gets a bell for every IN / OUT and the morning
+  "not marked" alert. Neither is tracked or paid unless they also hold Plant staff. Inside Attendance a person's roles
+  become a set of capacities (owner, employee, office, supervisor) in one access table (`src/server/access.ts`).
 - A user can hold **more than one role** (e.g. lab technician AND store keeper in a small plant). tenant_admin
   is a role in `users`/`user_roles`, not a separate account type.
 - Login: plant users log in with **plant code + username + secret**. Staff use a 6-digit **PIN**; anyone holding
@@ -87,8 +94,11 @@ or removed role loses access within ~5 minutes.
 
 **Other platform-signed tokens** (same key, never accepted as a login: they carry `purpose` and no
 `user_id`/`roles`; `verifyToken` rejects anything with `purpose`):
-- **Summary request** (built, Phase 2): `purpose: "summary"`, `tenant_id`, `view` ("owner" | "staff"), `aud`
-  = one module, `exp` 60 s. Modules check it with `verifySummaryRequest` (`packages/auth`).
+- **Summary request** (built, Phase 2): `purpose: "summary"`, `tenant_id`, `view` ("owner" | "staff" | "desk"),
+  `aud` = one module, `exp` 60 s. Modules check it with `verifySummaryRequest` (`packages/auth`). `desk` (v0.23.0) is
+  sent to a non-owner holding one of the module's `DESK_ROLES` (`packages/types`; Attendance: Office staff,
+  Supervisor), who see the attendance numbers but never money; a module that doesn't know `desk` treats it like
+  `staff`.
 - **Support token** (built in Phase 3; Lab Records is the first module to accept it): super_admin opens one
   plant's module data read-only. One-time code like a user handoff → token with `purpose: "support"`, `tenant_id`,
   `super_admin_id`, `read_only: true`, `aud` = one module, `exp` 15 min. Modules accept it only through a
@@ -99,7 +109,8 @@ or removed role loses access within ~5 minutes.
 `Authorization: Bearer <summary request token>` (3 s timeout) whenever a launcher opens. The module answers
 `{ "badges": [{ "text": "3 held today", "tone": "ok" | "info" | "warn" | "danger" }] }` (max 3 badges, 40
 characters each). A timeout, error or bad answer shows "Numbers unavailable right now"; the launcher keeps
-working. Nothing is stored.
+working. Nothing is stored. The request's `view` says whose tile it is (owner, staff, or `desk` for a module's
+`DESK_ROLES`, v0.23.0).
 
 **Plant look:** each plant's screens use its brand colour (Business details). `brandPalette()` in
 `packages/ui` turns it into CSS variables (`--brand`, `--brand-hover`, `--brand-contrast`, `--brand-soft`,
@@ -345,8 +356,9 @@ WhatsApp, or setting them up. Existing email alerts stay as they are; notificati
 - AMC: contract expiring, visit due / done, invoice due
 - Attendance & Salary: version 1 done in its own phase plan (v0.18.0): corrected, outside, no exit (owners only);
   version 2 (v0.20.0): salary review (owners, last day of the month), salary paid (the worker, only with "Can see own
-  salary"); version 3 (v0.22.0): new claim (owners), claim decided (the worker only), storage (owners); leave request
-  comes with that feature
+  salary"); version 3 (v0.22.0): new claim (owners), claim decided (the worker only), storage (owners); v0.23.0:
+  advance given (owners, phone), office fix (owners, bell), every IN / OUT (supervisors only, bell), not marked by the
+  plant's hour (owners + supervisors, phone); leave request comes with that feature
 - Marketing Contacts: follow-up due
 - Complaint Box: done in its own phase plan (v0.12.0): new, resolved, reopened, still open, updated, storage
 - Order Capture: done in its own phase plan (v0.13.0): new order, delivered, cancelled
@@ -1545,4 +1557,49 @@ not approve through the Claims tab with the worker's "your claim" bells, the Sal
 CSV with TA / DA / expenses, the mark-paid warning, paying, and the worker's slip.
 
 **Not yet verified:** the live deployment; real phones (a photo from Android / iPhone); the owner's checklist at plant 001.
+
+### 2026-10-17 — Attendance: claims only for field staff — live (v0.22.1)
+Owner's "Field staff" tick in the Salary box (from a month): only ticked people send their own field duty / expense
+claims and see My claims (also anyone with a claim on record); a TA / DA rate needs the tick; the owner's entries for
+someone are not limited. Attendance migration `0005_field_staff.sql` (rows with a rate ticked once; on the live copy
+nobody had one, so nobody is ticked yet). Live 2026-10-17 (`024b57e`). Plan `docs/ATTENDANCE_ROLES_PHASE_PLAN.md`
+Phase C; notes in `apps/attendance-salary/NOTES.md`.
+
+### 2026-10-17 — Attendance: Office staff and Supervisor — built (v0.23.0)
+Asked by the owner 2026-10-17. Design, mock-ups, phases and prompts: `docs/ATTENDANCE_ROLES_PHASE_PLAN.md`; one dated
+note per phase (R1-R5) in `apps/attendance-salary/NOTES.md`; how to use it: `docs/HANDBOOK.md` "Attendance: office
+desk and supervisor".
+
+**Built:**
+- **Platform:** migration `0015_attendance_roles.sql` (roles `office_staff`, `supervisor`, both Attendance). Role
+  buttons say what each does; both on the Permissions screen (🔔 for supervisors); launcher tiles "Attendance desk" /
+  "Today board" with the summary request's new **`desk` view** (attendance numbers, never claims or money);
+  `NOTIFICATION_KINDS` gain `roles` / `noOwners`, so a Supervisor's settings list the scan and not-marked alerts, owners
+  never get every scan, and Attendance's "about you" kinds are for Plant staff only.
+- **Attendance:** migration `0006_desk_and_staff_type.sql` (`punches.source` 'desk' + its check,
+  `salary_settings.staff_type`, `plant_settings.not_marked_hour` + a column UPDATE grant, approved by the owner).
+  - Access as a set of capacities; only Plant staff (`isEmployee`) are tracked.
+  - **Office staff:** `/desk` "Mark for someone" (scan rules, office phone's location, never yourself), Fix (never
+    their own), their person page with advances and "still to recover" but no salary, advances (7 days back, ≤ ₹1
+    lakh, correct own entry the same day). Owners get `advance_given` (phone) and `desk_fix` (bell).
+  - **Supervisor:** read-only Today board; `scan` bell after every saved mark (supervisors only, never owners);
+    `POST /api/cron/morning` sends `not_marked` (owners + supervisors) at the plant's hour (Settings: 08:00-11:00 or
+    Off); `evening.yml` has a morning line for it.
+  - **Permanent / Temporary** in the Salary box; Salary tab "TEMP" tag and a "Manpower cost" card split by type; CSV
+    "Staff type". The salary rules don't change.
+- **SSO token unchanged.**
+- **Tests:** Attendance 414, platform 320, auth 53 (others unchanged); typecheck and all builds pass.
+
+**Decisions (owner, 2026-10-17):** the plan as written (mock-ups approved; scan alert bell only; desk view for tiles;
+not-marked counts the board's list); the `not_marked_hour` column grant.
+**Made while building (in NOTES.md):** an owner opening "Mark for someone" is told to use Fix; Settings is "not found"
+for Office staff / Supervisors; the day view names who added a time; the desk tile says "Not set up yet" before the
+location and QR exist.
+
+**Verified on `pnpm dev`** (plant 002, temporary users and sessions, all removed): `/desk` with a real tap and a faked
+location, the Office person page and advances, `/salary` 404 for Office staff, the owner's day "by … (office)", the
+Supervisor's board and bell, Settings with the alert hour, the Salary box and tab with the split, Manage users,
+Permissions, the Office staff launcher tile and the Supervisor's notification settings.
+
+**Not yet verified:** the live deployment; real phones; the owner's checklist at plant 001.
 

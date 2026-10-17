@@ -30,6 +30,7 @@ import { workDays } from "@/lib/sessions";
 import { can, requireAccess } from "./access";
 import { loadClaims, type ClaimRow } from "./claims";
 import { schema, withTenant, type AtTx } from "./db";
+import type { StaffType } from "./schema";
 import { notFound } from "./http";
 import { loadMarks } from "./people";
 import type { AtUser } from "./session";
@@ -38,6 +39,8 @@ const { salarySettings, salaryAdvances, salaryPayments, salaryPaymentUndos } = s
 
 export interface SettingRow extends SalarySetting {
   userId: string;
+  /** Permanent / Temporary (docs/ATTENDANCE_ROLES_PHASE_PLAN.md R4): only for the cost split, never in the rules */
+  staffType: StaffType;
   userName: string;
   reason: string | null;
   createdByName: string;
@@ -188,16 +191,21 @@ export interface SalaryView {
  */
 export async function salaryMonths(user: AtUser, month: string, opts: { personId?: string; now?: Date } = {}): Promise<SalaryView> {
   requireAccess(user, "salary_view");
+  return salaryMonthsOf(user.tenantId, month, opts);
+}
+
+/** salaryMonths without the access check: only for callers that show no salary (Office staff's "still to recover"). */
+export async function salaryMonthsOf(tenantId: string, month: string, opts: { personId?: string; now?: Date } = {}): Promise<SalaryView> {
   const now = opts.now ?? new Date();
   if (!validMonth(month) || month > istMonth(now)) throw notFound("Not found");
   const today = istDay(now);
-  return withTenant(user.tenantId, async (tx) => {
-    const data = await loadSalaryData(tx, user.tenantId, opts.personId);
+  return withTenant(tenantId, async (tx) => {
+    const data = await loadSalaryData(tx, tenantId, opts.personId);
     const userIds = [...new Set(data.settings.map((s) => s.userId))];
     const firsts = userIds.map((id) => firstSalaryMonth(data.settings.filter((s) => s.userId === id))!).filter((f) => f <= month);
     if (firsts.length === 0) return { month, today, people: [] };
     const from = firsts.reduce((a, b) => (a < b ? a : b));
-    const loaded = await loadMarks(tx, user.tenantId, `${from}-01`, monthDays(month).at(-1)!, opts.personId);
+    const loaded = await loadMarks(tx, tenantId, `${from}-01`, monthDays(month).at(-1)!, opts.personId);
     const people = userIds
       .filter((id) => firstSalaryMonth(data.settings.filter((s) => s.userId === id))! <= month)
       .map((id) => {

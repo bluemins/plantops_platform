@@ -2,8 +2,12 @@
 #   Lab Records  POST <LAB_URL>/api/cron/evening    ("No lab tests entered today", from 8 pm; earlier runs do nothing)
 #   Floor Stock  POST <STOCK_URL>/api/cron/evening  ("Today's stock count is not done yet" at each plant's hour; skipped while STOCK_URL
 #                is unset)
-# Both go to the plant's owners and the people ticked for that module; once a day each (dedupe). Every run also
-# resends notifications waiting in the modules' outboxes (platform briefly down).
+#   Attendance   POST <ATTENDANCE_URL>/api/cron/morning ("N people not marked by 10:00" at each plant's hour, to owners and
+#                supervisors; docs/ATTENDANCE_ROLES_PHASE_PLAN.md) - on the MORNING schedule line only
+# Lab Records / Floor Stock go to the plant's owners and the people ticked for that module; once a day each (dedupe).
+# Every run also resends notifications waiting in the modules' outboxes (platform briefly down).
+# Two schedule lines: the evening steps run only on the evening line, the Attendance step only on the morning line
+# (github.event.schedule); "Run workflow" by hand runs every step.
 # Same GitHub environments, variables and CRON_SECRET as daily.yml. GitHub may start it 10-30 minutes late.
 # A failed call fails the run, and GitHub emails the repo owner. "Run workflow" runs it by hand.
 name: Evening jobs
@@ -11,6 +15,7 @@ name: Evening jobs
 on:
   schedule:
     - cron: "30 11-17 * * *" # every hour 17:00-23:00 India time (each plant's chosen reminder hour; N4)
+    - cron: "30 2-5 * * *" # every hour 08:00-11:00 India time (Attendance: each plant's not-marked alert hour)
   workflow_dispatch:
 
 permissions: {}
@@ -25,16 +30,23 @@ jobs:
     environment: ${{ matrix.copy }}
     steps:
       - name: Lab Records
-        if: ${{ vars.LAB_URL != '' }}
+        if: ${{ vars.LAB_URL != '' && github.event.schedule != '30 2-5 * * *' }}
         env:
           URL: ${{ vars.LAB_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           curl -fsS --max-time 120 -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/evening"
       - name: Floor Stock
-        if: ${{ !cancelled() && vars.STOCK_URL != '' }}
+        if: ${{ !cancelled() && vars.STOCK_URL != '' && github.event.schedule != '30 2-5 * * *' }}
         env:
           URL: ${{ vars.STOCK_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           curl -fsS --max-time 120 -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/evening"
+      - name: Attendance (not marked)
+        if: ${{ !cancelled() && vars.ATTENDANCE_URL != '' && github.event.schedule != '30 11-17 * * *' }}
+        env:
+          URL: ${{ vars.ATTENDANCE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS --max-time 120 -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/morning"

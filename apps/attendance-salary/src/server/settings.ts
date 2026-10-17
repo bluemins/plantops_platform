@@ -52,6 +52,8 @@ export interface SettingsView {
   lng: number | null;
   radius_m: number;
   qr_made_at: string | null;
+  /** the morning "not marked" alert hour (8-11 IST); null = Off */
+  not_marked_hour: number | null;
   updated_by_name: string | null;
   updated_at: string | null;
 }
@@ -61,6 +63,7 @@ const toView = (r: SettingsRow | null): SettingsView => ({
   lng: r?.lng == null ? null : Number(r.lng),
   radius_m: r?.radiusM ?? RADIUS_DEFAULT,
   qr_made_at: r?.qrMadeAt?.toISOString() ?? null,
+  not_marked_hour: r ? r.notMarkedHour : NOT_MARKED_DEFAULT,
   updated_by_name: r?.updatedByName ?? null,
   updated_at: r?.updatedAt?.toISOString() ?? null,
 });
@@ -95,6 +98,28 @@ export async function saveSettings(user: AtUser, input: z.infer<typeof SettingsI
     const moved = before?.lat == null || Number(before.lat) !== lat || Number(before.lng) !== lng;
     if (moved) await audit(tx, user, "settings.location", null, { lat, lng, ...(before?.lat != null ? { from: { lat: Number(before.lat), lng: Number(before.lng) } } : {}) });
     if ((before?.radiusM ?? RADIUS_DEFAULT) !== input.radius_m || !before) await audit(tx, user, "settings.radius", null, { from: before?.radiusM ?? null, to: input.radius_m });
+    return toView(row!);
+  });
+}
+
+/** The hours the owner may pick for the "not marked" alert (docs/ATTENDANCE_ROLES_PHASE_PLAN.md mock-up 10); null = Off. */
+export const NOT_MARKED_HOURS = [8, 9, 10, 11] as const;
+export const NOT_MARKED_DEFAULT = 10;
+export const NotMarkedInput = z.object({ hour: z.union([z.literal(8), z.literal(9), z.literal(10), z.literal(11), z.null()]) });
+
+/** Owner: the hour of the morning "not marked" alert to owners and supervisors, or Off. In Recent changes. */
+export async function saveNotMarkedHour(user: AtUser, input: z.infer<typeof NotMarkedInput>): Promise<SettingsView> {
+  requireAccess(user, "settings");
+  return withTenant(user.tenantId, async (tx) => {
+    const before = await readSettings(tx, user.tenantId);
+    const from = before ? before.notMarkedHour : NOT_MARKED_DEFAULT;
+    const who = { updatedBy: user.userId, updatedByName: user.name, updatedAt: new Date() };
+    const [row] = await tx
+      .insert(plantSettings)
+      .values({ tenantId: user.tenantId, notMarkedHour: input.hour, ...who })
+      .onConflictDoUpdate({ target: plantSettings.tenantId, set: { notMarkedHour: input.hour, ...who } })
+      .returning();
+    if (from !== input.hour) await audit(tx, user, "settings.not_marked", null, { from, to: input.hour });
     return toView(row!);
   });
 }

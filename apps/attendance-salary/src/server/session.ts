@@ -1,8 +1,8 @@
 // Who is using Attendance right now (from the module kit's session cookies). What they may do is in access.ts.
 import { redirect } from "next/navigation";
 import type { ModuleSession } from "@plantops/auth";
-import { roleWorksIn, type RoleId } from "@plantops/types";
-import type { Who } from "./access";
+import { isEmployee, type RoleId } from "@plantops/types";
+import type { Capacity, Who } from "./access";
 import { schema, withTenant } from "./db";
 import { HttpError } from "./http";
 import { kit } from "./kit";
@@ -12,18 +12,21 @@ export interface AtUser {
   userId: string;
   name: string;
   roles: RoleId[];
-  /** the row of the access table this person uses; null = no Attendance rights */
-  who: Who | null;
+  /** what this person is in the access table (several at once); empty = no Attendance rights */
+  who: Who;
   isOwner: boolean;
   /** PlantOps support (super_admin) looking read-only: every write is refused */
   isSupport: boolean;
 }
 
-/** Owner (with or without Plant staff); worker = a role that works in Attendance (Plant staff); else nothing. */
-export function whoFor(roles: RoleId[]): Who | null {
-  const works = roles.some((r) => roleWorksIn(r, "attendance_salary"));
-  if (roles.includes("tenant_admin")) return works ? "owner_worker" : "owner";
-  return works ? "worker" : null;
+/** Every capacity the roles give: owner, employee (Plant staff), office (Office staff), supervisor; [] = nothing. */
+export function whoFor(roles: readonly RoleId[]): Who {
+  const who: Capacity[] = [];
+  if (roles.includes("tenant_admin")) who.push("owner");
+  if (isEmployee(roles)) who.push("employee");
+  if (roles.includes("office_staff")) who.push("office");
+  if (roles.includes("supervisor")) who.push("supervisor");
+  return who;
 }
 
 export function toAtUser(s: ModuleSession): AtUser {
@@ -34,7 +37,7 @@ export function toAtUser(s: ModuleSession): AtUser {
     name: s.display_name ?? "Attendance user",
     roles: s.roles,
     who,
-    isOwner: who === "owner" || who === "owner_worker",
+    isOwner: who.includes("owner"),
     isSupport: false,
   };
 }
@@ -44,15 +47,18 @@ export const supportUser = (tenantId: string, superAdminId: string): AtUser => (
   userId: superAdminId,
   name: "PlantOps support",
   roles: [],
-  who: "support",
+  who: ["support"],
   isOwner: false,
   isSupport: true,
 });
 
-/** For the header: Owner / Plant staff / Read-only. */
+/** For the header: Owner / Office staff / Supervisor / Plant staff / Read-only. */
 export function roleLabel(user: AtUser) {
   if (user.isSupport) return "Read-only";
-  return user.isOwner ? "Owner" : "Plant staff";
+  if (user.isOwner) return "Owner";
+  if (user.who.includes("office")) return "Office staff";
+  if (user.who.includes("supervisor")) return "Supervisor";
+  return "Plant staff";
 }
 
 export async function currentUser(): Promise<AtUser | null> {

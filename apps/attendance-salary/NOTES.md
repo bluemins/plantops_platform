@@ -3,38 +3,44 @@
 Version 1 (attendance) released as **v0.18.0** (2026-10-15): `docs/ATTENDANCE_PHASE_PLAN.md`. Version 2 (salary)
 released as **v0.20.0** (2026-10-17): `docs/SALARY_PHASE_PLAN.md`. Version 3 (salary extras) Part A, per-day pay,
 released as **v0.21.0** (2026-10-17), Part B, field duty and expense claims, as **v0.22.0** (2026-10-17):
-`docs/SALARY_EXTRAS_PHASE_PLAN.md`. Build notes per phase are further down.
+`docs/SALARY_EXTRAS_PHASE_PLAN.md`. Claims only for field staff **v0.22.1** and Office staff / Supervisor / Permanent
+or Temporary **v0.23.0** (2026-10-17): `docs/ATTENDANCE_ROLES_PHASE_PLAN.md`. Build notes per phase are further down.
 
 ## At a glance
 | | |
 |---|---|
-| Module id / role | `attendance_salary` / **Plant staff** (`plant_staff`; works only here, `PLANT_STAFF_MODULES`) |
+| Module id / roles | `attendance_salary` / **Plant staff** (`plant_staff`, the employee: tracked and paid; works only here, `PLANT_STAFF_MODULES`), **Office staff** (`office_staff`) and **Supervisor** (`supervisor`) since v0.23.0 |
 | App / port | `apps/attendance-salary`, `:3006`; live `https://attendance.bluemins.life` (service `attendance-salary`, volume at `/data` for bill photos since v0.22.0) |
 | Database | schema `attendance_salary`, login `attendance_app` (no BYPASSRLS, not the owner); 14 tables, FORCE RLS, no DELETE anywhere; the eight salary and claim tables are SELECT + INSERT only |
-| Migrations | `0001_attendance.sql` (v0.18.0), `0002_salary.sql` (v0.20.0), `0003_per_day_pay.sql` (v0.21.0, per-day pay), `0004_claims.sql` (v0.22.0, claims) |
+| Migrations | `0001_attendance.sql` (v0.18.0), `0002_salary.sql` (v0.20.0), `0003_per_day_pay.sql` (v0.21.0, per-day pay), `0004_claims.sql` (v0.22.0, claims), `0005_field_staff.sql` (v0.22.1), `0006_desk_and_staff_type.sql` (v0.23.0) |
 | Env | `ATTEND_DATABASE_URL_APP`, `ATTEND_SESSION_SECRET` (also makes the QR key), `MODULE_URL_ATTENDANCE_SALARY`, `MODULE_SECRET_ATTENDANCE_SALARY`, `PLATFORM_URL`, `CRON_SECRET`; bill photos: `ATTEND_STORAGE_DIR` (live `/data/attendance`, with `RAILWAY_RUN_UID=0`) or `ATTEND_STORAGE_BUCKET` + `STORAGE_*`; backup: the five `BACKUP_*` |
-| Jobs | `POST /api/cron/daily` (07:00 IST, `daily.yml` step "Attendance", GitHub variable `ATTENDANCE_URL`): outbox, "didn't mark OUT yesterday", and on the month's last day the salary review; `POST /api/cron/backup` (02:00 IST, `backup.yml` step "Attendance files", on with GitHub variable `ATTENDANCE_BACKUP_FILES=on`): new bill photos, encrypted, to R2 |
-| Notifications | `corrected` (worker only, phone + bell), `outside` (owners, bell), `no_exit` (owners, bell), `salary_review` (owners, last day, phone + bell), `salary_paid` (the worker only, only with "Can see own salary"), `claim_new` (owners), `claim_decided` (the worker only), `storage` (owners, 80 % / 95 %); owner-only module (`OWNER_ONLY_ALERTS`) |
+| Jobs | `POST /api/cron/daily` (07:00 IST, `daily.yml` step "Attendance", GitHub variable `ATTENDANCE_URL`): outbox, "didn't mark OUT yesterday", and on the month's last day the salary review; `POST /api/cron/backup` (02:00 IST, `backup.yml` step "Attendance files", on with GitHub variable `ATTENDANCE_BACKUP_FILES=on`): new bill photos, encrypted, to R2; `POST /api/cron/morning` (hourly 08:00-11:00 IST, `evening.yml` step "Attendance (not marked)", same `ATTENDANCE_URL`): outbox and the not-marked alert at each plant's hour |
+| Notifications | `corrected` (worker only, phone + bell), `outside` (owners, bell), `no_exit` (owners, bell), `salary_review` (owners, last day, phone + bell), `salary_paid` (the worker only, only with "Can see own salary"), `claim_new` (owners), `claim_decided` (the worker only), `storage` (owners, 80 % / 95 %); v0.23.0: `advance_given` (owners, phone), `desk_fix` (owners, bell), `scan` (supervisors only, bell), `not_marked` (owners + supervisors, phone); owner-only module (`OWNER_ONLY_ALERTS`; supervisors reached through `also_user_ids`) |
 
 ## Who may do what (`src/server/access.ts`, the one table)
-| Action | Owner | Owner + Plant staff | Plant staff | PlantOps support |
-|---|---|---|---|---|
-| Mark IN / OUT (QR) | – | ✔ | ✔ | – |
-| Own calendar and days (with present / half / absent / overtime counts, never money) | – | ✔ (`/my`) | ✔ (home) | – |
-| Everyone: Today, staff, person pages | ✔ | ✔ | – (404) | read-only |
-| Fix (add a time / cancel a mark) | ✔ | ✔ | – | – |
-| Settings (location, circle, QR) | ✔ | ✔ | – | read-only |
-| Month CSV | ✔ | ✔ | – | – |
-| Recent changes | ✔ | ✔ | – | read-only |
-| Support access page | ✔ | ✔ | – | – |
-| Salary tab, salary sections (`salary_view`) | ✔ | ✔ | – (404) | read-only |
-| Salary settings, advances, Can see own salary (`salary_edit`) | ✔ | ✔ | – | – |
-| Mark paid / undo (`salary_pay`) | ✔ | ✔ | – | – |
-| Salary CSV (`salary_export`) | ✔ | ✔ | – | – |
-| Own salary slips (`see_own_salary`) | – | ✔ | ✔ | – |
-| Send own claims, add photos, withdraw, My claims (`claim_own`) | – | ✔ (approved at once) | ✔ | – |
-| Claims tab, anyone's claims and photos (`claim_view`) | ✔ | ✔ | – (404) | read-only |
-| Approve / not approve / cancel, enter for someone (`claim_decide`) | ✔ | ✔ | – | – |
+Since v0.23.0 a person is a set of **capacities** from their roles: owner (`tenant_admin`), employee (Plant staff),
+office (Office staff), supervisor (Supervisor); support alone. Each column below is one capacity; someone with two
+(e.g. Office staff + Plant staff) gets both columns.
+
+| Action | Owner | Plant staff (employee) | Office staff | Supervisor | PlantOps support |
+|---|---|---|---|---|---|
+| Mark IN / OUT (QR) (`mark`) | – | ✔ | – | – | – |
+| Own calendar and days, never money (`see_own`) | – | ✔ (home, or `/my`) | – | – | – |
+| Today board (`see_today`) | ✔ | – | ✔ | ✔ read-only, no links | read-only |
+| Staff list, anyone's calendar and days (`see_everyone`) | ✔ | – (404) | ✔ | – | read-only |
+| Mark for someone, office phone (`mark_for`) | – (use Fix) | – | ✔ not themselves | – | – |
+| Fix (add a time / cancel a mark) (`fix`) | ✔ | – | ✔ not themselves | – | – |
+| Give an advance (`advance_add`) | ✔ | – | ✔ not themselves, ≤ 7 days back, ≤ ₹1 lakh; correct own entry the same day | – | – |
+| A person's advances + still to recover (`advance_view`) | ✔ | – | ✔ | – | read-only |
+| Settings (location, circle, QR, not-marked hour) | ✔ | – | – (404) | – (404) | read-only |
+| Month CSV, Recent changes, Support access page | ✔ | – | – | – | Recent changes read-only |
+| Salary tab, salary sections (`salary_view`) | ✔ | – (404) | – (404) | – (404) | read-only |
+| Salary settings, Can see own salary, advance corrections of any age (`salary_edit`) | ✔ | – | – (404) | – (404) | – |
+| Mark paid / undo, salary CSV | ✔ | – | – (404) | – (404) | – |
+| Own salary slips (`see_own_salary`) | – | ✔ | – (404) | – (404) | – |
+| Send own claims, My claims (`claim_own`; Field staff only since v0.22.1) | – (owner + Plant staff: approved at once) | ✔ | – (404) | – (404) | – |
+| Claims tab, anyone's claims and photos (`claim_view`) | ✔ | – (404) | – (404) | – (404) | read-only |
+| Approve / not approve / cancel, enter for someone (`claim_decide`) | ✔ | – | – (404) | – (404) | – |
 
 Own salary slips are shown **only** when the owner ticked "Can see own salary" for that person, **only** for months
 ticked Paid (not undone), **only** their own, from the frozen figures. Every other case is 404 (never 403), so
@@ -101,8 +107,10 @@ per vehicle or GPS distance; km rates per vehicle; PDF bills (photos only); part
 month; "approve all"; DA or TA as a fixed monthly amount; claims in Hindi / Odia. Salary (v0.20.0): weekly offs and
 holidays; leave requests or leave types; printed / PDF payslips; partial payments during the month
 (record them as advances); deductions other than advances (PF, ESI, TDS); salary in Hindi / Odia; a worker seeing an
-unpaid month; "mark all as paid". From version 1 still: a worker asking for a correction; a supervisor role; marking
-for another person; a gate tablet; a selfie at the scan; reports beyond the two CSVs.
+unpaid month; "mark all as paid". From version 1 still: a worker asking for a correction; a gate tablet; a selfie at
+the scan; reports beyond the two CSVs. Roles (v0.23.0): teams per supervisor; a supervisor fixing marks; Office staff
+entering claims, paying salary or seeing salaries; phone-level scan alerts; weekly offs / leave in the not-marked
+count; a separate kiosk login.
 
 ## Open items
 - Not yet tried on real phones (location needs https): Android, iPhone (Camera app → Safari), Google Lens.
@@ -534,3 +542,123 @@ Plan: `docs/ATTENDANCE_ROLES_PHASE_PLAN.md` "Claims only for field staff".
   the tick from a month, rate without tick, not ticked → no tab / 404 / 400 for both kinds via the API, ticked, last
   month only, the owner's entry read-only, withdraw / decide after unticking, owner + Plant staff). Fixtures that set
   TA / DA rates now tick Field staff.
+
+## 2026-10-17: Phase R1, roles, database, access (v0.23.0)
+Plan: `docs/ATTENDANCE_ROLES_PHASE_PLAN.md`.
+- Platform migration `0015_attendance_roles.sql`: roles `office_staff` "Office staff" and `supervisor` "Supervisor",
+  both `module_id = attendance_salary`. `packages/types`: both in `ROLE_IDS` / `ROLE_MODULE` (so `roleWorksIn` /
+  `canAccessModule` open Attendance to them), `isEmployee(roles)` = holds Plant staff, four new kinds (`advance_given`,
+  `desk_fix` bell only, `scan` bell only, `not_marked`), `corrected` relabelled "Your attendance was changed". Platform
+  `ROLE_LABELS` has both names; the role buttons list them when Attendance is on (proper hints in R5).
+- Attendance migration `0006_desk_and_staff_type.sql`: `punches.source` also `'desk'` (+ `punches_desk_check`: distance
+  and accuracy, no reason, never yourself), `salary_settings.staff_type` (permanent default / temporary),
+  `plant_settings.not_marked_hour` (8-11, default 10, null = Off). **Changed while building (owner's OK):** the plan
+  said UPDATE on `plant_settings` was already allowed, but it is column by column, so 0006 also grants
+  `update (not_marked_hour)` to `attendance_app`. No rows change.
+- Access: `Who` is now a list of capacities (`owner`, `employee`, `office`, `supervisor`; `support` alone); `can()` is
+  true when any of them allows the action. New rows `see_today`, `mark_for`, `advance_add`, `advance_view`;
+  `see_everyone` and `fix` gain office. Salary and claims actions answer 404 to Office staff / Supervisors (never 403);
+  workers, owners, support and others keep their earlier messages. Header label Owner / Office staff / Supervisor /
+  Plant staff / Read-only.
+- Only employees are tracked: `people.ts` (`staffList`, `knownPerson`) and the month-end "no salary set" count use
+  `isEmployee`. A `desk` mark counts like a scan in `sessions.ts` (never "changed").
+- Office staff already pass `see_everyone` / `fix` here; the "not yourself" checks and their screens come in R2
+  (nothing is deployed before R6).
+- Tests: Attendance 387 (access table for every combination, `test/roles.test.ts`, desk / staff type / alert hour
+  database checks, append-only list 150), platform 315 (roles table matches `ROLE_IDS`, Office staff / Supervisor in
+  Attendance contacts and handoff, settings list, role buttons 11).
+
+
+## 2026-10-17: Phase R2, Office staff (v0.23.0)
+Plan: `docs/ATTENDANCE_ROLES_PHASE_PLAN.md` "Office staff", mock-ups 1-4 and 8.
+- **Mark for someone** (`/desk`, `src/server/desk.ts`, `POST /api/desk/mark`, `mark_for`): every active employee (the
+  platform's Plant staff list, `activeEmployees` in `people.ts`) with their state ("IN since 8:02 · by Ramesh", "OUT
+  at 14:10", "Not in today") and one Mark IN / OUT button; yourself greyed ("Scan the QR for your own attendance", 403
+  on the server). The same rules as a scan: plant location set, office phone's accuracy ≤ 500 m, inside the circle,
+  2-minute double tap, IN / OUT decided by the server (409), per-person lock. Saved as `source = 'desk'` with the
+  office phone's distance / accuracy, `created_by` = Office staff; audited `mark.desk`. Outside the circle: "The office
+  phone is 1.2 km from the plant" and no "outside" alert. Someone who left (only in old marks): 404. No notification.
+  `lastValidMark` now also returns the mark's source and author.
+- **Fix** (`fixes.ts`): Office staff may add / cancel for anyone but themselves (403 "Ask the owner to fix your own
+  attendance"; no Fix panel on their own day). The worker gets `corrected` as before; the owners get `desk_fix` (bell,
+  `deskfix:<mark or cancel id>`), never for the owner's own fixes. The day view says "added by Sujata", "by Ramesh
+  (office)" and "Cancelled by <name>" (was "added by owner").
+- **Advances** (`saveAdvance`, now `advance_add`; the owner's rules unchanged): Office staff never for themselves (403),
+  only an active employee with a salary set for that month ("Ask the owner to set this person's salary first"), today
+  back to 7 days, ≤ ₹1 lakh, and correct only an entry they made the same India day (403 "Only the owner can correct
+  this entry"). The owners get `advance_given` (phone + bell, `advance:<id>`), none for corrections or the owner's own.
+- **Person page, Office view:** the month + `Advances` from `advancePanel()` (`advance_view`): the month's entries
+  (who entered each), "Still to recover from earlier months" (the month's carried-in balance, via
+  `salaryMonthsOf`, the access-free core of `salaryMonths`), the earliest date they may pick, and which entries they
+  may correct. No salary strip, box, history, "Can see own salary", claims or slip; `/salary`, `/claims`, `/settings`
+  answer 404 to them.
+- **Tabs:** `OwnerNav` shows each tab from its access-table action (Today `see_today`, Mark for someone `mark_for`,
+  Staff `see_everyone`, Salary, Claims, Recent changes `view_changes`, Settings); non-owners who are Plant staff get
+  "My attendance" as a tab (`/my` shows the tabs for them).
+- **Recent changes:** Office staff's entries read "Ramesh (office)" (`byLabel` in `audit.ts`).
+- Owners refused `mark_for` are told "Owners use Fix on the person's day to add a time".
+- Tests: `test/office.test.ts` (13); Attendance 400.
+
+## 2026-10-17: Phase R3, Supervisor (v0.23.0)
+Plan: `docs/ATTENDANCE_ROLES_PHASE_PLAN.md` "Supervisor", mock-ups 5-7 and 10.
+- **Today board:** `todayBoard` needs `see_today`; its people come from `activeEmployees` (no `see_everyone`), and
+  `boardFor(tenantId)` is the access-free core used by the tile and the morning job. The home page shows the board to
+  everyone with `see_today`; for a Supervisor (no `see_everyone`) the names are plain text: no links, no "· Fix".
+  "Inside now" says "· by Ramesh" for a desk mark. Supervisor tabs: Today (+ My attendance with Plant staff).
+- **Scan alert** `attendance_salary.scan` (`sendScanAlert` in `notify.ts`, from the punch and desk routes after the
+  answer): "Bindu IN 08:02" (body "by Ramesh" for a desk mark), bell, `scan:<mark id>`, `also_user_ids` = the plant's
+  supervisors from the platform's contacts minus whoever marked and the person marked, `only_listed` (never owners).
+  Nothing for a refused scan or a plant without supervisors.
+- **Not-marked alert** `attendance_salary.not_marked`: `POST /api/cron/morning` (`runMorning`, CRON_SECRET) retries the
+  outbox, then for each plant with marks in the last 3 days (`attendance_tenants()`) whose `not_marked_hour` has come
+  (no settings row = 10:00; null = Off): the board's "Not marked" list, if not empty, as "3 people not marked by 10:00"
+  / "Bindu, Kedar, Ramu" (5 names, then "+N"), phone + bell, `notmarked:<date>`, to owners + supervisors
+  (`also_user_ids`, no `only_listed`). Skipped while the platform can't be reached (the board would be wrong). Later
+  runs the same day repeat the same dedupe key, so the platform keeps one.
+- **Settings:** "Not-marked alert" card (08:00 / 09:00 / 10:00 / 11:00 / Off), `PUT /api/settings/not-marked`
+  (`saveNotMarkedHour`, owner), audited `settings.not_marked` ("Not-marked alert 10:00 → 08:00"); support read-only.
+- **`evening.yml`:** second schedule line `30 2-5 * * *`; step "Attendance (not marked)" (`ATTENDANCE_URL`) only on it;
+  Lab Records / Floor Stock skip it; "Run workflow" by hand runs all three.
+- Tests: `test/supervisor.test.ts` (9); `punch.test.ts` now mocks `after()` (a saved scan sends the scan alert);
+  Attendance 409. Checked on `pnpm dev` (plant 002, temporary Office staff / Supervisor / workers) at 390 px with a
+  faked location: `/desk` before and after a real tap, the Office person page with advances and Correct on their own
+  entry only, `/salary` 404 for Office staff, the owner's day "IN by Ramesh Tmp (office)", the Supervisor's read-only
+  board (bell 1 from the scan alert), `/staff` 404 for the Supervisor, Settings with the not-marked card saved at 09:00.
+
+## 2026-10-17: Phase R4, Permanent / Temporary (v0.23.0)
+Plan: `docs/ATTENDANCE_ROLES_PHASE_PLAN.md` "Permanent / Temporary", mock-up 9.
+- Salary box: "Staff type: Permanent / Temporary" (`staff_type` in `SettingInput`, default permanent), saved from a
+  month like the rest (`salary_settings.staff_type`, migration 0006); audit `staff_type`; history / Recent changes
+  "· temporary". Rows saved before 0006 read Permanent.
+- Salary tab: `TabRow.staffType` (the month's setting), a "TEMP" tag beside the name (table and phone list), and a
+  "Manpower cost" card with the total and Permanent / Temporary each: people, cost (`costOf` = earned + overtime + TA +
+  DA + expenses; advances are not a cost) and to pay. The checking panel and `src/lib/salary.ts` are unchanged.
+- CSV: "Staff type" (`permanent` / `temporary`) after "Pay basis".
+- Tests: `test/staff-type.test.ts` (4); Attendance 413. Checked on `pnpm dev` (plant 002, temporary data): the Salary
+  box set to Temporary in the browser at 390 px, the Salary tab at 390 and 1280 px with the split and the tag.
+
+## 2026-10-17: Phase R5, platform screens (v0.23.0)
+Plan: `docs/ATTENDANCE_ROLES_PHASE_PLAN.md` "Platform screens".
+- **Role buttons** (`roleChoices`, `ROLE_HINTS` in `apps/platform/src/lib/permissions.ts`): "Office staff · Attendance:
+  marks for others, fixes times, advances (no salaries)", "Supervisor · Attendance: Today board and IN / OUT alerts";
+  only with Attendance on (a role already held shows "not switched on").
+- **Permissions:** both roles in the Attendance column ("Office staff, Supervisor" when both); 🔔 for anyone holding a
+  role listed on one of the module's kinds (`NOTIFICATION_KINDS[…].roles`), i.e. supervisors; never a ticked bell in
+  an owner-only module. Two lines in the key.
+- **Launcher:** a staff tile carries `subtitle` only when a role has its own line (`MODULES.attendance_salary.staffBy`,
+  `roleLine` in `apps/platform/src/lib/modules.ts`): Office staff "Attendance desk", Supervisor "Today board"; others
+  keep "Mark attendance". One-module rule unchanged (Office staff only lands in Attendance; + Document keeper sees
+  tiles).
+- **Tile "desk" view** (Phase 0 finding 2): `SummaryView` = owner / staff / desk and `DESK_ROLES` in `packages/types`;
+  the platform's `summaryViewFor(roles, module)` sends `desk` to a non-owner holding a desk role; `verifySummaryRequest`
+  accepts it through the shared schema (an unknown view is refused). Attendance answers `desk` with the owner's
+  attendance badges (in now / not marked from 11:00 / no exit), never the claims badge, and "Not set up yet" (info)
+  before the location and QR exist. Lab Records and the rest treat anything but "owner" like staff (no change).
+- **Notification settings** (`kindsFor`): `roles` (non-owners holding one receive it in an owner-only module) and
+  `noOwners` on `NOTIFICATION_KINDS`. A Supervisor sees "Someone marked IN / OUT" (Bell / Off) and "People not marked
+  (morning)"; owners no longer see the every-scan kind; "about you" kinds in Attendance only for Plant staff (Office
+  staff / Supervisors alone see none of them).
+- Tests: platform 320 (+5 in `test/attendance.test.ts`), auth 53 (+1), Attendance 413 (+1 desk view in
+  `summary.test.ts`). Checked on `pnpm dev` (plant 002, temporary users and dev sessions, all removed): Manage users
+  with the two role buttons, Permissions with the key, the Office staff launcher ("Attendance desk"), the
+  Supervisor's notification page with its alert and the two settings.

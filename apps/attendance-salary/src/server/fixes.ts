@@ -9,9 +9,9 @@ import { fmtTime } from "@/lib/punch";
 import { requireAccess } from "./access";
 import { audit } from "./audit";
 import { schema, withTenant, type AtTx } from "./db";
-import { badRequest, conflict, notFound } from "./http";
+import { badRequest, conflict, forbidden, notFound } from "./http";
 import { dbNow, lockPerson } from "./marks";
-import { correctedNotification } from "./notify";
+import { correctedNotification, deskFixNotification } from "./notify";
 import { knownPerson } from "./people";
 import type { AtUser } from "./session";
 
@@ -60,9 +60,15 @@ export const AddInput = z.object({
   expect: z.string().max(100),
 });
 
-/** Owner: add a forgotten IN or OUT for a person, with a reason. */
+/** Office staff never fix their own attendance (docs/ATTENDANCE_ROLES_PHASE_PLAN.md "Office staff"). */
+function notOwnAsOffice(user: AtUser, personId: string) {
+  if (!user.isOwner && personId === user.userId) throw forbidden("Ask the owner to fix your own attendance");
+}
+
+/** Owner or Office staff: add a forgotten IN or OUT for a person, with a reason. */
 export async function addFix(user: AtUser, input: z.infer<typeof AddInput>) {
   requireAccess(user, "fix");
+  notOwnAsOffice(user, input.user_id);
   if (input.date !== input.day && input.date !== addDays(input.day, 1)) throw badRequest("The time must be on this day or the next morning");
   const person = await knownPerson(user, input.user_id);
   const at = new Date(`${input.date}T${input.time}:00+05:30`);
@@ -89,8 +95,11 @@ export async function addFix(user: AtUser, input: z.infer<typeof AddInput>) {
   });
   // `notice` is sent by the route after the answer: "Your attendance on 14 Oct was changed" to that worker only
   // (none when an owner who is also Plant staff fixes their own marks)
-  const notice = person.userId === user.userId ? null : correctedNotification(user, person.userId, input.date, `Added ${input.kind.toUpperCase()} ${input.time}: ${input.reason}`, saved.id);
-  return { id: saved.id, at: saved.at.toISOString(), notice };
+  const what = `Added ${input.kind.toUpperCase()} ${input.time}: ${input.reason}`;
+  const notice = person.userId === user.userId ? null : correctedNotification(user, person.userId, input.date, what, saved.id);
+  // Office staff's fix: the owners hear of it too (bell)
+  const ownerNotice = user.isOwner ? null : deskFixNotification(user, person, input.date, `added ${input.kind.toUpperCase()} ${input.time} · ${input.reason}`, saved.id);
+  return { id: saved.id, at: saved.at.toISOString(), notice, ownerNotice };
 }
 
 export const CancelInput = z.object({
@@ -100,12 +109,13 @@ export const CancelInput = z.object({
   expect: z.string().max(100),
 });
 
-/** Owner: cancel a wrong mark, with a reason. It stays on record, crossed out. Once per mark. */
+/** Owner or Office staff: cancel a wrong mark, with a reason. It stays on record, crossed out. Once per mark. */
 export async function cancelFix(user: AtUser, input: z.infer<typeof CancelInput>) {
   requireAccess(user, "fix");
   const done = await withTenant(user.tenantId, async (tx) => {
     const [mark] = await tx.select().from(punches).where(and(eq(punches.tenantId, user.tenantId), eq(punches.id, input.punch_id)));
     if (!mark) throw notFound("Not found");
+    notOwnAsOffice(user, mark.userId);
     await lockPerson(tx, user.tenantId, mark.userId);
     const [already] = await tx.select({ by: punchCancels.createdByName }).from(punchCancels).where(and(eq(punchCancels.tenantId, user.tenantId), eq(punchCancels.punchId, mark.id))).orderBy(desc(punchCancels.createdAt));
     if (already) throw conflict(`Already cancelled by ${already.by}.`);
@@ -118,6 +128,8 @@ export async function cancelFix(user: AtUser, input: z.infer<typeof CancelInput>
     return { mark, cancelId: c!.id };
   });
   const { mark } = done;
-  const notice = mark.userId === user.userId ? null : correctedNotification(user, mark.userId, istDay(mark.at), `Cancelled ${mark.kind.toUpperCase()} ${fmtTime(mark.at)}: ${input.reason}`, done.cancelId);
-  return { cancelled: mark.id, notice };
+  const date = istDay(mark.at);
+  const notice = mark.userId === user.userId ? null : correctedNotification(user, mark.userId, date, `Cancelled ${mark.kind.toUpperCase()} ${fmtTime(mark.at)}: ${input.reason}`, done.cancelId);
+  const ownerNotice = user.isOwner ? null : deskFixNotification(user, { userId: mark.userId, name: mark.userName }, date, `cancelled ${mark.kind.toUpperCase()} ${fmtTime(mark.at)} · ${input.reason}`, done.cancelId);
+  return { cancelled: mark.id, notice, ownerNotice };
 }

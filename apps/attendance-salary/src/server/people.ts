@@ -2,7 +2,7 @@
 // Plant staff, from the platform. Someone who left (disabled, or Plant staff taken away) drops off Today but keeps
 // their history: they are found through the name copied on their marks.
 import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
-import { roleWorksIn } from "@plantops/types";
+import { isEmployee } from "@plantops/types";
 import { dayStart, addDays } from "@/lib/days";
 import type { Cancel, Mark } from "@/lib/sessions";
 import { requireAccess } from "./access";
@@ -38,25 +38,39 @@ async function peopleWithMarks(tx: AtTx, tenantId: string): Promise<Person[]> {
   return rows;
 }
 
+/**
+ * The plant's active employees (Plant staff, from the platform), A-Z. Internal: callers check access (the Staff list,
+ * the Today board for Supervisors, "Mark for someone"). Only Plant staff are tracked, not Office staff / Supervisors
+ * alone. `platformDown` when the platform can't be reached (the list is then empty).
+ */
+export async function activeEmployees(tenantId: string): Promise<{ active: Person[]; platformDown: boolean }> {
+  const contacts = await kit.contacts(tenantId);
+  const active = (contacts ?? [])
+    .filter((c) => isEmployee(c.roles))
+    .map((c) => ({ userId: c.user_id, name: c.display_name }))
+    .sort(byName);
+  return { active, platformDown: contacts === null };
+}
+
 /** Active Plant staff (from the platform) and people who left (from their marks). */
 export async function staffList(user: AtUser): Promise<StaffList> {
   requireAccess(user, "see_everyone");
-  const contacts = await kit.contacts(user.tenantId);
-  const active = (contacts ?? [])
-    .filter((c) => c.roles.some((r) => roleWorksIn(r, "attendance_salary")))
-    .map((c) => ({ userId: c.user_id, name: c.display_name }))
-    .sort(byName);
+  const { active, platformDown } = await activeEmployees(user.tenantId);
   const ids = new Set(active.map((p) => p.userId));
   const marked = await withTenant(user.tenantId, (tx) => peopleWithMarks(tx, user.tenantId));
-  return { active, former: marked.filter((p) => !ids.has(p.userId)).sort(byName), platformDown: contacts === null };
+  return { active, former: marked.filter((p) => !ids.has(p.userId)).sort(byName), platformDown };
 }
 
-/** The person's name if they are active Plant staff or have marks in this plant; otherwise 404. */
-export async function knownPerson(user: AtUser, personId: string): Promise<Person> {
+/**
+ * The person's name if they are active Plant staff or have marks in this plant; otherwise 404. `activeOnly`: only an
+ * active employee (Office staff marking or giving an advance never reach someone who left).
+ */
+export async function knownPerson(user: AtUser, personId: string, opts: { activeOnly?: boolean } = {}): Promise<Person> {
   requireAccess(user, "see_everyone");
   const contacts = await kit.contacts(user.tenantId);
-  const c = contacts?.find((x) => x.user_id === personId && x.roles.some((r) => roleWorksIn(r, "attendance_salary")));
+  const c = contacts?.find((x) => x.user_id === personId && isEmployee(x.roles));
   if (c) return { userId: personId, name: c.display_name };
+  if (opts.activeOnly) throw notFound("Not found");
   const [row] = await withTenant(user.tenantId, (tx) =>
     tx.select({ name: punches.userName }).from(punches).where(and(eq(punches.tenantId, user.tenantId), eq(punches.userId, personId))).orderBy(desc(punches.at)).limit(1),
   );

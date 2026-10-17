@@ -4,6 +4,24 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.23.0 — 2026-10-17 — Attendance & Salary: Office staff and Supervisor
+
+**What's in it**
+- **Two new roles** for Attendance (Manage users): **Office staff** marks IN / OUT for people without a phone ("Mark
+  for someone", office phone at the plant), fixes times and gives advances, never for themselves, never sees a salary;
+  **Supervisor** sees the Today board read-only and gets a bell for every IN / OUT. Only Plant staff are tracked and paid.
+- **New alerts:** advance given by the office (owners, phone), office fix (owners, bell), every IN / OUT (supervisors,
+  bell), "N people not marked by 10:00" (owners + supervisors, phone) at the hour chosen in Settings (or Off).
+- **Permanent / Temporary** on each person's salary: Salary tab "TEMP" tag, Manpower cost split, CSV column.
+- **Platform:** role buttons say what each role does; Permissions screen; launcher tiles "Attendance desk" / "Today
+  board" with attendance numbers only (the summary request's new `desk` view); notification settings per role.
+
+**Migrations:** platform `0015_attendance_roles.sql` (two roles; no grant change). Attendance
+`0006_desk_and_staff_type.sql`: `punches` may have source 'desk' (with its check), `salary_settings.staff_type`
+(saved rows read Permanent), `plant_settings.not_marked_hour` (default 10) and UPDATE on that one column for
+`attendance_app`. No rows change. SSO token unchanged. **Also:** GitHub variable `ATTENDANCE_URL` for the morning step of
+`evening.yml`.
+
 ## v0.22.1 — 2026-10-17 — Attendance & Salary: claims only for field staff
 
 **What's in it**

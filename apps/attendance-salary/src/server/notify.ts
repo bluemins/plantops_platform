@@ -7,15 +7,18 @@
 import { eq, sql } from "drizzle-orm";
 import { fmtDateTime } from "@plantops/module-kit/format";
 import type { NotificationInput } from "@plantops/types";
-import { roleWorksIn } from "@plantops/types";
+import { isEmployee } from "@plantops/types";
 import { addDays, fmtMonth, istDay, monthDays } from "@/lib/days";
 import { settingFor } from "@/lib/salary";
 import { fmtDistance } from "@/lib/geo";
+import { fmtTime } from "@/lib/punch";
 import { workDays } from "@/lib/sessions";
 import { loadClaims } from "./claims";
 import { attendDb, schema, withTenant } from "./db";
 import { kit } from "./kit";
 import { loadMarks } from "./people";
+import { readSettings } from "./settings";
+import { boardFor } from "./today";
 import type { AtUser } from "./session";
 
 const clip = (s: string, max: number) => (s.length <= max ? s : `${s.slice(0, max - 1)}…`);
@@ -36,6 +39,81 @@ export function correctedNotification(fixer: AtUser, workerId: string, date: str
     also_user_ids: [workerId],
     only_listed: true,
     exclude_user_id: fixer.userId,
+  };
+}
+
+/** "08:02": the time as the supervisors' bell shows it (mock-up 6). */
+const hhmm = (at: Date) => fmtTime(at).padStart(5, "0");
+
+/**
+ * 11. Any saved IN / OUT, from a scan or "Mark for someone" (docs/ATTENDANCE_ROLES_PHASE_PLAN.md "Notifications" #11):
+ * bell only, to every active supervisor of the plant and nobody else (never owners), minus whoever marked and the
+ * person marked. Sent after the answer; never for a refused scan. Nothing when the plant has no supervisor.
+ */
+export async function sendScanAlert(tenantId: string, mark: { id: string; kind: "in" | "out"; at: Date; personId: string; personName: string }, marker: AtUser, desk: boolean) {
+  const contacts = await kit.contacts(tenantId);
+  const supervisors = (contacts ?? []).filter((c) => c.roles.includes("supervisor") && c.user_id !== marker.userId && c.user_id !== mark.personId).map((c) => c.user_id);
+  if (!supervisors.length) return;
+  await kit.notify(tenantId, {
+    kind: "attendance_salary.scan",
+    title: title(`${mark.personName} ${mark.kind.toUpperCase()} ${hhmm(mark.at)}`),
+    body: desk ? body(`by ${marker.name}`) : "",
+    link: "/",
+    level: "bell",
+    dedupe_key: `scan:${mark.id}`,
+    also_user_ids: supervisors,
+    only_listed: true,
+    exclude_user_id: marker.userId,
+  });
+}
+
+/**
+ * 12. People not marked by the plant's alert hour (#12): phone + bell to the owners and every supervisor, once per plant
+ * per day, only when someone is missing. The names are exactly the Today board's "Not marked" list.
+ */
+export function notMarkedNotification(date: string, hour: number, names: string[], supervisors: string[]): NotificationInput {
+  const n = names.length;
+  const shown = names.slice(0, 5).join(", ") + (n > 5 ? ` +${n - 5}` : "");
+  return {
+    kind: "attendance_salary.not_marked",
+    title: title(`${n} ${n === 1 ? "person" : "people"} not marked by ${String(hour).padStart(2, "0")}:00`),
+    body: body(shown),
+    link: "/",
+    level: "push",
+    dedupe_key: `notmarked:${date}`,
+    ...(supervisors.length ? { also_user_ids: supervisors } : {}),
+  };
+}
+
+/**
+ * 10. Office staff added or cancelled a mark (docs/ATTENDANCE_ROLES_PHASE_PLAN.md "Notifications" #10): to the owners,
+ * bell only. Never for the owner's own fixes (the caller checks that). "Mark for someone" sends nothing.
+ */
+export function deskFixNotification(office: AtUser, person: { userId: string; name: string }, date: string, what: string, refId: string): NotificationInput {
+  return {
+    kind: "attendance_salary.desk_fix",
+    title: title(`${office.name} changed ${person.name}'s attendance`),
+    body: body(`${shortDay(date)}: ${what}`),
+    link: `/staff/${person.userId}/${date}`,
+    level: "bell",
+    dedupe_key: `deskfix:${refId}`,
+    exclude_user_id: office.userId,
+  };
+}
+
+/**
+ * 9. Office staff gave an advance (#9): to the owners, phone + bell, so cash given from the office reaches them at
+ * once. Never for the owner's own entries.
+ */
+export function advanceGivenNotification(office: AtUser, person: { userId: string; name: string }, advance: { id: string; onDate: string; amountPaise: number; note: string | null }): NotificationInput {
+  return {
+    kind: "attendance_salary.advance_given",
+    title: title(`Advance ${amountText(advance.amountPaise)} to ${person.name}`),
+    body: body(`Given by ${office.name}${advance.note ? ` · ${advance.note}` : ""}`),
+    link: `/staff/${person.userId}?m=${advance.onDate.slice(0, 7)}`,
+    level: "push",
+    dedupe_key: `advance:${advance.id}`,
+    exclude_user_id: office.userId,
   };
 }
 
@@ -214,7 +292,7 @@ export async function salaryReview(tenantId: string, now: Date = new Date()) {
     for (const [date, d] of workDays(l.marks, l.cancels, now)) if (date.startsWith(month) && date < today && d.noExit) noExitDays++;
   }
   const contacts = await kit.contacts(tenantId);
-  const noSalary = contacts === null ? null : contacts.filter((c) => c.roles.some((r) => roleWorksIn(r, "attendance_salary")) && !onSalary.has(c.user_id)).length;
+  const noSalary = contacts === null ? null : contacts.filter((c) => isEmployee(c.roles) && !onSalary.has(c.user_id)).length;
   return { month, onSalary: onSalary.size, noExitDays, noSalary, claimsWaiting: claims.filter((c) => c.status === "waiting").length };
 }
 
@@ -222,6 +300,32 @@ export async function salaryReview(tenantId: string, now: Date = new Date()) {
  * The morning job (07:00 IST): first resend what waited in the outbox, then tell each plant's owners who didn't mark
  * OUT yesterday; on the month's last day also the salary review. A second run sends nothing new (same dedupe keys).
  */
+/** The hour (0-23) in India now. */
+const istHour = (at: Date) => Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", hourCycle: "h23" }).format(at));
+
+/**
+ * The morning job (hourly 08:00-11:00 IST, docs/ATTENDANCE_ROLES_PHASE_PLAN.md): first resend what waited in the
+ * outbox, then for each plant whose alert hour has come (not Off) send "N people not marked by 10:00" once a day, only
+ * when the Today board's "Not marked" list isn't empty. A later run the same day sends nothing new (same dedupe key).
+ */
+export async function runMorning(now: Date = new Date()) {
+  const outbox = await kit.retryOutbox();
+  const { rows } = await attendDb().execute<{ t: string }>(sql`select t from attendance_salary.attendance_tenants() t`);
+  const hourNow = istHour(now);
+  let notified = 0;
+  for (const { t } of rows) {
+    const settings = await withTenant(t, (tx) => readSettings(tx, t));
+    const hour = settings ? settings.notMarkedHour : 10; // no settings row yet: the default 10:00
+    if (hour == null || hourNow < hour) continue;
+    const board = await boardFor(t, now);
+    if (board.platformDown || board.notMarked.length === 0) continue;
+    const supervisors = ((await kit.contacts(t)) ?? []).filter((c) => c.roles.includes("supervisor")).map((c) => c.user_id);
+    await kit.notify(t, notMarkedNotification(board.today, hour, board.notMarked.map((p) => p.name), supervisors));
+    notified++;
+  }
+  return { outbox, not_marked: { plants: rows.length, notified } };
+}
+
 export async function runDaily(now: Date = new Date()) {
   const outbox = await kit.retryOutbox();
   const { rows } = await attendDb().execute<{ t: string }>(sql`select t from attendance_salary.attendance_tenants() t`);

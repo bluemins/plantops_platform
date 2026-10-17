@@ -431,6 +431,32 @@ Workers send **claims** from the phone; the owner approves them; only approved o
   see own salary") lists field duty, TA, DA and each expense.
 - **Photos** are kept on the server (`attendance-salary-volume`) and copied, encrypted, to the nightly backup.
 
+### Attendance: office desk and supervisor (v0.23.0)
+Two more roles for Attendance & Salary, given on PlantOps → Manage users like any role (the buttons show when
+Attendance is switched on). Tick **Plant staff** as well if the person is on the payroll: without it they are not on
+the Today board, the Staff list or the Salary tab, and don't mark their own attendance.
+- **Office staff** (e.g. the office clerk):
+  - **Mark for someone:** Attendance → Mark for someone → tap Mark IN / Mark OUT beside the name. The office phone's
+    location is checked like a scan (it must be inside the plant circle); the time is the server's. The day shows
+    "by Ramesh (office)". Never for themselves: they scan the QR like everyone.
+  - **Fix** a wrong or missing time on anyone's day (with a reason), never their own. You get a bell: "Ramesh changed
+    Bindu's attendance".
+  - **Advances:** Staff → the person → + Advance: today or up to 7 days back, at most ₹1 lakh, never to themselves,
+    only for someone whose salary you have set. Your phone buzzes: "Advance ₹2,000 to Bindu · Given by Ramesh". They
+    can correct their own entry the same day; anything older, you correct it.
+  - They see attendance and advances ("still to recover from earlier months"), **never a salary, slip or claim**.
+- **Supervisor** (e.g. the shift in-charge): the **Today board**, read-only; a **bell for every IN / OUT** (theirs and
+  the office's marks; never sent to owners); and the morning **"N people not marked by 10:00"** alert.
+- **The not-marked alert:** Attendance → Settings → Not-marked alert: 08:00, 09:00, 10:00 (default), 11:00 or Off. One
+  phone alert to the owners and supervisors listing who has no mark yet today. Weekly offs and leave aren't built
+  yet, so a day off shows there too. The GitHub variable `ATTENDANCE_URL` must be set for the morning job
+  (`evening.yml`, 08:00-11:00 India time).
+- **Permanent / Temporary:** in each person's Salary box (from a month). The Salary tab shows "TEMP" beside temporary
+  people and a **Manpower cost** card split Permanent / Temporary; the CSV has a "Staff type" column. Pay is worked out
+  the same way for both.
+- Launcher tiles: Office staff see "Attendance desk", supervisors "Today board", both with attendance numbers, never
+  money.
+
 ## 11. Files, backups and data location
 
 - **Uploaded documents** are on `document-store-volume`, mounted at `/data`. `DOC_STORAGE_DIR=/data/documents`,

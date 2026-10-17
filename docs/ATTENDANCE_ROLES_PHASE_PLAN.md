@@ -5,7 +5,8 @@ Part B (v0.22.0)**, as release **v0.23.0**. Mock-ups approved 2026-10-17 (scan a
 **Added 2026-10-17 (owner): Phase C, claims only for field staff** (a "Field staff" tick per person), a small release
 **v0.22.1** built first with one small migration. **Phase 0 done 2026-10-17** (plan checked against the code; two
 answers from the owner, see "Phase 0 findings"). **Phase C built 2026-10-17** (v0.22.1, see
-`apps/attendance-salary/NOTES.md`); next is R1.
+`apps/attendance-salary/NOTES.md`; live 2026-10-17). **R1-R5 built 2026-10-17** (not released; they ship together
+as v0.23.0 in R6); next is R6.
 
 **What the owner asked (2026-10-17):**
 1. **Office staff:** enter attendance times for people without a smartphone, and enter the cash advances staff take
@@ -266,12 +267,13 @@ punches  (existing)
 salary_settings  (existing; saved rows read as permanent)
   + staff_type text not null default 'permanent' check (staff_type in ('permanent', 'temporary'))
 
-plant_settings  (existing; UPDATE already allowed)
+plant_settings  (existing; UPDATE is granted column by column)
   + not_marked_hour smallint null default 10 check (not_marked_hour between 8 and 11)   -- null = Off
 ```
 - Replacing the `source` check drops and re-adds a constraint on an existing table; no rows change.
-- Grants unchanged: `attendance_app` SELECT + INSERT on `punches` / `salary_settings`, UPDATE only on
-  `plant_settings`. No new table, so the FORCE RLS guard count stays.
+- Grants: `attendance_app` keeps SELECT + INSERT only on `punches` / `salary_settings`; on `plant_settings` it gains
+  `update (not_marked_hour)` (found in R1: its UPDATE is per column; owner's OK 2026-10-17). No new table, so the FORCE
+  RLS guard count stays.
 
 ## Phases
 Finish and test each phase before the next. Each ends with the tests of every touched app, `typecheck`, build and a

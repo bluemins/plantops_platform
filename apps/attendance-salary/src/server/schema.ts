@@ -1,13 +1,17 @@
 // Drizzle table definitions mirroring db/migrations/*.sql (the SQL files are the source of truth).
 // Plant coordinates are numeric in the database and strings here ("20.296100"). A scan has no coordinates at all.
-import { bigint, boolean, date, integer, jsonb, numeric, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, date, integer, jsonb, numeric, pgSchema, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import type { ClaimKind, PayBasis } from "@/lib/salary";
 
 export const at = pgSchema("attendance_salary");
 const ts = (name: string) => timestamp(name, { withTimezone: true });
 
 export type PunchKind = "in" | "out";
-export type PunchSource = "scan" | "owner";
+/** scan = the worker's QR; owner = a fix (by the owner or Office staff); desk = Office staff's "Mark for someone" */
+/** Permanent / Temporary on a salary setting (migration 0006): for the manpower-cost split only */
+export type StaffType = "permanent" | "temporary";
+
+export type PunchSource = "scan" | "owner" | "desk";
 
 export const plantSettings = at.table("plant_settings", {
   tenantId: uuid("tenant_id").primaryKey(),
@@ -16,6 +20,8 @@ export const plantSettings = at.table("plant_settings", {
   radiusM: integer("radius_m").notNull().default(200),
   qrKeyHash: text("qr_key_hash"),
   qrMadeAt: ts("qr_made_at"),
+  /** hour (IST, 8-11) of the morning "not marked" alert; null = Off (migration 0006) */
+  notMarkedHour: smallint("not_marked_hour").default(10),
   updatedBy: uuid("updated_by").notNull(),
   updatedByName: text("updated_by_name").notNull(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
@@ -94,6 +100,8 @@ export const salarySettings = at.table("salary_settings", {
   daDayPaise: integer("da_day_paise"),
   /** the owner's "Field staff" tick: may send own claims; a TA / DA rate needs it (migration 0005) */
   fieldStaff: boolean("field_staff").notNull().default(false),
+  /** Permanent / Temporary, for the manpower-cost split; the salary rules never look at it (migration 0006) */
+  staffType: text("staff_type").$type<StaffType>().notNull().default("permanent"),
   shiftMinutes: integer("shift_minutes").notNull(),
   paidLeaveHalfdays: integer("paid_leave_halfdays").notNull().default(4),
   getsOvertime: boolean("gets_overtime").notNull(),

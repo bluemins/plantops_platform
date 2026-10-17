@@ -6,8 +6,11 @@ import { requireAccess } from "./access";
 import { schema, withTenant, type AtTx } from "./db";
 import { actorOf, type AtUser } from "./session";
 
+/** Who did it, as Recent changes shows it: "Ramesh (office)" for Office staff, else the name. */
+export const byLabel = (user: AtUser) => (!user.isOwner && user.who.includes("office") ? `${user.name} (office)` : user.name);
+
 export async function audit(tx: AtTx, user: AtUser, action: string, target: string | null, details: Record<string, unknown>) {
-  await tx.insert(schema.auditLog).values({ tenantId: user.tenantId, actor: actorOf(user), action, target, details: { by: user.name, ...details } });
+  await tx.insert(schema.auditLog).values({ tenantId: user.tenantId, actor: actorOf(user), action, target, details: { by: byLabel(user), ...details } });
 }
 
 export interface ChangeView {

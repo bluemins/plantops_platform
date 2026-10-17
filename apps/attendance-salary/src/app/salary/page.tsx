@@ -103,6 +103,24 @@ export default async function SalaryPage({ searchParams }: { searchParams: Searc
               ))}
             </div>
           </div>
+          <section aria-label="Manpower cost" className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="font-bold">Manpower cost</h2>
+              <span className="text-lg font-bold tabular-nums">{rupeesText(tab.split.permanent.costPaise + tab.split.temporary.costPaise)}</span>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {(["permanent", "temporary"] as const).map((type) => (
+                <div key={type} className="rounded-xl bg-slate-50 px-3 py-2">
+                  <p className="text-xs text-slate-600">
+                    {type === "permanent" ? "Permanent" : "Temporary"} · {tab.split[type].people} {tab.split[type].people === 1 ? "person" : "people"}
+                  </p>
+                  <p className="text-lg font-bold tabular-nums">{rupeesText(tab.split[type].costPaise)}</p>
+                  <p className="text-xs text-slate-600">to pay {rupeesText(tab.split[type].toPayPaise)}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-slate-600">Earned + overtime + TA, DA and expenses. Set Permanent / Temporary in each person&apos;s Salary box.</p>
+          </section>
           <SalaryTable tab={tab} canPay={can(user, "salary_pay")} />
         </>
       )}

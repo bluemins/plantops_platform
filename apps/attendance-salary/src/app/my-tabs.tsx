@@ -33,5 +33,5 @@ export function MyTabs({ attendanceHref, current, claims, salary }: { attendance
 /** Which tabs this person has, worked out on the server: `<MyTabs {...await myTabs(user)} current="…" />`. */
 export async function myTabs(user: AtUser) {
   const [claims, salary] = await Promise.all([hasOwnClaims(user), canSeeOwnSalary(user)]);
-  return { attendanceHref: can(user, "see_everyone") ? "/my" : "/", claims, salary };
+  return { attendanceHref: can(user, "see_today") ? "/my" : "/", claims, salary };
 }

@@ -13,7 +13,7 @@ const SALARY_COLUMNS: Record<string, string[]> = {
   salary_claims: ["id", "tenant_id", "user_id", "user_name", "kind", "on_date", "km_tenths", "amount_paise", "note", "created_by", "created_by_name", "created_at"],
   salary_payment_undos: ["id", "tenant_id", "payment_id", "reason", "created_by", "created_by_name", "created_at"],
   salary_payments: ["id", "tenant_id", "user_id", "user_name", "month", "paid_on", "paid_paise", "remaining_paise", "figures", "note", "created_by", "created_by_name", "created_at"],
-  salary_settings: ["id", "tenant_id", "user_id", "user_name", "from_month", "monthly_paise", "shift_minutes", "paid_leave_halfdays", "gets_overtime", "ot_rate_paise", "joined_on", "left_on", "reason", "created_by", "created_by_name", "created_at", "pay_basis", "day_rate_paise", "km_rate_paise", "da_day_paise", "field_staff"],
+  salary_settings: ["id", "tenant_id", "user_id", "user_name", "from_month", "monthly_paise", "shift_minutes", "paid_leave_halfdays", "gets_overtime", "ot_rate_paise", "joined_on", "left_on", "reason", "created_by", "created_by_name", "created_at", "pay_basis", "day_rate_paise", "km_rate_paise", "da_day_paise", "field_staff", "staff_type"],
   salary_visibility: ["id", "tenant_id", "user_id", "user_name", "can_see", "created_by", "created_by_name", "created_at"],
 };
 
@@ -85,13 +85,13 @@ describe("append-only for attendance_app", () => {
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(149); // + field_staff (0005)
+    expect(list.length).toBe(150); // + field_staff (0005), staff_type (0006)
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 
   it("allows what the app needs: the plant settings and the outbox retry columns", async () => {
     expect(
-      (await asApp(t, `update attendance_salary.plant_settings set lat = 21.5, lng = 83.9, radius_m = 500, qr_key_hash = '${"b".repeat(64)}', qr_made_at = now(), updated_by = gen_random_uuid(), updated_by_name = 'Sujata', updated_at = now()`)).rowCount,
+      (await asApp(t, `update attendance_salary.plant_settings set lat = 21.5, lng = 83.9, radius_m = 500, qr_key_hash = '${"b".repeat(64)}', qr_made_at = now(), not_marked_hour = 9, updated_by = gen_random_uuid(), updated_by_name = 'Sujata', updated_at = now()`)).rowCount,
     ).toBe(1);
     expect((await asApp(t, `update attendance_salary.notification_outbox set attempts = 1, last_error = 'x', sent_at = now(), given_up_at = null where id = '${ids.outbox}'`)).rowCount).toBe(1);
   });
@@ -110,6 +110,8 @@ describe("database checks on what a row may hold", () => {
       values ('${t}', ${v.user}, ${v.name}, ${v.kind}, now(), ${v.source}, ${v.distance}, ${v.accuracy}, ${v.reason}, ${v.by}, ${v.byName})`;
   };
   const ownerMark = { source: "'owner'", distance: "null", accuracy: "null", reason: "'forgot to scan'", by: "gen_random_uuid()", byName: "'Sujata'" };
+  /** Office staff's "Mark for someone" (0006): the office phone's distance and accuracy, no reason, never yourself */
+  const deskMark = { source: "'desk'", by: "gen_random_uuid()", byName: "'Ramesh'" };
 
   it.each([
     ["latitude over 90", { lat: "90.5" }],
@@ -144,6 +146,10 @@ describe("database checks on what a row may hold", () => {
     ["an owner mark without a reason", { ...ownerMark, reason: "null" }],
     ["an owner mark with a reason under 3 characters", { ...ownerMark, reason: "' ok '" }],
     ["an owner mark with a distance", { ...ownerMark, distance: "40" }],
+    ["a desk mark with a reason", { ...deskMark, reason: "'no phone'" }],
+    ["a desk mark for yourself", { ...deskMark, by: "'00000000-0000-4000-8000-000000000001'", user: "'00000000-0000-4000-8000-000000000001'" }],
+    ["a desk mark without a distance", { ...deskMark, distance: "null" }],
+    ["a desk mark without the accuracy", { ...deskMark, accuracy: "null" }],
     ["a negative distance", { distance: "-1" }],
     ["an empty name", { name: "''" }],
     ["an empty author name", { byName: "' '" }],
@@ -151,9 +157,22 @@ describe("database checks on what a row may hold", () => {
     expect(await dbError(asApp(t, punch(over)))).toMatch(/check constraint/);
   });
 
-  it("marks: a scan and an owner mark with a reason are fine", async () => {
+  it("marks: a scan, an owner mark with a reason and a desk mark by someone else are fine", async () => {
     expect((await asApp(t, punch({}))).rowCount).toBe(1);
     expect((await asApp(t, punch(ownerMark))).rowCount).toBe(1);
+    expect((await asApp(t, punch(deskMark))).rowCount).toBe(1);
+  });
+
+  it("settings: the not-marked alert hour is 10 by default; 8, 11 and Off (null) are fine; 7 and 12 are refused", async () => {
+    const p = plant();
+    await asApp(p.tenantId, settings(p.tenantId, {}));
+    const hour = async () => (await asOwner("select not_marked_hour from attendance_salary.plant_settings where tenant_id = $1", [p.tenantId])).rows[0]!.not_marked_hour;
+    expect(await hour()).toBe(10);
+    for (const h of ["8", "11", "null"]) {
+      expect((await asApp(p.tenantId, `update attendance_salary.plant_settings set not_marked_hour = ${h}`)).rowCount).toBe(1);
+    }
+    expect(await hour()).toBeNull();
+    for (const h of ["7", "12"]) expect(await dbError(asApp(p.tenantId, `update attendance_salary.plant_settings set not_marked_hour = ${h}`)), h).toMatch(/check constraint/);
   });
 
   it("cancels: a reason of 3+ characters is required, and a mark can be cancelled only once", async () => {
@@ -236,6 +255,18 @@ describe("database checks on salary rows", () => {
        values ('${tp}', '${other}', 'Gaja', '2026-10-01', 1000000, 480, false, ${by}) returning pay_basis, day_rate_paise, paid_leave_halfdays`,
     );
     expect(old.rows[0]).toEqual({ pay_basis: "monthly", day_rate_paise: null, paid_leave_halfdays: 4 });
+  });
+
+  it("settings: staff type is permanent unless saved as temporary; anything else is refused (0006)", async () => {
+    const row = (type: string | null) =>
+      asApp(
+        tp,
+        `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, monthly_paise, shift_minutes, gets_overtime${type ? ", staff_type" : ""}, created_by, created_by_name)
+         values ('${tp}', '${other}', 'Gaja', '2026-10-01', 1000000, 480, false${type ? `, ${type}` : ""}, ${by}) returning staff_type`,
+      );
+    expect((await row(null)).rows[0]).toEqual({ staff_type: "permanent" });
+    expect((await row("'temporary'")).rows[0]).toEqual({ staff_type: "temporary" });
+    expect(await dbError(row("'casual'"))).toMatch(/check constraint/);
   });
 
   it("advances: a positive advance is fine; a correction is negative, linked and has a reason", async () => {

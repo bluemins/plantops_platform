@@ -2,7 +2,8 @@
 // its alerts are OWNER-ONLY - nobody can be ticked for them, so a worker never gets a bell about a colleague's
 // attendance. An event about one worker (also_user_ids + only_listed) still reaches that worker.
 import { beforeAll, describe, expect, it } from "vitest";
-import { OWNER_ONLY_ALERTS, roleWorksIn } from "@plantops/types";
+import { OWNER_ONLY_ALERTS, ROLE_IDS, ROLE_MODULE, roleWorksIn } from "@plantops/types";
+import { getAlertContacts } from "@/server/sso";
 import * as handoffRoute from "@/app/api/sso/handoff/route";
 import * as launcherRoute from "@/app/api/launcher/route";
 import * as adminUserRoute from "@/app/api/admin/users/[id]/route";
@@ -16,7 +17,9 @@ import * as planRoute from "@/app/api/tenants/[id]/plan/route";
 import { emptyPlan, moduleLimitFormValues, planBody } from "@/lib/plan-body";
 import { sha256 } from "@/server/crypto";
 import { MODULES } from "@/lib/modules";
-import { alertChoices, cellFor } from "@/lib/permissions";
+import { alertChoices, cellFor, roleChoices } from "@/lib/permissions";
+import { decideTiles, landingFor } from "@/server/launcher";
+import { summaryViewFor } from "@/server/summary";
 import { asOwner, call, makePlant, makeStaff, makeSuperAdmin, type Handler } from "./helpers";
 
 const ATT_SECRET = "attendance-module-test-secret";
@@ -143,13 +146,15 @@ describe("owner-only alerts", () => {
 });
 
 describe("notification settings", () => {
-  it("the owner sees the eight Attendance kinds; outside and no exit are bell only, none urgent", async () => {
+  it("the owner sees eleven Attendance kinds (not every scan); outside, no exit and desk fix are bell only, none urgent", async () => {
     const list = (await settings(A.adminCookie)).filter((s) => s.kind.startsWith("attendance_salary."));
+    // docs/ATTENDANCE_ROLES_PHASE_PLAN.md: advance given, office fix and not marked for owners; every scan goes to supervisors only
     expect(list.map((s) => s.kind).sort()).toEqual([
-      "attendance_salary.claim_decided", "attendance_salary.claim_new", "attendance_salary.corrected", "attendance_salary.no_exit",
-      "attendance_salary.outside", "attendance_salary.salary_paid", "attendance_salary.salary_review", "attendance_salary.storage",
+      "attendance_salary.advance_given", "attendance_salary.claim_decided", "attendance_salary.claim_new", "attendance_salary.corrected",
+      "attendance_salary.desk_fix", "attendance_salary.no_exit", "attendance_salary.not_marked", "attendance_salary.outside",
+      "attendance_salary.salary_paid", "attendance_salary.salary_review", "attendance_salary.storage",
     ]);
-    expect(list.filter((s) => s.bell_only).map((s) => s.kind).sort()).toEqual(["attendance_salary.no_exit", "attendance_salary.outside"]);
+    expect(list.filter((s) => s.bell_only).map((s) => s.kind).sort()).toEqual(["attendance_salary.desk_fix", "attendance_salary.no_exit", "attendance_salary.outside"]);
     expect(list.some((s) => s.urgent)).toBe(false);
   });
 
@@ -183,6 +188,85 @@ describe("Attendance storage limit on the plan (Salary extras Part B: bill photo
     const plan = await call(planRoute.GET as Handler, { headers: ATT, params: { id: P.tenantId } });
     expect(plan.body.limits.modules.attendance_salary).toEqual({ storage_mb: 200 });
     expect(moduleLimitFormValues(plan.body.limits.modules).att_storage_mb).toBe("200");
+  });
+});
+
+describe("Office staff and Supervisor (docs/ATTENDANCE_ROLES_PHASE_PLAN.md, migration 0015)", () => {
+  it("the roles table holds every role in packages/types, each tied to its module", async () => {
+    const { rows } = await asOwner<{ id: string; module_id: string | null }>("select id, module_id from platform.roles");
+    const db = new Map(rows.map((r) => [r.id, r.module_id]));
+    for (const role of ROLE_IDS) {
+      expect(db.has(role), role).toBe(true);
+      if (role !== "tenant_admin" && role !== "plant_staff") expect(db.get(role), role).toBe(ROLE_MODULE[role]);
+    }
+    expect(db.get("office_staff")).toBe("attendance_salary");
+    expect(db.get("supervisor")).toBe("attendance_salary");
+  });
+
+  it("an Office staff user can be created, opens Attendance and is in its contacts (the module decides who is tracked)", async () => {
+    const office = await makeStaff(A, "office", ["office_staff"]);
+    const supervisor = await makeStaff(A, "supervisor", ["supervisor"]);
+    const contacts = await getAlertContacts("attendance_salary", A.tenantId);
+    expect(contacts.find((c) => c.user_id === office.userId)?.roles).toEqual(["office_staff"]);
+    expect(contacts.find((c) => c.user_id === supervisor.userId)?.roles).toEqual(["supervisor"]);
+    expect((await handoff(office.cookie, "attendance_salary")).status).toBe(200);
+    expect((await handoff(office.cookie, "floor_stock")).status).toBe(403);
+  });
+});
+
+describe("platform screens for Office staff and Supervisor (docs/ATTENDANCE_ROLES_PHASE_PLAN.md R5)", () => {
+  const avail = ["attendance_salary", "document_store"].map((id) => ({ id, status: "active", baseUrl: "https://x.test", clientSecretHash: "h" }));
+
+  it("role buttons say what each role does, and only show with Attendance switched on", () => {
+    const on = roleChoices(["attendance_salary", "floor_stock"], []);
+    expect(on.find((c) => c.role === "office_staff")).toEqual({ role: "office_staff", label: "Office staff", hint: "Attendance: marks for others, fixes times, advances (no salaries)", off: false });
+    expect(on.find((c) => c.role === "supervisor")).toEqual({ role: "supervisor", label: "Supervisor", hint: "Attendance: Today board and IN / OUT alerts", off: false });
+    const off = roleChoices(["floor_stock"], []);
+    expect(off.some((c) => c.role === "office_staff" || c.role === "supervisor")).toBe(false);
+    expect(roleChoices(["floor_stock"], ["supervisor"]).find((c) => c.role === "supervisor")).toMatchObject({ off: true, hint: "Attendance & Salary · not switched on" });
+  });
+
+  it("launcher: their own tile line; one module = straight in; Office staff + Document keeper see the tile screen", () => {
+    const office = decideTiles(["office_staff"], ["attendance_salary", "document_store"], avail);
+    expect(office).toEqual([{ module: "attendance_salary", state: "open", view: "staff", subtitle: "Attendance desk" }]);
+    expect(landingFor(["office_staff"], office)).toBe("attendance_salary");
+    expect(decideTiles(["supervisor", "plant_staff"], ["attendance_salary"], avail)[0]).toMatchObject({ subtitle: "Today board" });
+    expect(decideTiles(["plant_staff"], ["attendance_salary"], avail)[0]).not.toHaveProperty("subtitle"); // "Mark attendance" as before
+    const both = decideTiles(["office_staff", "document_keeper"], ["attendance_salary", "document_store"], avail);
+    expect(both.map((t) => t.module).sort()).toEqual(["attendance_salary", "document_store"]);
+    expect(landingFor(["office_staff", "document_keeper"], both)).toBe("launcher");
+  });
+
+  it("tile numbers: 'desk' for Office staff / Supervisor in Attendance only; owner and workers as before", () => {
+    expect(summaryViewFor(["office_staff"], "attendance_salary")).toBe("desk");
+    expect(summaryViewFor(["supervisor", "plant_staff"], "attendance_salary")).toBe("desk");
+    expect(summaryViewFor(["plant_staff"], "attendance_salary")).toBe("staff");
+    expect(summaryViewFor(["office_staff", "document_keeper"], "document_store")).toBe("staff");
+    expect(summaryViewFor(["tenant_admin", "supervisor"], "attendance_salary")).toBe("owner");
+  });
+
+  it("notification settings: a Supervisor gets scan + not marked; Office staff none of Attendance's; with Plant staff, also the kinds about them", async () => {
+    const sup = await makeStaff(A, "sup2", ["supervisor"]);
+    const supWorker = await makeStaff(A, "sup3", ["supervisor", "plant_staff"]);
+    const office = await makeStaff(A, "office2", ["office_staff"]);
+    const officeWorker = await makeStaff(A, "office3", ["office_staff", "plant_staff"]);
+    const att = async (cookie: string) => (await settings(cookie)).map((s) => s.kind).filter((k) => k.startsWith("attendance_salary.")).sort();
+    expect(await att(sup.cookie)).toEqual(["attendance_salary.not_marked", "attendance_salary.scan"]);
+    expect(await att(supWorker.cookie)).toEqual([
+      "attendance_salary.claim_decided", "attendance_salary.corrected", "attendance_salary.not_marked", "attendance_salary.salary_paid", "attendance_salary.scan",
+    ]);
+    expect(await att(office.cookie)).toEqual([]);
+    expect(await att(officeWorker.cookie)).toEqual(["attendance_salary.claim_decided", "attendance_salary.corrected", "attendance_salary.salary_paid"]);
+    expect((await setSetting(sup.cookie, "attendance_salary.scan", "off")).status).toBe(200);
+    expect((await setSetting(sup.cookie, "attendance_salary.advance_given", "off")).status).toBe(400); // owners' kind
+    expect((await setSetting(A.adminCookie, "attendance_salary.scan", "off")).status).toBe(400); // owners never get every scan
+  });
+
+  it("Permissions grid: Office staff and Supervisor in the Attendance column; the bell for supervisors only", () => {
+    expect(cellFor(["office_staff", "plant_staff"], [], "attendance_salary")).toEqual({ kind: "work", label: "Office staff", alerts: false });
+    expect(cellFor(["supervisor"], [], "attendance_salary")).toEqual({ kind: "work", label: "Supervisor", alerts: true });
+    expect(cellFor(["office_staff", "supervisor", "plant_staff"], [], "attendance_salary")).toEqual({ kind: "work", label: "Office staff, Supervisor", alerts: true });
+    expect(cellFor(["supervisor"], [], "floor_stock")).toBeNull();
   });
 });
 

@@ -15,9 +15,33 @@ const dayShort = (ymd: string) => fmtDayLong(ymd).replace(/^\w+, /, "");
 /**
  * Advances for the month (mock-up 2): the entries, the total, + Advance, and a Correct button per advance. Entries are
  * never changed or deleted: a mistake gets a correcting (negative) entry with a reason, on the same date.
- * `editable` = false for PlantOps support (the list only).
+ * `editable` = false for PlantOps support (the list only). Office staff (docs/ATTENDANCE_ROLES_PHASE_PLAN.md mock-ups
+ * 2-3): `correctable` lists the entries they may correct (their own, today), `stillToRecover` what earlier months owe;
+ * never a salary.
  */
-export function Advances({ personId, month, today, firstDate, entries, expect, editable }: { personId: string; month: string; today: string; firstDate: string | null; entries: AdvanceEntry[]; expect: string | null; editable: boolean }) {
+export function Advances({
+  personId,
+  month,
+  today,
+  firstDate,
+  entries,
+  expect,
+  editable,
+  correctable,
+  stillToRecoverPaise,
+  office = false,
+}: {
+  personId: string;
+  month: string;
+  today: string;
+  firstDate: string | null;
+  entries: AdvanceEntry[];
+  expect: string | null;
+  editable: boolean;
+  correctable?: readonly string[];
+  stillToRecoverPaise?: number;
+  office?: boolean;
+}) {
   const router = useRouter();
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today);
@@ -86,7 +110,7 @@ export function Advances({ personId, month, today, firstDate, entries, expect, e
                   {e.amountPaise < 0 ? `Correction: ${e.reason}` : e.note || "—"} <span className="text-slate-600">· {e.byName}</span>
                 </span>
               </div>
-              {editable && e.leftPaise !== null && e.leftPaise > 0 && correcting !== e.id && (
+              {editable && e.leftPaise !== null && e.leftPaise > 0 && (!correctable || correctable.includes(e.id)) && correcting !== e.id && (
                 <button type="button" onClick={() => (setCorrecting(e.id), setFixAmount(""), setFixReason(""), setError(undefined))} className="min-h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold">
                   Correct
                 </button>
@@ -118,6 +142,12 @@ export function Advances({ personId, month, today, firstDate, entries, expect, e
           ))}
         </ul>
       )}
+      {stillToRecoverPaise !== undefined && stillToRecoverPaise > 0 && (
+        <p className="flex justify-between gap-2 text-sm text-slate-700">
+          <span>Still to recover from earlier months</span>
+          <span className="font-semibold tabular-nums">{paiseText(stillToRecoverPaise)}</span>
+        </p>
+      )}
 
       {editable && firstDate && (
         <div className="space-y-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
@@ -139,10 +169,14 @@ export function Advances({ personId, month, today, firstDate, entries, expect, e
           <button type="button" onClick={add} disabled={busy} className="min-h-12 rounded-xl bg-(--brand) px-6 font-bold text-(--brand-contrast) hover:bg-(--brand-hover) disabled:opacity-60">
             Save advance
           </button>
-          <p className="text-xs text-slate-600">Entries are never deleted. A mistake gets a correcting entry.</p>
+          <p className="text-xs text-slate-600">
+            {office
+              ? "Today or up to 7 days back. The owner is told at once. You can correct your own entry today; anything older, ask the owner."
+              : "Entries are never deleted. A mistake gets a correcting entry."}
+          </p>
         </div>
       )}
-      {editable && !firstDate && <p className="text-sm text-slate-600">Set a salary first; advances can be entered after that.</p>}
+      {editable && !firstDate && <p className="text-sm text-slate-600">{office ? "Ask the owner to set this person's salary first." : "Set a salary first; advances can be entered after that."}</p>}
       {error && <ErrorText>{error}</ErrorText>}
       {done && <p className="font-semibold text-emerald-700">{done}</p>}
     </section>

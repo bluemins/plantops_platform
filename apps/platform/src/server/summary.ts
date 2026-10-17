@@ -2,7 +2,7 @@
 // Never stored (CLAUDE.md: owner tiles show the same data staff enter, never a copy).
 import { eq } from "drizzle-orm";
 import { canAccessModule } from "@plantops/auth";
-import { MODULE_SUMMARY_PATH, ModuleSummary, SUMMARY_TOKEN_SECONDS, type ModuleId, type SummaryView } from "@plantops/types";
+import { DESK_ROLES, MODULE_SUMMARY_PATH, ModuleSummary, SUMMARY_TOKEN_SECONDS, type ModuleId, type RoleId, type SummaryView } from "@plantops/types";
 import type { CurrentUser } from "./auth";
 import { appDb, schema, superDb, withTenant } from "./db";
 import { forbidden } from "./http";
@@ -37,11 +37,20 @@ export async function fetchModuleSummary(moduleId: ModuleId, tenantId: string, v
   }
 }
 
+/**
+ * Which numbers this person's tile asks for: owner, "desk" (a non-owner holding one of the module's DESK_ROLES, e.g.
+ * Attendance's Office staff / Supervisor), else staff.
+ */
+export function summaryViewFor(roles: readonly RoleId[], moduleId: ModuleId): SummaryView {
+  if (roles.includes("tenant_admin")) return "owner";
+  return DESK_ROLES[moduleId]?.some((r) => roles.includes(r)) ? "desk" : "staff";
+}
+
 /** GET /api/launcher/summary/:module - only for a module this user may open. */
 export async function summaryForUser(user: CurrentUser, moduleId: ModuleId) {
   const enabled = await withTenant(user.tenantId, (tx) => enabledModules(tx, user.tenantId));
   if (!canAccessModule(user.roles, enabled, moduleId)) throw forbidden("This module is not available for you");
-  return fetchModuleSummary(moduleId, user.tenantId, user.roles.includes("tenant_admin") ? "owner" : "staff");
+  return fetchModuleSummary(moduleId, user.tenantId, summaryViewFor(user.roles, moduleId));
 }
 
 /** super_admin dashboard: the owner's numbers for any plant, for modules in that plant's plan. */

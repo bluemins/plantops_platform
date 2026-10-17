@@ -5,7 +5,7 @@
 //   event is about), each active and working in the module (roleWorksIn) - minus whoever did it.
 import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import { NOTIFICATION_KINDS, NotificationInput, NotificationMode, OWNER_ONLY_ALERTS, roleWorksIn, type ModuleId, type RoleId } from "@plantops/types";
+import { NOTIFICATION_KINDS, NotificationInput, NotificationMode, OWNER_ONLY_ALERTS, roleWorksIn, type ModuleId, type RoleId, isEmployee } from "@plantops/types";
 import type { CurrentUser } from "./auth";
 import { schema, withTenant, type PlatformTx } from "./db";
 import { badRequest, forbidden, notFound } from "./http";
@@ -252,8 +252,9 @@ export async function unreadCount(tenantId: string, userId: string) {
 // ---------- each person's settings (N4) ----------
 
 /**
- * The kinds this person can receive: owners all of their plant's (and PlantOps'), others their modules' only; in an
- * owner-only module (Attendance) a non-owner only the kinds about themselves.
+ * The kinds this person can receive: owners all of their plant's (and PlantOps') except `noOwners` kinds, others their
+ * modules' only; in an owner-only module (Attendance) a non-owner only the kinds about themselves and the kinds listed
+ * for one of their roles (a Supervisor's scan / not-marked alerts).
  */
 async function kindsFor(tx: PlatformTx, user: CurrentUser) {
   const enabled = await enabledModules(tx, user.tenantId);
@@ -261,8 +262,11 @@ async function kindsFor(tx: PlatformTx, user: CurrentUser) {
   return Object.entries(NOTIFICATION_KINDS).filter(([, k]) => {
     if (k.module === null) return owner;
     if (!enabled.includes(k.module)) return false;
-    if (owner) return true;
+    if (owner) return !k.noOwners;
+    if (k.roles?.some((r) => user.roles.includes(r))) return true;
     if (OWNER_ONLY_ALERTS.includes(k.module) && !k.aboutYou) return false;
+    // "about you" in an owner-only module (Attendance): only employees are tracked, so only Plant staff get them
+    if (OWNER_ONLY_ALERTS.includes(k.module) && !isEmployee(user.roles)) return false;
     return user.roles.some((r) => roleWorksIn(r, k.module!));
   });
 }

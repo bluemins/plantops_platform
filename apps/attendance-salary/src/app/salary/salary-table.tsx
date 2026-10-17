@@ -35,7 +35,13 @@ function RowNotes({ r, month }: { r: TabRow; month: string }) {
 
 /** The small "per day" tag beside a per-day person's name (mock-up 6). */
 function PerDayTag({ r }: { r: TabRow }) {
-  return r.payBasis === "per_day" ? <span className="ml-1.5 rounded-md bg-blue-100 px-1.5 py-0.5 text-xs font-bold text-blue-900">per day</span> : null;
+  return (
+    <>
+      {r.payBasis === "per_day" && <span className="ml-1.5 rounded-md bg-blue-100 px-1.5 py-0.5 text-xs font-bold text-blue-900">per day</span>}
+      {/* Permanent / Temporary (docs/ATTENDANCE_ROLES_PHASE_PLAN.md mock-up 9) */}
+      {r.staffType === "temporary" && <span className="ml-1.5 rounded-md bg-amber-100 px-1.5 py-0.5 text-xs font-bold text-amber-900 uppercase">temp</span>}
+    </>
+  );
 }
 
 /** "₹12,000" for a monthly person, "₹450 / day" for a per-day one. */

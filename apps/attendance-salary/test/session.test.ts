@@ -94,10 +94,10 @@ describe("support view", () => {
     const spy = vi.spyOn(kit, "currentSession");
     try {
       spy.mockResolvedValue({ kind: "support", support: { tenant_id: tenantId, super_admin_id: crypto.randomUUID(), read_only: true, expires_at: Date.now() + 60_000 } } as never);
-      expect(await requirePageUser("/")).toMatchObject({ isSupport: true, who: "support", isOwner: false });
+      expect(await requirePageUser("/")).toMatchObject({ isSupport: true, who: ["support"], isOwner: false });
       await requirePageUser("/settings");
       spy.mockResolvedValue({ kind: "user", session: { tenant_id: tenantId, user_id: USER, display_name: "Sujata", roles: ["tenant_admin"], enabled_modules: ["attendance_salary"], login_at: Date.now(), checked_at: Date.now() } } as never);
-      expect(await requirePageUser("/changes")).toMatchObject({ who: "owner", isOwner: true });
+      expect(await requirePageUser("/changes")).toMatchObject({ who: ["owner"], isOwner: true });
       const { rows } = await asOwner<{ path: string }>("select path from attendance_salary.support_views where tenant_id = $1 order by path", [tenantId]);
       expect(rows.map((r) => r.path)).toEqual(["/", "/settings"]);
     } finally {

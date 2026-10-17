@@ -5,12 +5,13 @@ import type { Block, Mark, WorkDay } from "@/lib/sessions";
 const DAY_MS = 24 * 3600_000;
 const pct = (n: number) => `${Math.max(0, Math.min(100, n * 100)).toFixed(2)}%`;
 
-/** "IN scan (30 m)" or "OUT added by owner: forgot to scan" */
+/** "IN scan (30 m)", "IN by Ramesh (office)" or "OUT added by Sujata: forgot to scan" */
 function how(m: Mark) {
   const kind = m.kind.toUpperCase();
+  if (m.source === "desk") return <span>{kind} by {m.byName} (office)</span>;
   return m.source === "owner" ? (
     <span className="rounded-md bg-violet-50 px-2 py-0.5 text-violet-800">
-      {kind} added by owner: {m.reason}
+      {kind} added by {m.byName}: {m.reason}
     </span>
   ) : (
     <span>
@@ -73,11 +74,11 @@ export function DayView({ day }: { day: WorkDay }) {
                   <li key={i} className="space-y-1 py-3">
                     <div className="flex justify-between gap-2 text-slate-400">
                       <span className="line-through">
-                        {e.mark.kind.toUpperCase()} {fmtTime(e.mark.at)} {e.mark.source === "owner" ? "added by owner" : "scan"}
+                        {e.mark.kind.toUpperCase()} {fmtTime(e.mark.at)} {e.mark.source === "owner" ? `added by ${e.mark.byName}` : e.mark.source === "desk" ? `by ${e.mark.byName} (office)` : "scan"}
                       </span>
                       <span className="text-sm">cancelled</span>
                     </div>
-                    <p className="text-sm text-slate-500">Cancelled by owner: {e.cancel.reason}</p>
+                    <p className="text-sm text-slate-500">Cancelled by {e.cancel.byName}: {e.cancel.reason}</p>
                   </li>
                 );
               }

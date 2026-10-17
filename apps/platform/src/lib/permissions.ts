@@ -1,7 +1,7 @@
 // The owner's "Who can do what" screen (/admin/permissions): what each person is in each module switched on for the
 // plant. Worked out from the SAME rules the servers enforce (roleWorksIn / viewOnlyIn in packages/types), so the
 // screen can't say something different from what actually happens. Text only; nothing here grants access.
-import { MODULE_IDS, OWNER_ONLY_ALERTS, ROLE_IDS, ROLE_MODULE, roleWorksIn, viewOnlyIn, type ModuleId, type RoleId } from "@plantops/types";
+import { MODULE_IDS, NOTIFICATION_KINDS, OWNER_ONLY_ALERTS, ROLE_IDS, ROLE_MODULE, roleWorksIn, viewOnlyIn, type ModuleId, type RoleId } from "@plantops/types";
 import { ROLE_LABELS } from "./api";
 import { moduleLabel } from "./modules";
 
@@ -27,7 +27,9 @@ export const alertChoices = (enabled: string[], roles: string[]) =>
 export function cellFor(roles: readonly string[], alertModules: readonly string[], moduleId: ModuleId): Cell | null {
   const rs = roles as RoleId[];
   if (rs.includes("tenant_admin")) return { kind: "owner", label: "Owner", alerts: true };
-  const alerts = alertModules.includes(moduleId) && !OWNER_ONLY_ALERTS.includes(moduleId); // owner-only: never a 🔔 for staff
+  // owner-only modules: never a ticked 🔔 for staff, but a role that receives alerts by itself (a Supervisor) has one
+  const byRole = Object.values(NOTIFICATION_KINDS).some((k) => k.module === moduleId && k.roles?.some((r) => rs.includes(r)));
+  const alerts = (alertModules.includes(moduleId) && !OWNER_ONLY_ALERTS.includes(moduleId)) || byRole;
   let working = rs.filter((r) => roleWorksIn(r, moduleId));
   if (working.includes("lab_lead")) working = working.filter((r) => r !== "lab_technician"); // a lead is a technician too
   if (working.length > 1) working = working.filter((r) => r !== "plant_staff"); // the module's own role says more
@@ -38,6 +40,12 @@ export function cellFor(roles: readonly string[], alertModules: readonly string[
 
 /** The grid's columns: the plant's switched-on modules in the usual module order. */
 export const gridModules = (enabled: readonly string[]) => MODULE_IDS.filter((m) => enabled.includes(m));
+
+/** What a role does, when its module's name alone doesn't say it (docs/ATTENDANCE_ROLES_PHASE_PLAN.md mock-ups). */
+const ROLE_HINTS: Partial<Record<RoleId, string>> = {
+  office_staff: "Attendance: marks for others, fixes times, advances (no salaries)",
+  supervisor: "Attendance: Today board and IN / OUT alerts",
+};
 
 /** A role button on Add / Edit user: what it opens, and whether its module is switched off for the plant. */
 export interface RoleChoice {
@@ -65,7 +73,7 @@ export function roleChoices(enabled: readonly string[], held: readonly string[])
       const m = ROLE_MODULE[role];
       const off = known && !enabled.includes(m);
       if (off && !held.includes(role)) continue;
-      choices.push({ role, label, hint: off ? `${moduleLabel(m)} · not switched on` : moduleLabel(m), off });
+      choices.push({ role, label, hint: off ? `${moduleLabel(m)} · not switched on` : (ROLE_HINTS[role] ?? moduleLabel(m)), off });
     }
   }
   return choices;
@@ -92,5 +100,7 @@ export const ROLE_MEANINGS: { kind: CellKind; label: string; text: string }[] = 
   { kind: "work", label: "Complaint desk", text: "Logs complaints and follows them up." },
   { kind: "work", label: "Order desk", text: "Takes orders, sees amounts, marks them delivered or cancelled." },
   { kind: "work", label: "Plant staff", text: "Employee: own attendance and overtime (Attendance & Salary)." },
+  { kind: "work", label: "Office staff", text: "Attendance: marks for people without a phone, fixes times, gives advances. Never salaries." },
+  { kind: "work", label: "Supervisor", text: "Attendance: the Today board (read-only) and an alert for every IN / OUT." },
   { kind: "view", label: "View only, no amounts", text: "Plant staff in Order Capture: sees orders, never prices." },
 ];

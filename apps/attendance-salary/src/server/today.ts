@@ -1,16 +1,19 @@
-// The owner's Today board (mock-up "Owner · Today"): who is inside now, who came and left, who hasn't marked today,
-// and who had no exit yesterday. Worked out from the marks with the same rules as the calendars (src/lib/sessions.ts).
+// The Today board (mock-up "Owner · Today"; docs/ATTENDANCE_ROLES_PHASE_PLAN.md mock-up 5): who is inside now, who came
+// and left, who hasn't marked today, and who had no exit yesterday. Worked out from the marks with the same rules as the
+// calendars (src/lib/sessions.ts). The same board feeds the launcher tile and the morning "not marked" alert, so they
+// always agree.
 import { addDays, istDay } from "@/lib/days";
 import { workDays, type WorkDay } from "@/lib/sessions";
 import { requireAccess } from "./access";
 import { withTenant } from "./db";
-import { loadMarks, staffList, type Person } from "./people";
+import { activeEmployees, loadMarks, type Person } from "./people";
 import type { AtUser } from "./session";
 
 export interface TodayBoard {
   today: string;
   yesterday: string;
-  inside: (Person & { since: Date })[];
+  /** `by`: who marked them in from the office ("Mark for someone"), else null */
+  inside: (Person & { since: Date; by: string | null })[];
   cameLeft: (Person & { firstIn: Date | null; lastOut: Date | null; minutes: number })[];
   notMarked: Person[];
   noExitYesterday: (Person & { inAt: Date })[];
@@ -18,12 +21,17 @@ export interface TodayBoard {
   platformDown: boolean;
 }
 
-/** Owner (and PlantOps support, read-only). */
+/** Owner, Office staff, Supervisor (read-only on screen) and PlantOps support. */
 export async function todayBoard(user: AtUser, now: Date = new Date()): Promise<TodayBoard> {
-  requireAccess(user, "see_everyone");
+  requireAccess(user, "see_today");
+  return boardFor(user.tenantId, now);
+}
+
+/** The board without an access check: for the launcher tile and the morning job (they show no names to anyone else). */
+export async function boardFor(tenantId: string, now: Date = new Date()): Promise<TodayBoard> {
   const today = istDay(now);
   const yesterday = addDays(today, -1);
-  const [staff, loaded] = await Promise.all([staffList(user), withTenant(user.tenantId, (tx) => loadMarks(tx, user.tenantId, yesterday, today))]);
+  const [staff, loaded] = await Promise.all([activeEmployees(tenantId), withTenant(tenantId, (tx) => loadMarks(tx, tenantId, yesterday, today))]);
   // the people: active Plant staff; if the platform is down, whoever marked in the window
   const people: Person[] = staff.platformDown ? [...loaded.entries()].map(([userId, l]) => ({ userId, name: l.name })).sort((a, b) => a.name.localeCompare(b.name)) : staff.active;
 
@@ -37,7 +45,7 @@ export async function todayBoard(user: AtUser, now: Date = new Date()): Promise<
     const noExit = y?.blocks.find((b) => b.status === "no_exit");
     if (noExit) board.noExitYesterday.push({ ...p, inAt: noExit.start.at });
     if (open) {
-      board.inside.push({ ...p, since: open.start.at });
+      board.inside.push({ ...p, since: open.start.at, by: open.start.source === "desk" ? open.start.byName : null });
       continue;
     }
     if (t && t.entries.some((e) => e.type !== "cancelled")) {

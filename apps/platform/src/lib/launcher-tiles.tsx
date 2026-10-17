@@ -9,6 +9,7 @@ export type Tile = {
   module: keyof typeof MODULES;
   state: "open" | "off" | "locked";
   view: "owner" | "staff";
+  subtitle?: string;
   locked_reason?: "not_enabled" | "addon";
 };
 export type PlanSummary = {
@@ -58,7 +59,7 @@ function TileCard({ tile, summaryUrl, openHref }: { tile: Tile; summaryUrl: stri
   const subtitle =
     tile.state === "locked"
       ? tile.locked_reason === "addon" ? "Add-on service" : "Not enabled"
-      : tile.view === "owner" ? "Read-only summary" : m.staff;
+      : tile.view === "owner" ? "Read-only summary" : (tile.subtitle ?? m.staff);
   const body = (
     <Card className={`h-full ${dim ? "border-dashed bg-slate-50/60" : openHref ? "transition hover:border-(--brand-ring) hover:shadow" : ""}`}>
       <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-xl text-xl ${dim ? "bg-slate-100 opacity-60" : "bg-(--brand-soft)"}`}>{m.icon}</div>

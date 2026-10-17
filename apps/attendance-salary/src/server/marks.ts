@@ -9,6 +9,7 @@ import { distanceM, fmtDistance } from "@/lib/geo";
 import { fmtTime, isDoubleTap, MAX_ACCURACY_M, nextKind, stateText, type Kind, type LastMark } from "@/lib/punch";
 import { requireAccess } from "./access";
 import { schema, withTenant, type AtTx } from "./db";
+import type { PunchSource } from "./schema";
 import { HttpError } from "./http";
 import { outsideNotification } from "./notify";
 import { checkKey, KEY_MESSAGES, readSettings } from "./settings";
@@ -30,10 +31,10 @@ export class MarkRefused extends HttpError {
   }
 }
 
-/** The person's last mark that the owner hasn't cancelled (scan or owner-added). */
-export async function lastValidMark(tx: AtTx, tenantId: string, userId: string): Promise<LastMark | null> {
+/** The person's last mark that hasn't been cancelled (scan, a fix, or a desk mark), and who made it. */
+export async function lastValidMark(tx: AtTx, tenantId: string, userId: string): Promise<(LastMark & { source: PunchSource; byName: string }) | null> {
   const [row] = await tx
-    .select({ kind: punches.kind, at: punches.at })
+    .select({ kind: punches.kind, at: punches.at, source: punches.source, byName: punches.createdByName })
     .from(punches)
     .leftJoin(punchCancels, and(eq(punchCancels.tenantId, punches.tenantId), eq(punchCancels.punchId, punches.id)))
     .where(and(eq(punches.tenantId, tenantId), eq(punches.userId, userId), isNull(punchCancels.id)))

@@ -25,6 +25,7 @@ function initial(applies: HistoryRow | null, thisMonth: string) {
     ta: typed(applies?.kmRatePaise),
     da: typed(applies?.daDayPaise),
     field: applies?.fieldStaff ?? false,
+    staffType: (applies?.staffType ?? "permanent") as "permanent" | "temporary",
     shift: applies ? hoursText(applies.shiftMinutes) : "8",
     leave: applies ? halvesText(applies.paidLeaveHalfdays) : "2",
     ot: applies?.getsOvertime ?? false,
@@ -65,6 +66,7 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
         // only the fields of the chosen basis are sent; the server ignores the other one anyway
         ...(perDay ? { day_rate: f.dayRate } : { monthly: f.monthly, leave_days: Number(f.leave) }),
         field_staff: f.field,
+        staff_type: f.staffType,
         // rates only with the Field staff tick (the server refuses them otherwise)
         ta_rate: f.field ? f.ta || null : null,
         da_rate: f.field ? f.da || null : null,
@@ -113,6 +115,24 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
             </label>
           ))}
         </div>
+      </fieldset>
+
+      <fieldset className="space-y-1.5">
+        <legend className="mb-1.5 text-sm font-semibold text-slate-800">Staff type</legend>
+        <div className="grid max-w-md grid-cols-2 overflow-hidden rounded-xl border border-slate-300">
+          {(
+            [
+              ["permanent", "Permanent"],
+              ["temporary", "Temporary"],
+            ] as const
+          ).map(([value, text]) => (
+            <label key={value} className={`flex min-h-12 cursor-pointer items-center justify-center gap-2 font-semibold ${f.staffType === value ? "bg-(--brand) text-(--brand-contrast)" : "bg-white text-slate-800"}`}>
+              <input type="radio" name="staff-type" value={value} checked={f.staffType === value} onChange={() => setF((x) => ({ ...x, staffType: value }))} className="h-4 w-4" />
+              {text}
+            </label>
+          ))}
+        </div>
+        <p className="text-xs text-slate-600">Only for the cost split on the Salary tab; the pay rules are the same.</p>
       </fieldset>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -248,7 +268,7 @@ export function History({ history }: { history: HistoryRow[] }) {
             <div className="flex flex-wrap justify-between gap-x-3">
               <span>
                 <strong>From {fmtMonth(h.fromMonth)}:</strong>{" "}
-                {settingText({ monthly: h.monthlyPaise, day_rate: h.dayRatePaise, km_rate: h.kmRatePaise, da_day: h.daDayPaise, field: h.fieldStaff, shift: h.shiftMinutes, leave: h.paidLeaveHalfdays, ot_rate: h.getsOvertime ? h.otRatePaise : null, joined: h.joinedOn, left: h.leftOn })}
+                {settingText({ monthly: h.monthlyPaise, day_rate: h.dayRatePaise, km_rate: h.kmRatePaise, da_day: h.daDayPaise, field: h.fieldStaff, temporary: h.staffType === "temporary", shift: h.shiftMinutes, leave: h.paidLeaveHalfdays, ot_rate: h.getsOvertime ? h.otRatePaise : null, joined: h.joinedOn, left: h.leftOn })}
               </span>
               <span className="text-slate-600">
                 {h.byName}, {dayShort(istDay(new Date(h.at)))}
@@ -300,7 +320,7 @@ export function SalaryReadOnly({ applies, history, canSee, name }: { applies: Hi
     <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
       <h2 className="text-lg font-bold">Salary</h2>
       {applies ? (
-        <p>{settingText({ monthly: applies.monthlyPaise, day_rate: applies.dayRatePaise, km_rate: applies.kmRatePaise, da_day: applies.daDayPaise, field: applies.fieldStaff, shift: applies.shiftMinutes, leave: applies.paidLeaveHalfdays, ot_rate: applies.getsOvertime ? applies.otRatePaise : null, joined: applies.joinedOn, left: applies.leftOn })}</p>
+        <p>{settingText({ monthly: applies.monthlyPaise, day_rate: applies.dayRatePaise, km_rate: applies.kmRatePaise, da_day: applies.daDayPaise, field: applies.fieldStaff, temporary: applies.staffType === "temporary", shift: applies.shiftMinutes, leave: applies.paidLeaveHalfdays, ot_rate: applies.getsOvertime ? applies.otRatePaise : null, joined: applies.joinedOn, left: applies.leftOn })}</p>
       ) : (
         <p className="text-slate-600">No salary set.</p>
       )}

@@ -11,7 +11,10 @@ import { FixPanel, type FixMark } from "./fix-panel";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Owner: one person's day (mock-up "Owner · Person's day + Fix"). Support sees the day without Fix. */
+/**
+ * Owner and Office staff: one person's day (mock-up "Owner · Person's day + Fix"). Support sees the day without Fix;
+ * Office staff get no Fix on their own day (the server refuses it too).
+ */
 export default async function PersonDayPage({ params }: { params: Promise<{ user: string; date: string }> }) {
   const { user: personId, date } = await params;
   const user = await requirePageUser(`/staff/${personId}/${date}`);
@@ -31,7 +34,7 @@ export default async function PersonDayPage({ params }: { params: Promise<{ user
         ‹ {view.name ?? "Person"} · month
       </a>
       <DayView day={view.day} />
-      {can(user, "fix") && <FixPanel personId={personId} name={view.name ?? "This person"} day={date} today={view.today} stamp={stamp} marks={marks} />}
+      {can(user, "fix") && (user.isOwner || personId !== user.userId) && <FixPanel personId={personId} name={view.name ?? "This person"} day={date} today={view.today} stamp={stamp} marks={marks} />}
     </div>
   );
 }

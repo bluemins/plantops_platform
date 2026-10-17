@@ -15,7 +15,8 @@ export interface Mark {
   id: string;
   kind: Kind;
   at: Date;
-  source: "scan" | "owner";
+  /** desk = Office staff marked for the person: counts like a scan, never "changed" */
+  source: "scan" | "owner" | "desk";
   reason: string | null;
   byName: string;
   distanceM: number | null;

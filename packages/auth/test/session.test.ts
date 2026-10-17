@@ -199,6 +199,14 @@ describe("summary request vs login token", () => {
     await expect(verifySummaryRequest(`Bearer ${old}`, opts)).rejects.toThrow(InvalidTokenError);
   });
 
+  it("accepts the 'desk' view (Office staff / Supervisor tiles); refuses a view it doesn't know", async () => {
+    const opts = { audience: "attendance_salary" as const, keys: { jwks } };
+    const desk = await sign({ purpose: "summary", tenant_id: tenant, view: "desk" }, "attendance_salary", "60s");
+    expect(await verifySummaryRequest(`Bearer ${desk}`, opts)).toMatchObject({ view: "desk" });
+    const bad = await sign({ purpose: "summary", tenant_id: tenant, view: "manager" }, "attendance_salary", "60s");
+    await expect(verifySummaryRequest(`Bearer ${bad}`, opts)).rejects.toThrow(/Not a summary request token/);
+  });
+
   it("verifyToken refuses a summary token as a login", async () => {
     await expect(verifyToken(await summaryToken(), { audience: "lab_records", keys: { jwks } })).rejects.toThrow(/Not a login token/);
   });

@@ -10,6 +10,8 @@ import type { AtUser } from "@/server/session";
 import { startFakePlatform, type FakePlatform } from "./fake-platform";
 import { asApp, asOwner, jsonReq, northOf, plant, refusal, signInAs, textOf } from "./helpers";
 
+// next/server's after() (the supervisors' scan bell, Phase R3) runs once the answer is sent; here it runs at once
+vi.mock("next/server", async (orig) => ({ ...(await orig<typeof import("next/server")>()), after: (fn: () => unknown) => void Promise.resolve().then(fn).catch(() => {}) }));
 afterEach(() => vi.restoreAllMocks());
 
 const POINT = { lat: 21.347, lng: 83.627 };

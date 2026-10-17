@@ -19,7 +19,7 @@ import { newQr, saveSettings } from "@/server/settings";
 import { summaryFor } from "@/server/summary";
 import { listSupportViews } from "@/server/support";
 import { startFakePlatform, type FakePlatform } from "./fake-platform";
-import { atUser, contactsFor, ist, jsonReq, markAt, plant, signInAs } from "./helpers";
+import { asApp, atUser, contactsFor, ist, jsonReq, markAt, plant, signInAs } from "./helpers";
 
 let platform: FakePlatform;
 beforeAll(async () => {
@@ -126,3 +126,31 @@ describe("support view", () => {
     expect(seen).toEqual(["Recent changes", "a person's attendance and salary", "the Today board", "the settings", "the staff list"].sort());
   });
 });
+
+describe("the 'desk' view: Office staff / Supervisor tiles (docs/ATTENDANCE_ROLES_PHASE_PLAN.md R5)", () => {
+  it("attendance numbers like the owner's, never the claims badge or the set-up badge; workers still get none", async () => {
+    const p = plant();
+    const bindu = atUser(p.tenantId, ["plant_staff"], "Bindu");
+    platform.contacts = [...contactsFor(p.owner, p.worker, bindu)];
+    expect(await summaryFor(p.tenantId, "desk")).toEqual({ badges: [{ text: "Not set up yet", tone: "info" }] }); // setting up is the owner's job
+    await ready(p);
+    // Bindu IN an hour ago, and a claim waiting: the owner's tile shows the claim, the desk's never
+    await asApp(
+      p.tenantId,
+      `insert into attendance_salary.punches (tenant_id, user_id, user_name, kind, at, source, distance_m, accuracy_m, created_by, created_by_name)
+       values ('${p.tenantId}', '${bindu.userId}', 'Bindu', 'in', now() - interval '1 hour', 'scan', 30, 10, '${bindu.userId}', 'Bindu')`,
+    );
+    await asApp(
+      p.tenantId,
+      `insert into attendance_salary.salary_claims (tenant_id, user_id, user_name, kind, on_date, amount_paise, note, created_by, created_by_name)
+       values ('${p.tenantId}', '${bindu.userId}', 'Bindu', 'expense', current_date, 45000, 'diesel', '${bindu.userId}', 'Bindu')`,
+    );
+    const owner = await summaryFor(p.tenantId, "owner");
+    const desk = await summaryFor(p.tenantId, "desk");
+    expect(owner.badges.map((b) => b.text)).toContain("1 claim waiting");
+    expect(desk.badges.map((b) => b.text).some((t) => /claim|Set location/.test(t))).toBe(false);
+    expect(desk.badges).toEqual(owner.badges.filter((b) => !/claim/.test(b.text)));
+    expect(await summaryFor(p.tenantId, "staff")).toEqual({ badges: [] });
+  });
+});
+

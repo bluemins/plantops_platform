@@ -8,6 +8,7 @@ import { appDb, schema, superDb, withTenant, type PlatformDb, type PlatformTx } 
 import { enabledModules } from "./sso";
 import { notFound } from "./http";
 import { loadAlertModules } from "./users";
+import { roleLine } from "@/lib/modules";
 
 const { modules, tenants, tenantPlans, tenantProfiles, users } = schema;
 
@@ -21,6 +22,8 @@ export interface Tile {
   state: TileState;
   /** owner = read-only summary; staff = working module */
   view: "owner" | "staff";
+  /** a staff tile's own line for this person's roles ("Attendance desk"); absent = the module's usual line */
+  subtitle?: string;
   locked_reason?: "not_enabled" | "addon";
 }
 
@@ -45,7 +48,8 @@ export function decideTiles(roles: readonly RoleId[], enabled: readonly ModuleId
   for (const id of MODULE_IDS) {
     const usable = isAvailable(available.find((m) => m.id === id));
     if (canAccessModule(roles, enabled, id)) {
-      tiles.push({ module: id, state: usable ? "open" : "off", view });
+      const line = owner ? null : roleLine(id, roles);
+      tiles.push({ module: id, state: usable ? "open" : "off", view, ...(line ? { subtitle: line } : {}) });
     } else if (owner) {
       tiles.push({ module: id, state: "locked", view, locked_reason: ADDON_MODULES.includes(id) ? "addon" : "not_enabled" });
     }

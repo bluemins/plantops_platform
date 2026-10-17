@@ -22,9 +22,22 @@ function Group({ title, tone, count, children }: { title: string; tone: "green" 
 
 const row = "flex min-h-11 items-center justify-between gap-3 border-t border-black/5 first:border-t-0";
 
-/** The owner's home (mock-up "Owner · Today"). Every name opens that person's day. */
+/**
+ * The Today board (mock-up "Owner · Today"; Supervisor: docs/ATTENDANCE_ROLES_PHASE_PLAN.md mock-up 5). For those who
+ * see everyone's days (owner, Office staff, support) every name opens that person's day; a Supervisor's board is
+ * read-only: names only, no links, no Fix.
+ */
 export function TodayView({ user, board }: { user: AtUser; board: TodayBoard }) {
   const months = Array.from({ length: 12 }, (_, i) => addMonths(istMonth(), -i));
+  const linked = can(user, "see_everyone");
+  const Item = ({ href, className, children }: { href: string; className: string; children: React.ReactNode }) =>
+    linked ? (
+      <a href={href} className={className}>
+        {children}
+      </a>
+    ) : (
+      <div className={className}>{children}</div>
+    );
   const dayLink = (userId: string, date: string) => `/staff/${userId}/${date}`;
   return (
     <div className="space-y-3">
@@ -35,41 +48,46 @@ export function TodayView({ user, board }: { user: AtUser; board: TodayBoard }) 
       <Group title="Inside now" tone="green" count={board.inside.length}>
         {board.inside.map((p) => (
           <li key={p.userId}>
-            <a href={dayLink(p.userId, board.today)} className={row}>
+            <Item href={dayLink(p.userId, board.today)} className={row}>
               <span className="font-semibold">{p.name}</span>
-              <span className="text-sm text-slate-600">since {fmtTime(p.since)}</span>
-            </a>
+              <span className="text-sm text-slate-600">
+                since {fmtTime(p.since)}
+                {p.by ? ` · by ${p.by}` : ""}
+              </span>
+            </Item>
           </li>
         ))}
       </Group>
       <Group title="Came and left" tone="slate" count={board.cameLeft.length}>
         {board.cameLeft.map((p) => (
           <li key={p.userId}>
-            <a href={dayLink(p.userId, board.today)} className={row}>
+            <Item href={dayLink(p.userId, board.today)} className={row}>
               <span className="font-semibold">{p.name}</span>
               <span className="text-sm text-slate-600">
                 {p.firstIn ? fmtTime(p.firstIn) : "—"} → {p.lastOut ? fmtTime(p.lastOut) : "—"} · {fmtMinutes(p.minutes)}
               </span>
-            </a>
+            </Item>
           </li>
         ))}
       </Group>
       <Group title="Not marked today" tone="amber" count={board.notMarked.length}>
         {board.notMarked.map((p) => (
           <li key={p.userId}>
-            <a href={dayLink(p.userId, board.today)} className={`${row} font-semibold text-amber-950`}>
+            <Item href={dayLink(p.userId, board.today)} className={`${row} font-semibold text-amber-950`}>
               {p.name}
-            </a>
+            </Item>
           </li>
         ))}
       </Group>
       <Group title="No exit yesterday" tone="amber" count={board.noExitYesterday.length}>
         {board.noExitYesterday.map((p) => (
           <li key={p.userId}>
-            <a href={dayLink(p.userId, board.yesterday)} className={`${row} text-amber-950`}>
+            <Item href={dayLink(p.userId, board.yesterday)} className={`${row} text-amber-950`}>
               <span className="font-semibold">{p.name}</span>
-              <span className="text-sm">IN {fmtTime(p.inAt)}, no OUT · Fix</span>
-            </a>
+              <span className="text-sm">
+                IN {fmtTime(p.inAt)}, no OUT{can(user, "fix") ? " · Fix" : ""}
+              </span>
+            </Item>
           </li>
         ))}
       </Group>

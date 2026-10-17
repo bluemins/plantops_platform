@@ -5,21 +5,25 @@
 // The plant, the person and their name come from the session and the server, never from the browser.
 import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { addMonths, istDay, istMonth, validDay, validMonth } from "@/lib/days";
+import { addDays, addMonths, istDay, istMonth, validDay, validMonth } from "@/lib/days";
 import { firstSalaryMonth, paiseText, settingFor, toPaise, type PayBasis } from "@/lib/salary";
-import { requireAccess } from "./access";
+import { can, requireAccess } from "./access";
 import { audit } from "./audit";
 import { schema, withTenant, type AtTx } from "./db";
-import { badRequest, conflict, notFound } from "./http";
+import { badRequest, conflict, forbidden, notFound } from "./http";
 import { dbNow, lockPerson } from "./marks";
 import { knownPerson, type Person } from "./people";
-import { salaryMonths, type SalaryMonth } from "./salary";
+import { payInputOf, salaryMonths, salaryMonthsOf, type SalaryMonth } from "./salary";
+import { advanceGivenNotification } from "./notify";
 import type { AtUser } from "./session";
 
 const { salarySettings, salaryAdvances, salaryVisibility } = schema;
 
 /** ₹1 crore, the largest salary or advance (the database checks it too). */
 const MAX_PAISE = 1_000_000_000;
+/** Office staff: an advance of at most ₹1 lakh, dated at most 7 days back (docs/ATTENDANCE_ROLES_PHASE_PLAN.md). */
+const OFFICE_MAX_ADVANCE_PAISE = 10_000_000;
+export const OFFICE_DAYS_BACK = 7;
 /** ₹1,00,000 an hour: a typo stops here with a plain message. */
 const MAX_OT_RATE_PAISE = 10_000_000;
 /** ₹1,00,000 a day, the largest day rate (the database checks it too). */
@@ -99,6 +103,8 @@ export const SettingInput = z.object({
   da_rate: z.string().max(20).nullish(),
   /** "Field staff": may send own claims; TA / DA rates need it (docs/ATTENDANCE_ROLES_PHASE_PLAN.md Phase C) */
   field_staff: z.boolean().default(false),
+  /** Permanent / Temporary, for the cost split on the Salary tab (docs/ATTENDANCE_ROLES_PHASE_PLAN.md R4) */
+  staff_type: z.enum(["permanent", "temporary"]).default("permanent"),
   gets_overtime: z.boolean(),
   ot_rate: z.string().max(20).nullish(),
   /** "YYYY-MM" */
@@ -151,6 +157,7 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
         kmRatePaise,
         daDayPaise,
         fieldStaff: input.field_staff,
+        staffType: input.staff_type,
         shiftMinutes,
         paidLeaveHalfdays: halves,
         getsOvertime: input.gets_overtime,
@@ -171,6 +178,7 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
       km_rate: kmRatePaise,
       da_day: daDayPaise,
       field: input.field_staff,
+      staff_type: input.staff_type,
       shift: shiftMinutes,
       leave: halves,
       ot_rate: otRatePaise,
@@ -221,31 +229,43 @@ async function leftOf(tx: AtTx, tenantId: string, advanceId: string, amountPaise
   return amountPaise + corrections.reduce((sum, c) => sum + c.amount, 0);
 }
 
-/** Owner: an advance given to a person, or a correction of an earlier one (a negative entry on that entry's date). */
+/**
+ * Owner or Office staff: an advance given to a person, or a correction of an earlier one (a negative entry on that
+ * entry's date). Office staff (docs/ATTENDANCE_ROLES_PHASE_PLAN.md "Advances"): never for themselves, only an active
+ * employee with a salary set for that month, today back to 7 days, at most ₹1 lakh, and they correct only an entry
+ * they made themselves on the same India day. The owners get `advance_given` (returned as `notice`).
+ */
 export async function saveAdvance(user: AtUser, input: z.infer<typeof AdvanceInput>) {
-  const person = await editablePerson(user, input.user_id);
-  const amount = rupees(input.amount, "Amount");
-  return withTenant(user.tenantId, async (tx) => {
+  requireAccess(user, "advance_add");
+  const office = !user.isOwner;
+  if (office && input.user_id === user.userId) throw forbidden("You can't give yourself an advance. Ask the owner.");
+  const person = await knownPerson(user, input.user_id, { activeOnly: office });
+  const amount = rupees(input.amount, "Amount", office ? OFFICE_MAX_ADVANCE_PAISE : MAX_PAISE);
+  const saved = await withTenant(user.tenantId, async (tx) => {
     await lockPerson(tx, user.tenantId, person.userId);
-    const settings = await tx.select({ fromMonth: salarySettings.fromMonth }).from(salarySettings).where(and(eq(salarySettings.tenantId, user.tenantId), eq(salarySettings.userId, person.userId)));
-    if (settings.length === 0) throw badRequest(`Set a salary for ${person.name} first`);
+    const settings = (await tx.select().from(salarySettings).where(and(eq(salarySettings.tenantId, user.tenantId), eq(salarySettings.userId, person.userId)))).map((s) => ({ ...s, fromMonth: s.fromMonth.slice(0, 7) }));
+    if (settings.length === 0) throw badRequest(office ? "Ask the owner to set this person's salary first" : `Set a salary for ${person.name} first`);
     await checkNewest(tx, salaryAdvances, user, person.userId, input.expect);
+    const today = istDay(await dbNow(tx));
 
     if (input.kind === "advance") {
-      const firstDay = settings.reduce((a, s) => (s.fromMonth < a ? s.fromMonth : a), settings[0]!.fromMonth);
-      if (input.on_date > istDay(await dbNow(tx))) throw badRequest("The date is in the future");
+      const firstDay = `${firstSalaryMonth(settings)}-01`;
+      if (input.on_date > today) throw badRequest("The date is in the future");
+      if (office && input.on_date < addDays(today, -OFFICE_DAYS_BACK)) throw badRequest(`An advance can be at most ${OFFICE_DAYS_BACK} days back. Ask the owner for older ones.`);
+      if (office && !settingFor(settings, input.on_date.slice(0, 7))) throw badRequest("Ask the owner to set this person's salary first");
       if (input.on_date < firstDay) throw badRequest(`The date is before ${person.name}'s first salary month`);
       const [row] = await tx
         .insert(salaryAdvances)
         .values({ tenantId: user.tenantId, userId: person.userId, userName: nameOf(person), onDate: input.on_date, amountPaise: amount, note: input.note, createdBy: user.userId, createdByName: byName(user) })
         .returning({ id: salaryAdvances.id });
       await audit(tx, user, "salary.advance", row!.id, { person: person.name, on: input.on_date, amount, note: input.note });
-      return { id: row!.id, onDate: input.on_date };
+      return { id: row!.id, onDate: input.on_date, advance: { id: row!.id, onDate: input.on_date, amountPaise: amount, note: input.note } };
     }
 
     const [original] = await tx.select().from(salaryAdvances).where(and(eq(salaryAdvances.tenantId, user.tenantId), eq(salaryAdvances.id, input.corrects_id)));
     if (!original || original.userId !== person.userId) throw notFound("Not found");
     if (original.amountPaise < 0) throw badRequest("Only an advance can be corrected, not a correction");
+    if (office && (original.createdBy !== user.userId || istDay(original.createdAt) !== today)) throw forbidden("Only the owner can correct this entry");
     const left = await leftOf(tx, user.tenantId, original.id, original.amountPaise);
     if (amount > left) throw badRequest(left > 0 ? `Only ${paiseText(left)} is left of this entry` : "Nothing is left of this entry");
     const [row] = await tx
@@ -263,7 +283,63 @@ export async function saveAdvance(user: AtUser, input: z.infer<typeof AdvanceInp
       })
       .returning({ id: salaryAdvances.id });
     await audit(tx, user, "salary.correction", row!.id, { person: person.name, on: original.onDate, amount: -amount, reason: input.reason });
-    return { id: row!.id, onDate: original.onDate };
+    return { id: row!.id, onDate: original.onDate, advance: null };
+  });
+  // Office staff's advance: the owners' phone + bell (sent by the route after the answer); none for corrections
+  const notice = office && saved.advance ? advanceGivenNotification(user, person, saved.advance) : null;
+  return { id: saved.id, onDate: saved.onDate, notice };
+}
+
+// ---------- Office staff's view of advances (never a salary) ----------
+
+export interface AdvancePanel {
+  month: string;
+  today: string;
+  /** the month's entries, oldest first */
+  advances: AdvanceEntry[];
+  /** what earlier months still owe (a negative carry), in paise; 0 when nothing is owed */
+  stillToRecoverPaise: number;
+  /** earliest date the viewer may give an advance (null = no salary set yet) */
+  firstAdvanceDate: string | null;
+  /** may correct this entry: the owner any advance; Office staff only their own, the same India day */
+  correctable: string[];
+  expect: string | null;
+}
+
+/**
+ * Office staff (and owner / support): a person's advances for one month plus "still to recover from earlier months".
+ * Never earned pay, salary or remaining to pay (docs/ATTENDANCE_ROLES_PHASE_PLAN.md "Advances").
+ */
+export async function advancePanel(user: AtUser, personId: string, month: string, now: Date = new Date()): Promise<AdvancePanel> {
+  requireAccess(user, "advance_view");
+  await knownPerson(user, personId);
+  const view = await salaryMonthsOf(user.tenantId, month, { personId, now });
+  const current = view.people[0]?.current ?? null;
+  const carried = current ? payInputOf(current).carriedInPaise : 0;
+  return withTenant(user.tenantId, async (tx) => {
+    const where = and(eq(salaryAdvances.tenantId, user.tenantId), eq(salaryAdvances.userId, personId));
+    const rows = await tx.select().from(salaryAdvances).where(where).orderBy(asc(salaryAdvances.onDate), asc(salaryAdvances.createdAt));
+    const settings = await tx.select({ fromMonth: salarySettings.fromMonth }).from(salarySettings).where(and(eq(salarySettings.tenantId, user.tenantId), eq(salarySettings.userId, personId)));
+    const corrected = new Map<string, number>();
+    for (const a of rows) if (a.correctsId) corrected.set(a.correctsId, (corrected.get(a.correctsId) ?? 0) + a.amountPaise);
+    const today = view.today;
+    const first = settings.length ? settings.map((s) => s.fromMonth).sort()[0]! : null;
+    const office = !user.isOwner;
+    const advances = rows
+      .filter((a) => a.onDate.slice(0, 7) === month)
+      .map((a) => ({ id: a.id, onDate: a.onDate, amountPaise: a.amountPaise, note: a.note, reason: a.reason, correctsId: a.correctsId, byName: a.createdByName, leftPaise: a.amountPaise > 0 ? a.amountPaise + (corrected.get(a.id) ?? 0) : null }));
+    const canAdd = can(user, "advance_add");
+    return {
+      month,
+      today,
+      advances,
+      stillToRecoverPaise: Math.max(0, carried),
+      firstAdvanceDate: !canAdd || !first ? null : office ? [first, addDays(today, -OFFICE_DAYS_BACK)].sort().at(-1)! : first,
+      correctable: !canAdd
+        ? []
+        : rows.filter((a) => a.amountPaise > 0 && (!office || (a.createdBy === user.userId && istDay(a.createdAt) === today))).map((a) => a.id),
+      expect: (await newest(tx, salaryAdvances, user.tenantId, personId))?.id ?? null,
+    };
   });
 }
 
@@ -280,6 +356,7 @@ export interface HistoryRow {
   daDayPaise: number | null;
   /** "Field staff": may send own claims */
   fieldStaff: boolean;
+  staffType: "permanent" | "temporary";
   shiftMinutes: number;
   paidLeaveHalfdays: number;
   getsOvertime: boolean;
@@ -342,6 +419,7 @@ export async function salaryPanel(user: AtUser, personId: string, month: string)
       kmRatePaise: s.kmRatePaise,
       daDayPaise: s.daDayPaise,
       fieldStaff: s.fieldStaff,
+      staffType: s.staffType,
       shiftMinutes: s.shiftMinutes,
       paidLeaveHalfdays: s.paidLeaveHalfdays,
       getsOvertime: s.getsOvertime,

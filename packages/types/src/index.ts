@@ -26,6 +26,8 @@ export const ROLE_IDS = [
   "order_desk",
   "maintenance_technician",
   "plant_staff",
+  "office_staff",
+  "supervisor",
 ] as const;
 export const RoleId = z.enum(ROLE_IDS);
 export type RoleId = z.infer<typeof RoleId>;
@@ -43,6 +45,10 @@ export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin" | "plant_staff">
   /** enters orders, marks them delivered or cancelled (rates, customer upload and undo delivered are owner-only) */
   order_desk: "order_capture",
   maintenance_technician: "preventive_mgmt",
+  /** Attendance desk: marks IN / OUT for people without a phone, fixes times, gives advances; never sees salaries */
+  office_staff: "attendance_salary",
+  /** Attendance: the Today board (read-only) and IN / OUT alerts */
+  supervisor: "attendance_salary",
 };
 
 /**
@@ -75,6 +81,20 @@ export function viewOnlyIn(roles: readonly RoleId[], moduleId: ModuleId): boolea
     !roles.some((r) => roleWorksIn(r, moduleId))
   );
 }
+
+/**
+ * Is this person an employee (tracked in Attendance, paid through Salary, marks their own attendance)? Only Plant
+ * staff: Office staff and Supervisors work in Attendance but are tracked only when they also hold Plant staff.
+ */
+export function isEmployee(roles: readonly RoleId[]): boolean {
+  return roles.includes("plant_staff");
+}
+
+/**
+ * Roles whose launcher tile gets the "desk" view of a module's numbers (owner, 2026-10-17): Attendance's Office staff
+ * and Supervisor see the attendance numbers (in now / not marked / no exit), never money.
+ */
+export const DESK_ROLES: Partial<Record<ModuleId, readonly RoleId[]>> = { attendance_salary: ["office_staff", "supervisor"] };
 
 /**
  * Does this staff role work in this module? plant_staff works only in PLANT_STAFF_MODULES. tenant_admin is not a
@@ -136,7 +156,12 @@ export type UserStatus = z.infer<typeof UserStatus>;
  * the SSO token but a different purpose and no user - it can never be used as a login.
  */
 export const SUMMARY_TOKEN_SECONDS = 60;
-export const SummaryView = z.enum(["owner", "staff"]);
+/**
+ * Whose tile asks for numbers: the owner's read-only summary, a working staff member's, or "desk" = a non-owner holding
+ * one of DESK_ROLES for that module (docs/ATTENDANCE_ROLES_PHASE_PLAN.md Phase 0 finding 2). A module that doesn't know
+ * "desk" treats it like "staff".
+ */
+export const SummaryView = z.enum(["owner", "staff", "desk"]);
 export type SummaryView = z.infer<typeof SummaryView>;
 export const SummaryRequestPayload = z.object({
   iss: z.literal(TOKEN_ISSUER),
@@ -221,7 +246,20 @@ export type NotificationResult = z.infer<typeof NotificationResult>;
  * OWNER_ONLY_ALERTS module these are the only kinds a non-owner can receive.
  * A kind not listed here can't be configured and is always delivered as sent.
  */
-export const NOTIFICATION_KINDS: Record<string, { module: ModuleId | null; label: string; urgent?: true; bellOnly?: true; aboutYou?: true }> = {
+export const NOTIFICATION_KINDS: Record<
+  string,
+  {
+    module: ModuleId | null;
+    label: string;
+    urgent?: true;
+    bellOnly?: true;
+    aboutYou?: true;
+    /** in an owner-only module: non-owners holding one of these roles receive it too (Attendance's Supervisor) */
+    roles?: readonly RoleId[];
+    /** owners never receive it (Attendance's every-scan bell goes to supervisors only) */
+    noOwners?: true;
+  }
+> = {
   "floor_stock.count_saved": { module: "floor_stock", label: "Stock count saved" },
   "floor_stock.count_corrected": { module: "floor_stock", label: "Stock count corrected" },
   "floor_stock.low_stock": { module: "floor_stock", label: "Low stock" },
@@ -251,7 +289,7 @@ export const NOTIFICATION_KINDS: Record<string, { module: ModuleId | null; label
   "order_capture.delivered": { module: "order_capture", label: "Your order delivered", bellOnly: true },
   "order_capture.cancelled": { module: "order_capture", label: "Order cancelled", bellOnly: true },
   "order_capture.note": { module: "order_capture", label: "Note added to an order", bellOnly: true },
-  "attendance_salary.corrected": { module: "attendance_salary", label: "Your attendance changed by the owner", aboutYou: true },
+  "attendance_salary.corrected": { module: "attendance_salary", label: "Your attendance was changed", aboutYou: true },
   "attendance_salary.outside": { module: "attendance_salary", label: "Mark refused: outside the plant", bellOnly: true },
   "attendance_salary.no_exit": { module: "attendance_salary", label: "People who didn't mark OUT (morning)", bellOnly: true },
   "attendance_salary.salary_review": { module: "attendance_salary", label: "Month-end salary review" },
@@ -259,6 +297,10 @@ export const NOTIFICATION_KINDS: Record<string, { module: ModuleId | null; label
   "attendance_salary.claim_new": { module: "attendance_salary", label: "New claim (field duty / expense)" },
   "attendance_salary.claim_decided": { module: "attendance_salary", label: "Your claim approved / not approved", aboutYou: true },
   "attendance_salary.storage": { module: "attendance_salary", label: "Attendance storage nearly full" },
+  "attendance_salary.advance_given": { module: "attendance_salary", label: "Advance given by Office staff" },
+  "attendance_salary.desk_fix": { module: "attendance_salary", label: "Attendance changed by Office staff", bellOnly: true },
+  "attendance_salary.scan": { module: "attendance_salary", label: "Someone marked IN / OUT", bellOnly: true, roles: ["supervisor"], noOwners: true },
+  "attendance_salary.not_marked": { module: "attendance_salary", label: "People not marked (morning)", roles: ["supervisor"] },
   "platform.user_locked": { module: null, label: "Someone locked out", urgent: true },
   "platform.support_opened": { module: null, label: "PlantOps support viewed your data", bellOnly: true },
   "platform.module_on": { module: null, label: "Module switched on" },
