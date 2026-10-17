@@ -41,12 +41,12 @@ const sent = (tenantId: string) => platform.notifications.filter((n) => n.tenant
 const JPEG = (size = 2048) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(size - 4, 7)]);
 const PDF = Buffer.from("%PDF-1.4\n%fake\n");
 
-/** A salary setting from last month (so 31 days back is inside it), with TA / DA rates or none. */
+/** A salary setting from last month (so 31 days back is inside it), ticked Field staff, with TA / DA rates or none. */
 async function setting(u: AtUser, rates: { km: number; da: number } | null = { km: 3, da: 150 }, fromMonth = LAST_MONTH) {
   await asApp(
     u.tenantId,
-    `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, monthly_paise, shift_minutes, gets_overtime, km_rate_paise, da_day_paise, created_by, created_by_name)
-     values ('${u.tenantId}', '${u.userId}', '${u.name}', '${fromMonth}-01', ${R(12000)}, 480, false, ${rates ? R(rates.km) : "null"}, ${rates ? R(rates.da) : "null"}, gen_random_uuid(), 'Sujata')`,
+    `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, monthly_paise, shift_minutes, gets_overtime, km_rate_paise, da_day_paise, field_staff, created_by, created_by_name)
+     values ('${u.tenantId}', '${u.userId}', '${u.name}', '${fromMonth}-01', ${R(12000)}, 480, false, ${rates ? R(rates.km) : "null"}, ${rates ? R(rates.da) : "null"}, true, gen_random_uuid(), 'Sujata')`,
   );
 }
 const duty = (over: Record<string, unknown> = {}) => ({ kind: "field_duty" as const, on_date: TODAY, km: "42", amount: null, note: "Cuttack delivery", ...over });

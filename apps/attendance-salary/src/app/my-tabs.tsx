@@ -7,7 +7,7 @@ type Current = "attendance" | "claims" | "salary";
 
 /**
  * "My attendance · My claims · My salary" (docs/SALARY_EXTRAS_PHASE_PLAN.md mock-ups 2 and 7). My claims only for
- * someone with a salary setting; My salary ONLY when the owner allowed them to see their own salary. With neither
+ * Field staff (or someone with a claim on record); My salary ONLY when the owner allowed them to see their own salary. With neither
  * there are no tabs at all, so nothing hints that those pages exist.
  */
 export function MyTabs({ attendanceHref, current, claims, salary }: { attendanceHref: string; current: Current; claims: boolean; salary: boolean }) {

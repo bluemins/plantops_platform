@@ -92,6 +92,8 @@ export const salarySettings = at.table("salary_settings", {
   dayRatePaise: integer("day_rate_paise"),
   kmRatePaise: integer("km_rate_paise"),
   daDayPaise: integer("da_day_paise"),
+  /** the owner's "Field staff" tick: may send own claims; a TA / DA rate needs it (migration 0005) */
+  fieldStaff: boolean("field_staff").notNull().default(false),
   shiftMinutes: integer("shift_minutes").notNull(),
   paidLeaveHalfdays: integer("paid_leave_halfdays").notNull().default(4),
   getsOvertime: boolean("gets_overtime").notNull(),

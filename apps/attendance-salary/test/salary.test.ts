@@ -217,8 +217,8 @@ describe("claims from the database (Salary extras rules 16-19)", () => {
   const rates = (u: AtUser, km: number, da: number) =>
     asApp(
       u.tenantId,
-      `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, monthly_paise, shift_minutes, paid_leave_halfdays, gets_overtime, ot_rate_paise, km_rate_paise, da_day_paise, created_by, created_by_name)
-       values ('${u.tenantId}', '${u.userId}', '${u.name}', '2026-10-01', ${R(12000)}, 480, 4, true, ${R(60)}, ${R(km)}, ${R(da)}, gen_random_uuid(), 'Sujata')`,
+      `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, monthly_paise, shift_minutes, paid_leave_halfdays, gets_overtime, ot_rate_paise, km_rate_paise, da_day_paise, field_staff, created_by, created_by_name)
+       values ('${u.tenantId}', '${u.userId}', '${u.name}', '2026-10-01', ${R(12000)}, 480, 4, true, ${R(60)}, ${R(km)}, ${R(da)}, true, gen_random_uuid(), 'Sujata')`,
     );
 
   it("29. worked example B from real marks and claims: ₹12,136; the status is the newest decision; attendance unchanged", async () => {

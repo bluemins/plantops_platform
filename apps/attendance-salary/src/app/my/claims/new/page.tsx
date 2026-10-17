@@ -15,6 +15,8 @@ export default async function NewClaimPage({ searchParams }: { searchParams: Sea
   const user = await requirePageUser(`/my/claims/new?kind=${kind ?? ""}`);
   if (!kind) notFound();
   const [plant, v] = await Promise.all([kit.branding(user.tenantId), orNotFound(myClaims(user, null))]);
+  // only Field staff send their own claims (the server refuses the save too)
+  if (!v.canAddAny) notFound();
   return (
     <div className="space-y-4">
       <Header user={user} plant={plant} />

@@ -44,8 +44,8 @@ async function setup(rates: { km: number | null; da: number | null } = { km: 3, 
   for (const u of [p.worker, p.ownerWorker]) {
     await asApp(
       u.tenantId,
-      `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, monthly_paise, shift_minutes, gets_overtime, km_rate_paise, da_day_paise, reason, created_by, created_by_name)
-       values ('${u.tenantId}', '${u.userId}', '${u.name}', '${FROM}-01', ${R(12000)}, 480, false, ${rates.km ? R(rates.km) : "null"}, ${rates.da ? R(rates.da) : "null"}, 'set up', gen_random_uuid(), 'Sujata')`,
+      `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, monthly_paise, shift_minutes, gets_overtime, km_rate_paise, da_day_paise, field_staff, reason, created_by, created_by_name)
+       values ('${u.tenantId}', '${u.userId}', '${u.name}', '${FROM}-01', ${R(12000)}, 480, false, ${rates.km ? R(rates.km) : "null"}, ${rates.da ? R(rates.da) : "null"}, ${!!(rates.km || rates.da)}, 'set up', gen_random_uuid(), 'Sujata')`,
     );
   }
   return p;
@@ -59,7 +59,7 @@ const decide = (u: AtUser, claim_id: string, decision: "approve" | "reject" | "c
 
 describe("TA / DA rates in the Salary box", () => {
   const save = (by: AtUser, w: string, over: Record<string, unknown>) =>
-    saveSetting(by, { user_id: w, monthly: "12000", shift_hours: 8, leave_days: 2, gets_overtime: false, from_month: THIS, joined_on: null, left_on: null, reason: null, expect: null, ...over } as never);
+    saveSetting(by, { user_id: w, monthly: "12000", shift_hours: 8, leave_days: 2, gets_overtime: false, from_month: THIS, joined_on: null, left_on: null, reason: null, expect: null, field_staff: true, ...over } as never);
 
   it("1. typed rupees (2.50 works), blank = none; 0, over ₹1,000 a km or over ₹1 lakh a day refused; history and Recent changes text", async () => {
     const p = plant();
@@ -74,7 +74,7 @@ describe("TA / DA rates in the Salary box", () => {
     await save(p.owner, w, { ta_rate: "", da_rate: null, expect: panel.expect.setting });
     expect((await salaryPanel(p.owner, w, THIS)).history[0]).toMatchObject({ kmRatePaise: null, daDayPaise: null });
     const audit = (await asOwner("select action, details from attendance_salary.audit_log where tenant_id = $1 order by id", [p.tenantId])).rows as { action: string; details: Record<string, unknown> }[];
-    expect(describeChange(audit[0]!.action, audit[0]!.details)).toMatch(/: ₹12,000 · 8 h · no overtime · TA ₹2.50\/km · DA ₹150\/day$/);
+    expect(describeChange(audit[0]!.action, audit[0]!.details)).toMatch(/: ₹12,000 · 8 h · no overtime · TA ₹2.50\/km · DA ₹150\/day · field staff$/);
     expect(describeChange(audit[1]!.action, audit[1]!.details)).not.toMatch(/TA|DA/);
     // a store keeper or support can't set them
     expect((await refusal(() => save(p.support, w, { ta_rate: "3" }))).status).toBe(403);

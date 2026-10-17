@@ -513,3 +513,24 @@ Plan: `docs/SALARY_EXTRAS_PHASE_PLAN.md`. Part A (per-day pay) to be released as
   and 390 px): the Salary tab with the banner, the tile and the columns (TA ₹181.50 for 60.5 km, DA ₹300, expenses
   ₹450, ₹12,932), the panel "Matches the automatic figure", the mark-paid warning, paying, and the worker's slip
   without the waiting claim. Everything removed afterwards and plant 002's module list restored.
+
+## 2026-10-17: Phase C, claims only for field staff (v0.22.1)
+Plan: `docs/ATTENDANCE_ROLES_PHASE_PLAN.md` "Claims only for field staff".
+- Migration `0005_field_staff.sql`: `salary_settings.field_staff boolean not null default false`; rows with a TA or DA
+  rate ticked once (as the migration owner); check `salary_settings_rates_need_field_staff` (a rate needs the tick).
+  Grants unchanged (SELECT + INSERT); the append-only list has one more refused UPDATE (149).
+- Salary box: "Field staff: can send field duty and expense claims" in the Field duty panel; TA / DA boxes only when
+  ticked (sent empty otherwise); `saveSetting` refuses a rate without it ("Tick Field staff first"); audit `field`;
+  history / Recent changes "· field staff".
+- `claims.ts`: `mayClaim` (the tick in that month's setting; owners only need a setting); `insertClaim` refuses a
+  non-owner's own claim without it ("Claims are only for field staff. Ask the owner."); the owner's entries and an
+  owner's own claims are unchanged. `hasOwnClaims` / `myClaims` (404) open My claims when ticked in a month the person
+  may still date a claim in, or with any claim on record. The view has `canAdd` (buttons) and `canAddAny`
+  (`/my/claims/new`, 404 without).
+- **Made while building:** My claims also opens for someone ticked only **last month** while those dates are inside the
+  31 days (the plan said "ticked this month"), so the tick for an earlier month can actually be used from the screen.
+- My claims without `canAdd`: "Only the owner can add claims for you." instead of the buttons.
+- Tests: `test/claims-field-staff.test.ts` (10: backfill replayed in a rolled-back transaction, the check, append-only,
+  the tick from a month, rate without tick, not ticked → no tab / 404 / 400 for both kinds via the API, ticked, last
+  month only, the owner's entry read-only, withdraw / decide after unticking, owner + Plant staff). Fixtures that set
+  TA / DA rates now tick Field staff.

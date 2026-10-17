@@ -49,9 +49,9 @@ async function setting(u: AtUser, fromMonth: string, rupees: number, over: { ot?
   };
   await asApp(
     u.tenantId,
-    `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, pay_basis, monthly_paise, day_rate_paise, shift_minutes, paid_leave_halfdays, gets_overtime, ot_rate_paise, km_rate_paise, da_day_paise, created_by, created_by_name)
+    `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, pay_basis, monthly_paise, day_rate_paise, shift_minutes, paid_leave_halfdays, gets_overtime, ot_rate_paise, km_rate_paise, da_day_paise, field_staff, created_by, created_by_name)
      values ('${u.tenantId}', '${u.userId}', '${u.name}', '${fromMonth}-01', ${v.basis}, ${v.monthly}, ${v.day}, 480, ${v.leave}, ${over.ot !== undefined}, ${over.ot !== undefined ? R(over.ot) : "null"},
-             ${over.km !== undefined ? R(over.km) : "null"}, ${over.da !== undefined ? R(over.da) : "null"}, gen_random_uuid(), 'Sujata')`,
+             ${over.km !== undefined ? R(over.km) : "null"}, ${over.da !== undefined ? R(over.da) : "null"}, true, gen_random_uuid(), 'Sujata')`,
   );
 }
 async function work(u: AtUser, dates: string[], hours: number) {

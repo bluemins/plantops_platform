@@ -4,6 +4,22 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.22.1 — 2026-10-17 — Attendance & Salary: claims only for field staff
+
+**What's in it**
+- **"Field staff" tick** in the Salary box (from a month, like the rest): only a ticked person may send their own
+  field duty and expense claims. The TA / DA boxes show only when it is ticked; a rate without the tick is refused.
+- **My claims** only for someone ticked this month (or last month, within the 31 days a claim may go back), or who has
+  a claim on record. Everyone else has no My claims tab, and the server refuses their own claims ("Claims are only
+  for field staff. Ask the owner.").
+- **The owner's entries are not limited:** an expense entered for anyone with a salary is approved at once and shows on
+  that person's My claims ("Entered by Sujata", "Only the owner can add claims for you."). Claims already sent can
+  still be withdrawn and decided. Owners who are also Plant staff are unaffected.
+
+**Migrations:** Attendance `0005_field_staff.sql`: `salary_settings.field_staff` (default off), **ticked once for every
+saved setting that already has a TA or DA rate**, and a check that a TA / DA rate needs the tick. No new table; grants
+unchanged. Platform and SSO token unchanged.
+
 ## v0.22.0 — 2026-10-17 — Attendance & Salary: field duty and expense claims
 
 **What's in it**

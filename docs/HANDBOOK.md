@@ -412,9 +412,13 @@ Salary lives in the Attendance module (v0.20.0). Only the owner sees money; work
 
 ### Attendance: field duty and expenses (v0.22.0)
 Workers send **claims** from the phone; the owner approves them; only approved ones are paid with that month's salary.
-- **Set the rates (once per person):** Staff → the person → Salary box → **Field duty**: **TA ₹ per km** and **DA ₹
-  per day** (both optional; blank = no TA / DA), from a month like the rest. Works for Monthly and Per day people.
-- **Workers:** My claims → **+ Field duty** (date, km, where; only shown when that month has a TA or DA rate; one per
+- **Only Field staff send claims (v0.22.1):** Staff → the person → Salary box → tick **Field staff: can send field duty
+  and expense claims** for the people who do field work (at plant 001: Dillip and Kedar), saved from a month like the
+  rest. Everyone else has no My claims tab. You can still enter an expense for anyone (below); they then see it on
+  their My claims, read-only.
+- **Set the rates (once per person):** with Field staff ticked, **TA ₹ per km** and **DA ₹ per day** (both optional;
+  blank = no TA / DA, expenses only). Works for Monthly and Per day people.
+- **Workers (Field staff):** My claims → **+ Field duty** (date, km, where; only shown when that month has a TA or DA rate; one per
   day) or **+ Expense** (date, amount, what for, up to 3 bill photos). Up to 31 days back. They can **Withdraw** while
   it waits. Field duty never marks anyone present: they still scan the QR.
 - **Owner:** the bell says "Expense from Anmol: ₹450". Open **Claims** (the tab shows how many wait): **Approve** or

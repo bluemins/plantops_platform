@@ -116,6 +116,32 @@ async function settingsOf(tx: AtTx, tenantId: string, personId: string) {
 /** A claim's own rate check: field duty needs a TA or DA rate in that month's setting. */
 const hasFieldDutyRate = (s: { kmRatePaise: number | null; daDayPaise: number | null } | null) => !!s && (s.kmRatePaise !== null || s.daDayPaise !== null);
 
+/**
+ * May a person send their OWN claims for a month (docs/ATTENDANCE_ROLES_PHASE_PLAN.md Phase C)? Only with the owner's
+ * "Field staff" tick in that month's setting. An owner (who is also Plant staff) needs only a salary setting, as before.
+ */
+const mayClaim = (user: AtUser, s: { fieldStaff: boolean } | null) => !!s && (user.isOwner || s.fieldStaff);
+const NOT_FIELD_STAFF = "Claims are only for field staff. Ask the owner.";
+
+/** Has this person any claim on record (any status, whoever entered it)? Then My claims stays open to them. */
+async function hasAnyClaim(tx: AtTx, tenantId: string, personId: string) {
+  const [row] = await tx.select({ id: salaryClaims.id }).from(salaryClaims).where(and(eq(salaryClaims.tenantId, tenantId), eq(salaryClaims.userId, personId))).limit(1);
+  return !!row;
+}
+
+/** The months a worker's new claim may be dated in: from 31 days back to this month. */
+const windowMonths = (today: string) => [...new Set([addDays(today, -DAYS_BACK).slice(0, 7), today.slice(0, 7)])];
+
+/**
+ * My claims is open: an owner with any salary setting; anyone else ticked Field staff in a month they may still date a
+ * claim in (this month, or last month within 31 days), or with a claim on record.
+ */
+async function myClaimsOpen(tx: AtTx, user: AtUser, settings: Awaited<ReturnType<typeof settingsOf>>, now: Date) {
+  if (settings.length === 0) return false;
+  if (user.isOwner) return true;
+  return windowMonths(istDay(now)).some((m) => mayClaim(user, settingFor(settings, m))) || (await hasAnyClaim(tx, user.tenantId, user.userId));
+}
+
 export const ClaimInput = z.object({
   kind: z.enum(["field_duty", "expense"]),
   on_date: z.string().refine(validDay, "Pick a date"),
@@ -139,6 +165,8 @@ export async function insertClaim(tx: AtTx, entered: AtUser, person: { userId: s
   const settings = await settingsOf(tx, entered.tenantId, person.userId);
   const setting = settingFor(settings, input.on_date.slice(0, 7));
   if (!setting) throw badRequest("No salary is set for that month, so no claim can be sent for it");
+  // the person's own claim needs the Field staff tick in that month; the owner's entries for someone don't
+  if (entered.userId === person.userId && !mayClaim(entered, setting)) throw badRequest(NOT_FIELD_STAFF);
 
   let kmTenths: number | null = null;
   let amountPaise: number | null = null;
@@ -188,8 +216,12 @@ export interface MyClaimsView {
   today: string;
   /** dates a new claim may have */
   earliest: string;
-  /** this month's setting has a TA or DA rate: "+ Field duty" is offered */
+  /** "+ Field duty" is offered: may add claims this month and the setting has a TA or DA rate */
   fieldDuty: boolean;
+  /** "+ Field duty" / "+ Expense" are offered: ticked Field staff this month (owners: a salary setting) */
+  canAdd: boolean;
+  /** a new claim may be dated in at least one month of the 31-day window (the new-claim page) */
+  canAddAny: boolean;
   /** the person has a salary setting for this month */
   onSalary: boolean;
   /** newest date first; km and the amounts the person typed, never TA / DA rupees */
@@ -200,19 +232,22 @@ export interface MyClaimsView {
   waiting: number;
 }
 
-/** Does this person have My claims at all (any salary setting)? Without, there is no tab and the page is 404. */
-export async function hasOwnClaims(user: AtUser): Promise<boolean> {
+/**
+ * Does this person have My claims at all? Ticked Field staff this month, or a claim on record (owners: any salary
+ * setting). Without, there is no tab and the page is 404.
+ */
+export async function hasOwnClaims(user: AtUser, now: Date = new Date()): Promise<boolean> {
   if (!can(user, "claim_own")) return false;
-  return withTenant(user.tenantId, async (tx) => (await settingsOf(tx, user.tenantId, user.userId)).length > 0);
+  return withTenant(user.tenantId, async (tx) => myClaimsOpen(tx, user, await settingsOf(tx, user.tenantId, user.userId), now));
 }
 
-/** Your own claims for a month (your own only). 404 for anyone without a salary setting, a bad or future month. */
+/** Your own claims for a month (your own only). 404 when My claims isn't open to you (above), a bad or future month. */
 export async function myClaims(user: AtUser, month: string | null, now: Date = new Date()): Promise<MyClaimsView> {
   if (!can(user, "claim_own")) throw notFound();
   return withTenant(user.tenantId, async (tx) => {
     const settings = await settingsOf(tx, user.tenantId, user.userId);
     const first = firstSalaryMonth(settings);
-    if (!first) throw notFound();
+    if (!first || !(await myClaimsOpen(tx, user, settings, now))) throw notFound();
     const today = istDay(now);
     const m = month ?? istMonth(now);
     if (!validMonth(m) || m > istMonth(now) || m < first) throw notFound();
@@ -220,13 +255,17 @@ export async function myClaims(user: AtUser, month: string | null, now: Date = n
     const claims = (await loadClaims(tx, user.tenantId, { personId: user.userId, from: days[0], to: days.at(-1) })).reverse();
     const approved = claims.filter((c) => c.status === "approved");
     const photos = Object.fromEntries(await photoIds(tx, user.tenantId, claims.map((c) => c.id)));
+    const earliest = [addDays(today, -DAYS_BACK), `${first}-01`].sort().at(-1)!;
+    const canAdd = mayClaim(user, settingFor(settings, m));
     return {
       month: m,
       prev: m > first ? addMonths(m, -1) : null,
       next: m < istMonth(now) ? addMonths(m, 1) : null,
       today,
-      earliest: [addDays(today, -DAYS_BACK), `${first}-01`].sort().at(-1)!,
-      fieldDuty: hasFieldDutyRate(settingFor(settings, m)),
+      earliest,
+      fieldDuty: canAdd && hasFieldDutyRate(settingFor(settings, m)),
+      canAdd,
+      canAddAny: windowMonths(today).some((x) => x >= first && mayClaim(user, settingFor(settings, x))),
       onSalary: settingFor(settings, m) !== null,
       claims,
       photos,

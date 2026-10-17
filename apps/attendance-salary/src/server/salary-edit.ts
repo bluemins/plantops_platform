@@ -97,6 +97,8 @@ export const SettingInput = z.object({
   /** TA ₹ per km and DA ₹ per field-duty day as typed; blank = none (docs/SALARY_EXTRAS_PHASE_PLAN.md) */
   ta_rate: z.string().max(20).nullish(),
   da_rate: z.string().max(20).nullish(),
+  /** "Field staff": may send own claims; TA / DA rates need it (docs/ATTENDANCE_ROLES_PHASE_PLAN.md Phase C) */
+  field_staff: z.boolean().default(false),
   gets_overtime: z.boolean(),
   ot_rate: z.string().max(20).nullish(),
   /** "YYYY-MM" */
@@ -117,6 +119,7 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
   // both work the same for Monthly and Per day people; blank = this person gets no TA / DA
   const kmRatePaise = input.ta_rate?.trim() ? rupees(input.ta_rate, "TA per km", MAX_KM_RATE_PAISE) : null;
   const daDayPaise = input.da_rate?.trim() ? rupees(input.da_rate, "DA per day", MAX_DA_DAY_PAISE) : null;
+  if ((kmRatePaise !== null || daDayPaise !== null) && !input.field_staff) throw badRequest("Tick Field staff first");
   const shiftMinutes = Math.round(input.shift_hours * 60);
   if (!(input.shift_hours >= 1 && input.shift_hours <= 16) || shiftMinutes % 30 !== 0 || shiftMinutes !== input.shift_hours * 60) {
     throw badRequest("Shift hours: 1 to 16, in steps of half an hour (8 or 8.5)");
@@ -147,6 +150,7 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
         dayRatePaise,
         kmRatePaise,
         daDayPaise,
+        fieldStaff: input.field_staff,
         shiftMinutes,
         paidLeaveHalfdays: halves,
         getsOvertime: input.gets_overtime,
@@ -166,6 +170,7 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
       day_rate: dayRatePaise,
       km_rate: kmRatePaise,
       da_day: daDayPaise,
+      field: input.field_staff,
       shift: shiftMinutes,
       leave: halves,
       ot_rate: otRatePaise,
@@ -273,6 +278,8 @@ export interface HistoryRow {
   /** TA per km / DA per field-duty day (null = none) */
   kmRatePaise: number | null;
   daDayPaise: number | null;
+  /** "Field staff": may send own claims */
+  fieldStaff: boolean;
   shiftMinutes: number;
   paidLeaveHalfdays: number;
   getsOvertime: boolean;
@@ -334,6 +341,7 @@ export async function salaryPanel(user: AtUser, personId: string, month: string)
       dayRatePaise: s.dayRatePaise,
       kmRatePaise: s.kmRatePaise,
       daDayPaise: s.daDayPaise,
+      fieldStaff: s.fieldStaff,
       shiftMinutes: s.shiftMinutes,
       paidLeaveHalfdays: s.paidLeaveHalfdays,
       getsOvertime: s.getsOvertime,

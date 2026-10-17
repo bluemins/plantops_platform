@@ -13,7 +13,7 @@ const SALARY_COLUMNS: Record<string, string[]> = {
   salary_claims: ["id", "tenant_id", "user_id", "user_name", "kind", "on_date", "km_tenths", "amount_paise", "note", "created_by", "created_by_name", "created_at"],
   salary_payment_undos: ["id", "tenant_id", "payment_id", "reason", "created_by", "created_by_name", "created_at"],
   salary_payments: ["id", "tenant_id", "user_id", "user_name", "month", "paid_on", "paid_paise", "remaining_paise", "figures", "note", "created_by", "created_by_name", "created_at"],
-  salary_settings: ["id", "tenant_id", "user_id", "user_name", "from_month", "monthly_paise", "shift_minutes", "paid_leave_halfdays", "gets_overtime", "ot_rate_paise", "joined_on", "left_on", "reason", "created_by", "created_by_name", "created_at", "pay_basis", "day_rate_paise", "km_rate_paise", "da_day_paise"],
+  salary_settings: ["id", "tenant_id", "user_id", "user_name", "from_month", "monthly_paise", "shift_minutes", "paid_leave_halfdays", "gets_overtime", "ot_rate_paise", "joined_on", "left_on", "reason", "created_by", "created_by_name", "created_at", "pay_basis", "day_rate_paise", "km_rate_paise", "da_day_paise", "field_staff"],
   salary_visibility: ["id", "tenant_id", "user_id", "user_name", "can_see", "created_by", "created_by_name", "created_at"],
 };
 
@@ -85,7 +85,7 @@ describe("append-only for attendance_app", () => {
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(148);
+    expect(list.length).toBe(149); // + field_staff (0005)
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 
@@ -324,8 +324,8 @@ describe("database checks on claims", () => {
   const rates = (km: string, da: string) =>
     asApp(
       tp,
-      `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, monthly_paise, shift_minutes, gets_overtime, km_rate_paise, da_day_paise, created_by, created_by_name)
-       values ('${tp}', '${worker}', 'Anmol', '2026-10-01', 1200000, 480, false, ${km}, ${da}, ${by})`,
+      `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, monthly_paise, shift_minutes, gets_overtime, km_rate_paise, da_day_paise, field_staff, created_by, created_by_name)
+       values ('${tp}', '${worker}', 'Anmol', '2026-10-01', 1200000, 480, false, ${km}, ${da}, true, ${by})`,
     );
 
   it("valid rows: field duty with 0 km (DA only), an expense, approve then cancel, a bill photo; TA / DA rates", async () => {

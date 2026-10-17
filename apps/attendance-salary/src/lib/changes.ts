@@ -15,12 +15,13 @@ const claimText = (d: Record<string, unknown>) =>
   d.kind === "field_duty" ? `field duty ${shortDay(d.on)}, ${num(d.km) / 10} km` : `expense ${paiseText(num(d.amount))} on ${shortDay(d.on)}`;
 
 /** "₹12,000 · 8 h · overtime ₹60/h" (+ leave when not the usual 2 days, joined / last day): a salary setting. */
-export function settingText(d: { monthly: number | null; day_rate?: number | null; km_rate?: number | null; da_day?: number | null; shift: number; leave: number; ot_rate: number | null; joined?: string | null; left?: string | null }) {
+export function settingText(d: { monthly: number | null; day_rate?: number | null; km_rate?: number | null; da_day?: number | null; field?: boolean; shift: number; leave: number; ot_rate: number | null; joined?: string | null; left?: string | null }) {
   const pay = d.day_rate != null ? `per day ${paiseText(d.day_rate)}` : paiseText(d.monthly ?? 0);
   const parts = [pay, `${hoursText(d.shift)} h`, d.ot_rate ? `overtime ${paiseText(d.ot_rate)}/h` : "no overtime"];
   if (d.day_rate == null && d.leave !== 4) parts.push(`leave ${halvesText(d.leave)} days`);
   if (d.km_rate) parts.push(`TA ${paiseText(d.km_rate)}/km`);
   if (d.da_day) parts.push(`DA ${paiseText(d.da_day)}/day`);
+  if (d.field) parts.push("field staff");
   if (d.joined) parts.push(`joined ${shortDay(d.joined)}`);
   if (d.left) parts.push(`last day ${shortDay(d.left)}`);
   return parts.join(" · ");
@@ -42,7 +43,7 @@ export function describeChange(action: string, d: Record<string, unknown>): stri
     case "fix.cancel":
       return `Cancelled ${show(d.kind).toUpperCase()} ${when(d.at)} for ${show(d.person)}: ${show(d.reason)}`;
     case "salary.set":
-      return `Salary for ${show(d.person)} from ${shortMonth(d.from)}: ${settingText({ monthly: typeof d.monthly === "number" ? d.monthly : null, day_rate: typeof d.day_rate === "number" ? d.day_rate : null, km_rate: typeof d.km_rate === "number" ? d.km_rate : null, da_day: typeof d.da_day === "number" ? d.da_day : null, shift: num(d.shift), leave: num(d.leave), ot_rate: typeof d.ot_rate === "number" ? d.ot_rate : null, joined: d.joined as string | null, left: d.left as string | null })}${d.reason ? `: ${show(d.reason)}` : ""}`;
+      return `Salary for ${show(d.person)} from ${shortMonth(d.from)}: ${settingText({ monthly: typeof d.monthly === "number" ? d.monthly : null, day_rate: typeof d.day_rate === "number" ? d.day_rate : null, km_rate: typeof d.km_rate === "number" ? d.km_rate : null, da_day: typeof d.da_day === "number" ? d.da_day : null, field: d.field === true, shift: num(d.shift), leave: num(d.leave), ot_rate: typeof d.ot_rate === "number" ? d.ot_rate : null, joined: d.joined as string | null, left: d.left as string | null })}${d.reason ? `: ${show(d.reason)}` : ""}`;
     case "claim.sent":
       return `Claim from ${show(d.person)}: ${claimText(d)}: ${show(d.note)}${d.approved ? " (own claim, approved)" : ""}`;
     case "claim.entered":

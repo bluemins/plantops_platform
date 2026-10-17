@@ -24,6 +24,7 @@ function initial(applies: HistoryRow | null, thisMonth: string) {
     dayRate: typed(applies?.dayRatePaise),
     ta: typed(applies?.kmRatePaise),
     da: typed(applies?.daDayPaise),
+    field: applies?.fieldStaff ?? false,
     shift: applies ? hoursText(applies.shiftMinutes) : "8",
     leave: applies ? halvesText(applies.paidLeaveHalfdays) : "2",
     ot: applies?.getsOvertime ?? false,
@@ -63,8 +64,10 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
         pay_basis: f.basis,
         // only the fields of the chosen basis are sent; the server ignores the other one anyway
         ...(perDay ? { day_rate: f.dayRate } : { monthly: f.monthly, leave_days: Number(f.leave) }),
-        ta_rate: f.ta || null,
-        da_rate: f.da || null,
+        field_staff: f.field,
+        // rates only with the Field staff tick (the server refuses them otherwise)
+        ta_rate: f.field ? f.ta || null : null,
+        da_rate: f.field ? f.da || null : null,
         shift_hours: Number(f.shift),
         gets_overtime: f.ot,
         ot_rate: f.ot ? f.rate : null,
@@ -164,18 +167,27 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
       </div>
 
       <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-        <h3 className="font-semibold">Field duty</h3>
-        <div className="grid grid-cols-2 gap-3 sm:max-w-md">
-          <label className={label}>
-            <span>TA ₹ per km</span>
-            <input className={field} inputMode="decimal" value={f.ta} onChange={set("ta")} placeholder="e.g. 3" />
-          </label>
-          <label className={label}>
-            <span>DA ₹ per day</span>
-            <input className={field} inputMode="decimal" value={f.da} onChange={set("da")} placeholder="e.g. 150" />
-          </label>
-        </div>
-        <p className="text-sm text-slate-600">For approved field-duty claims. Leave both blank if this person never goes on field duty.</p>
+        <label className="flex min-h-11 items-center gap-3 font-semibold">
+          <input type="checkbox" className="h-5 w-5 accent-(--brand)" checked={f.field} onChange={(e) => setF((x) => ({ ...x, field: e.target.checked }))} />
+          Field staff: can send field duty and expense claims
+        </label>
+        {f.field ? (
+          <>
+            <div className="grid grid-cols-2 gap-3 sm:max-w-md">
+              <label className={label}>
+                <span>TA ₹ per km</span>
+                <input className={field} inputMode="decimal" value={f.ta} onChange={set("ta")} placeholder="e.g. 3" />
+              </label>
+              <label className={label}>
+                <span>DA ₹ per day</span>
+                <input className={field} inputMode="decimal" value={f.da} onChange={set("da")} placeholder="e.g. 150" />
+              </label>
+            </div>
+            <p className="text-sm text-slate-600">For approved field-duty claims. Leave both blank for expenses only.</p>
+          </>
+        ) : (
+          <p className="text-sm text-slate-600">No claims from this person. You can still enter an expense for them below.</p>
+        )}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -236,7 +248,7 @@ export function History({ history }: { history: HistoryRow[] }) {
             <div className="flex flex-wrap justify-between gap-x-3">
               <span>
                 <strong>From {fmtMonth(h.fromMonth)}:</strong>{" "}
-                {settingText({ monthly: h.monthlyPaise, day_rate: h.dayRatePaise, km_rate: h.kmRatePaise, da_day: h.daDayPaise, shift: h.shiftMinutes, leave: h.paidLeaveHalfdays, ot_rate: h.getsOvertime ? h.otRatePaise : null, joined: h.joinedOn, left: h.leftOn })}
+                {settingText({ monthly: h.monthlyPaise, day_rate: h.dayRatePaise, km_rate: h.kmRatePaise, da_day: h.daDayPaise, field: h.fieldStaff, shift: h.shiftMinutes, leave: h.paidLeaveHalfdays, ot_rate: h.getsOvertime ? h.otRatePaise : null, joined: h.joinedOn, left: h.leftOn })}
               </span>
               <span className="text-slate-600">
                 {h.byName}, {dayShort(istDay(new Date(h.at)))}
@@ -288,7 +300,7 @@ export function SalaryReadOnly({ applies, history, canSee, name }: { applies: Hi
     <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
       <h2 className="text-lg font-bold">Salary</h2>
       {applies ? (
-        <p>{settingText({ monthly: applies.monthlyPaise, day_rate: applies.dayRatePaise, km_rate: applies.kmRatePaise, da_day: applies.daDayPaise, shift: applies.shiftMinutes, leave: applies.paidLeaveHalfdays, ot_rate: applies.getsOvertime ? applies.otRatePaise : null, joined: applies.joinedOn, left: applies.leftOn })}</p>
+        <p>{settingText({ monthly: applies.monthlyPaise, day_rate: applies.dayRatePaise, km_rate: applies.kmRatePaise, da_day: applies.daDayPaise, field: applies.fieldStaff, shift: applies.shiftMinutes, leave: applies.paidLeaveHalfdays, ot_rate: applies.getsOvertime ? applies.otRatePaise : null, joined: applies.joinedOn, left: applies.leftOn })}</p>
       ) : (
         <p className="text-slate-600">No salary set.</p>
       )}

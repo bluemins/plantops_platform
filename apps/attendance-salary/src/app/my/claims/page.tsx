@@ -16,7 +16,8 @@ type Search = Promise<Record<string, string | string[] | undefined>>;
 /**
  * My claims (docs/SALARY_EXTRAS_PHASE_PLAN.md mock-up 2): your own field duty and expenses for a month, with their
  * status. Km and the amounts you typed; never TA / DA rupees (those are on the salary slip, with permission). Only for
- * someone with a salary setting (404 otherwise); only your own.
+ * someone ticked Field staff this month or with a claim on record (404 otherwise); "+ Field duty" / "+ Expense" only
+ * in a ticked month (docs/ATTENDANCE_ROLES_PHASE_PLAN.md Phase C); only your own.
  */
 export default async function MyClaimsPage({ searchParams }: { searchParams: Search }) {
   const sp = await searchParams;
@@ -47,7 +48,7 @@ export default async function MyClaimsPage({ searchParams }: { searchParams: Sea
           <span className={`${arrow} text-slate-300`} aria-hidden="true">›</span>
         )}
       </div>
-      {v.onSalary && (
+      {v.canAdd ? (
         <div className={`grid gap-2.5 ${v.fieldDuty ? "grid-cols-2" : "grid-cols-1"}`}>
           {v.fieldDuty && (
             <a href="/my/claims/new?kind=field_duty" className={big}>
@@ -58,6 +59,8 @@ export default async function MyClaimsPage({ searchParams }: { searchParams: Sea
             + Expense
           </a>
         </div>
+      ) : (
+        <p className="rounded-xl bg-slate-100 px-3 py-2.5 text-sm text-slate-700">Only the owner can add claims for you.</p>
       )}
       <p className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700">
         Approved this month:{" "}
