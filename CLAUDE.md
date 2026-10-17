@@ -1605,12 +1605,13 @@ Permissions, the Office staff launcher tile and the Supervisor's notification se
 checks OK (`docs/deployments/shared.md`). **Not yet verified:** real phones; the first morning run; the owner's
 checklist at plant 001 (in the deploy record).
 
-### 2026-10-17 — Attendance: "Ask for DA" on a field duty — built (v0.24.0)
+### 2026-10-17 — Attendance: "Ask for DA" on a field duty — live (v0.24.0)
 Asked by the owner 2026-10-17 (a field-duty person sometimes eats at home). The Field duty form has a tick box "Ask for
 DA (food allowance) for this day", ticked by default; unticked = TA for the km only, no DA that day. Attendance
 migration `0007_claim_wants_da.sql` (approved by the owner): `salary_claims.wants_da`, existing field duties = yes, so
 nothing counted or paid changes; still SELECT + INSERT only. DA = approved field-duty days that asked for DA × rate
 (`RULES_VERSION` 4). Shown on claim cards, the owner's card, the slip, panel, CSV ("DA days") and the "new claim"
 alert. Platform and SSO token unchanged. Notes: `apps/attendance-salary/NOTES.md`. Tests: Attendance 418 (+4).
-**Not yet verified:** on screen; not deployed.
+**Live (2026-10-17):** migration `0007` applied, `v0.24.0:production` (`cea5736`), checks OK
+(`docs/deployments/shared.md`). **Not yet verified:** on screen.
 
