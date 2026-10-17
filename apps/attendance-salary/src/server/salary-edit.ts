@@ -6,7 +6,7 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { addMonths, istDay, istMonth, validDay, validMonth } from "@/lib/days";
-import { firstSalaryMonth, paiseText, settingFor, toPaise } from "@/lib/salary";
+import { firstSalaryMonth, paiseText, settingFor, toPaise, type PayBasis } from "@/lib/salary";
 import { requireAccess } from "./access";
 import { audit } from "./audit";
 import { schema, withTenant, type AtTx } from "./db";
@@ -22,6 +22,8 @@ const { salarySettings, salaryAdvances, salaryVisibility } = schema;
 const MAX_PAISE = 1_000_000_000;
 /** ₹1,00,000 an hour: a typo stops here with a plain message. */
 const MAX_OT_RATE_PAISE = 10_000_000;
+/** ₹1,00,000 a day, the largest day rate (the database checks it too). */
+const MAX_DAY_RATE_PAISE = 10_000_000;
 
 const Expect = z.uuid().nullable();
 const OptDay = z
@@ -80,10 +82,15 @@ const byName = (u: AtUser) => u.name.slice(0, 100);
 
 export const SettingInput = z.object({
   user_id: z.uuid(),
-  /** rupees as typed */
-  monthly: z.string().max(20),
+  /** "monthly" (salary ÷ 30, paid leave) or "per_day" (a day rate, no paid leave; rule 15) */
+  pay_basis: z.enum(["monthly", "per_day"]).default("monthly"),
+  /** rupees as typed; monthly only */
+  monthly: z.string().max(20).nullish(),
+  /** rupees as typed; per day only */
+  day_rate: z.string().max(20).nullish(),
   shift_hours: z.number(),
-  leave_days: z.number(),
+  /** monthly only; per day always saves 0 */
+  leave_days: z.number().nullish(),
   gets_overtime: z.boolean(),
   ot_rate: z.string().max(20).nullish(),
   /** "YYYY-MM" */
@@ -97,13 +104,17 @@ export const SettingInput = z.object({
 /** Owner: a new salary setting for a person, from a month on (a new row; the old ones stay as history). */
 export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInput>) {
   const person = await editablePerson(user, input.user_id);
-  const monthlyPaise = rupees(input.monthly, "Monthly salary");
+  const perDay = input.pay_basis === "per_day";
+  // only the fields of the chosen basis count; the other one is saved empty whatever the browser sent
+  const monthlyPaise = perDay ? null : rupees(input.monthly ?? "", "Monthly salary");
+  const dayRatePaise = perDay ? rupees(input.day_rate ?? "", "Day rate", MAX_DAY_RATE_PAISE) : null;
   const shiftMinutes = Math.round(input.shift_hours * 60);
   if (!(input.shift_hours >= 1 && input.shift_hours <= 16) || shiftMinutes % 30 !== 0 || shiftMinutes !== input.shift_hours * 60) {
     throw badRequest("Shift hours: 1 to 16, in steps of half an hour (8 or 8.5)");
   }
-  const halves = input.leave_days * 2;
-  if (!(input.leave_days >= 0 && input.leave_days <= 10) || !Number.isInteger(halves)) throw badRequest("Paid leave: 0 to 10 days, in steps of half a day");
+  const leaveDays = perDay ? 0 : (input.leave_days ?? 2); // rule 15: no paid leave for per-day pay
+  const halves = leaveDays * 2;
+  if (!(leaveDays >= 0 && leaveDays <= 10) || !Number.isInteger(halves)) throw badRequest("Paid leave: 0 to 10 days, in steps of half a day");
   const otRatePaise = input.gets_overtime ? rupees(input.ot_rate ?? "", "Overtime rate", MAX_OT_RATE_PAISE) : null;
   if (input.joined_on && input.left_on && input.left_on < input.joined_on) throw badRequest("The last day can't be before the joining day");
   const reason = input.reason?.trim() || null;
@@ -122,7 +133,9 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
         userId: person.userId,
         userName: nameOf(person),
         fromMonth: `${input.from_month}-01`,
+        payBasis: input.pay_basis,
         monthlyPaise,
+        dayRatePaise,
         shiftMinutes,
         paidLeaveHalfdays: halves,
         getsOvertime: input.gets_overtime,
@@ -137,7 +150,9 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
     await audit(tx, user, "salary.set", row!.id, {
       person: person.name,
       from: input.from_month,
+      basis: input.pay_basis,
       monthly: monthlyPaise,
+      day_rate: dayRatePaise,
       shift: shiftMinutes,
       leave: halves,
       ot_rate: otRatePaise,
@@ -239,7 +254,9 @@ export async function saveAdvance(user: AtUser, input: z.infer<typeof AdvanceInp
 export interface HistoryRow {
   id: string;
   fromMonth: string;
-  monthlyPaise: number;
+  payBasis: PayBasis;
+  monthlyPaise: number | null;
+  dayRatePaise: number | null;
   shiftMinutes: number;
   paidLeaveHalfdays: number;
   getsOvertime: boolean;
@@ -296,7 +313,9 @@ export async function salaryPanel(user: AtUser, personId: string, month: string)
     const history: HistoryRow[] = settings.map((s) => ({
       id: s.id,
       fromMonth: s.fromMonth.slice(0, 7),
+      payBasis: s.payBasis,
       monthlyPaise: s.monthlyPaise,
+      dayRatePaise: s.dayRatePaise,
       shiftMinutes: s.shiftMinutes,
       paidLeaveHalfdays: s.paidLeaveHalfdays,
       getsOvertime: s.getsOvertime,

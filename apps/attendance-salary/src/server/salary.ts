@@ -12,6 +12,7 @@ import {
   countedDates,
   dayStatuses,
   firstSalaryMonth,
+  readFrozen,
   settingFor,
   type ChainMonth,
   type Counted,
@@ -142,7 +143,9 @@ function personMonths(userId: string, data: SalaryData, days: ReadonlyMap<string
       paid: x.payment,
       input: {
         ...x.counts,
-        monthlyPaise: x.setting.monthlyPaise,
+        payBasis: x.setting.payBasis,
+        monthlyPaise: x.setting.monthlyPaise ?? 0,
+        dayRatePaise: x.setting.dayRatePaise,
         fullMonth: x.counted.fullMonth,
         paidLeaveHalfdays: x.setting.paidLeaveHalfdays,
         getsOvertime: x.setting.getsOvertime,
@@ -194,7 +197,9 @@ export function payInputOf(c: SalaryMonth): PayInput {
   const r = c.chain.live;
   return {
     ...c.counts,
-    monthlyPaise: c.setting.monthlyPaise,
+    payBasis: c.setting.payBasis,
+    monthlyPaise: c.setting.monthlyPaise ?? 0,
+    dayRatePaise: c.setting.dayRatePaise,
     fullMonth: c.counted.fullMonth,
     paidLeaveHalfdays: c.setting.paidLeaveHalfdays,
     getsOvertime: c.setting.getsOvertime,
@@ -211,7 +216,7 @@ export function freezeMonth(c: SalaryMonth): FrozenMonth {
   return {
     rules: RULES_VERSION,
     month: c.month,
-    setting: { monthlyPaise: s.monthlyPaise, shiftMinutes: s.shiftMinutes, paidLeaveHalfdays: s.paidLeaveHalfdays, getsOvertime: s.getsOvertime, otRatePaise: s.otRatePaise, joinedOn: s.joinedOn, leftOn: s.leftOn },
+    setting: { payBasis: s.payBasis, monthlyPaise: s.monthlyPaise, dayRatePaise: s.dayRatePaise, shiftMinutes: s.shiftMinutes, paidLeaveHalfdays: s.paidLeaveHalfdays, getsOvertime: s.getsOvertime, otRatePaise: s.otRatePaise, joinedOn: s.joinedOn, leftOn: s.leftOn },
     counted: c.counted,
     counts: c.counts,
     advances: c.advances.map((a) => ({ onDate: a.onDate, amountPaise: a.amountPaise, note: a.amountPaise < 0 ? `Correction: ${a.reason ?? ""}` : a.note })),
@@ -221,9 +226,10 @@ export function freezeMonth(c: SalaryMonth): FrozenMonth {
   };
 }
 
-/** A payment's saved figures, if they are a full frozen month (rows written by hand in tests may not be). */
+/** A payment's saved figures, if they are a full frozen month (rows written by hand in tests may not be); months
+ *  frozen before per-day pay (`rules: 1`) read as monthly. */
 export const frozenOf = (figures: Record<string, unknown>): FrozenMonth | null =>
-  figures && typeof figures === "object" && "input" in figures && "result" in figures ? (figures as unknown as FrozenMonth) : null;
+  figures && typeof figures === "object" && "input" in figures && "result" in figures ? readFrozen(figures as unknown as FrozenMonth) : null;
 
 /** What a calendar may show about a month's days: statuses and counts only, never an amount, rate or shift. */
 export interface MonthStatuses {

@@ -19,13 +19,15 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
   const yours = monthPay(panelInput(row.input, typed));
   const yin = panelInput(row.input, typed);
 
+  const perDay = row.input.payBasis === "per_day";
+  // per-day people (rule 15): a day rate instead of the salary, and no paid leave
   const fields: [PanelField, string, number][] = [
-    ["monthly", "Monthly salary (₹)", row.input.monthlyPaise / 100],
+    perDay ? ["dayRate", "Day rate (₹)", (row.input.dayRatePaise ?? 0) / 100] : ["monthly", "Monthly salary (₹)", row.input.monthlyPaise / 100],
     ["present", "Present days", row.input.present],
     ["half", "Half days", row.input.half],
     ["absent", "Absent days", row.input.absent],
-    ["leave", "Paid leave allowed (days)", row.input.paidLeaveHalfdays / 2],
   ];
+  if (!perDay) fields.push(["leave", "Paid leave allowed (days)", row.input.paidLeaveHalfdays / 2]);
   if (row.getsOvertime) {
     fields.push(["otHours", "Overtime hours", Math.round((row.input.otMinutes / 60) * 100) / 100]);
     fields.push(["otRate", "Overtime ₹ / hour", (row.input.otRatePaise ?? 0) / 100]);
@@ -89,8 +91,12 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
       <p className={`rounded-lg px-3 py-2 text-sm ${daysOk ? "bg-slate-100 text-slate-700" : "bg-amber-100 text-amber-950"}`}>{daysOk ? `${daysText} ✓` : `${daysText}, but ${target}`}</p>
 
       <div className="space-y-1.5 border-t border-slate-100 pt-3 text-sm">
-        {line(`Day's pay (${rupeesText(yin.monthlyPaise)} ÷ ${DAYS_FOR_PAY})`, paiseText(yours.dayPayPaise))}
-        {yin.fullMonth
+        {perDay
+          ? line("Day rate", paiseText(yours.dayPayPaise))
+          : line(`Day's pay (${rupeesText(yin.monthlyPaise)} ÷ ${DAYS_FOR_PAY})`, paiseText(yours.dayPayPaise))}
+        {perDay
+          ? line(`Paid days ${halvesText(yours.paidHalves)} × ${paiseText(yours.dayPayPaise)}`, paiseText(yours.earnedPaise))
+          : yin.fullMonth
           ? line(`Unpaid days ${halvesText(yours.unpaidHalves)} × day's pay`, yours.deductionPaise ? `−${paiseText(yours.deductionPaise)}` : "₹0")
           : line(`Paid days ${halvesText(yours.paidHalves)} × day's pay`, paiseText(yours.earnedPaise))}
         {line("Salary earned", paiseText(yours.earnedPaise), true)}

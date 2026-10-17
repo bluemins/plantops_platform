@@ -11,10 +11,12 @@ import {
   hoursText,
   monthPay,
   paiseText,
+  readFrozen,
   rupeesText,
   settingFor,
   toPaise,
   type ChainInput,
+  type FrozenMonth,
   type PayInput,
   type SalarySetting,
 } from "@/lib/salary";
@@ -25,7 +27,9 @@ const H = 60; // minutes in an hour
 
 /** The worked example's person: ₹12,000, 8 h shift, 2 days' paid leave, overtime ₹60/h, full month. */
 const base: PayInput = {
+  payBasis: "monthly",
   monthlyPaise: R(12000),
+  dayRatePaise: null,
   fullMonth: true,
   present: 26,
   half: 2,
@@ -192,7 +196,7 @@ describe("day statuses", () => {
 
 describe("which setting applies", () => {
   const s = (fromMonth: string, monthlyRupees: number, createdAt: string): SalarySetting => ({
-    id: `${fromMonth}-${createdAt}`, fromMonth, monthlyPaise: R(monthlyRupees), shiftMinutes: 480, paidLeaveHalfdays: 4, getsOvertime: false, otRatePaise: null, joinedOn: null, leftOn: null, createdAt,
+    id: `${fromMonth}-${createdAt}`, fromMonth, payBasis: "monthly", monthlyPaise: R(monthlyRupees), dayRatePaise: null, shiftMinutes: 480, paidLeaveHalfdays: 4, getsOvertime: false, otRatePaise: null, joinedOn: null, leftOn: null, createdAt,
   });
 
   it("14. a setting from November leaves October unchanged; the newest of the same month wins", () => {
@@ -295,3 +299,115 @@ describe("money helpers", () => {
     expect(paiseText(-R(2100.5))).toBe("−₹2,100.50");
   });
 });
+
+// ---------- per-day pay (docs/SALARY_EXTRAS_PHASE_PLAN.md rule 15; Phase A1's list) ----------
+
+describe("per-day pay (rule 15)", () => {
+  /** Worked example A's person: ₹450 a day, 8 h shift, overtime ₹60/h, October 2026. */
+  const perDay: PayInput = {
+    ...base,
+    payBasis: "per_day",
+    monthlyPaise: 0,
+    dayRatePaise: R(450),
+    paidLeaveHalfdays: 0,
+    present: 24,
+    half: 2,
+    absent: 5,
+    otMinutes: 10 * H,
+    advancesPaise: R(2000),
+  };
+
+  it("A1. worked example A: 25 days × ₹450 = ₹11,250 + ₹600 overtime − ₹2,000 = ₹9,850 remaining", () => {
+    const r = monthPay(perDay);
+    expect(r).toMatchObject({
+      dayPayPaise: R(450),
+      paidHalves: 50, // 24 + ½ × 2 = 25 days
+      leaveUsedHalves: 0,
+      deductionPaise: 0,
+      earnedPaise: R(11250),
+      otPayPaise: R(600),
+      remainingPaise: R(9850),
+    });
+    expect(rupeesText(r.remainingPaise)).toBe("₹9,850");
+    // the version 2 example still gives ₹9,040 next to it
+    expect(monthPay(base).remainingPaise).toBe(R(9040));
+  });
+
+  it("A2. shift edges: exactly 8 h earns a full day, 1 minute less half, under 4 h nothing", () => {
+    const days = new Map([["2026-10-01", { minutes: 480 }], ["2026-10-02", { minutes: 479 }], ["2026-10-03", { minutes: 240 }], ["2026-10-04", { minutes: 239 }]]);
+    const counts = countDays(dayStatuses(days, 480, [...days.keys()], false));
+    expect(counts).toMatchObject({ present: 1, half: 2, absent: 1 });
+    // 1 + ½ + ½ days = 2 days
+    expect(monthPay({ ...perDay, ...counts, advancesPaise: 0 }).earnedPaise).toBe(R(900));
+  });
+
+  it("A3. no paid leave, even when a row says so: absent days earn nothing", () => {
+    const r = monthPay({ ...perDay, paidLeaveHalfdays: 4, present: 28, half: 0, absent: 3, otMinutes: 0, advancesPaise: 0 });
+    expect(r).toMatchObject({ leaveUsedHalves: 0, unpaidHalves: 6, earnedPaise: R(28 * 450) });
+  });
+
+  it("A4. joined mid-month: only the counted days pay, and full / part month makes no difference", () => {
+    const c = countedDates("2026-10", "2026-11-01", "2026-10-15", null)!;
+    expect(c).toMatchObject({ fullMonth: false });
+    const counts = countDays(dayStatuses(everyDay("2026-10", 480), 480, c.dates, false));
+    expect(counts.present).toBe(17);
+    const input = { ...perDay, ...counts, otMinutes: 0, advancesPaise: 0 };
+    expect(monthPay({ ...input, fullMonth: false }).earnedPaise).toBe(R(17 * 450));
+    expect(monthPay({ ...input, fullMonth: true }).earnedPaise).toBe(R(17 * 450));
+  });
+
+  it("A5. overtime off: 12 h days give no overtime hours or pay", () => {
+    const c = countedDates("2026-10", "2026-11-01", null, null)!;
+    const counts = countDays(dayStatuses(everyDay("2026-10", 12 * H), 8 * H, c.dates, false));
+    expect(monthPay({ ...perDay, ...counts, getsOvertime: false, otRatePaise: null, advancesPaise: 0 })).toMatchObject({ otMinutes: 0, otPayPaise: 0, earnedPaise: R(31 * 450) });
+  });
+
+  it("A6. carry: a per-day month left at −₹750 takes ₹750 off the next month", () => {
+    const m = (month: string, over: Partial<ChainInput["input"]>): ChainInput => ({ month, paid: null, input: { ...perDay, otMinutes: 0, advancesPaise: 0, ...over } });
+    const [oct, nov] = carryChain([m("2026-10", { present: 5, half: 0, absent: 26, advancesPaise: R(3000) }), m("2026-11", { present: 30, half: 0, absent: 0 })]);
+    expect(oct!.live.remainingPaise).toBe(-R(750));
+    expect(nov!.live).toMatchObject({ carriedInPaise: R(750), remainingPaise: R(30 * 450 - 750) });
+  });
+
+  it("A7. monthly in October, per day from November: October is unchanged (₹9,040)", () => {
+    const row = (fromMonth: string, over: Partial<SalarySetting>): SalarySetting => ({
+      id: fromMonth, fromMonth, payBasis: "monthly", monthlyPaise: R(12000), dayRatePaise: null, shiftMinutes: 480, paidLeaveHalfdays: 4, getsOvertime: true, otRatePaise: R(60), joinedOn: null, leftOn: null, createdAt: `${fromMonth}-01T10:00:00Z`, ...over,
+    });
+    const rows = [row("2026-10", {}), row("2026-11", { payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450), paidLeaveHalfdays: 0 })];
+    const inputFor = (month: string, counts: Partial<PayInput>): ChainInput => {
+      const s = settingFor(rows, month)!;
+      return { month, paid: null, input: { ...base, payBasis: s.payBasis, monthlyPaise: s.monthlyPaise ?? 0, dayRatePaise: s.dayRatePaise, paidLeaveHalfdays: s.paidLeaveHalfdays, ...counts } };
+    };
+    const [oct, nov] = carryChain([inputFor("2026-10", {}), inputFor("2026-11", { present: 30, half: 0, absent: 0, otMinutes: 0, advancesPaise: 0 })]);
+    expect(oct!.live.remainingPaise).toBe(R(9040));
+    expect(nov!.live).toMatchObject({ dayPayPaise: R(450), earnedPaise: R(13500), carriedInPaise: 0 });
+  });
+
+  it("A8. rounded once: ₹333.33 a day × 1½ days = ₹499.995 → ₹500.00", () => {
+    const r = monthPay({ ...perDay, dayRatePaise: 33333, present: 1, half: 1, absent: 0, otMinutes: 0, advancesPaise: 0 });
+    expect(r.earnedPaise).toBe(50000);
+    expect(paiseText(r.earnedPaise)).toBe("₹500");
+  });
+
+  it("A9. a month frozen before per-day pay (rules 1) reads as monthly, its saved numbers unchanged", () => {
+    const { payBasis: _b, dayRatePaise: _d, ...oldInput } = base;
+    const result = monthPay(base);
+    const v1 = {
+      rules: 1,
+      month: "2026-10",
+      setting: { monthlyPaise: R(12000), shiftMinutes: 480, paidLeaveHalfdays: 4, getsOvertime: true, otRatePaise: R(60), joinedOn: null, leftOn: null },
+      counted: countedDates("2026-10", "2026-11-01", null, null)!,
+      counts: { present: 26, half: 2, absent: 3, otMinutes: 14 * H },
+      advances: [],
+      adjustmentFrom: null,
+      input: oldInput,
+      result,
+    } as unknown as FrozenMonth;
+    const f = readFrozen(v1);
+    expect(f.setting).toMatchObject({ payBasis: "monthly", dayRatePaise: null, monthlyPaise: R(12000) });
+    expect(f.input).toMatchObject({ payBasis: "monthly", dayRatePaise: null, monthlyPaise: R(12000) });
+    expect(f.result).toEqual(result);
+    expect(f.result.remainingPaise).toBe(R(9040));
+  });
+});
+

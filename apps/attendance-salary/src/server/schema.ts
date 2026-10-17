@@ -1,6 +1,7 @@
 // Drizzle table definitions mirroring db/migrations/*.sql (the SQL files are the source of truth).
 // Plant coordinates are numeric in the database and strings here ("20.296100"). A scan has no coordinates at all.
 import { bigint, boolean, date, integer, jsonb, numeric, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import type { PayBasis } from "@/lib/salary";
 
 export const at = pgSchema("attendance_salary");
 const ts = (name: string) => timestamp(name, { withTimezone: true });
@@ -86,7 +87,9 @@ export const salarySettings = at.table("salary_settings", {
   userId: uuid("user_id").notNull(),
   userName: text("user_name").notNull(),
   fromMonth: day("from_month").notNull(),
-  monthlyPaise: money("monthly_paise").notNull(),
+  payBasis: text("pay_basis").$type<PayBasis>().notNull().default("monthly"),
+  monthlyPaise: money("monthly_paise"),
+  dayRatePaise: integer("day_rate_paise"),
   shiftMinutes: integer("shift_minutes").notNull(),
   paidLeaveHalfdays: integer("paid_leave_halfdays").notNull().default(4),
   getsOvertime: boolean("gets_overtime").notNull(),

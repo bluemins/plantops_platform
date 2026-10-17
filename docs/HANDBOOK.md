@@ -392,6 +392,9 @@ Salary lives in the Attendance module (v0.20.0). Only the owner sees money; work
   salary, shift hours (8 = full day ≥ 8 h, half day ≥ 4 h), paid leave per month (2), **Gets overtime** + rate if they
   are paid overtime, **from month** (this month). Joined on / Last day only for someone who joined or left during a
   month. A change "from November" never alters October; a change for a past month asks for a reason.
+- **Per-day people** (v0.21.0): in the Salary box choose **Pay → Per day** and type the **day rate**. A present day
+  pays the rate, a half day half of it, an absent day nothing; there is no paid leave. Overtime and advances work the
+  same. Switching between Monthly and Per day is "from a month" like any change. The Salary tab marks them "per day".
 - **Advances:** same page, **+ Advance** (amount, date, note). A wrong entry is never deleted: tap **Correct** on it
   and take the extra off with a reason.
 - **During the month:** the **Salary** tab shows everyone "so far". Tap a name for the **checking panel**: type your

@@ -1,7 +1,8 @@
 // Salary worked out from the database (src/server/salary.ts): real marks, settings history, advances and paid months
 // in the test database, then the rules of src/lib/salary.ts. Case numbers follow the Phase 2 plan's list.
 import { describe, expect, it } from "vitest";
-import { salaryMonths } from "@/server/salary";
+import { freezeMonth, salaryMonths } from "@/server/salary";
+import { mySlip } from "@/server/salary-slip";
 import type { AtUser } from "@/server/session";
 import { asApp, ist, markAt, plant, refusal } from "./helpers";
 
@@ -146,5 +147,60 @@ describe("salary from the database", () => {
     expect((await refusal(() => salaryMonths(p.worker, "2026-10", { now: NOW }))).status).toBe(403);
     expect((await refusal(() => salaryMonths(p.keeper, "2026-10", { now: NOW }))).status).toBe(403);
     for (const m of ["2026-12", "2026-13", "junk"]) expect((await refusal(() => salaryMonths(p.owner, m, { now: NOW }))).status, m).toBe(404);
+  });
+});
+
+describe("per-day pay from the database (Salary extras rule 15)", () => {
+  const perDay = (u: AtUser, fromMonth: string, rupees: number) =>
+    asApp(
+      u.tenantId,
+      `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, pay_basis, monthly_paise, day_rate_paise, shift_minutes, paid_leave_halfdays, gets_overtime, created_by, created_by_name)
+       values ('${u.tenantId}', '${u.userId}', '${u.name}', '${fromMonth}-01', 'per_day', null, ${R(rupees)}, 480, 0, false, gen_random_uuid(), 'Sujata')`,
+    );
+
+  it("27. monthly in October, per day from November: October unchanged, November pays the day rate × days", async () => {
+    const p = plant();
+    const w = p.worker;
+    await setting(w, "2026-10", 12000, { leave: 0 });
+    await perDay(w, "2026-11", 450);
+    for (let d = 1; d <= 31; d++) await workDay(w, day(d), 8); // October: all present
+    for (let d = 1; d <= 20; d++) await workDay(w, `2026-11-${String(d).padStart(2, "0")}`, 8); // November: 20 present
+    for (const d of [21, 22]) await workDay(w, `2026-11-${d}`, 5); // 2 half days, the rest absent
+    const { people } = await salaryMonths(p.owner, "2026-11", { personId: w.userId, now: ist("2026-12-05 12:00") });
+    const [oct, nov] = people[0]!.months;
+    expect(oct!.setting).toMatchObject({ payBasis: "monthly", monthlyPaise: R(12000), dayRatePaise: null });
+    expect(oct!.chain.live).toMatchObject({ earnedPaise: R(12000), remainingPaise: R(12000) });
+    expect(nov!.setting).toMatchObject({ payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450) });
+    expect(nov!.counts).toMatchObject({ present: 20, half: 2, absent: 8 });
+    expect(nov!.chain.live).toMatchObject({ dayPayPaise: R(450), leaveUsedHalves: 0, earnedPaise: R(21 * 450), remainingPaise: R(9450) });
+    // a per-day month frozen now carries the rules version and the pay basis
+    const f = freezeMonth(nov!);
+    expect(f).toMatchObject({ rules: 2, setting: { payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450) }, input: { payBasis: "per_day", monthlyPaise: 0, dayRatePaise: R(450) } });
+  });
+
+  it("28. a slip frozen before per-day pay (rules 1) still opens, as monthly", async () => {
+    const p = plant();
+    const w = p.worker;
+    await setting(w, "2026-10", 12000);
+    await asApp(p.tenantId, `insert into attendance_salary.salary_visibility (tenant_id, user_id, user_name, can_see, created_by, created_by_name) values ('${p.tenantId}', '${w.userId}', '${w.name}', true, gen_random_uuid(), 'Sujata')`);
+    const v1 = {
+      rules: 1,
+      month: "2026-10",
+      setting: { monthlyPaise: R(12000), shiftMinutes: 480, paidLeaveHalfdays: 4, getsOvertime: false, otRatePaise: null, joinedOn: null, leftOn: null },
+      counted: { dates: [], monthLength: 31, fullMonth: true, complete: true },
+      counts: { present: 31, half: 0, absent: 0, otMinutes: 0 },
+      advances: [],
+      adjustmentFrom: null,
+      input: { present: 31, half: 0, absent: 0, otMinutes: 0, monthlyPaise: R(12000), fullMonth: true, paidLeaveHalfdays: 4, getsOvertime: false, otRatePaise: null, advancesPaise: 0, carriedInPaise: 0, adjustmentPaise: 0 },
+      result: { remainingPaise: R(12000), earnedPaise: R(12000) },
+    };
+    await asApp(
+      p.tenantId,
+      `insert into attendance_salary.salary_payments (tenant_id, user_id, user_name, month, paid_on, paid_paise, remaining_paise, figures, created_by, created_by_name)
+       values ('${p.tenantId}', '${w.userId}', '${w.name}', '2026-10-01', '2026-10-31', ${R(12000)}, ${R(12000)}, '${JSON.stringify(v1)}', gen_random_uuid(), 'Sujata')`,
+    );
+    const slip = await mySlip(w, "2026-10");
+    expect(slip.figures).toMatchObject({ rules: 1, setting: { payBasis: "monthly", dayRatePaise: null, monthlyPaise: R(12000) }, input: { payBasis: "monthly", dayRatePaise: null } });
+    expect(slip.figures.result.remainingPaise).toBe(R(12000));
   });
 });

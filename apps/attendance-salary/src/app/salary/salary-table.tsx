@@ -28,6 +28,14 @@ function RowNotes({ r, month }: { r: TabRow; month: string }) {
   );
 }
 
+/** The small "per day" tag beside a per-day person's name (mock-up 6). */
+function PerDayTag({ r }: { r: TabRow }) {
+  return r.payBasis === "per_day" ? <span className="ml-1.5 rounded-md bg-blue-100 px-1.5 py-0.5 text-xs font-bold text-blue-900">per day</span> : null;
+}
+
+/** "₹12,000" for a monthly person, "₹450 / day" for a per-day one. */
+const payText = (r: TabRow) => (r.payBasis === "per_day" ? `${rupeesText(r.dayRatePaise ?? 0)} / day` : rupeesText(r.input.monthlyPaise));
+
 const thBase = "px-2 py-2.5 text-xs font-semibold tracking-wide whitespace-nowrap text-slate-600 uppercase";
 const th = `${thBase} text-right`;
 const td = "px-2 py-1.5 text-right tabular-nums whitespace-nowrap";
@@ -72,18 +80,19 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
                 <tr key={r.userId} className={`border-t border-slate-100 ${open === r.userId ? "bg-(--brand-soft)" : ""}`}>
                   <td className="px-2 py-0.5">
                     <button type="button" onClick={() => setOpen(r.userId)} aria-expanded={open === r.userId} className="min-h-11 px-2 text-left font-semibold whitespace-nowrap">
-                      {r.name} <span className="text-(--brand)">›</span>
+                      {r.name}
+                      <PerDayTag r={r} /> <span className="text-(--brand)">›</span>
                       {r.former && <span className="ml-1 text-xs font-normal text-slate-500">(left)</span>}
                     </button>
                     <span className="block px-2 pb-1">
                       <RowNotes r={r} month={tab.month} />
                     </span>
                   </td>
-                  <td className={td}>{rupeesText(r.input.monthlyPaise)}</td>
+                  <td className={td}>{payText(r)}</td>
                   <td className={td}>{r.counts.present}</td>
                   <td className={td}>{r.counts.half}</td>
                   <td className={td}>{r.counts.absent}</td>
-                  <td className={td}>{halvesText(r.result.leaveUsedHalves)}</td>
+                  <td className={td}>{r.payBasis === "per_day" ? "—" : halvesText(r.result.leaveUsedHalves)}</td>
                   <td className={td}>{r.getsOvertime ? hoursText(r.result.otMinutes) : "—"}</td>
                   <td className={td}>{rupeesText(r.result.earnedPaise)}</td>
                   <td className={td}>{r.getsOvertime ? rupeesText(r.result.otPayPaise) : "—"}</td>
@@ -99,7 +108,8 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
             <tfoot>
               <tr className="border-t-2 border-slate-200 font-bold">
                 <td className="px-4 py-3">Total</td>
-                <td className={td}>{rupeesText(t.salaryPaise)}</td>
+                {/* monthly salaries only; "—" when everyone is paid per day (₹0 would read as no pay) */}
+                <td className={td}>{tab.rows.some((r) => r.payBasis === "monthly") ? rupeesText(t.salaryPaise) : "—"}</td>
                 <td colSpan={5} />
                 <td className={td}>{rupeesText(t.earnedPaise)}</td>
                 <td className={td}>{rupeesText(t.otPayPaise)}</td>
@@ -118,6 +128,7 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
         <ul className="divide-y divide-slate-100 lg:hidden">
           {tab.rows.map((r) => {
             const parts = [`${r.counts.present} P`, `${r.counts.half} ½`, `${r.counts.absent} A`];
+            if (r.payBasis === "per_day") parts.unshift(payText(r));
             if (r.getsOvertime) parts.push(`OT ${hoursText(r.result.otMinutes)} h`);
             if (r.result.advancesPaise) parts.push(`Adv ${rupeesText(r.result.advancesPaise)}`);
             if (r.result.carriedInPaise) parts.push(`carried ${rupeesText(r.result.carriedInPaise)}`);
@@ -127,6 +138,7 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
                   <span className="min-w-0">
                     <span className="block font-semibold">
                       {r.name}
+                      <PerDayTag r={r} />
                       {r.former && <span className="ml-1 text-xs font-normal text-slate-500">(left)</span>}
                     </span>
                     <span className="block text-xs text-slate-600">{parts.join(" · ")}</span>

@@ -25,6 +25,7 @@ afterAll(() => platform.close());
 afterEach(() => vi.restoreAllMocks());
 
 const THIS = istMonth();
+const R = (rupees: number) => Math.round(rupees * 100);
 const TODAY = istDay();
 
 /** A plant whose people the platform lists: owner, owner + Plant staff, worker Ramu, store keeper. */
@@ -272,5 +273,59 @@ describe("the person page", () => {
     const figures = (await salaryMonths(q.owner, "2026-10", { now: ist("2026-11-05 12:00") })).people[0]!.current;
     expect(textOf(SalaryStrip({ month: "2026-10", figures }))).toMatch(/Present 26 .*Half days 2 .*Absent 3 .*Paid leave used 2 of 2 .*Overtime 14 h .*Remaining to pay ₹9,040/);
     expect(textOf(SalaryStrip({ month: "2026-10", figures: null }))).toMatch(/^No salary set for\s+October 2026/);
+  });
+});
+
+// ---------- per-day pay (docs/SALARY_EXTRAS_PHASE_PLAN.md Phase A2) ----------
+
+describe("per-day pay in the Salary box", () => {
+  const perDay = { pay_basis: "per_day", monthly: undefined, leave_days: undefined, day_rate: "450" };
+
+  it("A2-1. per day saves the day rate, no salary and 0 paid leave, even when leave or a salary is sent", async () => {
+    const { p, setting } = setup();
+    await setting(p.owner, { ...perDay, monthly: "12000", leave_days: 2 });
+    expect((await rows("salary_settings", p.tenantId))[0]).toMatchObject({ pay_basis: "per_day", day_rate_paise: 45000, monthly_paise: null, paid_leave_halfdays: 0 });
+  });
+
+  it("A2-2. per day without a rate, with 0, 3 decimals, commas or over ₹1 lakh is refused; monthly needs its salary", async () => {
+    const { p, setting } = setup();
+    for (const bad of [undefined, "", "0", "450.123", "1,000", "100000.01"]) {
+      expect((await refusal(() => setting(p.owner, { ...perDay, day_rate: bad }))).status, String(bad)).toBe(400);
+    }
+    expect((await refusal(() => setting(p.owner, { ...perDay, day_rate: "100000.01" }))).message).toMatch(/Day rate is at most ₹1,00,000/);
+    expect((await refusal(() => setting(p.owner, { monthly: undefined }))).status).toBe(400);
+    expect(await rows("salary_settings", p.tenantId)).toEqual([]);
+    await setting(p.owner, { ...perDay, day_rate: "100000" }); // ₹1 lakh is the most
+  });
+
+  it("A2-3. monthly ignores a day rate sent with it", async () => {
+    const { p, setting } = setup();
+    await setting(p.owner, { day_rate: "450" });
+    expect((await rows("salary_settings", p.tenantId))[0]).toMatchObject({ pay_basis: "monthly", day_rate_paise: null, monthly_paise: "1200000", paid_leave_halfdays: 4 });
+  });
+
+  it("A2-4. Monthly now, Per day from next month: this month keeps its monthly figures; a stale page gets 409", async () => {
+    const { p, w, setting, panel } = setup();
+    await setting(p.owner);
+    const next = addMonths(THIS, 1);
+    await setting(p.owner, { ...perDay, from_month: next, expect: (await panel()).expect.setting });
+    expect((await refusal(() => setting(p.owner, { ...perDay, from_month: next, expect: null }))).status).toBe(409);
+    const now = (await salaryMonths(p.owner, THIS, { personId: w })).people[0]!.current!;
+    expect(now.setting).toMatchObject({ payBasis: "monthly", monthlyPaise: R(12000) });
+    expect((await panel()).history.map((h) => [h.fromMonth, h.payBasis, h.dayRatePaise])).toEqual([[next, "per_day", 45000], [THIS, "monthly", null]]);
+  });
+
+  it("A2-5. Plant staff, a store keeper and support can't save a per-day setting", async () => {
+    const { p, setting } = setup();
+    for (const who of [p.worker, p.keeper, p.support]) expect((await refusal(() => setting(who, perDay))).status, who.name).toBe(403);
+  });
+
+  it("A2-6. audit and Recent changes: 'per day ₹450 · 8 h · overtime ₹60/h'", async () => {
+    const { p, setting } = setup();
+    await setting(p.owner, perDay);
+    const [a] = await rows("audit_log", p.tenantId);
+    expect(a!.details).toMatchObject({ basis: "per_day", day_rate: 45000, monthly: null, leave: 0 });
+    const mon = new Intl.DateTimeFormat("en-IN", { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${THIS}-01T00:00:00Z`));
+    expect(describeChange(a!.action as string, a!.details as Record<string, unknown>)).toBe(`Salary for Ramu from ${mon}: per day ₹450 · 8 h · overtime ₹60/h`);
   });
 });

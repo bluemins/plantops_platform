@@ -6,6 +6,7 @@ import * as payRoute from "@/app/api/salary/pay/route";
 import * as undoRoute from "@/app/api/salary/pay/undo/route";
 import HomePage from "@/app/page";
 import MySalaryPage from "@/app/my/salary/page";
+import MySlipPage from "@/app/my/salary/[month]/page";
 import { describeChange } from "@/lib/changes";
 import { istDay, istMonth, monthDays, addDays } from "@/lib/days";
 import { saveVisibility } from "@/server/salary-edit";
@@ -248,5 +249,44 @@ describe("audit", () => {
       "Marked September 2026 paid for Ramu: ₹11,600 on 30 Sept (Cash)",
       "Undid September 2026 payment for Ramu: paid the wrong amount",
     ]);
+  });
+});
+
+// ---------- per-day pay (docs/SALARY_EXTRAS_PHASE_PLAN.md Phase A2) ----------
+
+describe("a per-day month on the worker's slip", () => {
+  it("A2-9. paid and opened by the worker: '29 present + 0 half days (29 days) × ₹450'; no '÷ 30'", async () => {
+    const p = plant();
+    platform.contacts = [...contactsFor(p.owner, p.worker)];
+    await asApp(
+      p.tenantId,
+      `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, pay_basis, monthly_paise, day_rate_paise, shift_minutes, paid_leave_halfdays, gets_overtime, created_by, created_by_name)
+       values ('${p.tenantId}', '${p.worker.userId}', '${p.worker.name}', '${SEP}-01', 'per_day', null, ${R(450)}, 480, 0, false, gen_random_uuid(), 'Sujata')`,
+    );
+    for (const d of monthDays(SEP).slice(0, 29)) {
+      await markAt(p.worker, "in", `${d} 09:00`);
+      await markAt(p.worker, "out", `${d} 17:00`);
+    }
+    await saveVisibility(p.owner, { user_id: p.worker.userId, can_see: true, expect: null });
+    await payMonth(p.owner, { user_id: p.worker.userId, month: SEP, paid_on: "2026-09-30", note: "Cash", expect_remaining: R(29 * 450) } as never);
+    const slip = await mySlip(p.worker, SEP);
+    expect(slip.figures).toMatchObject({ rules: 2, setting: { payBasis: "per_day", dayRatePaise: R(450) } });
+    signInAs(p.worker);
+    const text = textOf(await MySlipPage({ params: Promise.resolve({ month: SEP }) })).replace(/\s+/g, " ");
+    expect(text).toContain("29 present + 0 half days (29 days) × ₹450");
+    expect(text).toContain("₹13,050");
+    expect(text).toContain("Day rate ₹450");
+    expect(text).not.toMatch(/÷ 30|Paid leave used|Monthly salary/);
+  });
+
+  it("A2-10. a monthly slip is unchanged: salary, paid leave and '÷ 30'", async () => {
+    const { p, pay, allow } = await setup();
+    await allow(true);
+    await pay(p.owner);
+    signInAs(p.worker);
+    const text = textOf(await MySlipPage({ params: Promise.resolve({ month: SEP }) })).replace(/\s+/g, " ");
+    expect(text).toMatch(/Monthly salary/);
+    expect(text).toMatch(/Paid leave used/);
+    expect(text).toMatch(/₹12,000 ÷ 30/);
   });
 });

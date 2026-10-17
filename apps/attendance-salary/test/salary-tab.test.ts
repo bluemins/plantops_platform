@@ -190,3 +190,66 @@ describe("the tabs", () => {
     expect(textOf(OwnerNav({ user: p.worker, current: "today" }))).not.toContain("Salary");
   });
 });
+
+// ---------- per-day pay (docs/SALARY_EXTRAS_PHASE_PLAN.md Phase A2) ----------
+
+describe("a per-day person on the Salary tab", () => {
+  /** Anmol = the version 2 worked example (₹9,040); Ramu = worked example A, ₹450 a day (₹9,850). */
+  async function perDayPlant() {
+    const p = plant();
+    const t = p.tenantId;
+    const anmol = atUser(t, ["plant_staff"], "Anmol");
+    const ramu = atUser(t, ["plant_staff"], "Ramu");
+    platform.contacts = [...contactsFor(p.owner, anmol, ramu)];
+    await setting(anmol, 12000, { ot: 60 });
+    await work(anmol, range(1, 14), 9);
+    await work(anmol, range(15, 26), 8);
+    await work(anmol, [27, 28], 5);
+    await advance(anmol, 3000);
+    await asApp(
+      t,
+      `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, pay_basis, monthly_paise, day_rate_paise, shift_minutes, paid_leave_halfdays, gets_overtime, ot_rate_paise, created_by, created_by_name)
+       values ('${t}', '${ramu.userId}', 'Ramu', '2026-10-01', 'per_day', null, ${R(450)}, 480, 0, true, ${R(60)}, gen_random_uuid(), 'Sujata')`,
+    );
+    await work(ramu, range(1, 10), 9); // present, +1 h overtime each = 10 h
+    await work(ramu, range(11, 24), 8); // present
+    await work(ramu, [25, 26], 5); // half days; 27-31 absent
+    await advance(ramu, 2000);
+    return { p };
+  }
+
+  it("A2-7. each row equals monthPay; Ramu is per day at ₹450 and leaves ₹9,850; the totals add up", async () => {
+    const { p } = await perDayPlant();
+    const tab = await salaryTab(p.owner, "2026-10", NOW);
+    for (const r of tab.rows) expect(r.result, r.name).toEqual(monthPay(r.input));
+    const [anmol, ramu] = tab.rows;
+    expect(anmol).toMatchObject({ name: "Anmol", payBasis: "monthly", dayRatePaise: null });
+    expect(anmol!.result.remainingPaise).toBe(R(9040));
+    expect(ramu).toMatchObject({ name: "Ramu", payBasis: "per_day", dayRatePaise: R(450), counts: { present: 24, half: 2, absent: 5, otMinutes: 600 } });
+    expect(ramu!.result).toMatchObject({ dayPayPaise: R(450), leaveUsedHalves: 0, earnedPaise: R(11250), otPayPaise: R(600), remainingPaise: R(9850) });
+    expect(tab.totals).toMatchObject({ salaryPaise: R(12000), earnedPaise: R(11200 + 11250), otPayPaise: R(840 + 600), remainingPaise: R(9040 + 9850) });
+
+    // the CSV: two new columns; for Ramu no monthly salary or paid leave
+    const lines = (await salaryCsv(p.owner, "2026-10", NOW)).replace(/^﻿/, "").trim().split("\r\n");
+    expect(lines[0]).toBe(SALARY_CSV_HEADER.join(","));
+    const cells = (name: string) => {
+      const c = lines.find((l) => l.startsWith(`${name},`))!.split(",");
+      return (h: string) => c[SALARY_CSV_HEADER.indexOf(h)];
+    };
+    const r = cells("Ramu");
+    expect(["Monthly salary", "Pay basis", "Day rate", "Paid leave allowed (days)", "Paid leave used (days)", "Unpaid days", "Day's pay", "Earned", "Remaining"].map(r)).toEqual(["", "per day", "450.00", "", "", "", "450.00", "11250.00", "9850.00"]);
+    const a = cells("Anmol");
+    expect(["Monthly salary", "Pay basis", "Day rate", "Paid leave allowed (days)", "Paid leave used (days)", "Unpaid days", "Day's pay", "Remaining"].map(a)).toEqual(["12000.00", "monthly", "", "2", "2", "2", "400.00", "9040.00"]);
+  });
+
+  it("A2-8. the checking panel with a typed day rate of ₹500: 25 days × ₹500 = ₹12,500 earned, ₹1,250 more", async () => {
+    const { p } = await perDayPlant();
+    const ramu = (await salaryTab(p.owner, "2026-10", NOW)).rows.find((x) => x.name === "Ramu")!;
+    expect(monthPay(panelInput(ramu.input, {})).remainingPaise).toBe(R(9850));
+    const yours = monthPay(panelInput(ramu.input, { dayRate: "500" }));
+    expect(yours).toMatchObject({ dayPayPaise: R(500), earnedPaise: R(12500) });
+    expect(yours.remainingPaise - R(9850)).toBe(R(1250));
+    // the paid leave box doesn't exist for per-day people, and typing one changes nothing
+    expect(monthPay(panelInput(ramu.input, { leave: "2" })).remainingPaise).toBe(R(9850));
+  });
+});

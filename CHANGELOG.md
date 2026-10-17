@@ -4,6 +4,22 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.21.0 — 2026-10-17 — Attendance & Salary: per-day pay
+
+**What's in it**
+- **Pay: Monthly / Per day** in the Salary box (Staff → person, owner only). Per day = a **day rate**: a present day
+  pays the rate, a half day half of it, an absent day nothing; there is **no paid leave**. Shift hours, overtime,
+  advances, carry and paid months work exactly as for monthly people. A change of basis is "from a month", like any
+  salary change; earlier months keep theirs.
+- **Salary tab:** a "per day" tag and "₹450 / day" for per-day people, paid leave "—"; the checking panel has a "Day
+  rate" box instead of the salary; the CSV gets "Pay basis" and "Day rate" columns.
+- **Worker's slip** (with "Can see own salary"): "24 present + 2 half days (25 days) × ₹450 = ₹11,250".
+- Months already marked paid keep showing exactly as they were.
+
+**Migrations:** Attendance `0003_per_day_pay.sql`: the existing table `salary_settings` gets `pay_basis` (existing rows
+become "monthly") and `day_rate_paise`, and `monthly_paise` may be empty for per-day people; one check keeps the
+fields consistent. No data rewritten; grants unchanged. Service that changes: `attendance-salary`.
+
 ## v0.20.1 — 2026-10-17 — Order Capture: rates in the WhatsApp message
 
 **What's in it**

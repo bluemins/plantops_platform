@@ -1,7 +1,8 @@
 # Attendance & Salary: module notes
 
 Version 1 (attendance) released as **v0.18.0** (2026-10-15): `docs/ATTENDANCE_PHASE_PLAN.md`. Version 2 (salary)
-released as **v0.20.0** (2026-10-17): `docs/SALARY_PHASE_PLAN.md`. Build notes per phase are further down.
+released as **v0.20.0** (2026-10-17): `docs/SALARY_PHASE_PLAN.md`. Version 3 (salary extras) Part A, per-day pay,
+released as **v0.21.0** (2026-10-17): `docs/SALARY_EXTRAS_PHASE_PLAN.md`. Build notes per phase are further down.
 
 ## At a glance
 | | |
@@ -9,7 +10,7 @@ released as **v0.20.0** (2026-10-17): `docs/SALARY_PHASE_PLAN.md`. Build notes p
 | Module id / role | `attendance_salary` / **Plant staff** (`plant_staff`; works only here, `PLANT_STAFF_MODULES`) |
 | App / port | `apps/attendance-salary`, `:3006`; live `https://attendance.bluemins.life` (service `attendance-salary`, no volume) |
 | Database | schema `attendance_salary`, login `attendance_app` (no BYPASSRLS, not the owner); 11 tables, FORCE RLS, no DELETE anywhere; the five salary tables are SELECT + INSERT only |
-| Migrations | `0001_attendance.sql` (v0.18.0), `0002_salary.sql` (v0.20.0) |
+| Migrations | `0001_attendance.sql` (v0.18.0), `0002_salary.sql` (v0.20.0), `0003_per_day_pay.sql` (v0.21.0, per-day pay) |
 | Env | `ATTEND_DATABASE_URL_APP`, `ATTEND_SESSION_SECRET` (also makes the QR key), `MODULE_URL_ATTENDANCE_SALARY`, `MODULE_SECRET_ATTENDANCE_SALARY`, `PLATFORM_URL`, `CRON_SECRET` |
 | Jobs | `POST /api/cron/daily` (07:00 IST, `daily.yml` step "Attendance", GitHub variable `ATTENDANCE_URL`): outbox, "didn't mark OUT yesterday", and on the month's last day the salary review |
 | Notifications | `corrected` (worker only, phone + bell), `outside` (owners, bell), `no_exit` (owners, bell), `salary_review` (owners, last day, phone + bell), `salary_paid` (the worker only, only with "Can see own salary"); owner-only module (`OWNER_ONLY_ALERTS`) |
@@ -59,10 +60,14 @@ Full text and numbering: `docs/SALARY_PHASE_PLAN.md` "The rules".
 - **Which setting:** the latest "from month" on or before the month; same from month → the newest saved. A month with
   no setting = not on salary (listed under "No salary set").
 - **A month not over yet** shows the full salary minus the absences so far ("So far · 16 of 31 days").
+- **Per day (rule 15, v0.21.0; owner 2026-10-17):** a person can be paid a day rate instead (Pay: Per day). Earned =
+  day rate × (present + ½ × half days), rounded once; absent days earn nothing; no paid leave (saved as 0); no full /
+  part month difference. Overtime, advances, carry and paid months as for monthly people. Months frozen before
+  v0.21.0 (`rules: 1`) read as monthly.
 - **Money** in whole paise as plain numbers (≤ ₹1 crore); rounded to the paisa once each for day's pay, the
   deduction (unpaid days × day's pay as shown), earned and overtime pay; screens show the nearest rupee, the slip
   and the dialog the exact amount.
-- **Paid months are frozen:** ticking Paid saves the whole calculation (`figures`, `RULES_VERSION` 1). The slip, the
+- **Paid months are frozen:** ticking Paid saves the whole calculation (`figures`, `RULES_VERSION` 1; 2 since v0.21.0). The slip, the
   Salary tab row and the carry use it. A later change shows as "Changed after payment: ₹X → <next month>" and goes to
   the next month once as "Adjustment from <month>" (also when that month is paid too, and after an undo). Paid from
   the month's last day; a negative month is paid as ₹0 and its minus carries.
@@ -70,7 +75,7 @@ Full text and numbering: `docs/SALARY_PHASE_PLAN.md` "The rules".
 ## The salary tables (migration `0002_salary.sql`; append-only, `attendance_app` SELECT + INSERT only)
 | Table | Holds |
 |---|---|
-| `salary_settings` | per person from a month: salary, shift, paid leave, Gets overtime + rate, Joined on / Last day, reason for a past month |
+| `salary_settings` | per person from a month: pay basis (monthly / per day, `0003`), salary or day rate, shift, paid leave (0 for per day), Gets overtime + rate, Joined on / Last day, reason for a past month |
 | `salary_advances` | advances; a correction is a negative entry linked to an advance of the same person, on its date, with a reason |
 | `salary_visibility` | "Can see own salary" on / off; the newest row wins, no row = off |
 | `salary_payments` | a month ticked Paid: paid amount (remaining or 0), frozen remaining, frozen `figures`, paid on, note |
@@ -321,3 +326,49 @@ Plan: `docs/SALARY_PHASE_PLAN.md`. To be released as v0.20.0.
   calendar at 390 px showed the tiles (9 / 4 / 3 / 6 h), the coloured days and no "₹". The review also reached plant
   002's real owner Sujata in the dev database (no phone registered): that one test notification was removed with the
   rest of the test data; plant 002's module list restored.
+
+# Salary extras (version 3), phase by phase
+Plan: `docs/SALARY_EXTRAS_PHASE_PLAN.md`. Part A (per-day pay) to be released as v0.21.0, Part B (claims) as v0.22.0.
+
+## 2026-10-17: Salary extras Phase A1 (per-day pay: database and rules)
+- Migration `0003_per_day_pay.sql` (approved by the owner): `salary_settings` gets `pay_basis` ('monthly' default, or
+  'per_day') and `day_rate_paise` (> 0, ≤ ₹1 lakh); `monthly_paise` may be empty. One check: monthly = a salary and no
+  day rate; per day = a day rate, no salary and 0 paid leave. Rows already saved read as monthly; nothing rewritten;
+  grants unchanged (SELECT + INSERT). Applied to dev and test.
+- `src/lib/salary.ts`: `PayBasis`; `SalarySetting` / `PayInput` / `FrozenMonth.setting` carry the basis and day rate
+  (`PayInput.monthlyPaise` is 0 for per-day people). **Rule 15** in `monthPay`: earned = day rate × (present + ½ half
+  days), rounded once, no paid leave, no full / part month difference, no cap; overtime, advances, carry and paid
+  months unchanged. `RULES_VERSION` 2. `readFrozen`: a month frozen with `rules: 1` reads as monthly (its saved
+  numbers are shown as they are); `frozenOf` uses it, so old slips and paid rows keep working.
+- Server: `schema.ts` and `salary.ts` load and freeze the two columns; the person page's history line shows "per day
+  ₹450 · …" for a per-day row (`settingText`). No screens or API change yet: the Salary box still saves monthly rows
+  only (Pay choice in A2).
+- Tests: Attendance 278 (+20): worked example A (₹9,850), shift edges, no paid leave, joined mid-month,
+  overtime off, carry, Monthly → Per day from November, rounding once, a `rules: 1` frozen month (pure); the new
+  database checks, the two new columns' refused UPDATEs (110 statements), a per-day month from real marks and an old
+  slip (database).
+
+## 2026-10-17: Salary extras Phase A2 (per-day pay: screens)
+- `POST /api/salary/settings` takes `pay_basis` (default monthly) and `day_rate`. Per day: a day rate > ₹0 and ≤ ₹1
+  lakh; the monthly salary is saved empty and paid leave as 0 whatever the browser sends. Monthly: as before, a day
+  rate sent with it is ignored. Audit `salary.set` adds `basis` and `day_rate`; Recent changes and the history line
+  read "per day ₹450 · 8 h · overtime ₹60/h".
+- Salary box: **Pay: Monthly / Per day** first (mock-up 1); Per day shows "Day rate (₹)" with "Present day = ₹450 ·
+  half day = ₹225 · absent = nothing" and "Paid leave doesn't apply to per-day pay." instead of the leave field. The
+  person page's strip shows "Paid leave used —".
+- Salary tab: a "per day" tag beside the name, "₹450 / day" in the Salary column (and first on the phone line), leave
+  "—". `TabRow` carries `payBasis` / `dayRatePaise` from the month's input (frozen for paid months). **Made while
+  building:** the total row's Salary adds monthly salaries only and shows "—" when everyone is per day (₹0 read as "no
+  pay").
+- Checking panel: "Day rate (₹)" box instead of Monthly salary, no Paid leave box, "Paid days 25 × ₹450"
+  (`panelInput` field `dayRate`, same `monthPay`).
+- CSV: "Pay basis" and "Day rate" after "Monthly salary" (in the file's existing header wording, not `pay_basis`);
+  blank Monthly salary / Paid leave allowed / used / Unpaid days for per-day people.
+- Slip: "24 present + 2 half days (25 days) × ₹450 = ₹11,250" and "Day rate ₹450" in the footer; monthly slips
+  unchanged.
+- Tests: Attendance 288 (+10).
+- Checked on `pnpm dev` (plant 002 with Attendance switched on for the check, a temporary owner + per-day worker with
+  worked example A's marks in September, headless Chromium at 1280 and 390 px): saved Per day through the Salary box
+  (with a past-month reason), history and Recent changes text, the Salary tab table and phone list, the panel with a
+  typed ₹500 ("₹1,250 more than auto"), the CSV, marked paid at exactly ₹9,850, the worker's slip; no sideways scroll.
+  Everything removed afterwards and plant 002's module list restored.

@@ -4,7 +4,7 @@
 // audited). Nothing is stored.
 import { csv } from "@plantops/module-kit/csv";
 import { addMonths, monthDays } from "@/lib/days";
-import { halvesText, hoursText, type DayCounts, type PayInput, type PayResult } from "@/lib/salary";
+import { halvesText, hoursText, type DayCounts, type PayBasis, type PayInput, type PayResult } from "@/lib/salary";
 import { requireAccess } from "./access";
 import { audit } from "./audit";
 import { withTenant } from "./db";
@@ -22,6 +22,10 @@ export interface TabRow {
   fullMonth: boolean;
   /** days counted so far (rule 1) */
   countedDays: number;
+  /** monthly or per day (rule 15); from the frozen figures for a paid month */
+  payBasis: PayBasis;
+  /** per-day people's day rate (null for monthly people) */
+  dayRatePaise: number | null;
   shiftMinutes: number;
   paidLeaveHalfdays: number;
   getsOvertime: boolean;
@@ -82,18 +86,21 @@ export async function salaryTab(user: AtUser, month: string, now: Date = new Dat
     const frozen = c.payment ? frozenOf(c.payment.figures) : null;
     const r = frozen?.result ?? c.chain.live;
     const counts = frozen?.counts ?? c.counts;
+    const input = frozen?.input ?? payInputOf(c);
     rows.push({
       userId: p.userId,
       name: p.name,
       former: !staff.platformDown && !active.has(p.userId),
       fullMonth: c.counted.fullMonth,
       countedDays: c.counted.dates.length,
+      payBasis: input.payBasis,
+      dayRatePaise: input.dayRatePaise,
       shiftMinutes: c.setting.shiftMinutes,
       paidLeaveHalfdays: c.setting.paidLeaveHalfdays,
       getsOvertime: c.setting.getsOvertime,
       otRatePaise: c.setting.otRatePaise,
       counts,
-      input: frozen?.input ?? payInputOf(c),
+      input,
       result: r,
       prevMonth: addMonths(month, -1),
       adjustmentFrom: frozen ? frozen.adjustmentFrom : c.chain.adjustmentFrom,
@@ -116,6 +123,7 @@ export async function salaryTab(user: AtUser, month: string, now: Date = new Dat
     complete: daysOver === days.length,
     rows,
     totals: {
+      // monthly salaries only: a day rate isn't a month's salary (per-day people add 0)
       salaryPaise: sum((r) => r.input.monthlyPaise),
       earnedPaise: sum((r) => r.result.earnedPaise),
       otPayPaise: sum((r) => r.result.otPayPaise),
@@ -136,7 +144,7 @@ export async function salaryTab(user: AtUser, month: string, now: Date = new Dat
 
 export const SALARY_CSV_HEADER = [
   "Name", "Month", "Full or part month", "Counted days",
-  "Monthly salary", "Shift hours", "Paid leave allowed (days)",
+  "Monthly salary", "Pay basis", "Day rate", "Shift hours", "Paid leave allowed (days)",
   "Present", "Half days", "Absent", "Paid leave used (days)", "Unpaid days", "Day's pay", "Earned",
   "Overtime", "Overtime hours", "Overtime rate", "Overtime pay",
   "Advances", "Carried in", "Adjustment", "Remaining",
@@ -152,19 +160,23 @@ export async function salaryCsv(user: AtUser, month: string, now: Date = new Dat
   const rows: unknown[][] = [SALARY_CSV_HEADER];
   for (const r of tab.rows) {
     const x = r.result;
+    // per-day people (rule 15): no monthly salary and no paid leave, so those cells stay blank
+    const perDay = r.payBasis === "per_day";
     rows.push([
       r.name,
       month,
       r.fullMonth ? "full" : "part",
       r.countedDays,
-      rupees(r.input.monthlyPaise),
+      perDay ? "" : rupees(r.input.monthlyPaise),
+      perDay ? "per day" : "monthly",
+      perDay && r.dayRatePaise ? rupees(r.dayRatePaise) : "",
       hoursText(r.shiftMinutes),
-      halvesText(r.paidLeaveHalfdays),
+      perDay ? "" : halvesText(r.paidLeaveHalfdays),
       r.counts.present,
       r.counts.half,
       r.counts.absent,
-      halvesText(x.leaveUsedHalves),
-      halvesText(x.unpaidHalves),
+      perDay ? "" : halvesText(x.leaveUsedHalves),
+      perDay ? "" : halvesText(x.unpaidHalves),
       rupees(x.dayPayPaise),
       rupees(x.earnedPaise),
       r.getsOvertime ? "yes" : "no",

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ErrorText } from "@plantops/ui";
 import { api } from "@/lib/api";
 import { fmtDayLong, fmtMonth, istDay } from "@/lib/days";
-import { halvesText, hoursText } from "@/lib/salary";
+import { halvesText, hoursText, paiseText, toPaise, type PayBasis } from "@/lib/salary";
 import { settingText } from "@/lib/changes";
 import type { HistoryRow } from "@/server/salary-edit";
 
@@ -19,7 +19,9 @@ const dayShort = (ymd: string) => fmtDayLong(ymd).replace(/^\w+, /, "");
 
 function initial(applies: HistoryRow | null, thisMonth: string) {
   return {
+    basis: (applies?.payBasis ?? "monthly") as PayBasis,
     monthly: typed(applies?.monthlyPaise),
+    dayRate: typed(applies?.dayRatePaise),
     shift: applies ? hoursText(applies.shiftMinutes) : "8",
     leave: applies ? halvesText(applies.paidLeaveHalfdays) : "2",
     ot: applies?.getsOvertime ?? false,
@@ -32,7 +34,8 @@ function initial(applies: HistoryRow | null, thisMonth: string) {
 }
 
 /**
- * The owner's Salary box (mock-up 2): monthly salary, shift hours, paid leave, Gets overtime + rate, from month,
+ * The owner's Salary box (mock-up 2; Pay choice from docs/SALARY_EXTRAS_PHASE_PLAN.md mock-up 1): Monthly (salary +
+ * paid leave) or Per day (a day rate, no paid leave), shift hours, Gets overtime + rate, from month,
  * Joined on / Last day, and the history. Saving makes a new setting from the chosen month; earlier months keep their
  * figures unless the from month is in the past (then a reason is required).
  */
@@ -45,6 +48,8 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((x) => ({ ...x, [k]: e.target.value }));
   const shift = Number(f.shift);
   const past = f.from < thisMonth;
+  const perDay = f.basis === "per_day";
+  const rate = toPaise(f.dayRate);
 
   async function save() {
     setBusy(true);
@@ -53,9 +58,10 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
     const r = await api("/api/salary/settings", {
       body: {
         user_id: personId,
-        monthly: f.monthly,
+        pay_basis: f.basis,
+        // only the fields of the chosen basis are sent; the server ignores the other one anyway
+        ...(perDay ? { day_rate: f.dayRate } : { monthly: f.monthly, leave_days: Number(f.leave) }),
         shift_hours: Number(f.shift),
-        leave_days: Number(f.leave),
         gets_overtime: f.ot,
         ot_rate: f.ot ? f.rate : null,
         from_month: f.from,
@@ -85,21 +91,54 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
         <span className="text-sm text-slate-600">Only the owner sees this box.</span>
       </div>
 
+      <fieldset className="space-y-1.5">
+        <legend className="mb-1.5 text-sm font-semibold text-slate-800">Pay</legend>
+        <div className="grid max-w-md grid-cols-2 overflow-hidden rounded-xl border border-slate-300">
+          {(
+            [
+              ["monthly", "Monthly"],
+              ["per_day", "Per day"],
+            ] as const
+          ).map(([value, text]) => (
+            <label key={value} className={`flex min-h-12 cursor-pointer items-center justify-center gap-2 font-semibold ${f.basis === value ? "bg-(--brand) text-(--brand-contrast)" : "bg-white text-slate-800"}`}>
+              <input type="radio" name="pay-basis" value={value} checked={f.basis === value} onChange={() => setF((x) => ({ ...x, basis: value }))} className="h-4 w-4" />
+              {text}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
       <div className="grid gap-3 sm:grid-cols-3">
-        <label className={label}>
-          <span>Monthly salary (₹)</span>
-          <input className={field} inputMode="decimal" value={f.monthly} onChange={set("monthly")} placeholder="e.g. 12000" />
-        </label>
+        {perDay ? (
+          <label className={label}>
+            <span>Day rate (₹)</span>
+            <input className={field} inputMode="decimal" value={f.dayRate} onChange={set("dayRate")} placeholder="e.g. 450" />
+            {rate !== null && rate > 0 && (
+              <span className={hint}>
+                Present day = {paiseText(rate)} · half day = {paiseText(Math.round(rate / 2))} · absent = nothing
+              </span>
+            )}
+          </label>
+        ) : (
+          <label className={label}>
+            <span>Monthly salary (₹)</span>
+            <input className={field} inputMode="decimal" value={f.monthly} onChange={set("monthly")} placeholder="e.g. 12000" />
+          </label>
+        )}
         <label className={label}>
           <span>Shift hours a day</span>
           <input className={field} type="number" inputMode="decimal" min={1} max={16} step={0.5} value={f.shift} onChange={set("shift")} />
           {shift >= 1 && <span className={hint}>Full day ≥ {hoursText(shift * 60)} h · half day ≥ {hoursText(shift * 30)} h</span>}
         </label>
-        <label className={label}>
-          <span>Paid leave per month (days)</span>
-          <input className={field} type="number" inputMode="decimal" min={0} max={10} step={0.5} value={f.leave} onChange={set("leave")} />
-          <span className={hint}>Unused leave lapses at month end</span>
-        </label>
+        {perDay ? (
+          <p className="self-start rounded-xl bg-slate-100 px-3 py-2.5 text-sm text-slate-700 sm:mt-6">Paid leave doesn&apos;t apply to per-day pay.</p>
+        ) : (
+          <label className={label}>
+            <span>Paid leave per month (days)</span>
+            <input className={field} type="number" inputMode="decimal" min={0} max={10} step={0.5} value={f.leave} onChange={set("leave")} />
+            <span className={hint}>Unused leave lapses at month end</span>
+          </label>
+        )}
       </div>
 
       <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -178,7 +217,7 @@ export function History({ history }: { history: HistoryRow[] }) {
             <div className="flex flex-wrap justify-between gap-x-3">
               <span>
                 <strong>From {fmtMonth(h.fromMonth)}:</strong>{" "}
-                {settingText({ monthly: h.monthlyPaise, shift: h.shiftMinutes, leave: h.paidLeaveHalfdays, ot_rate: h.getsOvertime ? h.otRatePaise : null, joined: h.joinedOn, left: h.leftOn })}
+                {settingText({ monthly: h.monthlyPaise, day_rate: h.dayRatePaise, shift: h.shiftMinutes, leave: h.paidLeaveHalfdays, ot_rate: h.getsOvertime ? h.otRatePaise : null, joined: h.joinedOn, left: h.leftOn })}
               </span>
               <span className="text-slate-600">
                 {h.byName}, {dayShort(istDay(new Date(h.at)))}
@@ -230,7 +269,7 @@ export function SalaryReadOnly({ applies, history, canSee, name }: { applies: Hi
     <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
       <h2 className="text-lg font-bold">Salary</h2>
       {applies ? (
-        <p>{settingText({ monthly: applies.monthlyPaise, shift: applies.shiftMinutes, leave: applies.paidLeaveHalfdays, ot_rate: applies.getsOvertime ? applies.otRatePaise : null, joined: applies.joinedOn, left: applies.leftOn })}</p>
+        <p>{settingText({ monthly: applies.monthlyPaise, day_rate: applies.dayRatePaise, shift: applies.shiftMinutes, leave: applies.paidLeaveHalfdays, ot_rate: applies.getsOvertime ? applies.otRatePaise : null, joined: applies.joinedOn, left: applies.leftOn })}</p>
       ) : (
         <p className="text-slate-600">No salary set.</p>
       )}

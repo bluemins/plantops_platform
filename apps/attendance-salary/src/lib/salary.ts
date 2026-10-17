@@ -1,4 +1,5 @@
-// The salary rules (docs/SALARY_PHASE_PLAN.md "The rules", numbered 1-14 there). ONE pure file, used by the server,
+// The salary rules (docs/SALARY_PHASE_PLAN.md "The rules", numbered 1-14 there; rule 15 and later in
+// docs/SALARY_EXTRAS_PHASE_PLAN.md). ONE pure file, used by the server,
 // the salary CSV and the owner's checking panel in the browser, so their numbers can never disagree. No database and
 // no Node-only imports. Nothing worked out here is stored, except the frozen figures of a month ticked Paid.
 //
@@ -8,7 +9,7 @@
 import { monthDays } from "./days";
 
 /** Saved with every payment's frozen figures; raise it whenever a rule here changes. */
-export const RULES_VERSION = 1;
+export const RULES_VERSION = 2;
 /** Rule 7: a day's pay is always the monthly salary ÷ 30, whatever the month's length. */
 export const DAYS_FOR_PAY = 30;
 
@@ -45,11 +46,18 @@ export const halvesText = (halves: number) => String(halves / 2);
 
 // ---------- which setting applies ----------
 
+/** Monthly salary (rules 4-8) or a day rate (rule 15). */
+export type PayBasis = "monthly" | "per_day";
+
 export interface SalarySetting {
   id: string;
   /** "YYYY-MM" */
   fromMonth: string;
-  monthlyPaise: number;
+  payBasis: PayBasis;
+  /** monthly people only (null for per day) */
+  monthlyPaise: number | null;
+  /** per-day people only (null for monthly) */
+  dayRatePaise: number | null;
   shiftMinutes: number;
   paidLeaveHalfdays: number;
   getsOvertime: boolean;
@@ -153,7 +161,11 @@ export function countDays(days: readonly DayResult[]): DayCounts {
 
 /** Everything one month's pay is worked out from. Counts, not marks, so the checking panel can feed typed numbers. */
 export interface PayInput extends DayCounts {
+  payBasis: PayBasis;
+  /** monthly people; 0 for per-day people */
   monthlyPaise: number;
+  /** per-day people (rule 15); null for monthly people */
+  dayRatePaise: number | null;
   /** employed every day of the month (rule 8) */
   fullMonth: boolean;
   paidLeaveHalfdays: number;
@@ -174,11 +186,12 @@ export interface PayResult {
   leaveUsedHalves: number;
   /** rule 6 */
   unpaidHalves: number;
-  /** rule 7: salary ÷ 30, rounded to the paisa */
+  /** rule 7: salary ÷ 30, rounded to the paisa; per day (rule 15): the day rate */
   dayPayPaise: number;
   /** full month: unpaid days × day's pay (taken off the salary); part month: 0 */
   deductionPaise: number;
-  /** part month: present + ½ × half days + paid leave used, in half-day units (paid at day's pay); full month: 0 */
+  /** part month: present + ½ × half days + paid leave used, in half-day units (paid at day's pay); full month: 0;
+   *  per day (rule 15): present + ½ × half days */
   paidHalves: number;
   /** rule 8 */
   earnedPaise: number;
@@ -193,15 +206,21 @@ export interface PayResult {
 }
 
 export function monthPay(i: PayInput): PayResult {
+  const perDay = i.payBasis === "per_day";
   const absentHalves = 2 * i.absent + i.half; // rule 4
-  const leaveUsedHalves = Math.min(absentHalves, i.paidLeaveHalfdays); // rule 5
+  const leaveUsedHalves = perDay ? 0 : Math.min(absentHalves, i.paidLeaveHalfdays); // rule 5 (rule 15: no paid leave)
   const unpaidHalves = absentHalves - leaveUsedHalves; // rule 6
-  const dayPayPaise = Math.round(i.monthlyPaise / DAYS_FOR_PAY); // rule 7
+  const dayPayPaise = perDay ? (i.dayRatePaise ?? 0) : Math.round(i.monthlyPaise / DAYS_FOR_PAY); // rule 7 / 15
   // rule 8: the day's pay as shown is used, so "unpaid days × day's pay" on the screen adds up exactly
   let deductionPaise = 0;
   let paidHalves = 0;
   let earnedPaise: number;
-  if (i.fullMonth) {
+  if (perDay) {
+    // rule 15: day rate × (present + ½ × half days), rounded once; absent days earn nothing; no full / part month
+    // difference (the counted days already keep the month inside the employment)
+    paidHalves = 2 * i.present + i.half;
+    earnedPaise = Math.round((paidHalves * dayPayPaise) / 2);
+  } else if (i.fullMonth) {
     deductionPaise = Math.round((unpaidHalves * dayPayPaise) / 2);
     earnedPaise = Math.max(0, i.monthlyPaise - deductionPaise);
   } else {
@@ -233,7 +252,7 @@ export function monthPay(i: PayInput): PayResult {
 // ---------- the owner's checking panel (docs/SALARY_PHASE_PLAN.md "Owner: checking panel") ----------
 
 /** The panel's boxes: days, hours and rupees as typed. */
-export type PanelField = "monthly" | "present" | "half" | "absent" | "leave" | "otHours" | "otRate" | "advances" | "carried";
+export type PanelField = "monthly" | "dayRate" | "present" | "half" | "absent" | "leave" | "otHours" | "otRate" | "advances" | "carried";
 
 /**
  * The panel's typed boxes -> monthPay()'s input, so the panel runs exactly the server's arithmetic. An empty or
@@ -251,6 +270,8 @@ export function panelInput(auto: PayInput, typed: Partial<Record<PanelField, str
   return {
     ...auto,
     monthlyPaise: paise("monthly", auto.monthlyPaise),
+    // per-day people (rule 15): the day rate box instead of the salary
+    dayRatePaise: auto.payBasis === "per_day" ? paise("dayRate", auto.dayRatePaise ?? 0) : auto.dayRatePaise,
     present: n("present", auto.present),
     half: n("half", auto.half),
     absent: n("absent", auto.absent),
@@ -332,7 +353,7 @@ export interface FrozenAdvance {
 export interface FrozenMonth {
   rules: number;
   month: string;
-  setting: { monthlyPaise: number; shiftMinutes: number; paidLeaveHalfdays: number; getsOvertime: boolean; otRatePaise: number | null; joinedOn: string | null; leftOn: string | null };
+  setting: { payBasis: PayBasis; monthlyPaise: number | null; dayRatePaise: number | null; shiftMinutes: number; paidLeaveHalfdays: number; getsOvertime: boolean; otRatePaise: number | null; joinedOn: string | null; leftOn: string | null };
   counted: Counted;
   counts: DayCounts;
   advances: FrozenAdvance[];
@@ -340,4 +361,17 @@ export interface FrozenMonth {
   /** exactly what monthPay() was given, and what it gave */
   input: PayInput;
   result: PayResult;
+}
+
+/**
+ * A paid month's saved figures as this version reads them. Months frozen with `rules: 1` (before per-day pay) have no
+ * pay basis: they read as monthly. The saved numbers are shown as they are, never worked out again.
+ */
+export function readFrozen(f: FrozenMonth): FrozenMonth {
+  if (f.rules >= 2) return f;
+  return {
+    ...f,
+    setting: { ...f.setting, payBasis: f.setting.payBasis ?? "monthly", dayRatePaise: f.setting.dayRatePaise ?? null },
+    input: { ...f.input, payBasis: f.input.payBasis ?? "monthly", dayRatePaise: f.input.dayRatePaise ?? null },
+  };
 }

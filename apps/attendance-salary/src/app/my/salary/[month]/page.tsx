@@ -22,6 +22,8 @@ export default async function MySlipPage({ params }: { params: Promise<{ month: 
   const f = slip.figures;
   const r = f.result;
   const ot = f.setting.getsOvertime;
+  // per-day pay (rule 15): one line instead of salary / absent days / paid leave / unpaid days
+  const perDay = f.input.payBasis === "per_day";
   const line = (label: string, value: string, strong = false) => (
     <div className={`flex justify-between gap-3 ${strong ? "font-bold" : ""}`}>
       <span className={strong ? "" : "text-slate-600"}>{label}</span>
@@ -53,12 +55,18 @@ export default async function MySlipPage({ params }: { params: Promise<{ month: 
           ))}
         </div>
         <div className="space-y-1.5 text-sm">
-          {line("Monthly salary", paiseText(f.input.monthlyPaise))}
-          {line(`Absent days (${f.counts.absent} + ${f.counts.half} half)`, halvesText(r.absentHalves))}
-          {line("Paid leave used", `${halvesText(r.leaveUsedHalves)} of ${halvesText(f.input.paidLeaveHalfdays)}`)}
-          {f.input.fullMonth
-            ? line(`Unpaid days ${halvesText(r.unpaidHalves)} × ${paiseText(r.dayPayPaise)}`, r.deductionPaise ? `−${paiseText(r.deductionPaise)}` : "₹0")
-            : line(`Paid days ${halvesText(r.paidHalves)} × ${paiseText(r.dayPayPaise)}`, paiseText(r.earnedPaise))}
+          {perDay ? (
+            line(`${f.counts.present} present + ${f.counts.half} half days (${halvesText(r.paidHalves)} days) × ${paiseText(r.dayPayPaise)}`, paiseText(r.earnedPaise))
+          ) : (
+            <>
+              {line("Monthly salary", paiseText(f.input.monthlyPaise))}
+              {line(`Absent days (${f.counts.absent} + ${f.counts.half} half)`, halvesText(r.absentHalves))}
+              {line("Paid leave used", `${halvesText(r.leaveUsedHalves)} of ${halvesText(f.input.paidLeaveHalfdays)}`)}
+              {f.input.fullMonth
+                ? line(`Unpaid days ${halvesText(r.unpaidHalves)} × ${paiseText(r.dayPayPaise)}`, r.deductionPaise ? `−${paiseText(r.deductionPaise)}` : "₹0")
+                : line(`Paid days ${halvesText(r.paidHalves)} × ${paiseText(r.dayPayPaise)}`, paiseText(r.earnedPaise))}
+            </>
+          )}
           {line("Salary earned", paiseText(r.earnedPaise), true)}
           {ot && line(`Overtime ${hoursText(r.otMinutes)} h × ${paiseText(f.input.otRatePaise ?? 0)}`, `+${paiseText(r.otPayPaise)}`)}
         </div>
@@ -89,7 +97,8 @@ export default async function MySlipPage({ params }: { params: Promise<{ month: 
         {slip.remainingPaise < 0 && <p className="text-sm text-red-700">Nothing paid this month: {rupeesText(slip.remainingPaise)} is taken off next month.</p>}
         <p className="text-xs text-slate-600">
           Paid on {shortDay(slip.paidOn)} by {slip.byName}
-          {slip.note ? ` · ${slip.note}` : ""}. Day&apos;s pay = {rupeesText(f.input.monthlyPaise)} ÷ {DAYS_FOR_PAY}.
+          {slip.note ? ` · ${slip.note}` : ""}.{" "}
+          {perDay ? <>Day rate {paiseText(r.dayPayPaise)}.</> : <>Day&apos;s pay = {rupeesText(f.input.monthlyPaise)} ÷ {DAYS_FOR_PAY}.</>}
         </p>
       </section>
       <a href="/my/salary" className="block text-sm font-semibold text-(--brand)">

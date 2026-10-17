@@ -217,7 +217,9 @@ pilots.
    and fixes) built **before Phase 6** (owner, 2026-10-15) and released as v0.18.0; plan and build prompts in
    `docs/ATTENDANCE_PHASE_PLAN.md`. Version 2 (**salary**: monthly salary ÷ 30, paid leave, overtime per person,
    advances, Salary tab with checking panel, mark paid, worker's own slip with permission) built and released as
-   v0.20.0 (2026-10-17); plan `docs/SALARY_PHASE_PLAN.md`. Weekly offs, holidays and leave requests come later.
+   v0.20.0 (2026-10-17); plan `docs/SALARY_PHASE_PLAN.md`. Version 3 (salary extras, plan
+   `docs/SALARY_EXTRAS_PHASE_PLAN.md`): Part A **per-day pay** v0.21.0 (2026-10-17); Part B (field-duty TA / DA,
+   expense claims with bill photos) v0.22.0, next. Weekly offs, holidays and leave requests come later.
 9. **Digital Marketing Contact Management module.**
 10. **Website + dedicated-instance/tenant provisioning tooling.**
 
@@ -1478,3 +1480,31 @@ for a worker with and without permission and what each sees; undo and pay again;
 **Not yet verified:** real phones; the live deployment; the owner's checklist at plant 001 (in
 `docs/deployments/shared.md` once live).
 
+### 2026-10-17 — Salary extras Part A: per-day pay — built (v0.21.0)
+Asked by the owner 2026-10-17. Design, phases and build prompts: `docs/SALARY_EXTRAS_PHASE_PLAN.md`; module notes
+(A1 and A2): `apps/attendance-salary/NOTES.md`.
+
+**Built** (in `apps/attendance-salary`; no platform change, SSO token unchanged):
+- **Database:** Attendance migration `0003_per_day_pay.sql` (approved by the owner), the first change to an existing
+  salary table: `salary_settings.pay_basis` ('monthly' default / 'per_day'), `day_rate_paise` (≤ ₹1 lakh),
+  `monthly_paise` may be empty; one check (monthly = salary, no day rate; per day = day rate, no salary, 0 paid leave).
+  Existing rows read as monthly; grants unchanged (SELECT + INSERT).
+- **Rule 15** in `src/lib/salary.ts`: earned = day rate × (present + ½ half days), rounded once; no paid leave; no
+  full / part month difference; overtime, advances, carry and paid months unchanged. `RULES_VERSION` 2; `readFrozen`
+  reads months frozen with `rules: 1` as monthly.
+- **Screens:** Salary box **Pay: Monthly / Per day** with the day rate (the server saves 0 leave whatever is sent);
+  Salary tab "per day" tag, "₹450 / day", leave "—"; checking panel "Day rate" box; CSV "Pay basis" / "Day rate";
+  slip "24 present + 2 half days (25 days) × ₹450"; history / Recent changes "per day ₹450 · 8 h · …".
+- **Tests:** Attendance 288 (+30 since v0.20.0): worked example A (₹9,850), the database checks, a per-day month from
+  real marks, an old `rules: 1` slip, the API rules, the tab / CSV / panel / slip.
+
+**Decisions (owner, 2026-10-17):** the plan as written (two releases, per day = day rate × present days, half = half,
+no paid leave, overtime unchanged). **Made while building:** CSV headers in the file's existing wording ("Pay basis",
+"Day rate"); the total row's Salary shows "—" when everyone is per day; `PayInput.monthlyPaise` is 0 for per-day
+people.
+
+**Verified on `pnpm dev`** (plant 002 with Attendance switched on only for the check, a temporary owner + per-day
+worker with worked example A's September marks, headless Chromium at 1280 and 390 px; all removed afterwards): Per day
+saved through the Salary box, the Salary tab and panel, the CSV, marked paid at exactly ₹9,850, the worker's slip.
+
+**Not yet verified:** the live deployment; the owner setting one per-day person at plant 001.

@@ -11,9 +11,10 @@ const shortDay = (v: unknown) => (typeof v === "string" ? fmtDayLong(v).replace(
 const shortMonth = (v: unknown) => (typeof v === "string" ? fmtMonth(v).replace(/^(\w{3})\w*/, "$1") : "—");
 
 /** "₹12,000 · 8 h · overtime ₹60/h" (+ leave when not the usual 2 days, joined / last day): a salary setting. */
-export function settingText(d: { monthly: number; shift: number; leave: number; ot_rate: number | null; joined?: string | null; left?: string | null }) {
-  const parts = [paiseText(d.monthly), `${hoursText(d.shift)} h`, d.ot_rate ? `overtime ${paiseText(d.ot_rate)}/h` : "no overtime"];
-  if (d.leave !== 4) parts.push(`leave ${halvesText(d.leave)} days`);
+export function settingText(d: { monthly: number | null; day_rate?: number | null; shift: number; leave: number; ot_rate: number | null; joined?: string | null; left?: string | null }) {
+  const pay = d.day_rate != null ? `per day ${paiseText(d.day_rate)}` : paiseText(d.monthly ?? 0);
+  const parts = [pay, `${hoursText(d.shift)} h`, d.ot_rate ? `overtime ${paiseText(d.ot_rate)}/h` : "no overtime"];
+  if (d.day_rate == null && d.leave !== 4) parts.push(`leave ${halvesText(d.leave)} days`);
   if (d.joined) parts.push(`joined ${shortDay(d.joined)}`);
   if (d.left) parts.push(`last day ${shortDay(d.left)}`);
   return parts.join(" · ");
@@ -35,7 +36,7 @@ export function describeChange(action: string, d: Record<string, unknown>): stri
     case "fix.cancel":
       return `Cancelled ${show(d.kind).toUpperCase()} ${when(d.at)} for ${show(d.person)}: ${show(d.reason)}`;
     case "salary.set":
-      return `Salary for ${show(d.person)} from ${shortMonth(d.from)}: ${settingText({ monthly: num(d.monthly), shift: num(d.shift), leave: num(d.leave), ot_rate: typeof d.ot_rate === "number" ? d.ot_rate : null, joined: d.joined as string | null, left: d.left as string | null })}${d.reason ? `: ${show(d.reason)}` : ""}`;
+      return `Salary for ${show(d.person)} from ${shortMonth(d.from)}: ${settingText({ monthly: typeof d.monthly === "number" ? d.monthly : null, day_rate: typeof d.day_rate === "number" ? d.day_rate : null, shift: num(d.shift), leave: num(d.leave), ot_rate: typeof d.ot_rate === "number" ? d.ot_rate : null, joined: d.joined as string | null, left: d.left as string | null })}${d.reason ? `: ${show(d.reason)}` : ""}`;
     case "salary.advance":
       return `Advance ${paiseText(num(d.amount))} to ${show(d.person)} on ${shortDay(d.on)}${d.note ? `: ${show(d.note)}` : ""}`;
     case "salary.correction":

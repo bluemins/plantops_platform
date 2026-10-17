@@ -10,7 +10,7 @@ const SALARY_COLUMNS: Record<string, string[]> = {
   salary_advances: ["id", "tenant_id", "user_id", "user_name", "on_date", "amount_paise", "note", "corrects_id", "reason", "created_by", "created_by_name", "created_at"],
   salary_payment_undos: ["id", "tenant_id", "payment_id", "reason", "created_by", "created_by_name", "created_at"],
   salary_payments: ["id", "tenant_id", "user_id", "user_name", "month", "paid_on", "paid_paise", "remaining_paise", "figures", "note", "created_by", "created_by_name", "created_at"],
-  salary_settings: ["id", "tenant_id", "user_id", "user_name", "from_month", "monthly_paise", "shift_minutes", "paid_leave_halfdays", "gets_overtime", "ot_rate_paise", "joined_on", "left_on", "reason", "created_by", "created_by_name", "created_at"],
+  salary_settings: ["id", "tenant_id", "user_id", "user_name", "from_month", "monthly_paise", "shift_minutes", "paid_leave_halfdays", "gets_overtime", "ot_rate_paise", "joined_on", "left_on", "reason", "created_by", "created_by_name", "created_at", "pay_basis", "day_rate_paise"],
   salary_visibility: ["id", "tenant_id", "user_id", "user_name", "can_see", "created_by", "created_by_name", "created_at"],
 };
 
@@ -82,7 +82,7 @@ describe("append-only for attendance_app", () => {
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(108);
+    expect(list.length).toBe(110);
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 
@@ -172,9 +172,9 @@ describe("database checks on salary rows", () => {
   const by = "gen_random_uuid(), 'Sujata'";
 
   const setting = (over: Record<string, string>) => {
-    const v = { user: `'${worker}'`, name: "'Ramu'", from: "'2026-10-01'", monthly: "1200000", shift: "480", leave: "4", ot: "true", rate: "6000", joined: "null", left: "null", reason: "null", ...over };
-    return `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, monthly_paise, shift_minutes, paid_leave_halfdays, gets_overtime, ot_rate_paise, joined_on, left_on, reason, created_by, created_by_name)
-      values ('${tp}', ${v.user}, ${v.name}, ${v.from}, ${v.monthly}, ${v.shift}, ${v.leave}, ${v.ot}, ${v.rate}, ${v.joined}, ${v.left}, ${v.reason}, ${by})`;
+    const v = { user: `'${worker}'`, name: "'Ramu'", from: "'2026-10-01'", basis: "'monthly'", monthly: "1200000", day: "null", shift: "480", leave: "4", ot: "true", rate: "6000", joined: "null", left: "null", reason: "null", ...over };
+    return `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, pay_basis, monthly_paise, day_rate_paise, shift_minutes, paid_leave_halfdays, gets_overtime, ot_rate_paise, joined_on, left_on, reason, created_by, created_by_name)
+      values ('${tp}', ${v.user}, ${v.name}, ${v.from}, ${v.basis}, ${v.monthly}, ${v.day}, ${v.shift}, ${v.leave}, ${v.ot}, ${v.rate}, ${v.joined}, ${v.left}, ${v.reason}, ${by})`;
   };
   const advance = (over: Record<string, string>) => {
     const v = { user: `'${worker}'`, amount: "200000", note: "null", corrects: "null", reason: "null", ...over };
@@ -205,6 +205,15 @@ describe("database checks on salary rows", () => {
     ["a last day before the joining day", { joined: "'2026-10-15'", left: "'2026-10-14'" }],
     ["a reason of 2 characters", { reason: "' ab '" }],
     ["an empty name", { name: "'  '" }],
+    // per-day pay (migration 0003)
+    ["per day without a day rate", { basis: "'per_day'", monthly: "null", leave: "0" }],
+    ["per day with a monthly salary", { basis: "'per_day'", day: "45000", leave: "0" }],
+    ["per day with paid leave", { basis: "'per_day'", monthly: "null", day: "45000", leave: "4" }],
+    ["monthly without a salary", { monthly: "null" }],
+    ["monthly with a day rate", { day: "45000" }],
+    ["a day rate of 0", { basis: "'per_day'", monthly: "null", day: "0", leave: "0" }],
+    ["a day rate over ₹1 lakh", { basis: "'per_day'", monthly: "null", day: "10000001", leave: "0" }],
+    ["an unknown pay basis", { basis: "'weekly'" }],
   ])("settings: refuses %s", async (_, over) => {
     expect(await dbError(asApp(tp, setting(over)))).toMatch(/check constraint/);
   });
@@ -213,6 +222,17 @@ describe("database checks on salary rows", () => {
     expect((await asApp(tp, setting({}))).rowCount).toBe(1);
     expect((await asApp(tp, setting({ ot: "false", rate: "null", shift: "60", leave: "0" }))).rowCount).toBe(1);
     expect((await asApp(tp, setting({ shift: "960", leave: "20", joined: "'2026-10-15'", left: "'2026-10-15'", reason: "'agreed in September'" }))).rowCount).toBe(1);
+  });
+
+  it("settings: a per-day row is fine; a row saved without a pay basis (as before 0003) is monthly", async () => {
+    expect((await asApp(tp, setting({ basis: "'per_day'", monthly: "null", day: "45000", leave: "0" }))).rowCount).toBe(1);
+    expect((await asApp(tp, setting({ basis: "'per_day'", monthly: "null", day: "10000000", leave: "0", ot: "false", rate: "null" }))).rowCount).toBe(1); // ₹1 lakh
+    const old = await asApp(
+      tp,
+      `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, monthly_paise, shift_minutes, gets_overtime, created_by, created_by_name)
+       values ('${tp}', '${other}', 'Gaja', '2026-10-01', 1000000, 480, false, ${by}) returning pay_basis, day_rate_paise, paid_leave_halfdays`,
+    );
+    expect(old.rows[0]).toEqual({ pay_basis: "monthly", day_rate_paise: null, paid_leave_halfdays: 4 });
   });
 
   it("advances: a positive advance is fine; a correction is negative, linked and has a reason", async () => {
