@@ -1565,7 +1565,7 @@ someone are not limited. Attendance migration `0005_field_staff.sql` (rows with 
 nobody had one, so nobody is ticked yet). Live 2026-10-17 (`024b57e`). Plan `docs/ATTENDANCE_ROLES_PHASE_PLAN.md`
 Phase C; notes in `apps/attendance-salary/NOTES.md`.
 
-### 2026-10-17 — Attendance: Office staff and Supervisor — built (v0.23.0)
+### 2026-10-17 — Attendance: Office staff and Supervisor — live (v0.23.0)
 Asked by the owner 2026-10-17. Design, mock-ups, phases and prompts: `docs/ATTENDANCE_ROLES_PHASE_PLAN.md`; one dated
 note per phase (R1-R5) in `apps/attendance-salary/NOTES.md`; how to use it: `docs/HANDBOOK.md` "Attendance: office
 desk and supervisor".
@@ -1601,5 +1601,7 @@ location, the Office person page and advances, `/salary` 404 for Office staff, t
 Supervisor's board and bell, Settings with the alert hour, the Salary box and tab with the split, Manage users,
 Permissions, the Office staff launcher tile and the Supervisor's notification settings.
 
-**Not yet verified:** the live deployment; real phones; the owner's checklist at plant 001.
+**Live (2026-10-17):** migrations platform `0015` and Attendance `0006` applied, `v0.23.0:production` (`0f28102`), live
+checks OK (`docs/deployments/shared.md`). **Not yet verified:** real phones; the first morning run; the owner's
+checklist at plant 001 (in the deploy record).
 

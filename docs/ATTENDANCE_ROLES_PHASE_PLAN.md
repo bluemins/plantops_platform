@@ -5,8 +5,8 @@ Part B (v0.22.0)**, as release **v0.23.0**. Mock-ups approved 2026-10-17 (scan a
 **Added 2026-10-17 (owner): Phase C, claims only for field staff** (a "Field staff" tick per person), a small release
 **v0.22.1** built first with one small migration. **Phase 0 done 2026-10-17** (plan checked against the code; two
 answers from the owner, see "Phase 0 findings"). **Phase C built 2026-10-17** (v0.22.1, see
-`apps/attendance-salary/NOTES.md`; live 2026-10-17). **R1-R5 built 2026-10-17** (not released; they ship together
-as v0.23.0 in R6); next is R6.
+`apps/attendance-salary/NOTES.md`; live 2026-10-17). **R1-R6 done 2026-10-17: v0.23.0 live** (`0f28102`); the owner's
+checklist at plant 001 is in `docs/deployments/shared.md`.
 
 **What the owner asked (2026-10-17):**
 1. **Office staff:** enter attendance times for people without a smartphone, and enter the cash advances staff take
