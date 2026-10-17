@@ -254,6 +254,8 @@ export const NOTIFICATION_KINDS: Record<string, { module: ModuleId | null; label
   "attendance_salary.corrected": { module: "attendance_salary", label: "Your attendance changed by the owner", aboutYou: true },
   "attendance_salary.outside": { module: "attendance_salary", label: "Mark refused: outside the plant", bellOnly: true },
   "attendance_salary.no_exit": { module: "attendance_salary", label: "People who didn't mark OUT (morning)", bellOnly: true },
+  "attendance_salary.salary_review": { module: "attendance_salary", label: "Month-end salary review" },
+  "attendance_salary.salary_paid": { module: "attendance_salary", label: "Your salary is paid", aboutYou: true },
   "platform.user_locked": { module: null, label: "Someone locked out", urgent: true },
   "platform.support_opened": { module: null, label: "PlantOps support viewed your data", bellOnly: true },
   "platform.module_on": { module: null, label: "Module switched on" },

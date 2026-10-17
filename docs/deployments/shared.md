@@ -7,7 +7,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 |---|---|
 | Status | **Live** since 2026-10-04 (first checks in progress) |
 | Hosting | Railway, region Singapore |
-| Railway project | `plantops-shared`, environment `production`; services `Postgres`, `platform`, `lab-records`, `document-store` (+ `document-store-volume` at `/data`), `floor-stock`, `complaint-box` (volume at `/data`: to confirm), `order-capture` (no volume) |
+| Railway project | `plantops-shared`, environment `production`; services `Postgres`, `platform`, `lab-records`, `document-store` (+ `document-store-volume` at `/data`), `floor-stock`, `complaint-box` (volume at `/data`: to confirm), `order-capture` (no volume), `attendance-salary` (no volume) |
 | Deploys from | git branch `production` (pushing `main` does not deploy) |
 | Platform | https://app.bluemins.life |
 | Lab Records | https://lab.bluemins.life |
@@ -52,3 +52,16 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | 2026-10-15 | v0.16.1 live (clearer role buttons on Add / Edit user; platform screen only, no migration, no access change). `git push origin v0.16.1:production` (`8a9c749`). Checks: the live Users screen code has the new texts; JWKS and `/login` 200; Lab / Docs / Stock / Complaints / Orders `/health` database OK. Not yet looked at on screen by the owner. |
 | 2026-10-15 | v0.17.0 live (Plant staff = employee: no longer opens Floor Stock, Document Store, Complaint Box or Marketing Contacts; keeps the Order Capture view; no migration). Before the deploy the owner had moved everyone off Plant staff except Gaja (Store keeper + Plant staff), so only Gaja lost Document Store + Complaint Box. `git push origin v0.17.0:production` (`232f02c`). Checks: the live Users screen code has the new Plant staff text; JWKS and `/login` 200; Lab / Docs / Stock / Complaints / Orders `/health` database OK. Not yet tried: a Plant-staff-only login refused by Floor Stock on the live copy. |
 | 2026-10-16 | v0.18.0 (Attendance) and v0.19.0 (Floor Stock "Made from") live, recorded afterwards during Salary Phase 0: `production` = `b12380b`; `attendance.bluemins.life/health` 200 with the database OK; the owner says Attendance is in use at plant 001. Not recorded at deploy time: the `add-railway-module.sh` run, DNS, the `attendance-salary` service variables, GitHub variable `ATTENDANCE_URL` and a green Daily jobs run with the Attendance step. |
+
+## v0.20.0 (Salary): owner's checklist at plant 001
+From `docs/SALARY_PHASE_PLAN.md` Phase 7; how-to in `docs/HANDBOOK.md` "Attendance: salary at month end". Tick each
+when done and date it.
+1. [ ] Set salary, shift hours, paid leave and overtime (Gets overtime + rate) for each person (Staff → person).
+2. [ ] Enter this month's advances.
+3. [ ] Open the Salary tab and check two people with the checking panel against the notebook.
+4. [ ] A worker checks their calendar shows overtime (only if they get it) and no money.
+5. [ ] Download the Salary CSV.
+6. [ ] At month end (31 Oct, 07:00): the "salary review" notification arrives; fix any no-exit days; read "Remaining
+   to pay".
+7. [ ] Tick "Can see own salary" for one person and mark their month Paid: they get "Your salary is paid" and see only
+   their own slip; a person without the tick sees attendance only.

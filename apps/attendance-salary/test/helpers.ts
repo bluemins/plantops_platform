@@ -67,7 +67,7 @@ export async function refused(fn: () => unknown): Promise<{ status: number; mess
 /**
  * One plant's sample rows in every table, inserted as the app (so the grants are exercised too): settings with a
  * location and QR, a scanned IN by the worker, an owner-added OUT, a cancel of the scan, a support view, an audit row
- * and an outbox row. Returns their ids.
+ * and an outbox row; and one row in each salary table. Returns their ids.
  */
 export async function seedPlant(tenantId: string) {
   const worker = randomUUID();
@@ -84,11 +84,30 @@ export async function seedPlant(tenantId: string) {
   await asApp(tenantId, `insert into attendance_salary.support_views (tenant_id, super_admin_id, super_admin_name, path) values ('${tenantId}', '${owner}', 'PlantOps support', '/')`);
   await asApp(tenantId, `insert into attendance_salary.audit_log (tenant_id, actor, action) values ('${tenantId}', 'user:${owner}', 'settings.location')`);
   const outbox = await one(`insert into attendance_salary.notification_outbox (tenant_id, input) values ('${tenantId}', '{}') returning id`);
-  return { worker, owner, scan, fix, cancel, outbox };
+  // salary: a setting, an advance and its correction, "Can see own salary", a paid month and its undo
+  const setting = await one(`insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, monthly_paise, shift_minutes, gets_overtime, ot_rate_paise, created_by, created_by_name)
+    values ('${tenantId}', '${worker}', 'Ramu', '2026-10-01', 1200000, 480, true, 6000, '${owner}', 'Sujata') returning id`);
+  const advance = await one(`insert into attendance_salary.salary_advances (tenant_id, user_id, user_name, on_date, amount_paise, note, created_by, created_by_name)
+    values ('${tenantId}', '${worker}', 'Ramu', '2026-10-03', 200000, 'Cash', '${owner}', 'Sujata') returning id`);
+  const correction = await one(`insert into attendance_salary.salary_advances (tenant_id, user_id, user_name, on_date, amount_paise, corrects_id, reason, created_by, created_by_name)
+    values ('${tenantId}', '${worker}', 'Ramu', '2026-10-03', -50000, '${advance}', 'typed twice', '${owner}', 'Sujata') returning id`);
+  const visibility = await one(`insert into attendance_salary.salary_visibility (tenant_id, user_id, user_name, can_see, created_by, created_by_name)
+    values ('${tenantId}', '${worker}', 'Ramu', true, '${owner}', 'Sujata') returning id`);
+  const payment = await one(`insert into attendance_salary.salary_payments (tenant_id, user_id, user_name, month, paid_on, paid_paise, remaining_paise, figures, created_by, created_by_name)
+    values ('${tenantId}', '${worker}', 'Ramu', '2026-09-01', '2026-09-30', 904000, 904000, '{"rules": 1}', '${owner}', 'Sujata') returning id`);
+  const undo = await one(`insert into attendance_salary.salary_payment_undos (tenant_id, payment_id, reason, created_by, created_by_name)
+    values ('${tenantId}', '${payment}', 'paid the wrong month', '${owner}', 'Sujata') returning id`);
+  return { worker, owner, scan, fix, cancel, outbox, setting, advance, correction, visibility, payment, undo };
 }
 
 /** The tables in the attendance_salary schema (the guard tests compare against this list). */
-export const TABLES = ["audit_log", "notification_outbox", "plant_settings", "punch_cancels", "punches", "support_views"];
+export const TABLES = [
+  "audit_log", "notification_outbox", "plant_settings", "punch_cancels", "punches",
+  "salary_advances", "salary_payment_undos", "salary_payments", "salary_settings", "salary_visibility",
+  "support_views",
+];
+/** The salary tables (migration 0002): select and insert only for the app login. */
+export const SALARY_TABLES = ["salary_advances", "salary_payment_undos", "salary_payments", "salary_settings", "salary_visibility"];
 
 /**
  * Makes `user` the logged-in person for pages and API routes, the way the proxy and the kit's session cookie would

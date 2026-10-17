@@ -14,8 +14,8 @@ independently, with its own URL, Docker image and database schema.
 - `apps/order-capture` (built before Preventive Management, decided by the owner 2026-10-12)
 - `apps/preventive-mgmt`
 - `apps/amc`
-- `apps/attendance-salary` (version 1 = attendance only, built before Preventive Management, decided by the owner
-  2026-10-15; v0.18.0)
+- `apps/attendance-salary` (version 1 = attendance, built before Preventive Management, decided by the owner
+  2026-10-15; v0.18.0. Version 2 = salary, v0.20.0, 2026-10-17)
 - `apps/marketing-contacts`
 - `packages/auth` — SSO token verification + role guards, used by every module
 - `packages/ui` — shared UI components (tiles, buttons, forms)
@@ -44,7 +44,8 @@ through the Lab Records API.
   Stock), maintenance technician (Preventive Management). Each sees only the module(s)/data it's entitled to.
 - **Plant staff** (`plant_staff`): marks **"this person is an employee"** (owner, 2026-10-15). Every employee can hold
   it next to their work role (e.g. Store keeper + Plant staff). It works **only** in `PLANT_STAFF_MODULES`
-  (Attendance & Salary: own attendance and overtime; salary is owner-only), and may **view** Order Capture
+  (Attendance & Salary: own attendance and overtime; their own salary slip only when the owner ticked "Can see own
+  salary", only for paid months; salary is otherwise owner-only), and may **view** Order Capture
   (`PLANT_STAFF_VIEW_ONLY` + `viewOnlyIn()`, owner 2026-10-14): orders, customer, phone, products and quantities,
   never amounts, never writes, never its alerts. Work in any other module needs that module's own role (Store
   keeper, Document keeper, Complaint desk, Order desk, Lab technician / lead, Maintenance technician, Sales team).
@@ -214,7 +215,9 @@ pilots.
 7. **AMC module** — contracts, visit logs, renewals, invoicing (pairs with Preventive Management).
 8. **Attendance & Salary module.** Version 1 (attendance only: QR scan + location check, own calendar, owner view
    and fixes) built **before Phase 6** (owner, 2026-10-15) and released as v0.18.0; plan and build prompts in
-   `docs/ATTENDANCE_PHASE_PLAN.md`. Salary, overtime, leave and holidays come later.
+   `docs/ATTENDANCE_PHASE_PLAN.md`. Version 2 (**salary**: monthly salary ÷ 30, paid leave, overtime per person,
+   advances, Salary tab with checking panel, mark paid, worker's own slip with permission) built and released as
+   v0.20.0 (2026-10-17); plan `docs/SALARY_PHASE_PLAN.md`. Weekly offs, holidays and leave requests come later.
 9. **Digital Marketing Contact Management module.**
 10. **Website + dedicated-instance/tenant provisioning tooling.**
 
@@ -338,7 +341,8 @@ WhatsApp, or setting them up. Existing email alerts stay as they are; notificati
 - Preventive Management: task due / overdue, done, breakdown reported
 - AMC: contract expiring, visit due / done, invoice due
 - Attendance & Salary: version 1 done in its own phase plan (v0.18.0): corrected, outside, no exit (owners only);
-  leave request / salary ready come with those features
+  version 2 (v0.20.0): salary review (owners, last day of the month), salary paid (the worker, only with "Can see own
+  salary"); leave request comes with that feature
 - Marketing Contacts: follow-up due
 - Complaint Box: done in its own phase plan (v0.12.0): new, resolved, reopened, still open, updated, storage
 - Order Capture: done in its own phase plan (v0.13.0): new order, delivered, cancelled
@@ -1431,3 +1435,45 @@ the owner the same day: D Blue = 8,000 pcs per box) and labels counted in pieces
 - Tests: Floor Stock 158 (+12, incl. plant 001's 16 Oct numbers). Typecheck and build pass.
 **Not yet verified:** on screen; not deployed. After deploying, the owner sets "Made from" on the five Empty Bottle
 items.
+
+### 2026-10-17 — Salary (Attendance & Salary version 2) — built (v0.20.0)
+Decided by the owner 2026-10-16. Design, rules, phases and build prompts: `docs/SALARY_PHASE_PLAN.md`; module notes
+(rules, tables, access table, phase notes): `apps/attendance-salary/NOTES.md`; how to use it: `docs/HANDBOOK.md`
+"Attendance: salary at month end".
+
+**Built** (in `apps/attendance-salary`; no new app):
+- **Database:** migration `0002_salary.sql`, five new tables (`salary_settings`, `salary_advances`,
+  `salary_visibility`, `salary_payments`, `salary_payment_undos`) with `tenant_id` + FORCE RLS, `attendance_app` SELECT
+  + INSERT only (nothing is ever changed or deleted); `salary_tenants()`. No existing table changed; SSO token
+  unchanged.
+- **The rules** in one pure file, `src/lib/salary.ts`, used by the server, the CSV and the browser's checking panel:
+  every day counts, present / half / absent by shift hours, ÷ 30, paid leave (default 2, lapses), overtime per person
+  in exact minutes, advances and negative carry, full vs part month, paid months frozen with "changed after payment"
+  flowing to the next month once. Money in whole paise.
+- **Owner:** Salary box + history, "Can see own salary", advances with corrections on Staff → person; **Salary tab**
+  (totals, table / phone list, "No salary set", checking panel, CSV); **Mark paid** / Undo. Audit + Recent changes.
+- **Worker:** present / half / absent and overtime (only with Gets overtime) on their calendar, never money; with the
+  owner's tick, their own slips for paid months (`/my/salary`); 404 in every other case.
+- **Access:** five rows in the one access table (`salary_view`, `salary_edit`, `salary_pay`, `salary_export`,
+  `see_own_salary`); PlantOps support read-only, page views logged.
+- **Notifications (N5+):** `attendance_salary.salary_review` (owners, last day 07:00 IST, daily job) and
+  `attendance_salary.salary_paid` (the worker only, only with the tick); outbox.
+- **Tests:** Attendance 258 (+107 since v0.18.0), platform 312.
+
+**Decisions (owner, 2026-10-16):** the plan as written (÷ 30, overtime per person, advances carry, checking panel,
+paid tick, staff permission); Joined on / Last day optional; overtime in exact minutes; support sees salary read-only;
+a past from month needs a reason; review on the last day at 07:00.
+
+**Made while building (in NOTES.md per phase):** a correction lowers the month of the entry it corrects; a month not
+over shows the salary minus absences so far; money as plain whole-paise numbers (not BigInt); the PC checking panel is
+a right-hand drawer and the table widens past the page column; each advance has its own Correct button; "Paying now"
+shows the exact amount; the mark-paid dialog is drawn over the whole page.
+
+**Verified on `pnpm dev`** (plant 002 with Attendance switched on only for each check, temporary users, all removed
+afterwards): every screen at 390 and 1280 px; the worked example (₹9,040) on screen; the panel's "+₹120"; mark paid
+for a worker with and without permission and what each sees; undo and pay again; the review notification with a faked
+31 Oct.
+
+**Not yet verified:** real phones; the live deployment; the owner's checklist at plant 001 (in
+`docs/deployments/shared.md` once live).
+

@@ -6,6 +6,8 @@ import { roleLabel, whoFor } from "@/server/session";
 import { plant, refused } from "./helpers";
 
 const p = plant();
+/** The owner's salary actions (support has salary_view only, read-only). */
+const OWNER_SALARY: Action[] = ["salary_view", "salary_edit", "salary_pay", "salary_export"];
 
 describe("who is who", () => {
   it("owner, owner who is also Plant staff, Plant staff; anyone else has no rights", () => {
@@ -30,16 +32,19 @@ describe("who is who", () => {
 describe("the access table", () => {
   // the agreed table (docs/ATTENDANCE_PHASE_PLAN.md + Phase 2 plan): which actions each person has
   const expected: Record<"owner" | "ownerWorker" | "worker" | "keeper" | "support", Action[]> = {
-    owner: ["see_everyone", "fix", "settings", "view_settings", "export", "view_changes", "support_log"],
-    ownerWorker: ["mark", "see_own", "see_everyone", "fix", "settings", "view_settings", "export", "view_changes", "support_log"],
-    worker: ["mark", "see_own"],
+    owner: ["see_everyone", "fix", "settings", "view_settings", "export", "view_changes", "support_log", ...OWNER_SALARY],
+    ownerWorker: ["mark", "see_own", "see_everyone", "fix", "settings", "view_settings", "export", "view_changes", "support_log", ...OWNER_SALARY, "see_own_salary"],
+    worker: ["mark", "see_own", "see_own_salary"],
     keeper: [],
-    support: ["see_everyone", "view_settings", "view_changes"],
+    support: ["see_everyone", "view_settings", "view_changes", "salary_view"],
   };
 
   it("each person can do exactly their actions", () => {
     const actions = Object.keys(ACCESS) as Action[];
-    expect(actions.sort()).toEqual(["export", "fix", "mark", "see_everyone", "see_own", "settings", "support_log", "view_changes", "view_settings"]);
+    expect(actions.sort()).toEqual([
+      "export", "fix", "mark", "salary_edit", "salary_export", "salary_pay", "salary_view", "see_everyone", "see_own",
+      "see_own_salary", "settings", "support_log", "view_changes", "view_settings",
+    ]);
     for (const [name, allowed] of Object.entries(expected)) {
       const user = p[name as keyof typeof expected];
       expect(actions.filter((a) => can(user, a)).sort(), name).toEqual([...allowed].sort());
@@ -47,7 +52,7 @@ describe("the access table", () => {
   });
 
   it("a worker never sees anyone else's attendance and can't fix, set up or export", async () => {
-    for (const a of ["see_everyone", "fix", "settings", "view_settings", "export", "view_changes", "support_log"] as Action[]) {
+    for (const a of ["see_everyone", "fix", "settings", "view_settings", "export", "view_changes", "support_log", ...OWNER_SALARY] as Action[]) {
       expect(await refused(() => requireAccess(p.worker, a)), a).toEqual({ status: 403, message: "Only the plant owner can do this" });
     }
   });
@@ -59,11 +64,19 @@ describe("the access table", () => {
   });
 
   it("support is refused every write; a store keeper is refused everything", async () => {
-    for (const a of ["mark", "fix", "settings", "export", "support_log"] as Action[]) {
+    for (const a of ["mark", "fix", "settings", "export", "support_log", "salary_edit", "salary_pay", "salary_export"] as Action[]) {
       expect(await refused(() => requireAccess(p.support, a)), a).toEqual({ status: 403, message: "PlantOps support view is read-only" });
     }
-    for (const a of Object.keys(ACCESS) as Action[]) {
+    for (const a of (Object.keys(ACCESS) as Action[]).filter((x) => x !== "see_own_salary")) {
       expect((await refused(() => requireAccess(p.keeper, a))).message, a).toBe("You don't have access to Attendance");
     }
+  });
+
+  it("own salary pages are 'not found' (never 'not allowed') for anyone without them, so nothing hints they exist", async () => {
+    for (const user of [p.owner, p.support, p.keeper]) {
+      expect(await refused(() => requireAccess(user, "see_own_salary"))).toEqual({ status: 404, message: "Not found" });
+    }
+    expect(() => requireAccess(p.worker, "see_own_salary")).not.toThrow();
+    expect(() => requireAccess(p.ownerWorker, "see_own_salary")).not.toThrow();
   });
 });

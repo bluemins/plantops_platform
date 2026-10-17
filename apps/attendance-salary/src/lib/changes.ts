@@ -1,8 +1,24 @@
 // "Recent changes": audit rows in plain words for the owner ("Added OUT 18:30 on Tue, 14 Oct for Ramu: forgot to scan").
 import { fmtDayLong, fmtMonth, istDay } from "./days";
 import { fmtTime } from "./punch";
+import { halvesText, hoursText, paiseText } from "./salary";
 
 const show = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : String(v));
+const num = (v: unknown) => (typeof v === "number" ? v : 0);
+/** "3 Oct" */
+const shortDay = (v: unknown) => (typeof v === "string" ? fmtDayLong(v).replace(/^\w+, /, "") : "—");
+/** "Nov 2026" */
+const shortMonth = (v: unknown) => (typeof v === "string" ? fmtMonth(v).replace(/^(\w{3})\w*/, "$1") : "—");
+
+/** "₹12,000 · 8 h · overtime ₹60/h" (+ leave when not the usual 2 days, joined / last day): a salary setting. */
+export function settingText(d: { monthly: number; shift: number; leave: number; ot_rate: number | null; joined?: string | null; left?: string | null }) {
+  const parts = [paiseText(d.monthly), `${hoursText(d.shift)} h`, d.ot_rate ? `overtime ${paiseText(d.ot_rate)}/h` : "no overtime"];
+  if (d.leave !== 4) parts.push(`leave ${halvesText(d.leave)} days`);
+  if (d.joined) parts.push(`joined ${shortDay(d.joined)}`);
+  if (d.left) parts.push(`last day ${shortDay(d.left)}`);
+  return parts.join(" · ");
+}
+
 const when = (iso: unknown) => (typeof iso === "string" ? `${fmtTime(iso)} on ${fmtDayLong(istDay(new Date(iso)))}` : "—");
 
 /** One audit row as a sentence. */
@@ -18,6 +34,20 @@ export function describeChange(action: string, d: Record<string, unknown>): stri
       return `Added ${show(d.kind).toUpperCase()} ${when(d.at)} for ${show(d.person)}: ${show(d.reason)}`;
     case "fix.cancel":
       return `Cancelled ${show(d.kind).toUpperCase()} ${when(d.at)} for ${show(d.person)}: ${show(d.reason)}`;
+    case "salary.set":
+      return `Salary for ${show(d.person)} from ${shortMonth(d.from)}: ${settingText({ monthly: num(d.monthly), shift: num(d.shift), leave: num(d.leave), ot_rate: typeof d.ot_rate === "number" ? d.ot_rate : null, joined: d.joined as string | null, left: d.left as string | null })}${d.reason ? `: ${show(d.reason)}` : ""}`;
+    case "salary.advance":
+      return `Advance ${paiseText(num(d.amount))} to ${show(d.person)} on ${shortDay(d.on)}${d.note ? `: ${show(d.note)}` : ""}`;
+    case "salary.correction":
+      return `Advance corrected ${paiseText(num(d.amount))} (${show(d.person)}, ${shortDay(d.on)}): ${show(d.reason)}`;
+    case "salary.visibility":
+      return d.can_see ? `${show(d.person)} can now see own salary (paid months)` : `${show(d.person)} can no longer see own salary`;
+    case "salary.paid":
+      return `Marked ${typeof d.month === "string" ? fmtMonth(d.month) : "the month"} paid for ${show(d.person)}: ${paiseText(num(d.paid))} on ${shortDay(d.on)}${d.note ? ` (${show(d.note)})` : ""}`;
+    case "salary.unpaid":
+      return `Undid ${typeof d.month === "string" ? fmtMonth(d.month) : "the month"} payment for ${show(d.person)}: ${show(d.reason)}`;
+    case "salary.export":
+      return `Downloaded the ${typeof d.month === "string" ? fmtMonth(d.month) : "month"} salary CSV`;
     case "export.csv":
       return `Downloaded the ${typeof d.month === "string" ? fmtMonth(d.month) : "month"} CSV`;
     default:

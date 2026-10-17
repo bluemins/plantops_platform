@@ -14,6 +14,11 @@
 
 **Phase 0 done (2026-10-16):** every item that was *(to confirm)* is settled (see "Phase 0: Readiness").
 
+**Built (2026-10-17, release v0.20.0):** phases 1–6 done; notes per phase in `apps/attendance-salary/NOTES.md`.
+Layout changes made while building: on a PC the checking panel opens as a drawer from the right (the page column is
+too narrow beside the table) and the table widens past the page column; each advance has its own **Correct** button
+instead of the "This corrects an earlier entry" tick box.
+
 It builds on Attendance version 1 (v0.18.0, `apps/attendance-salary`, `docs/ATTENDANCE_PHASE_PLAN.md`). To be
 released as **v0.20.0** (v0.19.0 went to Floor Stock "Made from"). Each migration is still shown to the owner before
 it runs (CLAUDE.md working rules).

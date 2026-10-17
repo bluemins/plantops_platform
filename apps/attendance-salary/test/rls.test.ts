@@ -45,14 +45,18 @@ describe("row-level security", () => {
     expect(await dbError(asApp(b.tenantId, `insert into attendance_salary.audit_log (tenant_id, actor, action) values ('${a.tenantId}', 'x', 'x')`))).toMatch(/row-level security/);
     expect((await asApp(b.tenantId, `update attendance_salary.plant_settings set radius_m = 2000 where tenant_id = '${a.tenantId}'`)).rowCount).toBe(0);
     expect((await asApp(b.tenantId, `update attendance_salary.notification_outbox set attempts = 9 where id = '${ids.outbox}'`)).rowCount).toBe(0);
+    // plant B can't correct plant A's advance or undo plant A's payment (the keys include the plant)
+    expect(await dbError(asApp(b.tenantId, `insert into attendance_salary.salary_advances (tenant_id, user_id, user_name, on_date, amount_paise, corrects_id, reason, created_by, created_by_name) values ('${b.tenantId}', '${ids.worker}', 'Ramu', '2026-10-03', -100, '${ids.advance}', 'not yours', gen_random_uuid(), 'x')`))).toMatch(/foreign key/);
+    expect(await dbError(asApp(b.tenantId, `insert into attendance_salary.salary_payment_undos (tenant_id, payment_id, reason, created_by, created_by_name) values ('${b.tenantId}', '${ids.payment}', 'not yours', gen_random_uuid(), 'x')`))).toMatch(/foreign key/);
+    expect(await dbError(asApp(b.tenantId, `insert into attendance_salary.salary_settings (tenant_id, user_id, user_name, from_month, monthly_paise, shift_minutes, gets_overtime, created_by, created_by_name) values ('${a.tenantId}', gen_random_uuid(), 'X', '2026-10-01', 100, 480, false, gen_random_uuid(), 'x')`))).toMatch(/row-level security/);
     // plant B can't cancel plant A's mark (the key includes the plant)
     expect(await dbError(asApp(b.tenantId, `insert into attendance_salary.punch_cancels (tenant_id, punch_id, reason, created_by, created_by_name) values ('${b.tenantId}', '${ids.fix}', 'not yours', gen_random_uuid(), 'x')`))).toMatch(/foreign key/);
   });
 
-  it("the outbox and attendance plant lists give plant ids only", async () => {
+  it("the outbox, attendance and salary plant lists give plant ids only", async () => {
     const a = plant();
     await seedPlant(a.tenantId);
-    for (const fn of ["outbox_tenants", "attendance_tenants"]) {
+    for (const fn of ["outbox_tenants", "attendance_tenants", "salary_tenants"]) {
       const res = await attendDb().execute<Record<string, unknown>>(sql.raw(`select * from attendance_salary.${fn}()`));
       expect(res.rows.map((r) => Object.values(r)[0]), fn).toContain(a.tenantId);
       expect(Object.keys(res.rows[0]!), fn).toHaveLength(1);

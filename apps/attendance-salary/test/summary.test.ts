@@ -123,6 +123,6 @@ describe("support view", () => {
     await SettingsPage();
     await ChangesPage();
     const seen = (await listSupportViews(p.owner)).map((v) => v.what).sort();
-    expect(seen).toEqual(["Recent changes", "a person's attendance", "the Today board", "the settings", "the staff list"].sort());
+    expect(seen).toEqual(["Recent changes", "a person's attendance and salary", "the Today board", "the settings", "the staff list"].sort());
   });
 });

@@ -4,6 +4,28 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.20.0 — 2026-10-17 — Attendance & Salary: Salary (version 2)
+
+**What's in it**
+- **Salary per person** (Staff → person, owner only): monthly salary, shift hours, paid leave per month (default 2),
+  **Gets overtime** with a rate per hour, from which month, optional Joined on / Last day; every change kept as
+  history. **Advances** with corrections (a negative entry with a reason; nothing is deleted).
+- **The rules:** every day of the month counts; present / half day / absent by the shift hours; day's pay = salary ÷
+  30; paid leave covers absent days, unused leave lapses; overtime in exact minutes; advances above a month's pay carry
+  into the next month.
+- **Salary tab** (owner; PlantOps support read-only): everyone's month with totals, "remaining to pay", people without
+  a salary, a **checking panel** (type your own figures and compare; nothing saved) and a CSV.
+- **Mark paid** from the month's last day: freezes that month's figures; a later attendance fix shows as "Changed
+  after payment" and adjusts the next month once. Undo with a reason.
+- **Workers:** their calendar shows present / half / absent and overtime (only with Gets overtime), never money. With
+  the owner's **"Can see own salary"** tick they also see their own slip for paid months, and get "Your salary is
+  paid". Without it, nothing about salary.
+- **Notifications:** "October salary review today" to owners on the month's last day (no-exit days to fix, people
+  without salary); "Your salary is paid" to the worker (only with the tick).
+
+**Migrations:** Attendance `0002_salary.sql` (five new tables, all append-only; no existing table changes). Services
+that change: `attendance-salary`, and `platform` (the two new notification kinds).
+
 ## v0.19.0 — 2026-10-16 — Floor Stock: "Made from" (preform → empty bottle)
 
 **What's in it**

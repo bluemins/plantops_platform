@@ -386,6 +386,27 @@ When approved, add `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_TEMPLATE` an
 - **Mistakes:** only the owner fixes (Staff → person → day → add a time / cancel a mark, always with a reason).
   Nothing is overwritten; the worker gets a notification.
 
+### Attendance: salary at month end
+Salary lives in the Attendance module (v0.20.0). Only the owner sees money; workers see days and hours.
+- **Set a salary (once per person):** Attendance → Staff → the person → **Salary** box under the calendar: monthly
+  salary, shift hours (8 = full day ≥ 8 h, half day ≥ 4 h), paid leave per month (2), **Gets overtime** + rate if they
+  are paid overtime, **from month** (this month). Joined on / Last day only for someone who joined or left during a
+  month. A change "from November" never alters October; a change for a past month asks for a reason.
+- **Advances:** same page, **+ Advance** (amount, date, note). A wrong entry is never deleted: tap **Correct** on it
+  and take the extra off with a reason.
+- **During the month:** the **Salary** tab shows everyone "so far". Tap a name for the **checking panel**: type your
+  own figures (e.g. from the notebook) and it says "Yours is ₹120 more than auto" or "Matches". Nothing there is saved.
+- **On the last day of the month, 07:00:** the bell says "October salary review today" with what is left to fix.
+  **Fix no-exit days first** (Staff → person → day → add the OUT), and set a salary for anyone listed under "No
+  salary set". Then read **Remaining to pay** per person. A minus (advances above the pay) carries to the next month.
+- **Mark paid** (from the last day): the dialog shows what is being paid and freezes the month. If attendance is fixed
+  afterwards, the row says "Changed after payment: ₹X → November" and November gets that amount once as an
+  adjustment. **Undo** (with a reason) only if it was marked by mistake.
+- **Can see own salary** (person page, off by default): with the tick, the worker sees their own slip for paid months
+  and gets "Your salary is paid"; without it, they see attendance only. Turning it off hides the slips at once.
+- **CSV:** Salary tab → Download CSV (one row per person, rupees with 2 decimals for a spreadsheet).
+- **Not done by the app:** weekly offs, holidays, leave requests, PF / ESI / TDS, printed payslips.
+
 ## 11. Files, backups and data location
 
 - **Uploaded documents** are on `document-store-volume`, mounted at `/data`. `DOC_STORAGE_DIR=/data/documents`,

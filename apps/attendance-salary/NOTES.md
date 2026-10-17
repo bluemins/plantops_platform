@@ -1,33 +1,41 @@
 # Attendance & Salary: module notes
 
-Version 1 is attendance only (no salary). Design, phases and build prompts: `docs/ATTENDANCE_PHASE_PLAN.md`.
-Released as **v0.18.0** (2026-10-15).
+Version 1 (attendance) released as **v0.18.0** (2026-10-15): `docs/ATTENDANCE_PHASE_PLAN.md`. Version 2 (salary)
+released as **v0.20.0** (2026-10-17): `docs/SALARY_PHASE_PLAN.md`. Build notes per phase are further down.
 
 ## At a glance
 | | |
 |---|---|
 | Module id / role | `attendance_salary` / **Plant staff** (`plant_staff`; works only here, `PLANT_STAFF_MODULES`) |
 | App / port | `apps/attendance-salary`, `:3006`; live `https://attendance.bluemins.life` (service `attendance-salary`, no volume) |
-| Database | schema `attendance_salary`, login `attendance_app` (no BYPASSRLS, not the owner); 6 tables, FORCE RLS, no DELETE |
+| Database | schema `attendance_salary`, login `attendance_app` (no BYPASSRLS, not the owner); 11 tables, FORCE RLS, no DELETE anywhere; the five salary tables are SELECT + INSERT only |
+| Migrations | `0001_attendance.sql` (v0.18.0), `0002_salary.sql` (v0.20.0) |
 | Env | `ATTEND_DATABASE_URL_APP`, `ATTEND_SESSION_SECRET` (also makes the QR key), `MODULE_URL_ATTENDANCE_SALARY`, `MODULE_SECRET_ATTENDANCE_SALARY`, `PLATFORM_URL`, `CRON_SECRET` |
-| Jobs | `POST /api/cron/daily` (07:00 IST, `daily.yml` step "Attendance", GitHub variable `ATTENDANCE_URL`): outbox, then "didn't mark OUT yesterday" |
-| Notifications | `corrected` (worker only, phone + bell), `outside` (owners, bell), `no_exit` (owners, bell); owner-only module (`OWNER_ONLY_ALERTS`) |
+| Jobs | `POST /api/cron/daily` (07:00 IST, `daily.yml` step "Attendance", GitHub variable `ATTENDANCE_URL`): outbox, "didn't mark OUT yesterday", and on the month's last day the salary review |
+| Notifications | `corrected` (worker only, phone + bell), `outside` (owners, bell), `no_exit` (owners, bell), `salary_review` (owners, last day, phone + bell), `salary_paid` (the worker only, only with "Can see own salary"); owner-only module (`OWNER_ONLY_ALERTS`) |
 
 ## Who may do what (`src/server/access.ts`, the one table)
 | Action | Owner | Owner + Plant staff | Plant staff | PlantOps support |
 |---|---|---|---|---|
 | Mark IN / OUT (QR) | – | ✔ | ✔ | – |
-| Own calendar and days | – | ✔ (`/my`) | ✔ (home) | – |
+| Own calendar and days (with present / half / absent / overtime counts, never money) | – | ✔ (`/my`) | ✔ (home) | – |
 | Everyone: Today, staff, person pages | ✔ | ✔ | – (404) | read-only |
 | Fix (add a time / cancel a mark) | ✔ | ✔ | – | – |
 | Settings (location, circle, QR) | ✔ | ✔ | – | read-only |
 | Month CSV | ✔ | ✔ | – | – |
 | Recent changes | ✔ | ✔ | – | read-only |
 | Support access page | ✔ | ✔ | – | – |
+| Salary tab, salary sections (`salary_view`) | ✔ | ✔ | – (404) | read-only |
+| Salary settings, advances, Can see own salary (`salary_edit`) | ✔ | ✔ | – | – |
+| Mark paid / undo (`salary_pay`) | ✔ | ✔ | – | – |
+| Salary CSV (`salary_export`) | ✔ | ✔ | – | – |
+| Own salary slips (`see_own_salary`) | – | ✔ | ✔ | – |
 
-Anyone else (e.g. a store keeper only) is refused by the module's own server.
+Own salary slips are shown **only** when the owner ticked "Can see own salary" for that person, **only** for months
+ticked Paid (not undone), **only** their own, from the frozen figures. Every other case is 404 (never 403), so
+nothing hints that a salary page exists. Anyone else (e.g. a store keeper only) is refused by the module's own server.
 
-## The rules (owner, Phase 0, 2026-10-15)
+## Attendance rules (owner, 2026-10-15)
 - Circle 200 m by default (50–2,000 m); accuracy worse than **500 m** refused; a second tap within **2 minutes**
   refused; an IN with no OUT for **16 hours** = "no exit" (until then the person is "inside"); time and IN / OUT are
   the server's; only distance and accuracy are stored, never a scan's coordinates.
@@ -36,15 +44,50 @@ Anyone else (e.g. a store keeper only) is refused by the module's own server.
   Reprint any time; "Make a new QR" stops old prints. **Changing `ATTEND_SESSION_SECRET` stops every printed QR.**
 - Workers' launcher tiles carry no badge (the platform's tile request names no person; owner, 2026-10-15).
 
-## Not in version 1
-Salary, overtime, shifts and late marks, leave and holidays, weekly offs; a worker asking for a correction; a
-supervisor role; marking for another person; a gate tablet; a selfie at the scan; Hindi / Odia labels; reports
-beyond the month CSV.
+## Salary rules (owner, 2026-10-16; all in `src/lib/salary.ts`, used by the server, the CSV and the checking panel)
+Full text and numbering: `docs/SALARY_PHASE_PLAN.md` "The rules".
+- **Counted days:** days of the month that are over, inside Joined on (blank = first salary month) and Last day.
+- **Day status** by the person's shift hours S: present ≥ S, half day ≥ S ÷ 2, otherwise absent (a "no exit" day
+  counts 0 until the owner fixes it). A night shift counts on the day it started.
+- **Absent days** = absent + ½ × half days; **paid leave used** = min(absent days, the person's paid leave, default
+  2); unused leave lapses; **unpaid days** = the rest.
+- **Day's pay** = salary ÷ 30 (always 30). **Full month:** salary − unpaid days × day's pay. **Part month** (joined
+  or left during it): day's pay × (present + ½ half + leave used), never more than the salary. Never below 0.
+- **Overtime** only with "Gets overtime": exact minutes over S per day, × the person's rate per hour.
+- **Remaining** = earned + overtime pay − advances (the month's entries, corrections negative) − carried in (last
+  month's minus) ± adjustment from last month.
+- **Which setting:** the latest "from month" on or before the month; same from month → the newest saved. A month with
+  no setting = not on salary (listed under "No salary set").
+- **A month not over yet** shows the full salary minus the absences so far ("So far · 16 of 31 days").
+- **Money** in whole paise as plain numbers (≤ ₹1 crore); rounded to the paisa once each for day's pay, the
+  deduction (unpaid days × day's pay as shown), earned and overtime pay; screens show the nearest rupee, the slip
+  and the dialog the exact amount.
+- **Paid months are frozen:** ticking Paid saves the whole calculation (`figures`, `RULES_VERSION` 1). The slip, the
+  Salary tab row and the carry use it. A later change shows as "Changed after payment: ₹X → <next month>" and goes to
+  the next month once as "Adjustment from <month>" (also when that month is paid too, and after an undo). Paid from
+  the month's last day; a negative month is paid as ₹0 and its minus carries.
+
+## The salary tables (migration `0002_salary.sql`; append-only, `attendance_app` SELECT + INSERT only)
+| Table | Holds |
+|---|---|
+| `salary_settings` | per person from a month: salary, shift, paid leave, Gets overtime + rate, Joined on / Last day, reason for a past month |
+| `salary_advances` | advances; a correction is a negative entry linked to an advance of the same person, on its date, with a reason |
+| `salary_visibility` | "Can see own salary" on / off; the newest row wins, no row = off |
+| `salary_payments` | a month ticked Paid: paid amount (remaining or 0), frozen remaining, frozen `figures`, paid on, note |
+| `salary_payment_undos` | undoing a payment (once per payment, with a reason) |
+
+`salary_tenants()` (security definer, plant ids only) lists plants for the month-end review.
+
+## Not in this version
+Weekly offs and holidays; leave requests or leave types; printed / PDF payslips; partial payments during the month
+(record them as advances); deductions other than advances (PF, ESI, TDS); salary in Hindi / Odia; a worker seeing an
+unpaid month; "mark all as paid". From version 1 still: a worker asking for a correction; a supervisor role; marking
+for another person; a gate tablet; a selfie at the scan; reports beyond the two CSVs.
 
 ## Open items
 - Not yet tried on real phones (location needs https): Android, iPhone (Camera app → Safari), Google Lens.
-- First real use at plant 001: switch on, give every employee Plant staff (which also shows them the Order Capture
-  view without amounts), set the location, print the QR (docs/HANDBOOK.md "Attendance: QR and location").
+- Salary not yet used at plant 001: the owner's checklist is in `docs/deployments/shared.md` (v0.20.0 row) and
+  `docs/HANDBOOK.md` "Attendance: salary at month end".
 
 # Build notes, phase by phase
 
@@ -146,3 +189,135 @@ beyond the month CSV.
 - Tests: Attendance 151 (+17), platform 312. Checked on `pnpm dev` (plant 002, temporary owner + 2 workers): Sujata
   got the "outside" and "no exit" bells, the worker got "corrected", nobody else; the tile went from "Set location &
   QR" to "1 in now · 1 not marked today · 1 no exit". All test bells (2 in Sujata's inbox), users and data removed.
+
+# Salary (version 2), phase by phase
+Plan: `docs/SALARY_PHASE_PLAN.md`. To be released as v0.20.0.
+
+## 2026-10-16: Salary Phase 1 (database, access, notification kinds)
+- Migration `0002_salary.sql`: `salary_settings`, `salary_advances`, `salary_visibility`, `salary_payments`,
+  `salary_payment_undos`; `tenant_id` + FORCE RLS on all; `attendance_app` SELECT + INSERT only (no UPDATE, no
+  DELETE); `salary_tenants()` (plant ids only). Additions approved with the migration: a correction's link includes
+  the person (the database refuses correcting someone else's advance), `paid_paise` = the remaining or 0, advances
+  ≤ ₹1 crore, reasons ≤ 300, indexes on payments and visibility per person. Applied to dev (by the owner) and test.
+- Access table: `salary_view` (owner, owner + Plant staff, support), `salary_edit` / `salary_pay` / `salary_export`
+  (owner, owner + Plant staff), `see_own_salary` (Plant staff, owner + Plant staff; permission + paid month checked in
+  the query later). Refused `see_own_salary` answers **404**, never 403, so nothing hints that a salary page exists.
+- `packages/types`: `attendance_salary.salary_review` (owners, phone + bell) and `attendance_salary.salary_paid`
+  (`aboutYou`). Every Plant staff person sees "Your salary is paid" in their notification settings even without
+  "Can see own salary" (the platform can't know the tick); accepted with the plan, they never receive it without it.
+- Tests: Attendance 186 (+35: 11-table guard, 108 refused statements incl. every salary column, salary database
+  checks, access table), platform 312 (settings list the new kinds).
+
+## 2026-10-16: Salary Phase 2 (the rules)
+- `src/lib/salary.ts`, pure (browser-safe; only `days.ts`): paise helpers (`toPaise`, `rupeesText` to the nearest
+  rupee, `paiseText` exact, `hoursText`), `settingFor` (latest from month on or before; same from month → newest
+  saved), `countedDates` (rule 1: days that are over, inside Joined on / Last day; full vs part month),
+  `dayStatuses` + `countDays` (rules 2, 3, 9), `monthPay` (rules 4-10, 12, 13), `carryChain` (rules 11, 14),
+  `FrozenMonth` and `RULES_VERSION = 1` for Phase 5.
+- Money as plain whole paise (numbers, not BigInt: ≤ ₹1 crore is exact, and plain numbers go into JSON and the
+  browser). Half days counted in half-day units. Rounding once each: day's pay = round(salary ÷ 30); full-month
+  earned = salary − round(unpaid × day's pay as shown); overtime pay = round(minutes × rate ÷ 60).
+- **Paid months (rule 14):** a paid month is worked out again with the carry and adjustment it should have now; the
+  difference from its frozen remaining is the next month's "Adjustment from <month>". This counts a later change
+  exactly once, also when the next month is paid too and after an undo. Carry from a paid month uses its frozen
+  remaining.
+- **Open month (owner, 2026-10-16, as the plan):** a person employed the whole month shows the salary minus the
+  absences so far ("So far · 16 of 31 days"), not pay for the days so far.
+- `src/server/salary.ts`: `loadSalaryData` (settings, advances, payments minus undone ones) and `salaryMonths(user,
+  month, { personId?, now? })` (`salary_view`: owner + support; future / bad month 404): every person with a setting,
+  months from their first salary month up to the asked one (months outside their employment skipped), marks loaded
+  once with `loadMarks`. Drizzle definitions for the five tables in `schema.ts` (dates as strings, money as numbers).
+- Tests: Attendance 216 (+30: 23 pure incl. the ₹9,040 example, 7 database).
+
+## 2026-10-17: Salary Phase 3 (person page: salary and advances)
+- `src/server/salary-edit.ts`: `saveSetting`, `saveVisibility`, `saveAdvance` (owner only, `salary_edit`; person via
+  `knownPerson`; `lockPerson`; a new row + audit row each; the page sends the newest row id it saw, otherwise 409 "Just
+  changed by …"), and `salaryPanel` for the page (`salary_view`). Routes `POST /api/salary/settings`, `/visibility`,
+  `/advances`. Rupees typed with up to 2 decimals (no commas) → paise on the server; salary and advances ≤ ₹1 crore.
+- Rules as the plan's Database section. Made while building: an overtime rate is at most ₹1,00,000 an hour (a typo
+  gets a plain message); "Can see own salary" saved again with the same value adds no row; a correction is stored on
+  **the corrected entry's own date** (it lowers the right month) and may take at most what is left of that entry;
+  a correction can't be corrected; From month choices run from 12 months back to 3 ahead.
+- Page `/staff/<user>` under the calendar (mock-up 2): summary strip (`salary-strip.tsx`), Salary box + history and
+  the Can see own salary tick (`salary-box.tsx`), advances (`advances.tsx`). **Change from the mock-up:** a Correct
+  button on each advance row instead of the "This corrects an earlier entry" tick box. Support sees the same figures
+  read-only, without forms.
+- Recent changes texts: `salary.set`, `salary.advance`, `salary.correction`, `salary.visibility` (`src/lib/changes.ts`).
+- Tests: Attendance 230 (+14, `test/salary-edit.test.ts`).
+- Checked on `pnpm dev` (plant 002 with Attendance switched on for the check, a temporary owner + worker with marks
+  1-15 Oct, headless Chromium at 1280 and 390 px): save with overtime, advance + correction, Can see own salary,
+  the 409 on a stale tab, Recent changes, no sideways scroll at 390 px; the worker gets 404 on the page and 403 on
+  the save, and sees no "₹" or "salary". Found and fixed: the history date was the UTC day (now India date).
+  Everything removed afterwards and plant 002's module list restored.
+
+## 2026-10-17: Salary Phase 4 (Salary tab and checking panel)
+- `src/server/salary-tab.ts`: `salaryTab` (`salary_view`: owner + support; future / bad month 404): one row per person
+  on salary that month (people who left are marked "(left)"), totals (salary, earned, OT pay, advances, carried in,
+  remaining, **remaining to pay** = positive rows only), negatives ("Ramu −₹2,100 carries to November"), active Plant
+  staff with no salary, the pill (complete / so far). `salaryCsv` + `GET /api/salary/export?month=` (`salary_export`:
+  owner only; audited `salary.export`, "Downloaded the October 2026 salary CSV"; one row per person, amounts as
+  rupees with 2 decimals, overtime cells blank without overtime; cells neutralised).
+- `/salary?month=` with a **Salary** tab in the owner nav (owner + support; CSV button owner only): month arrows,
+  four totals, the table with a total row on a PC, a list with one-line summaries on a phone (mock-ups 1 and 3).
+- **Checking panel** (`src/app/salary/check-panel.tsx`, client only, no API): Auto vs Yours boxes, recalculated at
+  each keystroke with `panelInput` (new in `src/lib/salary.ts`: typed days / hours / rupees → `monthPay` input; an
+  empty box = auto; "Paid leave" is the leave allowed) + `monthPay`; days check line, difference line, Reset.
+- **Changes from the mock-ups (made while building):** the page column is 768 px wide, so on a PC the panel opens as
+  a **drawer from the right** (not beside the table), and the table block widens past the column (centred, up to
+  1200 px) so all 12 columns fit. The Paid column comes in Phase 5.
+- Tests: Attendance 237 (+7, `test/salary-tab.test.ts`: a mixed plant with the worked example, a part month, no
+  overtime, a −₹2,100 carry, someone who left and someone without salary; CSV; access; the panel's +₹120 example).
+- Checked on `pnpm dev` (plant 002 with Attendance switched on for the check, a temporary owner + 3 workers, headless
+  Chromium at 1280 and 390 px): totals and "carries to November", typing 16 overtime hours → "₹120 more than auto",
+  a wrong day count shown in amber, Reset, the CSV download, the phone list and full-screen panel, no sideways
+  scroll; the worker gets 404 on `/salary`, 403 on the CSV, and no "₹". Everything removed afterwards and plant
+  002's module list restored.
+
+## 2026-10-17: Salary Phase 5 (Paid and the worker's slip)
+- `src/server/salary-pay.ts`: `payMonth` (`POST /api/salary/pay`, owner only): allowed from the month's last day
+  (India date, database clock); paid-on not in the future; inside the person's lock: 409 if a payment that isn't
+  undone exists ("Already marked paid by …"), the figures are worked out again and must equal the page's remaining
+  (409 "The figures changed since the page loaded (now ₹X)…"), then a `salary_payments` row with `paid_paise` =
+  remaining or 0 and the **frozen figures** (`freezeMonth` in `src/server/salary.ts`: setting, counted days, counts,
+  advance entries, the full `monthPay` input and result, `RULES_VERSION`). `undoPayment` (`POST
+  /api/salary/pay/undo`, reason 3-300, once, 409 after). Audited `salary.paid` / `salary.unpaid`.
+- Salary tab: paid rows show the frozen figures (the panel checks those too); Paid column ("Mark paid" from the last
+  day, "✓ Paid 30 Sept" + Undo), "N of M paid", "Changed after payment: +₹400 → October", "Adjustment from September:
+  +₹400", totals "Paid ₹X · still to pay ₹Y"; on a phone Mark paid / Undo sit at the bottom of the checking panel.
+  The confirm dialog (mock-up 6) is drawn at the end of the page (a portal): the widened table uses a CSS transform,
+  which would otherwise trap it.
+- Worker (`src/server/salary-slip.ts`): `canSeeOwnSalary` (Plant staff + the newest "Can see own salary" row on),
+  `myPayments` / `mySlip` from the frozen figures only; every other case 404. `/my/salary` (paid months, newest
+  first) and `/my/salary/<YYYY-MM>` (mock-up 7); "My attendance · My salary" tabs only with permission.
+- `salary_paid` (`notify.ts`): to the worker only (`also_user_ids` + `only_listed`), only with permission, not when an
+  owner pays themselves, dedupe `paid:<payment id>`, after the answer through `kit.notify` (outbox on failure).
+- Tests: Attendance 248 (+11, `test/salary-pay.test.ts`).
+- Checked on `pnpm dev` (plant 002 with Attendance switched on for the check, temporary owner + two workers,
+  September data): both months marked paid through the dialog; the worker with permission saw the tabs, the list and
+  the slip (₹9,440, matching mock-up 7) and got the bell; the one without saw attendance only, no "₹", 404 on both
+  salary URLs; Undo and paying again through the page; Recent changes. Found and fixed: the dialog was trapped
+  inside the widened table (now a portal); "Paying now" showed a rounded rupee (now the exact amount). Everything
+  removed afterwards and plant 002's module list restored.
+
+## 2026-10-17: Salary Phase 6 (worker counts, month-end review, support)
+- `monthStatuses` (`src/server/salary.ts`): present / half / absent and overtime per day from the month's salary
+  setting, **days only** (no amount, rate or shift in the answer); own month `see_own`, others `see_everyone`, else
+  404; null without a setting (the calendar stays plain).
+- Calendars (`calendar.tsx`): half days light amber with "½", absent light red "absent", "+2 h" overtime (only with
+  Gets overtime), "no exit" keeps its own look; the key adds Half day / Absent / overtime. Worker's My attendance
+  (`/` and `/my`) gets a tile row Present · Half days · Absent · Overtime (overtime only with Gets overtime) and "So far:
+  N days counted"; the owner's person calendar shows the same colours.
+- Month-end review (`notify.ts`): `salaryReview` counts no-exit person-days this month (up to yesterday, people on
+  salary) and active Plant staff without a salary; `runDaily` sends it on the month's last day (India date) to the
+  plants from `salary_tenants()` with someone on salary this month; "October salary review today" / "1 day with no
+  exit to fix · 2 people without salary" (or "All set: check the figures and mark them paid"), dedupe
+  `salary_review:<YYYY-MM>`, owners only (the platform decides), outbox on failure.
+- Support: every salary write already refused (tested route by route); the Support access page now names "the Salary
+  tab" and "a person's attendance and salary".
+- Tests: Attendance 258 (+10, `test/salary-worker.test.ts`; `summary.test.ts` updated for the new wording).
+- Checked on `pnpm dev` (plant 002 with Attendance switched on for the check, temporary owner + workers): the daily
+  job run as if on 31 Oct 2026 07:00 IST (scratch script calling the real `runDaily`) sent one review; the owner's
+  bell showed "October salary review today · 1 day with no exit to fix · 2 people without salary"; the worker's
+  calendar at 390 px showed the tiles (9 / 4 / 3 / 6 h), the coloured days and no "₹". The review also reached plant
+  002's real owner Sujata in the dev database (no phone registered): that one test notification was removed with the
+  rest of the test data; plant 002's module list restored.

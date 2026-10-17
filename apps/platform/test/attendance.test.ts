@@ -140,15 +140,20 @@ describe("owner-only alerts", () => {
 });
 
 describe("notification settings", () => {
-  it("the owner sees the three Attendance kinds; outside and no exit are bell only, none urgent", async () => {
+  it("the owner sees the five Attendance kinds; outside and no exit are bell only, none urgent", async () => {
     const list = (await settings(A.adminCookie)).filter((s) => s.kind.startsWith("attendance_salary."));
-    expect(list.map((s) => s.kind).sort()).toEqual(["attendance_salary.corrected", "attendance_salary.no_exit", "attendance_salary.outside"]);
+    expect(list.map((s) => s.kind).sort()).toEqual([
+      "attendance_salary.corrected", "attendance_salary.no_exit", "attendance_salary.outside",
+      "attendance_salary.salary_paid", "attendance_salary.salary_review",
+    ]);
     expect(list.filter((s) => s.bell_only).map((s) => s.kind).sort()).toEqual(["attendance_salary.no_exit", "attendance_salary.outside"]);
     expect(list.some((s) => s.urgent)).toBe(false);
   });
 
-  it("a worker sees only the kind about themselves, and can't set the owners' kinds", async () => {
-    expect((await settings(worker.cookie)).map((s) => s.kind)).toEqual(["attendance_salary.corrected"]);
+  it("a worker sees only the kinds about themselves, and can't set the owners' kinds", async () => {
+    expect((await settings(worker.cookie)).map((s) => s.kind).sort()).toEqual(["attendance_salary.corrected", "attendance_salary.salary_paid"]);
+    expect((await setSetting(worker.cookie, "attendance_salary.salary_paid", "bell")).status).toBe(200);
+    expect((await setSetting(worker.cookie, "attendance_salary.salary_review", "off")).status).toBe(400);
     expect((await setSetting(worker.cookie, "attendance_salary.corrected", "bell")).status).toBe(200);
     expect((await setSetting(worker.cookie, "attendance_salary.outside", "off")).status).toBe(400);
     expect((await setSetting(worker.cookie, "attendance_salary.corrected", "push")).status).toBe(200);

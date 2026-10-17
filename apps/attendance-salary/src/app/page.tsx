@@ -4,6 +4,8 @@ import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
 import { Header } from "./header";
 import { MyMonth } from "./my-month";
+import { MyTabs } from "./my-tabs";
+import { canSeeOwnSalary } from "@/server/salary-slip";
 import { OwnerNav } from "./owner-nav";
 import { TodayView } from "./today";
 import { todayBoard } from "@/server/today";
@@ -32,6 +34,7 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
     return (
       <div className="space-y-4">
         <Header user={user} plant={plant} />
+        {(await canSeeOwnSalary(user)) && <MyTabs attendanceHref="/" current="attendance" />}
         <MyMonth user={user} month={typeof sp.m === "string" ? sp.m : null} base="/" />
       </div>
     );

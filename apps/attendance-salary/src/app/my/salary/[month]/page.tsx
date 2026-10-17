@@ -1,0 +1,100 @@
+import { addMonths, fmtDayLong, fmtMonth } from "@/lib/days";
+import { DAYS_FOR_PAY, halvesText, hoursText, paiseText, rupeesText } from "@/lib/salary";
+import { can } from "@/server/access";
+import { kit } from "@/server/kit";
+import { orNotFound } from "@/server/pages";
+import { mySlip } from "@/server/salary-slip";
+import { requirePageUser } from "@/server/session";
+import { Header } from "../../../header";
+import { MyTabs } from "../../../my-tabs";
+
+const shortDay = (ymd: string) => fmtDayLong(ymd).replace(/^\w+, /, "");
+const monthOnly = (ym: string) => fmtMonth(ym).split(" ")[0];
+
+/**
+ * A worker's salary slip for one paid month (mock-up 7): ONLY the figures frozen when the owner marked it paid. Only
+ * with "Can see own salary", only their own, only paid (not undone) months; 404 in every other case.
+ */
+export default async function MySlipPage({ params }: { params: Promise<{ month: string }> }) {
+  const { month } = await params;
+  const user = await requirePageUser(`/my/salary/${month}`);
+  const [plant, slip] = await Promise.all([kit.branding(user.tenantId), orNotFound(mySlip(user, month))]);
+  const f = slip.figures;
+  const r = f.result;
+  const ot = f.setting.getsOvertime;
+  const line = (label: string, value: string, strong = false) => (
+    <div className={`flex justify-between gap-3 ${strong ? "font-bold" : ""}`}>
+      <span className={strong ? "" : "text-slate-600"}>{label}</span>
+      <span className="tabular-nums">{value}</span>
+    </div>
+  );
+  const tiles: [string, string][] = [
+    ["Present", String(f.counts.present)],
+    ["Half", String(f.counts.half)],
+    ["Absent", String(f.counts.absent)],
+  ];
+  if (ot) tiles.push(["Overtime", `${hoursText(r.otMinutes)} h`]);
+
+  return (
+    <div className="space-y-4">
+      <Header user={user} plant={plant} />
+      <MyTabs attendanceHref={can(user, "see_everyone") ? "/my" : "/"} current="salary" />
+      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="flex items-baseline justify-between gap-2">
+          <h1 className="text-xl font-bold">{fmtMonth(month)}</h1>
+          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800">Paid {shortDay(slip.paidOn)}</span>
+        </div>
+        <div className={`grid gap-1.5 text-center ${tiles.length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
+          {tiles.map(([label, value]) => (
+            <div key={label} className="rounded-lg bg-slate-100 p-1.5">
+              <div className="font-bold">{value}</div>
+              <div className="text-xs text-slate-600">{label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="space-y-1.5 text-sm">
+          {line("Monthly salary", paiseText(f.input.monthlyPaise))}
+          {line(`Absent days (${f.counts.absent} + ${f.counts.half} half)`, halvesText(r.absentHalves))}
+          {line("Paid leave used", `${halvesText(r.leaveUsedHalves)} of ${halvesText(f.input.paidLeaveHalfdays)}`)}
+          {f.input.fullMonth
+            ? line(`Unpaid days ${halvesText(r.unpaidHalves)} × ${paiseText(r.dayPayPaise)}`, r.deductionPaise ? `−${paiseText(r.deductionPaise)}` : "₹0")
+            : line(`Paid days ${halvesText(r.paidHalves)} × ${paiseText(r.dayPayPaise)}`, paiseText(r.earnedPaise))}
+          {line("Salary earned", paiseText(r.earnedPaise), true)}
+          {ot && line(`Overtime ${hoursText(r.otMinutes)} h × ${paiseText(f.input.otRatePaise ?? 0)}`, `+${paiseText(r.otPayPaise)}`)}
+        </div>
+        {f.advances.length > 0 && (
+          <div className="space-y-1 border-t border-slate-100 pt-2 text-sm">
+            <p className="text-xs font-semibold tracking-wide text-slate-600 uppercase">Advances taken</p>
+            {f.advances.map((a, i) => (
+              <div key={i} className="flex justify-between gap-3">
+                <span className="min-w-0 break-words">
+                  {shortDay(a.onDate)}
+                  {a.note ? ` · ${a.note}` : ""}
+                </span>
+                <span className="tabular-nums">{a.amountPaise > 0 ? `−${paiseText(a.amountPaise)}` : `+${paiseText(-a.amountPaise)}`}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {(r.carriedInPaise !== 0 || r.adjustmentPaise !== 0) && (
+          <div className="space-y-1 text-sm">
+            {r.carriedInPaise !== 0 && line(`Carried in from ${monthOnly(addMonths(month, -1))}`, `−${paiseText(r.carriedInPaise)}`)}
+            {r.adjustmentPaise !== 0 && line(`Adjustment from ${monthOnly(f.adjustmentFrom ?? month)}`, `${r.adjustmentPaise > 0 ? "+" : ""}${paiseText(r.adjustmentPaise)}`)}
+          </div>
+        )}
+        <div className="flex justify-between gap-3 border-t border-slate-100 pt-2.5 text-xl font-extrabold">
+          <span>Paid to you</span>
+          <span className="text-(--brand) tabular-nums">{rupeesText(slip.paidPaise)}</span>
+        </div>
+        {slip.remainingPaise < 0 && <p className="text-sm text-red-700">Nothing paid this month: {rupeesText(slip.remainingPaise)} is taken off next month.</p>}
+        <p className="text-xs text-slate-600">
+          Paid on {shortDay(slip.paidOn)} by {slip.byName}
+          {slip.note ? ` · ${slip.note}` : ""}. Day&apos;s pay = {rupeesText(f.input.monthlyPaise)} ÷ {DAYS_FOR_PAY}.
+        </p>
+      </section>
+      <a href="/my/salary" className="block text-sm font-semibold text-(--brand)">
+        ‹ All paid months
+      </a>
+    </div>
+  );
+}
