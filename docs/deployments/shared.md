@@ -26,7 +26,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | WhatsApp | not set up (waiting for Meta approval) |
 | File storage | Railway volume (move to S3-compatible storage + backups before real plant documents) |
 | Backups | nightly 02:00 IST, encrypted (`age`), to Cloudflare R2 bucket `plantops-backup` (`backup.yml`): database dump (30 days, read-only login `plantops_backup`) + Document Store files. Private key in the password manager. Practice restore done 2026-10-11 |
-| Runs release | v0.20.1 (`production` = commit `89d5aae`) |
+| Runs release | v0.21.0 (`production` = commit `f434f67`) |
 
 ## History
 | Date | What |
@@ -54,6 +54,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | 2026-10-16 | v0.18.0 (Attendance) and v0.19.0 (Floor Stock "Made from") live, recorded afterwards during Salary Phase 0: `production` = `b12380b`; `attendance.bluemins.life/health` 200 with the database OK; the owner says Attendance is in use at plant 001. Not recorded at deploy time: the `add-railway-module.sh` run, DNS, the `attendance-salary` service variables, GitHub variable `ATTENDANCE_URL` and a green Daily jobs run with the Attendance step. |
 | 2026-10-17 | v0.20.0 live (Salary): `production` = `340a9bf`, pushed at 05:58 UTC; recorded afterwards with v0.20.1. `railway-migrate.sh shared` (run for v0.20.1) reported every app up to date, so Attendance `0002_salary.sql` is applied. |
 | 2026-10-17 | v0.20.1 live (Order Capture: rate per product line in "Copy as WhatsApp message", note + Amount per order, no grand total; no migration). `git push origin v0.20.1:production` (`89d5aae`). Railway reported all seven services deployed; every `/health` database OK, JWKS 200, Orders login redirect. Not yet tried on screen: copying O-0001 and checking its rates against the order page. |
+| 2026-10-17 | v0.21.0 live (Attendance & Salary: per-day pay). `railway-migrate.sh shared` applied Attendance `0003_per_day_pay.sql` before the deploy (every other app up to date); checked on the live database: `salary_settings` has `pay_basis` (default monthly) and `day_rate_paise` with the new checks, `monthly_paise` may be empty, `attendance_app` still SELECT + INSERT only, all 9 saved settings read monthly. `git push origin v0.21.0:production` (`f434f67`) at 07:14 UTC. Checks: Attendance, Lab, Docs, Stock, Complaints, Orders `/health` database OK; JWKS 200; `/salary` without a session → PlantOps login; `POST /api/salary/settings` without a session 401. Not yet tried on screen: a per-day person at plant 001. |
 
 ## v0.20.0 (Salary): owner's checklist at plant 001
 From `docs/SALARY_PHASE_PLAN.md` Phase 7; how-to in `docs/HANDBOOK.md` "Attendance: salary at month end". Tick each
@@ -67,3 +68,12 @@ when done and date it.
    to pay".
 7. [ ] Tick "Can see own salary" for one person and mark their month Paid: they get "Your salary is paid" and see only
    their own slip; a person without the tick sees attendance only.
+
+## v0.21.0 (per-day pay): owner's step at plant 001
+From `docs/SALARY_EXTRAS_PHASE_PLAN.md` Phase A3; how-to in `docs/HANDBOOK.md` "Attendance: salary at month end"
+(Per-day people). Tick when done and date it.
+1. [ ] Staff → a person paid by the day → Salary box → **Pay: Per day**, type the day rate, shift hours, overtime if
+   any, **from this month** → Save salary. The history line says "per day ₹… · …".
+2. [ ] Salary tab: the person has the "per day" tag and "₹… / day"; tap the name and check the checking panel against
+   the notebook (present days × rate, half days at half).
+
