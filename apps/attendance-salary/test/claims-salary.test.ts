@@ -65,8 +65,8 @@ const range = (a: number, b: number, f: (n: number) => string) => Array.from({ l
 async function claim(u: AtUser, kind: "field_duty" | "expense", onDate: string, value: number, status: "waiting" | "approved" | "rejected" = "approved", note = "for the plant") {
   const id = ((await asApp(
     u.tenantId,
-    `insert into attendance_salary.salary_claims (tenant_id, user_id, user_name, kind, on_date, km_tenths, amount_paise, note, created_by, created_by_name)
-     values ('${u.tenantId}', '${u.userId}', '${u.name}', '${kind}', '${onDate}', ${kind === "field_duty" ? Math.round(value * 10) : "null"}, ${kind === "expense" ? R(value) : "null"}, '${note}', '${u.userId}', '${u.name}') returning id`,
+    `insert into attendance_salary.salary_claims (tenant_id, user_id, user_name, kind, on_date, km_tenths, wants_da, amount_paise, note, created_by, created_by_name)
+     values ('${u.tenantId}', '${u.userId}', '${u.name}', '${kind}', '${onDate}', ${kind === "field_duty" ? Math.round(value * 10) : "null"}, ${kind === "field_duty" ? "true" : "null"}, ${kind === "expense" ? R(value) : "null"}, '${note}', '${u.userId}', '${u.name}') returning id`,
   )).rows[0] as { id: string }).id;
   if (status !== "waiting") {
     await asApp(u.tenantId, `insert into attendance_salary.salary_claim_decisions (tenant_id, claim_id, decision, reason, created_by, created_by_name) values ('${u.tenantId}', '${id}', '${status}', ${status === "rejected" ? "'no bill'" : "null"}, gen_random_uuid(), 'Sujata')`);
@@ -161,7 +161,7 @@ describe("paid months and the slip", () => {
     // 12,000 + TA 60 km × ₹3 = ₹180 + DA 2 × ₹150 = ₹300 + ₹450 = ₹12,930
     await payMonth(p.owner, { user_id: w.userId, month: "2026-09", paid_on: "2026-09-30", note: "UPI", expect_remaining: R(12930) } as never);
     const slip = await mySlip(w, "2026-09");
-    expect(slip.figures).toMatchObject({ rules: 3, fieldDutyDays: 2, kmTenths: 600 });
+    expect(slip.figures).toMatchObject({ rules: 4, fieldDutyDays: 2, kmTenths: 600 });
     expect(slip.figures.claims.map((c) => [c.kind, c.onDate])).toEqual([["field_duty", sep(3)], ["expense", sep(12)], ["field_duty", sep(17)]]);
     signInAs(w);
     const text = textOf(await MySlipPage({ params: Promise.resolve({ month: "2026-09" }) })).replace(/\s+/g, " ");

@@ -177,6 +177,8 @@ export const salaryClaims = at.table("salary_claims", {
   kind: text("kind").$type<ClaimKind>().notNull(),
   onDate: day("on_date").notNull(),
   kmTenths: integer("km_tenths"),
+  /** field duty: "Ask for DA" (migration 0007); null on an expense */
+  wantsDa: boolean("wants_da"),
   amountPaise: money("amount_paise"),
   note: text("note").notNull(),
   createdBy: uuid("created_by").notNull(),

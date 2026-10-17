@@ -464,6 +464,13 @@ describe("claims (rules 16-19)", () => {
     expect(claimTotals([duty("2026-10-05", 0)], rates)).toMatchObject({ taPaise: 0, daPaise: R(150) });
   });
 
+  it("B5a. 'Ask for DA' unticked: TA for the km, no DA that day; old claims without the choice still get DA", () => {
+    const noDa = { ...duty("2026-10-06", 30), wantsDa: false };
+    const t = claimTotals([duty("2026-10-05", 42), noDa, { ...duty("2026-10-07", 0), wantsDa: null }], rates);
+    expect(t).toMatchObject({ fieldDutyDays: 3, daDays: 2, kmTenths: 720, taPaise: R(216), daPaise: R(300) });
+    expect(t.counted.map((c) => c.wantsDa)).toEqual([true, false, true]);
+  });
+
   it("B6. waiting, not approved, withdrawn and cancelled claims count 0", () => {
     for (const status of ["waiting", "rejected", "withdrawn", "cancelled"] as const) {
       const t = claimTotals([duty("2026-10-05", 42, status), expense("2026-10-06", 450, status)], rates);

@@ -52,6 +52,8 @@ export interface TabRow {
   kmRatePaise: number | null;
   daDayPaise: number | null;
   fieldDutyDays: number;
+  /** of those, the days with DA ("Ask for DA") */
+  daDays: number;
   kmTenths: number;
   claimsWaiting: number;
 }
@@ -132,6 +134,7 @@ export async function salaryTab(user: AtUser, month: string, now: Date = new Dat
       kmRatePaise: frozen ? frozen.setting.kmRatePaise : c.setting.kmRatePaise,
       daDayPaise: frozen ? frozen.setting.daDayPaise : c.setting.daDayPaise,
       fieldDutyDays: frozen ? frozen.fieldDutyDays : c.claimTotals.fieldDutyDays,
+      daDays: frozen ? frozen.daDays : c.claimTotals.daDays,
       kmTenths: frozen ? frozen.kmTenths : c.claimTotals.kmTenths,
       claimsWaiting: c.claimTotals.waiting,
     });
@@ -184,7 +187,7 @@ export const SALARY_CSV_HEADER = [
   "Monthly salary", "Pay basis", "Staff type", "Day rate", "Shift hours", "Paid leave allowed (days)",
   "Present", "Half days", "Absent", "Paid leave used (days)", "Unpaid days", "Day's pay", "Earned",
   "Overtime", "Overtime hours", "Overtime rate", "Overtime pay",
-  "Field duty days", "Km", "TA rate", "TA", "DA rate", "DA", "Expenses", "Claims waiting",
+  "Field duty days", "Km", "TA rate", "TA", "DA days", "DA rate", "DA", "Expenses", "Claims waiting",
   "Advances", "Carried in", "Adjustment", "Remaining",
 ];
 
@@ -227,6 +230,7 @@ export async function salaryCsv(user: AtUser, month: string, now: Date = new Dat
       kmText(r.kmTenths),
       r.kmRatePaise ? rupees(r.kmRatePaise) : "",
       rupees(x.taPaise),
+      r.daDays,
       r.daDayPaise ? rupees(r.daDayPaise) : "",
       rupees(x.daPaise),
       rupees(x.expensesPaise),

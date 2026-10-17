@@ -251,6 +251,7 @@ export function freezeMonth(c: SalaryMonth): FrozenMonth {
     // rules 16-18: the approved claims that counted (the slip lists them; waiting / not approved ones are left out)
     claims: c.claimTotals.counted,
     fieldDutyDays: c.claimTotals.fieldDutyDays,
+    daDays: c.claimTotals.daDays,
     kmTenths: c.claimTotals.kmTenths,
     adjustmentFrom: c.chain.adjustmentFrom,
     input: payInputOf(c),

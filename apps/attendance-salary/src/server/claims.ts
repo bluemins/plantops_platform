@@ -5,7 +5,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { fileSha256, newStorageKey, sniffType } from "@plantops/module-kit/storage";
 import { addDays, addMonths, istDay, istMonth, monthDays, validDay, validMonth } from "@/lib/days";
-import { firstSalaryMonth, settingFor, toPaise, type Claim, type ClaimKind, type ClaimStatus } from "@/lib/salary";
+import { asksDa, firstSalaryMonth, settingFor, toPaise, type Claim, type ClaimKind, type ClaimStatus } from "@/lib/salary";
 import { can, requireAccess } from "./access";
 import { audit } from "./audit";
 import { schema, withTenant, type AtTx } from "./db";
@@ -79,6 +79,7 @@ export async function loadClaims(tx: AtTx, tenantId: string, opts: { personId?: 
       kind: c.kind,
       onDate: c.onDate,
       kmTenths: c.kmTenths,
+      wantsDa: c.wantsDa,
       amountPaise: c.amountPaise,
       note: c.note,
       status,
@@ -147,6 +148,8 @@ export const ClaimInput = z.object({
   on_date: z.string().refine(validDay, "Pick a date"),
   /** field duty: km as typed */
   km: z.string().max(10).nullish(),
+  /** field duty: "Ask for DA" for that day (v0.24.0); not sent = yes */
+  wants_da: z.boolean().nullish(),
   /** expense: rupees as typed */
   amount: z.string().max(20).nullish(),
   note: z.string().max(400),
@@ -169,12 +172,15 @@ export async function insertClaim(tx: AtTx, entered: AtUser, person: { userId: s
   if (entered.userId === person.userId && !mayClaim(entered, setting)) throw badRequest(NOT_FIELD_STAFF);
 
   let kmTenths: number | null = null;
+  let wantsDa: boolean | null = null;
   let amountPaise: number | null = null;
   if (input.kind === "field_duty") {
     if (!hasFieldDutyRate(setting)) throw badRequest("No TA or DA rate is set for that month. Ask the owner.");
     const km = (input.km ?? "").trim();
     if (!KM_RE.test(km)) throw badRequest("Km: 0 to 9999.9, at most one decimal (42 or 42.5)");
     kmTenths = Math.round(Number(km) * 10);
+    wantsDa = input.wants_da ?? true;
+    if (!wantsDa && kmTenths === 0) throw badRequest("With 0 km and no DA there is nothing to claim");
     // one waiting-or-approved field duty per person and date
     const same = await loadClaims(tx, entered.tenantId, { personId: person.userId, from: input.on_date, to: input.on_date });
     if (same.some((c) => c.kind === "field_duty" && (c.status === "waiting" || c.status === "approved"))) {
@@ -189,7 +195,7 @@ export async function insertClaim(tx: AtTx, entered: AtUser, person: { userId: s
 
   const [row] = await tx
     .insert(salaryClaims)
-    .values({ tenantId: entered.tenantId, userId: person.userId, userName: person.name.slice(0, 100), kind: input.kind, onDate: input.on_date, kmTenths, amountPaise, note, createdBy: entered.userId, createdByName: by(entered) })
+    .values({ tenantId: entered.tenantId, userId: person.userId, userName: person.name.slice(0, 100), kind: input.kind, onDate: input.on_date, kmTenths, wantsDa, amountPaise, note, createdBy: entered.userId, createdByName: by(entered) })
     .returning();
   const approvedAtOnce = entered.isOwner;
   if (approvedAtOnce) {
@@ -200,6 +206,7 @@ export async function insertClaim(tx: AtTx, entered: AtUser, person: { userId: s
     kind: input.kind,
     on: input.on_date,
     km: kmTenths,
+    da: wantsDa,
     amount: amountPaise,
     note,
     approved: approvedAtOnce,
@@ -228,7 +235,8 @@ export interface MyClaimsView {
   claims: ClaimRow[];
   /** each claim's bill photos (ids, oldest first) */
   photos: Record<string, string[]>;
-  approved: { fieldDutyDays: number; kmTenths: number; expensesPaise: number };
+  /** daDays: approved field-duty days that asked for DA (days, never rupees) */
+  approved: { fieldDutyDays: number; daDays: number; kmTenths: number; expensesPaise: number };
   waiting: number;
 }
 
@@ -271,6 +279,7 @@ export async function myClaims(user: AtUser, month: string | null, now: Date = n
       photos,
       approved: {
         fieldDutyDays: new Set(approved.filter((c) => c.kind === "field_duty").map((c) => c.onDate)).size,
+        daDays: new Set(approved.filter(asksDa).map((c) => c.onDate)).size,
         kmTenths: approved.reduce((sum, c) => sum + (c.kmTenths ?? 0), 0),
         expensesPaise: approved.reduce((sum, c) => sum + (c.amountPaise ?? 0), 0),
       },
@@ -425,7 +434,7 @@ async function withRates(tx: AtTx, tenantId: string, claims: ClaimRow[]): Promis
       ...c,
       kmRatePaise: s?.kmRatePaise ?? null,
       taPaise: duty && s?.kmRatePaise ? Math.round(((c.kmTenths ?? 0) * s.kmRatePaise) / 10) : null,
-      daPaise: duty && s?.daDayPaise ? s.daDayPaise : null,
+      daPaise: duty && s?.daDayPaise ? (asksDa(c) ? s.daDayPaise : 0) : null,
       photoIds: photos.get(c.id) ?? [],
     };
   });

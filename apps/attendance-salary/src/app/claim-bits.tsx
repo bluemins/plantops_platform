@@ -1,4 +1,4 @@
-import { kmText, type ClaimStatus } from "@/lib/salary";
+import { asksDa, kmText, type ClaimStatus } from "@/lib/salary";
 import type { ClaimRow } from "@/server/claims";
 
 /** "18 Oct" */
@@ -21,8 +21,8 @@ export function StatusPill({ status }: { status: ClaimStatus }) {
 
 /** "Field duty · 18 Oct" / "Expense · 16 Oct" */
 export const claimHeading = (c: ClaimRow) => `${c.kind === "field_duty" ? "Field duty" : "Expense"} · ${shortDay(c.onDate)}`;
-/** "42 km" / "₹450": what the person typed (never TA / DA rupees). */
-export const claimValue = (c: ClaimRow) => (c.kind === "field_duty" ? `${kmText(c.kmTenths ?? 0)} km` : typedRupees(c.amountPaise ?? 0));
+/** "42 km · DA asked" / "42 km · no DA" / "₹450": what the person typed (never TA / DA rupees). */
+export const claimValue = (c: ClaimRow) => (c.kind === "field_duty" ? `${kmText(c.kmTenths ?? 0)} km · ${asksDa(c) ? "DA asked" : "no DA"}` : typedRupees(c.amountPaise ?? 0));
 
 /** The reason line under a "not approved" or "cancelled" claim. */
 export function DecisionLine({ c }: { c: ClaimRow }) {

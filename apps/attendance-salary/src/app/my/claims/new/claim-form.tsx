@@ -11,7 +11,7 @@ const label = "block space-y-1.5 text-[15px] font-semibold text-slate-800";
 const hint = "block text-sm font-normal text-slate-600";
 
 /**
- * A claim from the phone: the worker's own, or - with `person` - the owner entering one for someone (approved at once). Field duty: date, km (0 = DA only), where / what for. Expense: date, amount,
+ * A claim from the phone: the worker's own, or - with `person` - the owner entering one for someone (approved at once). Field duty: date, km (0 = DA only), "Ask for DA" (ticked; untick = TA only), where / what for. Expense: date, amount,
  * what for, up to 3 bill photos (shrunk on the phone first). The claim is saved first, then each photo is sent; a photo
  * that fails can be sent again from My claims within 24 hours.
  */
@@ -20,6 +20,7 @@ export function ClaimForm({ kind, today, earliest, person }: { kind: "field_duty
   const pick = useRef<HTMLInputElement>(null);
   const [date, setDate] = useState(today);
   const [km, setKm] = useState("");
+  const [wantsDa, setWantsDa] = useState(true);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [photos, setPhotos] = useState<Pick[]>([]);
@@ -38,7 +39,7 @@ export function ClaimForm({ kind, today, earliest, person }: { kind: "field_duty
   async function send() {
     setBusy(true);
     setError(undefined);
-    const claim = { kind, on_date: date, km: duty ? km : null, amount: duty ? null : amount, note };
+    const claim = { kind, on_date: date, km: duty ? km : null, wants_da: duty ? wantsDa : null, amount: duty ? null : amount, note };
     const r = await api<{ id: string }>(person ? "/api/claims/enter" : "/api/claims", { body: person ? { ...claim, user_id: person.userId } : claim });
     if (!r.ok) {
       setBusy(false);
@@ -79,6 +80,15 @@ export function ClaimForm({ kind, today, earliest, person }: { kind: "field_duty
           <span>Km travelled</span>
           <input className={field} inputMode="decimal" value={km} onChange={(e) => setKm(e.target.value)} placeholder="e.g. 42" />
           <span className={hint}>Put 0 if you were on field duty without travelling</span>
+        </label>
+      ) : null}
+      {duty ? (
+        <label className="flex min-h-12 items-center gap-3 rounded-xl border border-slate-300 bg-white px-3 py-2.5">
+          <input type="checkbox" className="h-6 w-6 shrink-0 accent-(--brand)" checked={wantsDa} onChange={(e) => setWantsDa(e.target.checked)} />
+          <span className="text-[15px] font-semibold text-slate-800">
+            Ask for DA (food allowance) for this day
+            <span className={hint}>{wantsDa ? "Untick if you ate at home" : "No DA for this day: only TA for the km"}</span>
+          </span>
         </label>
       ) : (
         <label className={label}>

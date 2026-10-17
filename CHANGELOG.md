@@ -4,6 +4,18 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.24.0 — 2026-10-17 — Attendance & Salary: "Ask for DA" on a field duty
+
+**What's in it**
+- The Field duty form has a tick box **"Ask for DA (food allowance) for this day"**, ticked by default. Unticked = TA
+  for the km only, no DA that day (e.g. ate at home). Also on the owner's entry for someone. 0 km with no DA is refused.
+- DA counts only the approved field-duty days that asked for it. Claim cards show "DA asked" / "no DA"; the owner's
+  card "no DA asked"; slip and checking panel "DA N days"; CSV column "DA days"; the "new claim" alert ends ", no DA".
+
+**Migrations:** Attendance `0007_claim_wants_da.sql`: `salary_claims.wants_da` (yes / no on a field duty, empty on an
+expense, with a check); every field duty already saved is set to yes, so nothing counted or paid changes. Grants
+unchanged (SELECT + INSERT). SSO token unchanged.
+
 ## v0.23.0 — 2026-10-17 — Attendance & Salary: Office staff and Supervisor
 
 **What's in it**

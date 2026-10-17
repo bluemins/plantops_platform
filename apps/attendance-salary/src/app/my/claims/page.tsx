@@ -66,6 +66,7 @@ export default async function MyClaimsPage({ searchParams }: { searchParams: Sea
         Approved this month:{" "}
         <strong>
           field duty {a.fieldDutyDays} {a.fieldDutyDays === 1 ? "day" : "days"} · {kmText(a.kmTenths)} km
+          {a.daDays !== a.fieldDutyDays && <> · DA {a.daDays} {a.daDays === 1 ? "day" : "days"}</>}
         </strong>{" "}
         · <strong>expenses {typedRupees(a.expensesPaise)}</strong>
         {v.waiting > 0 && <> · {v.waiting} waiting</>}

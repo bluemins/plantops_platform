@@ -662,3 +662,19 @@ Plan: `docs/ATTENDANCE_ROLES_PHASE_PLAN.md` "Platform screens".
   `summary.test.ts`). Checked on `pnpm dev` (plant 002, temporary users and dev sessions, all removed): Manage users
   with the two role buttons, Permissions with the key, the Office staff launcher ("Attendance desk"), the
   Supervisor's notification page with its alert and the two settings.
+
+## 2026-10-17: "Ask for DA" on a field duty (v0.24.0)
+Asked by the owner 2026-10-17: a field-duty person sometimes eats at home, so they choose per day whether to ask for DA.
+- **Database:** migration `0007_claim_wants_da.sql` (approved by the owner): `salary_claims.wants_da`, yes / no on a
+  field duty, empty on an expense (check `salary_claims_wants_da_check`); every field duty saved before is set to yes,
+  so nothing counted or paid changes. Grants unchanged (SELECT + INSERT): the choice is fixed once sent; a mistake is
+  withdrawn while waiting and sent again.
+- **Rule 17 now:** DA = the dates with approved field duty **that asked for DA** × the DA rate (`daDays` in
+  `claimTotals`, `asksDa()` in `src/lib/salary.ts`); TA unchanged (all approved km). `RULES_VERSION` 4; months frozen
+  with `rules: 3` read `daDays` = `fieldDutyDays` (every field-duty day had DA then). Missing / null `wantsDa` = asked.
+- **Screens:** Field duty form tick box "Ask for DA (food allowance) for this day", ticked by default (owner), also on
+  the owner's entry for someone; 0 km with no DA is refused ("nothing to claim"). Claim cards "42 km · DA asked" / "42
+  km · no DA"; the owner's card "no DA asked" instead of the DA rupees; My claims "· DA N days" when it differs from
+  the field-duty days; slip and checking panel "DA N days"; CSV gains a "DA days" column after "TA"; the owners' "new
+  claim" title ends ", no DA".
+- Tests: Attendance 418 (+4: rule B5a, API 8a, two database checks).

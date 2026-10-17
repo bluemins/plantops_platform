@@ -10,7 +10,7 @@ const SALARY_COLUMNS: Record<string, string[]> = {
   salary_advances: ["id", "tenant_id", "user_id", "user_name", "on_date", "amount_paise", "note", "corrects_id", "reason", "created_by", "created_by_name", "created_at"],
   salary_claim_decisions: ["id", "tenant_id", "claim_id", "decision", "reason", "created_by", "created_by_name", "created_at"],
   salary_claim_files: ["id", "tenant_id", "claim_id", "storage_key", "content_type", "size_bytes", "sha256", "created_by", "created_by_name", "created_at"],
-  salary_claims: ["id", "tenant_id", "user_id", "user_name", "kind", "on_date", "km_tenths", "amount_paise", "note", "created_by", "created_by_name", "created_at"],
+  salary_claims: ["id", "tenant_id", "user_id", "user_name", "kind", "on_date", "km_tenths", "amount_paise", "note", "created_by", "created_by_name", "created_at", "wants_da"],
   salary_payment_undos: ["id", "tenant_id", "payment_id", "reason", "created_by", "created_by_name", "created_at"],
   salary_payments: ["id", "tenant_id", "user_id", "user_name", "month", "paid_on", "paid_paise", "remaining_paise", "figures", "note", "created_by", "created_by_name", "created_at"],
   salary_settings: ["id", "tenant_id", "user_id", "user_name", "from_month", "monthly_paise", "shift_minutes", "paid_leave_halfdays", "gets_overtime", "ot_rate_paise", "joined_on", "left_on", "reason", "created_by", "created_by_name", "created_at", "pay_basis", "day_rate_paise", "km_rate_paise", "da_day_paise", "field_staff", "staff_type"],
@@ -85,7 +85,7 @@ describe("append-only for attendance_app", () => {
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(150); // + field_staff (0005), staff_type (0006)
+    expect(list.length).toBe(151); // + field_staff (0005), staff_type (0006), wants_da (0007)
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 
@@ -334,11 +334,11 @@ describe("database checks on claims", () => {
   const other = plant();
 
   const claim = (over: Record<string, string> = {}, tenant = tp) => {
-    const v = { kind: "'field_duty'", km: "420", amount: "null", note: "'Cuttack delivery'", ...over };
+    const v = { kind: "'field_duty'", km: "420", da: over.kind === "'expense'" ? "null" : "true", amount: "null", note: "'Cuttack delivery'", ...over };
     return asApp(
       tenant,
-      `insert into attendance_salary.salary_claims (tenant_id, user_id, user_name, kind, on_date, km_tenths, amount_paise, note, created_by, created_by_name)
-       values ('${tenant}', '${worker}', 'Anmol', ${v.kind}, '2026-10-18', ${v.km}, ${v.amount}, ${v.note}, ${by}) returning id`,
+      `insert into attendance_salary.salary_claims (tenant_id, user_id, user_name, kind, on_date, km_tenths, wants_da, amount_paise, note, created_by, created_by_name)
+       values ('${tenant}', '${worker}', 'Anmol', ${v.kind}, '2026-10-18', ${v.km}, ${v.da}, ${v.amount}, ${v.note}, ${by}) returning id`,
     );
   };
   const newClaim = async (over: Record<string, string> = {}, tenant = tp) => ((await claim(over, tenant)).rows[0] as { id: string }).id;
@@ -373,6 +373,8 @@ describe("database checks on claims", () => {
   it.each([
     ["field duty with an amount", { amount: "45000" }],
     ["field duty without km", { km: "null" }],
+    ["field duty without 'Ask for DA' (0007)", { da: "null" }],
+    ["an expense with 'Ask for DA' (0007)", { kind: "'expense'", km: "null", amount: "45000", da: "true" }],
     ["an expense with km", { kind: "'expense'", amount: "45000" }],
     ["an expense without an amount", { kind: "'expense'", km: "null" }],
     ["an expense of ₹0", { kind: "'expense'", km: "null", amount: "0" }],

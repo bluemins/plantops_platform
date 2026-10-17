@@ -145,13 +145,13 @@ const amountText = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN"
  * 6. A worker sent a claim: to the owners (the platform picks them; Attendance is owner-only). Never for an owner's own
  * entries. The worker typed the amount / km themselves, so they are in the text; no TA / DA rupees.
  */
-export function claimNewNotification(worker: AtUser, claim: { id: string; kind: "field_duty" | "expense"; onDate: string; kmTenths: number | null; amountPaise: number | null; note: string }): NotificationInput {
+export function claimNewNotification(worker: AtUser, claim: { id: string; kind: "field_duty" | "expense"; onDate: string; kmTenths: number | null; wantsDa?: boolean | null; amountPaise: number | null; note: string }): NotificationInput {
   return {
     kind: "attendance_salary.claim_new",
     title: title(
       claim.kind === "expense"
         ? `Expense from ${worker.name}: ${amountText(claim.amountPaise ?? 0)}`
-        : `Field duty from ${worker.name}: ${shortDay(claim.onDate)}, ${(claim.kmTenths ?? 0) / 10} km`,
+        : `Field duty from ${worker.name}: ${shortDay(claim.onDate)}, ${(claim.kmTenths ?? 0) / 10} km${claim.wantsDa === false ? ", no DA" : ""}`,
     ),
     body: body(claim.note),
     link: "/claims?status=waiting",

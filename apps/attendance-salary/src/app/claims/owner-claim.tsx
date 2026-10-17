@@ -1,6 +1,6 @@
 import { istDay } from "@/lib/days";
 import { fmtTime } from "@/lib/punch";
-import { kmText, paiseText } from "@/lib/salary";
+import { asksDa, kmText, paiseText } from "@/lib/salary";
 import type { OwnerClaim } from "@/server/claims";
 import { claimHeading, claimValue, DecisionLine, shortDay, StatusPill, Thumbs } from "../claim-bits";
 import { Decide } from "./decide";
@@ -17,7 +17,7 @@ export function OwnerClaimCard({ c, canDecide, showName = true }: { c: OwnerClai
   const rates: string[] = [];
   if (duty) {
     rates.push(c.taPaise !== null ? `TA ${paiseText(c.taPaise)} (${kmText(c.kmTenths ?? 0)} km × ${paiseText(c.kmRatePaise ?? 0)})` : "no TA rate");
-    rates.push(c.daPaise !== null ? `DA ${paiseText(c.daPaise)}` : "no DA rate");
+    rates.push(!asksDa(c) ? "no DA asked" : c.daPaise !== null ? `DA ${paiseText(c.daPaise)}` : "no DA rate");
   }
   const sent = `${c.createdBy === c.userId ? "Sent" : `Entered by ${c.createdByName}`} ${shortDay(istDay(c.createdAt))}, ${fmtTime(c.createdAt)}`;
   return (

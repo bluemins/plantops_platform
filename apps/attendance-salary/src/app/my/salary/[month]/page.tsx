@@ -74,7 +74,7 @@ export default async function MySlipPage({ params }: { params: Promise<{ month: 
             <p className="text-xs font-semibold tracking-wide text-slate-600 uppercase">Field duty</p>
             {line("Field duty", `${f.fieldDutyDays} ${f.fieldDutyDays === 1 ? "day" : "days"} · ${kmText(f.kmTenths)} km`)}
             {r.taPaise !== 0 && line(`TA ${kmText(f.kmTenths)} km × ${paiseText(f.setting.kmRatePaise ?? 0)}`, `+${paiseText(r.taPaise)}`)}
-            {r.daPaise !== 0 && line(`DA ${f.fieldDutyDays} ${f.fieldDutyDays === 1 ? "day" : "days"} × ${paiseText(f.setting.daDayPaise ?? 0)}`, `+${paiseText(r.daPaise)}`)}
+            {r.daPaise !== 0 && line(`DA ${f.daDays} ${f.daDays === 1 ? "day" : "days"} × ${paiseText(f.setting.daDayPaise ?? 0)}`, `+${paiseText(r.daPaise)}`)}
           </div>
         )}
         {f.claims.some((c) => c.kind === "expense") && (

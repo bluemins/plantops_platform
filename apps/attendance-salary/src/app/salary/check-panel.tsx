@@ -108,7 +108,7 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
         {line("Salary earned", paiseText(yours.earnedPaise), true)}
         {row.getsOvertime && line(`Overtime ${hoursText(yours.otMinutes)} h × ${paiseText(yin.otRatePaise ?? 0)}`, `+${paiseText(yours.otPayPaise)}`)}
         {yours.taPaise !== 0 && line(`TA${row.kmTenths ? ` (${kmText(row.kmTenths)} km)` : ""}`, `+${paiseText(yours.taPaise)}`)}
-        {yours.daPaise !== 0 && line(`DA${row.fieldDutyDays ? ` (${row.fieldDutyDays} ${row.fieldDutyDays === 1 ? "day" : "days"})` : ""}`, `+${paiseText(yours.daPaise)}`)}
+        {yours.daPaise !== 0 && line(`DA${row.daDays ? ` (${row.daDays} ${row.daDays === 1 ? "day" : "days"})` : ""}`, `+${paiseText(yours.daPaise)}`)}
         {yours.expensesPaise !== 0 && line("Expenses", `+${paiseText(yours.expensesPaise)}`)}
         {line("Advances", `−${paiseText(yours.advancesPaise)}`)}
         {line(`Carried in from ${fmtMonth(row.prevMonth)}`, yours.carriedInPaise ? `−${paiseText(yours.carriedInPaise)}` : "₹0")}

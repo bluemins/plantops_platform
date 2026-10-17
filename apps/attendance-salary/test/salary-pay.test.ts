@@ -270,7 +270,7 @@ describe("a per-day month on the worker's slip", () => {
     await saveVisibility(p.owner, { user_id: p.worker.userId, can_see: true, expect: null });
     await payMonth(p.owner, { user_id: p.worker.userId, month: SEP, paid_on: "2026-09-30", note: "Cash", expect_remaining: R(29 * 450) } as never);
     const slip = await mySlip(p.worker, SEP);
-    expect(slip.figures).toMatchObject({ rules: 3, setting: { payBasis: "per_day", dayRatePaise: R(450) } });
+    expect(slip.figures).toMatchObject({ rules: 4, setting: { payBasis: "per_day", dayRatePaise: R(450) } });
     signInAs(p.worker);
     const text = textOf(await MySlipPage({ params: Promise.resolve({ month: SEP }) })).replace(/\s+/g, " ");
     expect(text).toContain("29 present + 0 half days (29 days) × ₹450");

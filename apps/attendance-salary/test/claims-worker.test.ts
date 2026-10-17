@@ -172,6 +172,27 @@ describe("the claim's own rules", () => {
   });
 });
 
+describe("Ask for DA (v0.24.0)", () => {
+  it("8a. unticked: saved as no DA, the owners' alert says so, approved it counts no DA day; 0 km without DA is refused", async () => {
+    const p = setup();
+    await setting(p.worker);
+    signInAs(p.worker);
+    const res = await claimsRoute.POST(jsonReq("POST", "/api/claims", duty({ wants_da: false })), undefined as never);
+    const { id } = (await res.json()) as { id: string };
+    await sendClaim(p.worker, duty({ on_date: addDays(TODAY, -1) })); // not sent = asked, as before
+    const { rows } = await asOwner("select on_date::text as d, wants_da from attendance_salary.salary_claims where tenant_id = $1 order by on_date", [p.tenantId]);
+    expect(rows.map((r) => r.wants_da)).toEqual([true, false]);
+    await settle();
+    expect(sent(p.tenantId)[0]!.title).toMatch(/^Field duty from Ramu: \d+ \w+, 42 km, no DA$/);
+    expect((await refusal(() => sendClaim(p.worker, duty({ km: "0", wants_da: false, on_date: addDays(TODAY, -2) })))).message).toBe("With 0 km and no DA there is nothing to claim");
+    const mine = (await myClaims(p.worker, null)).claims.find((c) => c.id === id)!;
+    expect(mine.wantsDa).toBe(false);
+    for (const c of (await myClaims(p.worker, null)).claims) await decide(p.worker, c.id, "approved");
+    expect((await myClaims(p.worker, null)).approved).toMatchObject({ fieldDutyDays: TODAY.slice(0, 7) === addDays(TODAY, -1).slice(0, 7) ? 2 : 1 });
+    expect((await myClaims(p.worker, null)).approved.daDays).toBe(TODAY.slice(0, 7) === addDays(TODAY, -1).slice(0, 7) ? 1 : 0);
+  });
+});
+
 describe("withdraw", () => {
   it("9. only your own waiting claim; someone else's is 404; a decided one is 409", async () => {
     const p = setup();
@@ -276,7 +297,7 @@ describe("My claims", () => {
     expect(page).toContain("₹450");
     expect(page).toContain("+ Field duty");
     expect(page).toMatch(/field duty 1 day · 42 km/);
-    expect(page).not.toMatch(/₹126|₹150|TA |DA /); // 42 km × ₹3 and the DA: never shown to the worker
+    expect(page).not.toMatch(/₹126|₹150|TA ₹|DA ₹/); // 42 km × ₹3 and the DA: never shown to the worker
     expect(page).not.toContain("777"); // nobody else's claims
     expect(page).not.toContain("Gaja");
   });

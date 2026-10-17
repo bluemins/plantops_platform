@@ -175,7 +175,7 @@ describe("per-day pay from the database (Salary extras rule 15)", () => {
     expect(nov!.chain.live).toMatchObject({ dayPayPaise: R(450), leaveUsedHalves: 0, earnedPaise: R(21 * 450), remainingPaise: R(9450) });
     // a per-day month frozen now carries the rules version and the pay basis
     const f = freezeMonth(nov!);
-    expect(f).toMatchObject({ rules: 3, setting: { payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450) }, input: { payBasis: "per_day", monthlyPaise: 0, dayRatePaise: R(450) } });
+    expect(f).toMatchObject({ rules: 4, setting: { payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450) }, input: { payBasis: "per_day", monthlyPaise: 0, dayRatePaise: R(450) } });
   });
 
   it("28. a slip frozen before per-day pay (rules 1) still opens, as monthly", async () => {
@@ -209,8 +209,8 @@ describe("claims from the database (Salary extras rules 16-19)", () => {
   const claim = async (u: AtUser, kind: "field_duty" | "expense", onDate: string, value: number, by = u) =>
     ((await asApp(
       u.tenantId,
-      `insert into attendance_salary.salary_claims (tenant_id, user_id, user_name, kind, on_date, km_tenths, amount_paise, note, created_by, created_by_name)
-       values ('${u.tenantId}', '${u.userId}', '${u.name}', '${kind}', '${onDate}', ${kind === "field_duty" ? Math.round(value * 10) : "null"}, ${kind === "expense" ? R(value) : "null"}, 'for the plant', '${by.userId}', '${by.name}') returning id`,
+      `insert into attendance_salary.salary_claims (tenant_id, user_id, user_name, kind, on_date, km_tenths, wants_da, amount_paise, note, created_by, created_by_name)
+       values ('${u.tenantId}', '${u.userId}', '${u.name}', '${kind}', '${onDate}', ${kind === "field_duty" ? Math.round(value * 10) : "null"}, ${kind === "field_duty" ? "true" : "null"}, ${kind === "expense" ? R(value) : "null"}, 'for the plant', '${by.userId}', '${by.name}') returning id`,
     )).rows[0] as { id: string }).id;
   const decide = (u: AtUser, claimId: string, decision: string, reason: string | null = null) =>
     asApp(u.tenantId, `insert into attendance_salary.salary_claim_decisions (tenant_id, claim_id, decision, reason, created_by, created_by_name) values ('${u.tenantId}', '${claimId}', '${decision}', ${reason ? `'${reason}'` : "null"}, gen_random_uuid(), 'Sujata')`);
@@ -248,7 +248,7 @@ describe("claims from the database (Salary extras rules 16-19)", () => {
     expect(oct.chain.live).toMatchObject({ earnedPaise: R(11200), otPayPaise: R(840), advancesPaise: R(3000), remainingPaise: R(12136) });
     // frozen now: rules 3, the eight counted claims and the rates
     const f = freezeMonth(oct);
-    expect(f).toMatchObject({ rules: 3, fieldDutyDays: 6, kmTenths: 1820, setting: { kmRatePaise: R(3), daDayPaise: R(150) } });
+    expect(f).toMatchObject({ rules: 4, fieldDutyDays: 6, kmTenths: 1820, setting: { kmRatePaise: R(3), daDayPaise: R(150) } });
     expect(f.claims).toHaveLength(8);
   });
 

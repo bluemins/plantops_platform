@@ -9,7 +9,7 @@
 import { monthDays } from "./days";
 
 /** Saved with every payment's frozen figures; raise it whenever a rule here changes. */
-export const RULES_VERSION = 3;
+export const RULES_VERSION = 4;
 /** Rule 7: a day's pay is always the monthly salary ÷ 30, whatever the month's length. */
 export const DAYS_FOR_PAY = 30;
 
@@ -277,24 +277,33 @@ export interface Claim {
   onDate: string;
   /** field duty only: km in tenths (42.5 km = 425) */
   kmTenths: number | null;
+  /** field duty only: "Ask for DA" (v0.24.0); false = TA only that day. Missing / null = asked (as before) */
+  wantsDa?: boolean | null;
   /** expenses only */
   amountPaise: number | null;
   note: string;
   status: ClaimStatus;
 }
 
+/** A field duty asks for DA unless the person unticked "Ask for DA". */
+export const asksDa = (c: { kind: ClaimKind; wantsDa?: boolean | null }) => c.kind === "field_duty" && c.wantsDa !== false;
+
 /** A counted claim as a paid month's slip keeps it. */
 export interface FrozenClaim {
   kind: ClaimKind;
   onDate: string;
   kmTenths: number | null;
+  /** field duty: DA asked (rules 4+; missing = asked) */
+  wantsDa?: boolean | null;
   amountPaise: number | null;
   note: string;
 }
 
 export interface ClaimTotals {
-  /** rule 17: dates with approved field duty (two on one date = one day) */
+  /** dates with approved field duty (two on one date = one day) */
   fieldDutyDays: number;
+  /** rule 17: of those, the dates whose field duty asked for DA */
+  daDays: number;
   /** rule 16: approved field-duty km added up, in tenths */
   kmTenths: number;
   taPaise: number;
@@ -313,21 +322,24 @@ export const kmText = (tenths: number) => String(tenths / 10);
 /**
  * Rules 16-18 for one person's month. Only APPROVED claims count; waiting, not approved, withdrawn and cancelled ones
  * count 0. TA = all approved km added up × the TA rate, rounded to the paisa once; DA = the number of dates with
- * approved field duty × the DA rate; no rate = ₹0 (the km and days still show). Attendance is never touched.
+ * approved field duty that asked for DA ("Ask for DA", v0.24.0) × the DA rate; no rate = ₹0 (the km and days still
+ * show). Attendance is never touched.
  */
 export function claimTotals(claims: readonly Claim[], rates: { kmRatePaise: number | null; daDayPaise: number | null }): ClaimTotals {
   const approved = claims.filter((c) => c.status === "approved").sort((a, b) => (a.onDate < b.onDate ? -1 : a.onDate > b.onDate ? 1 : 0));
   const duty = approved.filter((c) => c.kind === "field_duty");
   const kmTenths = duty.reduce((sum, c) => sum + (c.kmTenths ?? 0), 0);
   const fieldDutyDays = new Set(duty.map((c) => c.onDate)).size;
+  const daDays = new Set(duty.filter(asksDa).map((c) => c.onDate)).size;
   return {
     fieldDutyDays,
+    daDays,
     kmTenths,
     taPaise: rates.kmRatePaise ? Math.round((kmTenths * rates.kmRatePaise) / 10) : 0,
-    daPaise: rates.daDayPaise ? fieldDutyDays * rates.daDayPaise : 0,
+    daPaise: rates.daDayPaise ? daDays * rates.daDayPaise : 0,
     expensesPaise: approved.filter((c) => c.kind === "expense").reduce((sum, c) => sum + (c.amountPaise ?? 0), 0),
     waiting: claims.filter((c) => c.status === "waiting").length,
-    counted: approved.map((c) => ({ kind: c.kind, onDate: c.onDate, kmTenths: c.kmTenths, amountPaise: c.amountPaise, note: c.note })),
+    counted: approved.map((c) => ({ kind: c.kind, onDate: c.onDate, kmTenths: c.kmTenths, ...(c.kind === "field_duty" ? { wantsDa: asksDa(c) } : {}), amountPaise: c.amountPaise, note: c.note })),
   };
 }
 
@@ -446,6 +458,8 @@ export interface FrozenMonth {
   /** rules 16-18: the approved claims that counted, with the field-duty days and km (rules 3+; empty before) */
   claims: FrozenClaim[];
   fieldDutyDays: number;
+  /** rule 17: field-duty days with DA (rules 4+; before, every field-duty day had DA) */
+  daDays: number;
   kmTenths: number;
   adjustmentFrom: string | null;
   /** exactly what monthPay() was given, and what it gave */
@@ -456,7 +470,8 @@ export interface FrozenMonth {
 /**
  * A paid month's saved figures as this version reads them. Months frozen with `rules: 1` (before per-day pay) have no
  * pay basis: they read as monthly; months frozen before claims (`rules` 1-2) have no TA, DA, expenses or claims: they
- * read as ₹0 and none. The saved numbers are shown as they are, never worked out again.
+ * read as ₹0 and none; months frozen before "Ask for DA" (`rules` 3) had DA on every field-duty day. The saved numbers
+ * are shown as they are, never worked out again.
  */
 export function readFrozen(f: FrozenMonth): FrozenMonth {
   if (f.rules >= RULES_VERSION) return f;
@@ -466,6 +481,7 @@ export function readFrozen(f: FrozenMonth): FrozenMonth {
     setting: { ...f.setting, payBasis: f.setting.payBasis ?? "monthly", dayRatePaise: f.setting.dayRatePaise ?? null, kmRatePaise: f.setting.kmRatePaise ?? null, daDayPaise: f.setting.daDayPaise ?? null },
     claims: f.claims ?? [],
     fieldDutyDays: f.fieldDutyDays ?? 0,
+    daDays: f.daDays ?? f.fieldDutyDays ?? 0,
     kmTenths: f.kmTenths ?? 0,
     input: { ...noClaims, ...f.input, payBasis: f.input.payBasis ?? "monthly", dayRatePaise: f.input.dayRatePaise ?? null },
     result: { ...noClaims, ...f.result },
