@@ -15,7 +15,6 @@ export type MeasureKind = "pieces" | "weight" | "volume" | "length";
 const KIND: Record<Measure, MeasureKind> = { pcs: "pieces", g: "weight", kg: "weight", ml: "volume", L: "volume", m: "length" };
 /** Everything is worked out in pcs, g, ml or m. */
 const TO_BASE: Record<Measure, number> = { pcs: 1, g: 1, kg: 1000, ml: 1, L: 1000, m: 1 };
-const BASE: Record<MeasureKind, Measure> = { pieces: "pcs", weight: "g", volume: "ml", length: "m" };
 
 export const kindOf = (m: Measure) => KIND[m];
 export const sameKind = (a: Measure, b: Measure) => KIND[a] === KIND[b];
@@ -232,4 +231,3 @@ export function contentText(unit: string, c: Content | null): string {
 /** Thousands separators, no trailing zeros: 25000 → "25,000", 18.5 → "18.5". */
 export const num = (n: number) => n.toLocaleString("en-IN", { maximumFractionDigits: 4 });
 
-export const baseMeasure = (k: MeasureKind) => BASE[k];

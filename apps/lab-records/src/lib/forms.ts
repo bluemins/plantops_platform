@@ -112,7 +112,6 @@ export const FORMS: Record<FormId, FormDef> = {
   },
 };
 
-export const FORM_IDS = Object.keys(FORMS) as FormId[];
 export const mainDateField = (form: FormId) => FORMS[form].fields.find((f) => f.main)?.key ?? null;
 
 /** How a stored value reads on screen ("in_house" -> "In-house lab"). */

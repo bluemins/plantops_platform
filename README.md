@@ -109,9 +109,10 @@ access within about 5 minutes. Users are never deleted, so the audit trail stays
 | super_admin: Modules (URLs, secrets, on/off) | http://localhost:3000/super/modules |
 | super_admin: Plant dashboard | http://localhost:3000/super/dashboard |
 
-Lab Records is the real module (`apps/lab-records`). Floor Stock is still served by `apps/dev-module`, a
-**development-only placeholder** that does everything a real module must do (login handover, 12-hour session,
-tile numbers, plant colour) until its phase. Opening a module link without being logged in sends you through
+Seven modules have their own app (`apps/lab-records` is the reference one). Modules without an app yet (Preventive
+Mgmt, AMC, Marketing Contacts) are served locally by `apps/dev-module`, a **development-only placeholder** (never
+deployed) that does everything a real module must do (login handover, 12-hour session, tile numbers, plant colour)
+until its phase. Opening a module link without being logged in sends you through
 the PlantOps login and straight back into the module.
 
 These `localhost` links work only on this computer (including Windows browsers). For a phone, see
@@ -227,7 +228,7 @@ Follow what `pnpm lan:urls` prints: put the Wi-Fi addresses in `.env`, set the m
 - `apps/lab-records`: Lab Records module (batches, tests, FSSAI forms, approval, printing) – see its `NOTES.md`
 - `apps/document-store`: Document Store module (licences, certificates, files, expiry emails) – see its `NOTES.md`
 - `packages/module-kit`: what every module app shares (platform login, sessions, support view, proxy, helpers)
-- `apps/dev-module`: development-only placeholder for modules without a real app yet (Floor Stock)
+- `apps/dev-module`: development-only placeholder for modules without a real app yet (never deployed; kept by the owner 2026-10-18)
 - `packages/auth`: token verification + access rules, used by every module
 - `packages/db`: database helpers (`withTenant`, migrations)
 - `packages/types`: shared types (roles, modules, plan, token)

@@ -1,1 +1,1 @@
-export { orHidden, orNotFound } from "@plantops/module-kit/pages";
+export { orNotFound } from "@plantops/module-kit/pages";

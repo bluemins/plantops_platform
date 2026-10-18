@@ -27,6 +27,15 @@ update it as items close.
 each user's PIN); the helper Claude used (`demo.mjs`: login, module handoff, JSON calls) was in the 18 Oct session's
 scratchpad only. Set-up half done, stopped by the owner: see B-06 for what exists and what is left.
 
+**Dead-code clean-up (2026-10-18, owner's OK; on `main`, ships with the next release, no behaviour change):** found
+with knip (`pnpm dlx knip@5`, read-only; not added to the repo). Removed `nodemailer` + `@types/nodemailer` from Document
+Store (email lives in `packages/module-kit`, kept unused on purpose, B-02), 3 leftover one-line re-export files
+(document-store `lib/format.ts`, lab-records `server/html.ts` and `server/safe-next.ts`), 7 unused items
+(`NOT_MARKED_HOURS`, `reminderStatusText`, `baseMeasure`, `countsSince`, `FORM_IDS`, `DailyEntryInput`, `MODULE_LABEL`)
+and unused re-exports (Lab Records `session-cookie.ts`, `orHidden` / `orNotFound` in 6 modules' `pages.ts`). Kept:
+`apps/platform/public/sw.js` (knip can't see it: phones load it by address), ~90 exports used only in their own file
+(untidy, not dead), and **`apps/dev-module`** (owner, 2026-10-18: keep it, it is never deployed); README fixed about it.
+
 **B-01 is running on cron-job.org since 2026-10-18** (11 jobs, India time, all with `x-cron-secret`; owner's
 screenshots checked: daily 07:01, evening hourly 17:01–23:01, Attendance morning hourly 08:01–11:01). The owner's Test
 run of Attendance morning at 10:12 sent the first ever "not marked" alert (owner + supervisor).
@@ -48,7 +57,7 @@ Records evening → History, from 17:01 IST); until then GitHub's late evening r
 7. **F1 (weekly off, holidays, leave) must be planned by about 22 Oct** to be live before the 31 Oct month end, even if
    B-03 / B-04 are still open (owner to confirm).
 8. Open question for the owner: **B-17** hourly outbox resend (section 4).
-9. **Rotate the R2 keys and `CRON_SECRET`** (S0): steps in HANDBOOK section 8 "Changing a secret" (corrected
+9. **Rotate the R2 keys and `CRON_SECRET`** (S0): **deferred by the owner (2026-10-18), not now.** Steps in HANDBOOK section 8 "Changing a secret" (corrected
    2026-10-18: R2 keys on 4 services, `CRON_SECRET` on 8 services + GitHub + 11 cron-job.org jobs). Owner, at night
    between 23:05 and 06:55 IST, after the v0.25.2 deploy; then Claude checks (backup in R2, wrong secret → 401 on all 8).
 10. **Railway cost (section 9, "Cutting the cost"):** Serverless (sleep when idle) switched on for `job-applications` on

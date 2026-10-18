@@ -213,8 +213,6 @@ export const EntryInput = z.object({
   data: z.record(z.string(), z.unknown()).optional(),
   results: z.array(ResultInput).max(50).optional(),
 });
-/** Kept for the daily test screen and older callers. */
-export const DailyEntryInput = EntryInput;
 
 export const CorrectionInput = z.object({
   reason: z.string().trim().min(3, "Say why you are correcting this (at least a few words)").max(500),

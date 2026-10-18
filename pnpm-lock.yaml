@@ -367,9 +367,6 @@ importers:
       next:
         specifier: ^16.3.0
         version: 16.3.8(@types/node@22.20.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      nodemailer:
-        specifier: ^7.0.0
-        version: 7.0.13
       pg:
         specifier: ^8.16.0
         version: 8.23.1
@@ -392,9 +389,6 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.5
-      '@types/nodemailer':
-        specifier: ^7.0.0
-        version: 7.0.12
       '@types/pg':
         specifier: ^8.15.0
         version: 8.23.1

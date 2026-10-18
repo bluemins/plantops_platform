@@ -3,7 +3,6 @@ import { productLabel } from "@plantops/module-kit";
 import { kit } from "./kit";
 
 export const MODULE_ID = kit.moduleId as "lab_records";
-export const MODULE_LABEL = kit.label;
 export const { creds, keys, accountUrl, platformLoginUrl, branding, products } = kit;
 export { productLabel };
 

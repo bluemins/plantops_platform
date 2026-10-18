@@ -1,7 +1,7 @@
 // The plant's applications for the owner and HR desk (docs/JOB_APPLICATIONS_PHASE_PLAN.md screens 5 and 6): list,
 // one application, status, notes, resume pages, CSV and the owner's "Remove now". Every function checks the one
 // access table; the plant always comes from the login.
-import { and, asc, count, desc, eq, gte, isNull, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { csv, csvTime } from "@plantops/module-kit/csv";
 import { normalisePhone } from "@plantops/module-kit/phone";
@@ -236,11 +236,5 @@ export async function removeApplication(user: JaUser, id: string, reason: string
     await audit(tx, user, "application.removed", null, { ref: formatRef(ref), reason });
     return { removed: formatRef(ref) };
   });
-}
-
-/** For the tile and checks: applications sent since `since`, and new ones not opened. */
-export async function countsSince(tx: JaTx, tenantId: string, since: Date) {
-  const [r] = await tx.select({ n: count() }).from(applications).where(and(eq(applications.tenantId, tenantId), gte(applications.createdAt, since)));
-  return Number(r?.n ?? 0);
 }
 

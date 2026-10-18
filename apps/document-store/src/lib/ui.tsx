@@ -15,9 +15,6 @@ export function ExpiryChip({ kind, text }: { kind: ExpiryKind; text: string }) {
   return <span className={cx("inline-block whitespace-nowrap rounded-full px-3 py-0.5 text-sm font-semibold", EXPIRY_STYLE[kind])}>{text}</span>;
 }
 
-const REMINDER_TEXT: Record<string, string> = { sent: "sent", pending: "sending…", skipped: "not sent", failed: "failed" };
-export const reminderStatusText = (s: string) => REMINDER_TEXT[s] ?? s;
-
 export function LinkButton({ href, children, variant = "primary" }: { href: string; children: ReactNode; variant?: "primary" | "secondary" }) {
   return (
     <a

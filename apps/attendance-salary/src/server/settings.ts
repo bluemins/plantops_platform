@@ -102,9 +102,8 @@ export async function saveSettings(user: AtUser, input: z.infer<typeof SettingsI
   });
 }
 
-/** The hours the owner may pick for the "not marked" alert (docs/ATTENDANCE_ROLES_PHASE_PLAN.md mock-up 10); null = Off. */
-export const NOT_MARKED_HOURS = [8, 9, 10, 11] as const;
 export const NOT_MARKED_DEFAULT = 10;
+/** The hours the owner may pick for the "not marked" alert (docs/ATTENDANCE_ROLES_PHASE_PLAN.md mock-up 10); null = Off. */
 export const NotMarkedInput = z.object({ hour: z.union([z.literal(8), z.literal(9), z.literal(10), z.literal(11), z.null()]) });
 
 /** Owner: the hour of the morning "not marked" alert to owners and supervisors, or Off. In Recent changes. */
