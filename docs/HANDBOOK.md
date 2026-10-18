@@ -245,12 +245,12 @@ A reset is always temporary: the person picks their own at the next login. More 
 | SSO signing key `SSO_PRIVATE_JWK_B64` | platform | (pasted, then file deleted) | ✔ |
 | Module secrets `MODULE_SECRET_*` | lab-records, document-store | `.env.railway.shared` | ✔ |
 | Session secrets `LAB_/DOC_SESSION_SECRET` | lab-records, document-store | (pasted, then file deleted) | ✔ |
-| `CRON_SECRET` | platform, lab-records, document-store, floor-stock, complaint-box, order-capture, attendance-salary **and** GitHub environment `shared` | (pasted, then file deleted) | ✔ |
+| `CRON_SECRET` | platform, lab-records, document-store, floor-stock, complaint-box, order-capture, attendance-salary, job-applications, GitHub environment `shared` **and** the 11 cron-job.org jobs (header `x-cron-secret`) | (pasted, then file deleted) | ✔ |
 | `ATTEND_SESSION_SECRET` | attendance-salary. **Also makes the QR key:** changing it stops every printed Attendance QR (print new ones) | (pasted, then file deleted) | ✔ |
 | super_admin password | (stored as a hash in the database) | not stored | ✔ |
 | Phone notification keys `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | platform | not stored (local dev has its own pair in `.env`) | ✔ |
 | Backup login `DATABASE_URL_BACKUP` (read-only) | GitHub environment `shared` only | `.env.railway.shared` | ✔ |
-| R2 keys `BACKUP_ACCESS_KEY_ID` / `BACKUP_SECRET_ACCESS_KEY` | document-store, complaint-box **and** GitHub environment `shared` | `.env.railway.shared` | ✔ |
+| R2 keys `BACKUP_ACCESS_KEY_ID` / `BACKUP_SECRET_ACCESS_KEY` | document-store, complaint-box, attendance-salary, job-applications **and** GitHub environment `shared` | `.env.railway.shared` | ✔ |
 | **Private backup key** (`AGE-SECRET-KEY-...`) | **never** | **never** (typed in when restoring) | ✔ **two copies** |
 
 - **`.env.railway.shared`**: keep it. It's needed for migrations and password recovery. Git ignores it.
@@ -265,10 +265,10 @@ A reset is always temporary: the person picks their own at the next login. More 
 |---|---|
 | Module secret | super_admin → **Modules** → new secret (the old one stops at once). Paste it into that service's `MODULE_SECRET_*` and into `.env.railway.shared`. |
 | Session secret | Change it in Railway. Everyone using that module logs in again. |
-| `CRON_SECRET` | Change it on every service that has it **and** in the GitHub environment. |
+| `CRON_SECRET` | `openssl rand -hex 32`; change it on every service that has it (table above), in the GitHub environment **and** in the header of all 11 cron-job.org jobs. Do it between 23:05 and 06:55 IST (no timed job then except the 02:00 backup). |
 | SSO key | Run `pnpm sso:keygen`. Put the new key in platform's `SSO_PRIVATE_JWK_B64`, and the old *public* key in `SSO_PREVIOUS_PUBLIC_JWK_B64` for a day. |
 | Backup login password | Run `./scripts/setup-backup-login.sh shared` again, then update GitHub's `DATABASE_URL_BACKUP`. |
-| R2 keys | Cloudflare → R2 → API tokens: make a new token, put it in document-store, GitHub and `.env.railway.shared`, then delete the old token. |
+| R2 keys | Cloudflare → R2 → Manage API tokens: make a new token (*Object Read & Write*, bucket `plantops-backup` only), put it in the four file-storing services (table above), GitHub and `.env.railway.shared`, run **Nightly backup** by hand, then delete the old token. |
 | Private backup key | Lost or leaked: `pnpm backup:keygen`, put the new public key in GitHub and document-store (`BACKUP_RECIPIENT`). Old backups still need the **old** private key, so keep it until they are gone (30 days for dumps; files stay, so keep it). |
 | Phone notification keys | `pnpm --filter @plantops/platform push:keys`, put all three lines in platform's Variables. Every phone stops getting notifications until its owner taps **Turn on** again, so change them only if the private key leaked. |
 | Database password | Run `ALTER ROLE ... PASSWORD` as the `postgres` user, then update the matching `DATABASE_URL_*` (and `.env.railway.shared` for the owner). |
