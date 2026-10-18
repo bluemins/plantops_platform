@@ -13,13 +13,19 @@ update it as items close.
 
 ---
 
-## 0. Status and handover (updated 2026-10-18, 10:50 IST; read this first in a new session)
+## 0. Status and handover (updated 2026-10-18, 14:55 IST; read this first in a new session)
 
 **Live:** still **v0.25.0** (`production` = `1ea1c09`). **Built, pushed to `main`, tagged, NOT deployed:**
 - **v0.25.1** (`649033c`): B-02, no email; reminder / low-stock rows record "App notification only".
 - **v0.25.2** (`1063d7d`): B-03, login record in the audit log, and the login button no longer allows a double login.
 - Both are code only: no migrations, SSO token unchanged. Pushing `v0.25.2:production` deploys both (after 21:00 IST,
   owner's OK first). Then the live checks and a row in `docs/deployments/shared.md`.
+
+**Demo plant 999 "Sample RO Plant" exists on the live copy (B-06, 2026-10-18):** all modules on, max 15 users, green
+`#00ff00`; owner `sowner` + 9 users, one per role (`sstore`, `sorder`, `scomplaint`, `sdoc`, `slab`, `sstaff`,
+`soffice`, `ssuper`, `shr`); 3 products. **Logins are in `.env.demo`** (repo root, gitignored; owner password +
+each user's PIN); the helper Claude used (`demo.mjs`: login, module handoff, JSON calls) was in the 18 Oct session's
+scratchpad only. Set-up half done, stopped by the owner: see B-06 for what exists and what is left.
 
 **B-01 is running on cron-job.org since 2026-10-18** (11 jobs, India time, all with `x-cron-secret`; owner's
 screenshots checked: daily 07:01, evening hourly 17:01–23:01, Attendance morning hourly 08:01–11:01). The owner's Test
@@ -35,13 +41,17 @@ Records evening → History, from 17:01 IST); until then GitHub's late evening r
 2. Claude: commit `evening.yml` once the evening jobs show 200.
 3. Claude: **B-05** (Floor Stock count after midnight), plan mode with a mock-up, then **B-04** (Attendance location
    accuracy), plan mode with a mock-up. Both need phone trials (on the demo plant, B-06).
-4. Owner: B-06 demo plant, B-07 (Lab Records off for 001, the 5 open complaints).
+4. B-06: finish the demo plant trials (list in B-06; Claude, when the owner says so). Owner: B-07 (Lab Records off
+   for 001, the 5 open complaints).
 5. Claude, 2 days after the deploy: read the B-03 login records (read-only) and name the cause.
 6. Claude, 7 days after 18 Oct: B-01 start-time check, then close B-01.
 7. **F1 (weekly off, holidays, leave) must be planned by about 22 Oct** to be live before the 31 Oct month end, even if
    B-03 / B-04 are still open (owner to confirm).
 8. Open question for the owner: **B-17** hourly outbox resend (section 4).
-9. **Railway cost (section 9, "Cutting the cost"):** Serverless (sleep when idle) switched on for `job-applications` on
+9. **Rotate the R2 keys and `CRON_SECRET`** (S0): steps in HANDBOOK section 8 "Changing a secret" (corrected
+   2026-10-18: R2 keys on 4 services, `CRON_SECRET` on 8 services + GitHub + 11 cron-job.org jobs). Owner, at night
+   between 23:05 and 06:55 IST, after the v0.25.2 deploy; then Claude checks (backup in R2, wrong secret → 401 on all 8).
+10. **Railway cost (section 9, "Cutting the cost"):** Serverless (sleep when idle) switched on for `job-applications` on
    2026-10-18 ~11:00 IST; a wake-up takes ~2 s (measured, section 9). Next: same for `lab-records`, then after a few days
    of watching the launcher tiles, `document-store` and `complaint-box`. Owner: Healthcheck Path `/health` was empty
    on `job-applications` (set it); send Railway's per-service memory (Metrics or Usage page).
@@ -202,13 +212,28 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
 **B-06 · All modules · S2 · Trials are done on the real plant, and append-only keeps the test rows forever.**
 - *Evidence:* "Test", "ccxc", "jkjkjk" … in orders, counts and attendance; 10 undo-delivered (most while trying
   Twilio on 14 Oct).
-- *Fix (process, no code):* create a **demo plant** (code `999`, "PlantOps Demo") on the live copy with every module
+- *Fix (process, no code):* create a **demo plant** (code `999`, "Sample RO Plant") on the live copy with every module
   on, fake users and products; all trials there. HANDBOOK note. The test rows at 001 stay (they are in the history
   with their reasons); no deletes.
 - *Done (2026-10-18, Claude):* HANDBOOK section 4, "The demo plant (999)" (rules, public Job applications page, no
   Twilio).
-- [ ] *Owner:* create plant 999 and set it up: New plant with every module and small limits; grey colour; 3 products;
-  one user per role (HANDBOOK section 4); set up each module; one trial per module. Then Claude checks it read-only.
+- [x] *Owner (2026-10-18):* plant 999 "Sample RO Plant" created (all modules, max 15 users, green), owner `sowner`;
+  password given to Claude, kept in `.env.demo` (gitignored). It was typed into the chat once: change it some day.
+- *Set-up and trials (2026-10-18, Claude, through the apps' own APIs as plant-999 users; stopped by the owner at
+  ~14:50 IST):*
+  - Platform: 3 products (Sample 1L 12/case, Sample 500ml 24/case, Sample 20L Jar); 9 users with permanent PINs
+    (in `.env.demo`).
+  - **Floor Stock: PASS.** Starter list (4 sections, 28 items), limit 10 on Screw cap blue, `sstore` saved the 18 Oct
+    count and the cap showed low; store keeper refused a limit (403); `sstaff` (Plant staff only) sent to
+    `/sso/blocked` (also an S3 item). The count queued 1 low-stock email row ("not set up"): expected until v0.25.1.
+  - Done but **results not recorded** (the agent was stopped before reporting): Order Capture 2 customers, 1 order
+    delivered + 1 cancelled; Attendance location, 2 salaries, 1 advance, 1 mark; Document Store "Sample FSSAI
+    licence" expiring 19 Oct (responsible `sdoc`); Lab Records 19 parameters, 2 batches; Complaint Box starter items.
+  - No job opening exists (public page `jobs.bluemins.life/999` lists nothing).
+- [ ] *Left (Claude, when the owner says so):* re-check the done parts read-only; Attendance Office staff / Supervisor
+  refusals; Order Capture "Plant staff sees no amounts"; one complaint with a photo; Job applications opening (ends
+  switched off) + one public application + HR desk refusals; launcher tiles for all 10 users. Then tick B-06.
+- [ ] *19 Oct morning (Claude, read-only):* the document-expiry notification reached `sdoc` and `sowner`.
 
 **B-07 · Notifications · S2 · Too many alerts, most never read.**
 - *Evidence:* 70–93 % unread; Lab Records "no tests today" daily for a module nobody uses; 25 still-open reminders
