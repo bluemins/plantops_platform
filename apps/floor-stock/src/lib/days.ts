@@ -3,6 +3,15 @@
 /** "2026-10-08" for a moment, in India time. */
 export const istDay = (at: Date = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(at);
 
+/**
+ * The day a count belongs to (B-05): until 5 am India time it is still last night's count, so a store keeper who
+ * finishes after midnight lands on the right day. Saving is still allowed for the calendar today and yesterday.
+ */
+export const COUNT_DAY_STARTS_AT = 5;
+export const countDay = (at: Date = new Date()) => istDay(new Date(at.getTime() - COUNT_DAY_STARTS_AT * 3600_000));
+/** Between midnight and 5 am: the counting day is still yesterday's calendar date. */
+export const afterMidnight = (at: Date = new Date()) => countDay(at) !== istDay(at);
+
 /** "2026-10-08" + n days (n may be negative). */
 export function addDays(ymd: string, n: number) {
   const [y, m, d] = ymd.split("-").map(Number);

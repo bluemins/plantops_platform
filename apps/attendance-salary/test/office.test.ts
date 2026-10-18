@@ -122,8 +122,10 @@ describe("Mark for someone", () => {
   });
 
   it("3. never yourself; never someone who left; an Office-staff-only person can't be marked (not an employee)", async () => {
-    const { p, office, officeOnly } = await setup();
+    const { p, office, officeOnly, bindu } = await setup();
     expect(await refusal(() => deskMark(office, { user_id: office.userId, expect: "in", location: at(40) }))).toEqual({ status: 403, message: "Scan the QR for your own attendance" });
+    // the office phone's location must be as good as a scan's (B-04: ±150 m)
+    expect(await refusal(() => deskMark(office, { user_id: bindu.userId, expect: "in", location: at(40, 151) }))).toMatchObject({ status: 400 });
     expect((await refusal(() => deskMark(office, { user_id: officeOnly.userId, expect: "in", location: at(40) }))).status).toBe(404);
     const left = atUser(p.tenantId, ["plant_staff"], "Gaja");
     await markAt(left, "in", `${addDays(TODAY, -3)} 08:00`); // has marks, but no longer on the platform's list

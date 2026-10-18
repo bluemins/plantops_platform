@@ -7,7 +7,7 @@ import { describeChange } from "@/lib/changes";
 import { compare, isLow, sum, type Comparison } from "@/lib/compare";
 import { addDays } from "@/lib/days";
 import type { CanMakeGroup } from "@/lib/recipe";
-import { latestVersion, versionInfo, type VersionInfo } from "./counts";
+import { countDates, latestVersion, versionInfo, type VersionInfo } from "./counts";
 import { schema, withTenant, type StockTx } from "./db";
 import { forbidden, notFound } from "./http";
 import { canMakeForVersion } from "./recipes";
@@ -302,15 +302,23 @@ export async function exportCsv(user: StockUser) {
 
 // ---------- home ----------
 /** Today / yesterday status and the newest count (for the low-stock list on the home screen). */
-export async function homeStatus(user: StockUser, today: string) {
+/**
+ * The home page's status. `today` is the counting day (B-05): until 5 am India time it is last night's date, and the
+ * calendar day is returned separately so the page can offer it as a switch.
+ */
+export async function homeStatus(user: StockUser, now = new Date()) {
   requireView(user);
+  const { main: today, calendarToday, afterMidnight } = countDates(now);
   const yesterday = addDays(today, -1);
-  const [t, y, history] = await withTenant(user.tenantId, async (tx) => [await latestVersion(tx, user.tenantId, today), await latestVersion(tx, user.tenantId, yesterday), await tx.select({ date: counts.countDate }).from(counts).where(eq(counts.tenantId, user.tenantId)).orderBy(desc(counts.countDate)).limit(1)] as const);
+  const [t, y, c, history] = await withTenant(user.tenantId, async (tx) => [await latestVersion(tx, user.tenantId, today), await latestVersion(tx, user.tenantId, yesterday), afterMidnight ? await latestVersion(tx, user.tenantId, calendarToday) : null, await tx.select({ date: counts.countDate }).from(counts).where(eq(counts.tenantId, user.tenantId)).orderBy(desc(counts.countDate)).limit(1)] as const);
   return {
     today,
     yesterday,
     todayCount: t ? versionInfo(t.version) : null,
     yesterdayCount: y ? versionInfo(y.version) : null,
+    afterMidnight,
+    calendarToday,
+    calendarTodayCount: c ? versionInfo(c.version) : null,
     lastDate: history[0]?.date ?? null,
   };
 }

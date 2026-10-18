@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { Card } from "@plantops/ui";
 import { fmtDate } from "@plantops/module-kit/format";
-import { allowedDates, countForm } from "@/server/counts";
+import { istTime } from "@/lib/days";
+import { allowedDates, countDates, countForm } from "@/server/counts";
 import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
 import { LinkButton } from "@/lib/ui";
@@ -14,7 +15,9 @@ type Props = { searchParams: Promise<{ date?: string; correct?: string }> };
 export default async function CountPage({ searchParams }: Props) {
   const q = await searchParams;
   const [today, yesterday] = allowedDates();
-  const date = q.date ?? today!;
+  // until 5 am the count opens on last night's date (B-05), also from the 8 pm reminder's plain /count link
+  const day = countDates();
+  const date = q.date ?? day.main;
   const user = await requirePageUser(`/count?date=${encodeURIComponent(date)}${q.correct ? "&correct=1" : ""}`);
   if (!user.canCount || user.isSupport) redirect(`/day/${date}`);
   const plant = await kit.branding(user.tenantId);
@@ -42,8 +45,23 @@ export default async function CountPage({ searchParams }: Props) {
       <a href="/" className="text-sm font-semibold text-(--brand)">
         ← Floor Stock
       </a>
+      {day.afterMidnight && date === day.calendarToday && !form.current && (
+        <Card className="space-y-3 border-amber-200 bg-amber-50 text-amber-900">
+          <p>
+            ⚠ It&apos;s {istTime(new Date())}. This count is for <strong>{fmtDate(date)} (today)</strong>. Last night&apos;s count is for{" "}
+            {fmtDate(day.main)}.
+          </p>
+          <LinkButton href={`/count?date=${day.main}`} variant="secondary">
+            Count for {fmtDate(day.main)} instead
+          </LinkButton>
+        </Card>
+      )}
       <h1 className="text-2xl font-bold">
-        {form.current ? "Correct the count" : date === today ? "Today's count" : "Yesterday's count"} · {fmtDate(date)}
+        {form.current
+          ? `Correct the count · ${fmtDate(date)}`
+          : day.afterMidnight && date === day.main
+            ? `Counting for ${fmtDate(date)} (last night)`
+            : `${date === today ? "Today's count" : "Yesterday's count"} · ${fmtDate(date)}`}
       </h1>
       {itemCount === 0 ? (
         <Card className="space-y-3">

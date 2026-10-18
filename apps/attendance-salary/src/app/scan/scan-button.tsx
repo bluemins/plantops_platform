@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { api } from "@/lib/api";
-import { fmtTime as time } from "@/lib/punch";
+import { bestLocation, type Reading } from "@/lib/locate";
+import { fmtTime as time, MAX_ACCURACY_M } from "@/lib/punch";
 
 type Kind = "in" | "out";
 type Result =
@@ -19,9 +20,19 @@ const panelCls = {
 };
 const again = "mt-2 min-h-12 rounded-xl border bg-white px-5 text-base font-semibold";
 
-/** The phone's location, once, as precise as it can (never a cached one). */
-function locate(): Promise<GeolocationPosition> {
-  return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 }));
+/** How to turn on precise location (B-04): shown whenever the phone only gives a rough position. */
+export function PreciseLocationSteps() {
+  return (
+    <>
+      <p>
+        <strong>Android:</strong> Settings → Location → Location services → <strong>Google Location Accuracy: ON</strong>.
+      </p>
+      <p>
+        <strong>iPhone:</strong> Settings → Privacy &amp; Security → Location Services → Safari Websites → <strong>Precise Location: ON</strong>.
+      </p>
+      <p>Then step near a window or outside and try again.</p>
+    </>
+  );
 }
 
 /** One big Mark IN / Mark OUT button; the tap asks for the location, then the server decides and saves. */
@@ -29,18 +40,24 @@ export function ScanButton({ k, name, date, next: firstNext, state: firstState }
   const [next, setNext] = useState(firstNext);
   const [state, setState] = useState(firstState);
   const [busy, setBusy] = useState(false);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
   const [result, setResult] = useState<Result | null>(null);
 
   async function tap() {
     if (!window.isSecureContext || !("geolocation" in navigator)) return setResult({ panel: "insecure" });
     setBusy(true);
+    setAccuracy(null);
     setResult(null);
-    let location: { lat: number; lng: number; accuracy: number } | null = null;
+    let location: Reading | null = null;
     try {
-      const pos = await locate();
-      location = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
+      location = await bestLocation(navigator.geolocation, setAccuracy); // waits up to 20 s for good GPS
     } catch {
       location = null; // blocked, not found or too slow: the server refuses and we show the steps
+    }
+    if (location && location.accuracy > MAX_ACCURACY_M) {
+      // too rough to tell whether you are at the plant: don't send it, show how to turn on precise location
+      setBusy(false);
+      return setResult({ panel: "too_rough", text: `Location too rough (±${dist(Math.round(location.accuracy))}).` });
     }
     const r = await api<{ kind: Kind; at: string; distance_m: number; code?: string; next?: Kind; state?: string }>("/api/punch", { body: { k, expect: next, location } });
     setBusy(false);
@@ -88,7 +105,16 @@ export function ScanButton({ k, name, date, next: firstNext, state: firstState }
           disabled={busy}
           className="min-h-22 w-full rounded-2xl bg-(--brand) text-3xl font-bold text-(--brand-contrast) hover:bg-(--brand-hover) disabled:opacity-60"
         >
-          {busy ? "Checking location…" : next === "in" ? "Mark IN" : "Mark OUT"}
+          {busy ? (
+            <span className="flex flex-col items-center text-xl leading-tight">
+              Finding your location…
+              {accuracy !== null && <span className="text-base font-semibold opacity-80">±{dist(Math.round(accuracy))}</span>}
+            </span>
+          ) : next === "in" ? (
+            "Mark IN"
+          ) : (
+            "Mark OUT"
+          )}
         </button>
         <p className="text-sm text-slate-500">Your phone&apos;s location is checked once to make sure you are at the plant. Only the distance is kept.</p>
       </section>
@@ -126,6 +152,7 @@ export function ScanButton({ k, name, date, next: firstNext, state: firstState }
         <section className={`space-y-2 rounded-2xl border p-5 ${panelCls.amber}`}>
           <h2 className="text-lg font-bold">Not saved</h2>
           <p>{result.text}</p>
+          {result.panel === "too_rough" && <PreciseLocationSteps />}
           <button type="button" onClick={reset} className={`${again} border-amber-200`}>
             Try again
           </button>

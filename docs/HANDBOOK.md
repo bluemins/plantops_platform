@@ -393,7 +393,8 @@ Attendance's morning job **every hour from 08:01 to 11:01** (rows 9-11 above):
 - Attendance sends "N people not marked by 10:00" to each plant's owners and supervisors at the hour chosen in
   **Attendance → Settings** (08:00-11:00, or Off; default 10:00). Once a day.
 - Floor Stock sends "Today's stock count is not done yet" to each plant without a count, at the hour its owner
-  chose on **Sections & items → Evening reminder** (5 pm–11 pm, or Off; default 8 pm). Once a day.
+  chose on **Sections & items → Evening reminder** (5 pm–11 pm, or Off; default 8 pm). Once a day. A count entered
+  **before 5 am** opens on the night before (B-05, v0.25.3); the new calendar day is a switch on the screen.
 - Lab Records sends "No lab tests entered today" from 20:00. Once a day.
 - Every run (and every morning run) also resends notifications that waited in a module's outbox because PlantOps
   was briefly unreachable.
@@ -435,8 +436,9 @@ When approved, add `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_TEMPLATE` an
 **lab-records** → Variables.
 
 ### Attendance: QR and location
-- **Setting up a plant (the owner, once):** Attendance → ⚙ Location & QR. Stand inside the plant and tap "Use my
-  current location" (or paste `lat, lng` from Google Maps), keep the circle at 200 m, Save. Then **Make the QR →
+- **Setting up a plant (the owner, once):** Attendance → ⚙ Location & QR. Stand **outside in the open** at the plant
+  and tap "Use my current location" (it waits up to 20 s for GPS and warns if the reading is rougher than ±50 m), or
+  paste `lat, lng` from Google Maps; circle 200–300 m (plant 001: 300 m), Save. Then **Make the QR →
   Print QR** and stick it where staff come in. Copies in several places all work.
 - **Reprinting** gives the same QR. **Make a new QR** stops every old print at once (use it if a photo of the QR has
   gone outside the plant); the new one must be put up again.
@@ -445,7 +447,11 @@ When approved, add `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_TEMPLATE` an
 - **Who is tracked:** everyone with the **Plant staff** role. An owner marks only if they also hold Plant staff.
 - **Location needs https.** Phones share their location only with the secure address, so marking can't be tried on
   the LAN address (`http://192.168.1.2`); use the live copy.
-- **Honest limits:** indoor GPS can be 20–50 m off, so the circle is 200 m: it stops marking from home or the
+- **Precise location (v0.25.3, B-04):** the phone waits up to 20 s for a good GPS reading; rougher than **±150 m** is
+  not saved, and the screen shows the fix: Android Settings → Location → Location services → **Google Location
+  Accuracy ON**; iPhone Settings → Privacy & Security → Location Services → Safari Websites → **Precise Location ON**.
+  Changing the circle or this rule never changes the printed QR.
+- **Honest limits:** indoor GPS can be 20–50 m off, so the circle is 200–300 m: it stops marking from home or the
   market, not from the road outside the gate. A fake-GPS app on Android can fool any browser check; the owner's
   Today board and the "tried to mark from far away" bell are the safety net.
 - **Mistakes:** only the owner fixes (Staff → person → day → add a time / cancel a mark, always with a reason).

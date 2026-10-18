@@ -65,11 +65,11 @@ describe("a good mark", () => {
     expect((await refusal(() => tap(p.worker, "in", at(1400)))).message).toBe("You are 1.4 km from the plant. Mark IN at the plant.");
   });
 
-  it("accuracy: 500 m is accepted, 501 m is refused", async () => {
+  it("accuracy: 150 m is accepted, 151 m is refused (B-04, owner 2026-10-18; was 500 m)", async () => {
     const { p, tap, at } = await readyPlant();
-    expect((await tap(p.worker, "in", at(40, 500))).kind).toBe("in");
+    expect((await tap(p.worker, "in", at(40, 150))).kind).toBe("in");
     const q = await readyPlant();
-    expect(await refusal(() => q.tap(q.p.worker, "in", q.at(40, 501)))).toMatchObject({ status: 400, code: "too_rough" });
+    expect(await refusal(() => q.tap(q.p.worker, "in", q.at(40, 151)))).toMatchObject({ status: 400, code: "too_rough" });
   });
 });
 

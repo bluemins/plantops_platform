@@ -7,8 +7,8 @@ export type Kind = "in" | "out";
 export const OPEN_IN_MS = 16 * 3600_000;
 /** A second mark this soon after the last one is refused as a double tap (owner, Phase 0). */
 export const DOUBLE_TAP_MS = 2 * 60_000;
-/** A location rougher than this is refused (owner, Phase 0). */
-export const MAX_ACCURACY_M = 500;
+/** A location rougher than this is refused (owner 2026-10-18, B-04; was 500 m, which let a network fix 1.7 km off through). */
+export const MAX_ACCURACY_M = 150;
 
 export interface LastMark {
   kind: Kind;

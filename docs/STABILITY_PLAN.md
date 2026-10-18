@@ -13,13 +13,16 @@ update it as items close.
 
 ---
 
-## 0. Status and handover (updated 2026-10-18, 14:55 IST; read this first in a new session)
+## 0. Status and handover (updated 2026-10-18, 15:26 IST; read this first in a new session)
 
 **Live:** still **v0.25.0** (`production` = `1ea1c09`). **Built, pushed to `main`, tagged, NOT deployed:**
 - **v0.25.1** (`649033c`): B-02, no email; reminder / low-stock rows record "App notification only".
 - **v0.25.2** (`1063d7d`): B-03, login record in the audit log, and the login button no longer allows a double login.
-- Both are code only: no migrations, SSO token unchanged. Pushing `v0.25.2:production` deploys both (after 21:00 IST,
-  owner's OK first). Then the live checks and a row in `docs/deployments/shared.md`.
+- **v0.25.3** (tag on `main`, 2026-10-18): **B-05** (Floor Stock count after midnight goes to last night) + **B-04**
+  (Attendance waits for good GPS, refuses rougher than ±150 m; QR unchanged) + the dead-code clean-up.
+- All code only: no migrations, SSO token unchanged. **Pushing `v0.25.3:production` deploys all three** (after 21:00
+  IST, owner's OK first). Then the live checks and a row in `docs/deployments/shared.md`. After it, plant 001: Location
+  & QR → "Use my current location" standing outside, circle **300 m**, Save (QR stays); check Floor Stock 16 / 17 Oct.
 
 **Demo plant 999 "Sample RO Plant" exists on the live copy (B-06, 2026-10-18):** all modules on, max 15 users, green
 `#00ff00`; owner `sowner` + 9 users, one per role (`sstore`, `sorder`, `scomplaint`, `sdoc`, `slab`, `sstaff`,
@@ -45,11 +48,13 @@ lines removed). Commit it only after the first cron-job.org evening runs show **
 Records evening → History, from 17:01 IST); until then GitHub's late evening runs are the fallback. Don't discard it.
 
 **Next, in order:**
-1. Owner: deploy v0.25.2 (carries v0.25.1); raise Railway's Compute Usage Limit (S0). (`BREVO_API_KEY` / `MAIL_FROM`
+1. Owner: deploy **v0.25.3** (carries v0.25.1 + v0.25.2); then the two plant 001 steps above; raise Railway's Compute
+   Usage Limit (S0). (`BREVO_API_KEY` / `MAIL_FROM`
    already removed from Railway, 2026-10-18.)
 2. Claude: commit `evening.yml` once the evening jobs show 200.
-3. Claude: **B-05** (Floor Stock count after midnight), plan mode with a mock-up, then **B-04** (Attendance location
-   accuracy), plan mode with a mock-up. Both need phone trials (on the demo plant, B-06).
+3. B-05 and B-04 built (v0.25.3). After the deploy: phone trials on demo plant 999 (set 999's pin where you test);
+   Claude reads plant 001's next marks read-only (accuracy, distance) and closes B-04; B-05 closes after the owner's
+   16 / 17 Oct check and one late-night count.
 4. B-06: finish the demo plant trials (list in B-06; Claude, when the owner says so). Owner: B-07 (Lab Records off
    for 001, the 5 open complaints).
 5. Claude, 2 days after the deploy: read the B-03 login records (read-only) and name the cause.
@@ -210,6 +215,14 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
   "Location accuracy 450 m: turn on GPS / Precise location" instead of accepting it; HANDBOOK steps for Android
   "Google Location Accuracy" and iPhone "Precise Location". Then the owner sets the circle back to 200–300 m. Try on
   Dillip's and two other phones inside the plant before releasing.
+- *Done (2026-10-18, Claude, v0.25.3; owner chose ±150 m and a 300 m circle, and no QR change):* `bestLocation()`
+  (`apps/attendance-salary/src/lib/locate.ts`) watches up to 20 s and keeps the best reading, stopping early at ±30 m;
+  used by the scan button ("Finding your location… ±450 m"), the office desk and the owner's "Use my current
+  location" (warns above ±50 m). `MAX_ACCURACY_M` 500 → 150 on the server; a rougher reading isn't sent and the screen
+  shows the Android / iPhone steps. Live data behind it (12 scans at 001): rough readings ±200–500 m were 1.0–1.7 km
+  off, good ones ±4–17 m within 190 m. Saving the circle never touches the QR. Tests: Attendance 423 (+5).
+- [ ] *Owner, after the deploy:* plant 001 pin re-set standing outside, circle 300 m; Dillip + two others mark.
+- [ ] *Claude, the day after:* read the new marks (accuracy, distance, refusals) read-only; then close B-04.
 
 **B-05 · Floor Stock · S1 · A count saved after midnight takes the next day.**
 - *Evidence:* the 17 Oct count was first saved at 01:07 IST on 17 Oct (yesterday's closing entered late), so Bindu's
@@ -217,6 +230,11 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
   16 and 17 Oct are therefore off.
 - *Fix (ask the owner):* between 00:00 and 05:00 IST open the count on **yesterday**, with a clear "Counting for
   16 Oct" heading and a one-tap switch. Owner then checks 16 / 17 Oct and corrects if needed.
+- *Done (2026-10-18, Claude, v0.25.3):* `countDay()` (`apps/floor-stock/src/lib/days.ts`, cut-off 5 am IST) drives the
+  home page's main card ("Last night's count · 16 Oct"), `/count` with no date (the 8 pm reminder's link) and the
+  launcher tile; after midnight the calendar day is a small switch card, and its count page has an amber "This count
+  is for 17 Oct (today)" note. Saving rules unchanged. Tests: Floor Stock 172 (+13, `test/count-day.test.ts`).
+- [ ] *Owner, after the deploy:* check plant 001's 16 / 17 Oct day pages, correct if needed (old versions stay).
 
 **B-06 · All modules · S2 · Trials are done on the real plant, and append-only keeps the test rows forever.**
 - *Evidence:* "Test", "ccxc", "jkjkjk" … in orders, counts and attendance; 10 undo-delivered (most while trying
@@ -279,7 +297,7 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
 - [x] Deploy record for v0.25.0 (`a19a74d`).
 - [ ] **Rotate the R2 keys** (pasted into a chat on 17 Oct): new key in Cloudflare, update `BACKUP_*` on every
       file-storing service and in GitHub, delete the old key.
-- [ ] **Delete the four leftover password files** (once saved in Railway + the password manager):
+- [x] **Delete the four leftover password files** (owner, 2026-10-18):
       `.env.railway.shared.{attendance_salary,complaint_box,job_applications,order_capture}.paste`.
 - [x] Remove `BREVO_API_KEY` / `MAIL_FROM` from `document-store` and `floor-stock` on Railway (B-02), 2026-10-18.
 - [ ] Close the Brevo account.

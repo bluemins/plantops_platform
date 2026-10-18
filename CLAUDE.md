@@ -1703,5 +1703,8 @@ Current status, open items and next steps: **`docs/STABILITY_PLAN.md` section 0*
 - **Railway cost** (owner, 2026-10-18): about $6.43 estimated for 29 Sep – 29 Oct, nearly all memory; it grows with the
   number of services. Rule: no new Railway service for fixes, jobs or safety nets; raise the $10 compute limit (Railway
   stops services at it). Details: `docs/STABILITY_PLAN.md` section 9.
-- Tests: platform 347, Document Store 107, Floor Stock 159, module-kit 69; typecheck and builds pass.
+- **B-05 + B-04 (v0.25.3, built 2026-10-18, not deployed):** Floor Stock treats a count before 5 am IST as last night's
+  (`countDay()`); Attendance waits up to 20 s for good GPS (`bestLocation()`) and refuses rougher than ±150 m (was 500 m;
+  owner), printed QRs unchanged. Plus a dead-code clean-up (knip). No migrations.
+- Tests: platform 347, Document Store 107, Floor Stock 172, Attendance 423, module-kit 69; typecheck and builds pass.
 

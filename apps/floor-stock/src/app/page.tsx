@@ -1,7 +1,7 @@
 import { Card } from "@plantops/ui";
 import { fmtDate } from "@plantops/module-kit/format";
 import { qty } from "@/lib/compare";
-import { istDay, istTime } from "@/lib/days";
+import { istTime } from "@/lib/days";
 import { LinkButton } from "@/lib/ui";
 import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
@@ -14,7 +14,7 @@ import { Header } from "./header";
 /** Floor Stock home: is today counted, what is low, and the way to everything else. */
 export default async function HomePage() {
   const user = await requirePageUser("/");
-  const [plant, setup, status] = await Promise.all([kit.branding(user.tenantId), listSetup(user), homeStatus(user, istDay())]);
+  const [plant, setup, status] = await Promise.all([kit.branding(user.tenantId), listSetup(user), homeStatus(user)]);
   const sections = setup.filter((s) => s.status === "active" && s.items.some((i) => i.status === "active"));
   const latest = status.lastDate ? await dayView(user, status.lastDate) : null;
   const canEnter = user.canCount && !user.isSupport;
@@ -38,8 +38,13 @@ export default async function HomePage() {
         </Card>
       ) : (
         <>
-          <DayCard label="Today" date={status.today} count={status.todayCount} canEnter={canEnter} main />
-          {!status.yesterdayCount && <DayCard label="Yesterday" date={status.yesterday} count={null} canEnter={canEnter} />}
+          {/* until 5 am the main card is last night's count (B-05); the calendar day is only a switch */}
+          <DayCard label={status.afterMidnight ? "Last night" : "Today"} date={status.today} count={status.todayCount} canEnter={canEnter} main />
+          {status.afterMidnight ? (
+            <CalendarDayCard date={status.calendarToday} count={status.calendarTodayCount} canEnter={canEnter} />
+          ) : (
+            !status.yesterdayCount && <DayCard label="Yesterday" date={status.yesterday} count={null} canEnter={canEnter} />
+          )}
         </>
       )}
 
@@ -87,7 +92,7 @@ export default async function HomePage() {
       </div>
 
       {/* last: it can be long, and the buttons above should not be pushed off the screen */}
-      {latest && <CanMakeCard groups={latest.can_make} title={latest.date === status.today ? "Can make from today's stock" : `Can make from the stock of ${fmtDate(latest.date)}`} />}
+      {latest && <CanMakeCard groups={latest.can_make} title={latest.date === status.today && !status.afterMidnight ? "Can make from today's stock" : `Can make from the stock of ${fmtDate(latest.date)}`} />}
     </div>
   );
 }
@@ -123,6 +128,20 @@ function DayCard({ label, date, count, canEnter, main }: { label: string; date: 
           Enter {label.toLowerCase()}&apos;s count
         </LinkButton>
       )}
+    </Card>
+  );
+}
+
+/** After midnight only: the calendar day, offered quietly in case someone really is counting the new day. */
+function CalendarDayCard({ date, count, canEnter }: { date: string; count: VersionInfo | null; canEnter: boolean }) {
+  if (count) return <DayCard label="Today" date={date} count={count} canEnter={canEnter} />;
+  if (!canEnter) return null;
+  return (
+    <Card className="flex flex-wrap items-center justify-between gap-3">
+      <p className="text-slate-700">It&apos;s after midnight. Counting today, {fmtDate(date)}?</p>
+      <LinkButton href={`/count?date=${date}`} variant="secondary">
+        Count for {fmtDate(date)}
+      </LinkButton>
     </Card>
   );
 }

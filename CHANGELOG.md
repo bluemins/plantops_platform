@@ -4,6 +4,24 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.25.3 — 2026-10-18 — Count after midnight, precise location for attendance (STABILITY_PLAN B-05, B-04)
+
+**What's in it**
+- **Floor Stock: a count after midnight goes to the right day (B-05).** Until 5 am India time the home page's main
+  card is "Last night's count · 16 Oct", the count page (also the 8 pm reminder's link) opens on last night, and the
+  launcher tile reads last night's count. The new calendar day is a small "Count for 17 Oct" switch, with a warning on
+  its count page. Saving rules unchanged (today or yesterday).
+- **Attendance: the phone waits for a good GPS reading (B-04).** Up to 20 s, stopping early at ±30 m; the button shows
+  "Finding your location… ±450 m". A reading rougher than **±150 m** (was ±500 m) is not saved, and the screen shows
+  how to turn on precise location (Android: Google Location Accuracy; iPhone: Precise Location). Same for the office
+  desk; the owner's "Use my current location" warns when the pin is rougher than ±50 m. **Printed QRs keep working.**
+- Dead code removed (no behaviour change): Document Store's unused `nodemailer`, 3 leftover files, unused helpers.
+
+**After deploying:** plant 001 → Attendance → Location & QR: "Use my current location" standing outside at the plant,
+circle **300 m**, Save (the QR stays). Check Floor Stock's 16 / 17 Oct day pages and correct if needed.
+
+**Migrations:** none. SSO token unchanged. Floor Stock, Attendance (and Document Store / Lab Records for the clean-up).
+
 ## v0.25.2 — 2026-10-18 — Login record, and no double login from a second tap (STABILITY_PLAN B-03)
 
 **What's in it**

@@ -2,22 +2,19 @@
 
 import { useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import { fmtTime } from "@/lib/punch";
+import { bestLocation, type Reading } from "@/lib/locate";
+import { fmtTime, MAX_ACCURACY_M } from "@/lib/punch";
 import type { DeskPerson } from "@/server/desk";
 
 type Kind = "in" | "out";
 const field = "min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-base focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)";
-
-/** The office phone's location, once, as precise as it can (never a cached one). */
-function locate(): Promise<GeolocationPosition> {
-  return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 }));
-}
 
 /** Mock-up 1: search, one card per person with their state and one big button; yourself greyed out. */
 export function DeskList({ people: first }: { people: DeskPerson[] }) {
   const [people, setPeople] = useState(first);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
   const [msg, setMsg] = useState<{ id: string; text: string; ok: boolean } | null>(null);
   const shown = useMemo(() => people.filter((p) => p.name.toLowerCase().includes(q.trim().toLowerCase())), [people, q]);
 
@@ -26,13 +23,17 @@ export function DeskList({ people: first }: { people: DeskPerson[] }) {
       return setMsg({ id: p.userId, ok: false, text: "Location only works on the secure app address (https)." });
     }
     setBusy(p.userId);
+    setAccuracy(null);
     setMsg(null);
-    let location: { lat: number; lng: number; accuracy: number } | null = null;
+    let location: Reading | null = null;
     try {
-      const pos = await locate();
-      location = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
+      location = await bestLocation(navigator.geolocation, setAccuracy); // waits up to 20 s for good GPS (B-04)
     } catch {
       location = null; // the server refuses with a plain message
+    }
+    if (location && location.accuracy > MAX_ACCURACY_M) {
+      setBusy(null);
+      return setMsg({ id: p.userId, ok: false, text: `Not saved: the office phone's location is too rough (±${Math.round(location.accuracy)} m). Turn on precise location (Android: Google Location Accuracy; iPhone: Precise Location), step near a window and try again.` });
     }
     const r = await api<{ kind: Kind; at: string; next?: Kind; state?: string }>("/api/desk/mark", { body: { user_id: p.userId, expect: p.next, location } });
     setBusy(null);
@@ -65,7 +66,7 @@ export function DeskList({ people: first }: { people: DeskPerson[] }) {
                   disabled={busy !== null}
                   className={`min-h-12 shrink-0 rounded-xl px-4 font-bold disabled:opacity-60 ${p.next === "in" ? "bg-(--brand) text-(--brand-contrast) hover:bg-(--brand-hover)" : "bg-amber-700 text-white"}`}
                 >
-                  {busy === p.userId ? "Checking…" : p.next === "in" ? "Mark IN" : "Mark OUT"}
+                  {busy === p.userId ? (accuracy !== null ? `Finding… ±${Math.round(accuracy)} m` : "Finding location…") : p.next === "in" ? "Mark IN" : "Mark OUT"}
                 </button>
               )}
             </div>

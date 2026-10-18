@@ -1,18 +1,18 @@
 // Launcher tile numbers (CLAUDE.md "Launcher tiles"): read live each time a launcher opens, never stored.
 // Up to 3 badges (approved 2026-10-04):
-//   "Today's count not done" (warn) / "Counted 6:40 pm" (ok)
+//   "Today's count not done" (warn) / "Counted 6:40 pm" (ok) - for the counting day (until 5 am: last night, B-05)
 //   "N items low" (danger) - from the newest count, against today's limits
 //   "Made 120 box" (info) - today's production
 import { sql } from "drizzle-orm";
 import type { ModuleSummary, SummaryView } from "@plantops/types";
-import { istDay, istTime } from "@/lib/days";
+import { countDay, istTime } from "@/lib/days";
 import { qty } from "@/lib/compare";
 import { withTenant } from "./db";
 
 const MAX_TEXT = 40;
 
 export function summaryFor(tenantId: string, _view: SummaryView, now = new Date()): Promise<ModuleSummary> {
-  const today = istDay(now);
+  const today = countDay(now);
   return withTenant(tenantId, async (tx) => {
     const { rows: setup } = await tx.execute<{ items: number }>(sql`
       select count(*)::int as items

@@ -116,6 +116,11 @@ page (the version shown). Worked out when the page opens (`src/lib/recipe.ts`), 
   UPDATEs are setup columns (`sections`, `items`) and the alert status columns. Nothing is ever deleted.
 - **Names and units are copied into each count line**, so old counts read the same after a rename or unit change.
   Sections and limits in the views are today's.
+- **The counting day (B-05, v0.25.3):** until **5 am India time** the screens treat last night as the day to count
+  (`countDay()` in `src/lib/days.ts`): the home page's main card ("Last night's count · 16 Oct"), `/count` with no
+  date (the 8 pm reminder's link) and the launcher tile. After midnight the calendar day is offered as a small switch
+  ("Count for 17 Oct"), with an amber note on its count page. Saving is still allowed for the calendar today and
+  yesterday only (`allowedDates()`), unchanged.
 - **"Previous" means the calendar day before.** With a gap, nothing is compared rather than guessing over two days.
 - **Two people counting at once:** the screen sends the version it showed (`expected_version`). A mismatch, or the
   unique keys on `counts` / `count_versions`, gives a 409 "reload" instead of overwriting.
@@ -206,3 +211,11 @@ they stay as built until then):**
 - Purchases, a party list, who holds the returnable jars, Hindi / Odia screens and emails.
 - Long-term: general godown stock (several godowns, transfers, in/out ledger, suppliers, value). Keep the code
   generic (free-text units, optional product link, no RO-only rules).
+
+## 2026-10-18: count after midnight (B-05, v0.25.3)
+At 01:07 IST on 17 Oct plant 001's 16 Oct closing was saved as 17 Oct, because after midnight every screen offered the
+new calendar day as "today". Now until 5 am the home page, `/count` and the tile follow `countDay()` (last night), and
+the calendar day is a one-tap switch. No schema change. Tests: `test/count-day.test.ts` (13). The owner checks plant
+001's 16 / 17 Oct on the day pages and corrects if needed.
+**Made while building:** the "Can make" title says "from the stock of 16 Oct" after midnight; the tile still reads the
+newest count, so in the rare case where both last night and the calendar day are counted before 5 am it says "not done".

@@ -6,7 +6,7 @@
 //   * append-only: stock_app has no UPDATE / DELETE on counts, versions or lines (the database refuses)
 import { and, asc, desc, eq, inArray, lt } from "drizzle-orm";
 import { z } from "zod";
-import { addDays, istDay } from "@/lib/days";
+import { addDays, afterMidnight, countDay, istDay } from "@/lib/days";
 import type { AlertContact } from "@plantops/types";
 import { ownersOf, queueLowStock } from "./alerts";
 import { compare, sum } from "@/lib/compare";
@@ -46,6 +46,11 @@ export type CountInput = z.infer<typeof CountInput>;
 export function allowedDates(now = new Date()) {
   const today = istDay(now);
   return [today, addDays(today, -1)];
+}
+
+/** Which day the screens offer first (B-05): last night's until 5 am, with the calendar day as a switch. */
+export function countDates(now = new Date()) {
+  return { main: countDay(now), calendarToday: istDay(now), afterMidnight: afterMidnight(now) };
 }
 
 // ---------- what the count screen needs ----------

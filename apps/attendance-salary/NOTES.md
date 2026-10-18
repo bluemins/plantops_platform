@@ -678,3 +678,15 @@ Asked by the owner 2026-10-17: a field-duty person sometimes eats at home, so th
   the field-duty days; slip and checking panel "DA N days"; CSV gains a "DA days" column after "TA"; the owners' "new
   claim" title ends ", no DA".
 - Tests: Attendance 418 (+4: rule B5a, API 8a, two database checks).
+
+## 2026-10-18: location accuracy (B-04, v0.25.3)
+Plant 001 widened the circle to 2,000 m; live readings showed why: the phone's **first** location is often the network
+fix (±200-500 m), which placed people 1.0-1.7 km away, while good GPS readings (±4-17 m) were within 190 m.
+- `src/lib/locate.ts` `bestLocation()`: watches up to 20 s, takes the most accurate reading, stops early at ±30 m.
+  Used by the scan button, the office desk and the owner's "Use my current location" (pin warning above ±50 m).
+- `MAX_ACCURACY_M` 500 → **150** (owner, 2026-10-18), on the server (scan + desk) and checked on the phone first: a
+  rough reading isn't sent; the screen shows how to turn on precise location (Android: Google Location Accuracy;
+  iPhone: Precise Location). The button shows "Finding your location… ±450 m" while waiting.
+- **The QR is unchanged** (owner): saving the circle never touches the QR key; plant 001 sets the circle to 300 m and
+  re-checks the pin after the release.
+- Tests: `test/locate.test.ts` (5), punch 150 / 151 m, desk 151 m refused.

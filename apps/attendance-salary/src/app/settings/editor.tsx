@@ -4,11 +4,14 @@ import { useState } from "react";
 import { Card, ErrorText } from "@plantops/ui";
 import { api } from "@/lib/api";
 import { parseLatLng } from "@/lib/geo";
+import { bestLocation } from "@/lib/locate";
 import type { SettingsView } from "@/server/settings";
 
 const field = "min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-base focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)";
 const primary = "flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-(--brand) px-4 text-base font-bold text-(--brand-contrast) hover:bg-(--brand-hover) disabled:opacity-60";
 const secondary = "flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-base font-semibold";
+/** The plant pin should be set from a GPS reading at least this good (B-04). */
+const PIN_GOOD_M = 50;
 const day = (iso: string) => new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" }).format(new Date(iso));
 
 /** Plant location, circle size and the QR (mock-up "Owner · Settings"). Support: read-only. */
@@ -29,16 +32,20 @@ export function SettingsEditor({ initial, canEdit }: { initial: SettingsView; ca
     setSaved(undefined);
     if (!window.isSecureContext || !("geolocation" in navigator)) return setError("Location only works on the secure app address (https).");
     setFound("Finding your location…");
-    navigator.geolocation.getCurrentPosition(
-      (p) => {
-        setPoint(`${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`);
-        setFound(`Found, within about ${Math.round(p.coords.accuracy)} m. Press Save.`);
+    // waits up to 20 s for good GPS (B-04): a rough pin would put every mark in the wrong place
+    bestLocation(navigator.geolocation, (acc) => setFound(`Finding your location… ±${Math.round(acc)} m`)).then(
+      (r) => {
+        setPoint(`${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}`);
+        setFound(
+          r.accuracy <= PIN_GOOD_M
+            ? `Found, within about ${Math.round(r.accuracy)} m. Press Save.`
+            : `Only rough (±${Math.round(r.accuracy)} m): stand outside in the open, turn on precise location (Android: Google Location Accuracy; iPhone: Precise Location) and tap again before saving.`,
+        );
       },
       () => {
         setFound(undefined);
         setError("The phone didn't give its location. Allow location for this site and try again.");
       },
-      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },
     );
   }
 
