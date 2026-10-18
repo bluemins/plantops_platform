@@ -4,6 +4,20 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.25.2 — 2026-10-18 — Login record, and no double login from a second tap (STABILITY_PLAN B-03)
+
+**What's in it**
+- **Every successful plant login is recorded** in the platform audit log (`user.login`): phone (Android / iPhone /
+  PC), browser (Chrome / Samsung / Safari / Home Screen app…), installed app or browser tab, where it started (a
+  module icon / link with its module, or the login page), and what had happened to the session the phone still sent
+  (none, still valid, logged out, expired and how long ago, another person's, another plant's). No IP address and
+  nothing about the PIN / password. It shows why people have to log in many times a day; read after two days.
+- **Login button:** after a successful login it stays "Logging in..." until the next page has opened, and a second
+  tap is ignored, so a slow 4G page load no longer makes a second login (the pairs one second apart). The Back
+  button gives a usable login page again.
+
+**Migrations:** none. SSO token unchanged. Platform only.
+
 ## v0.25.1 — 2026-10-18 — No email: expiry and low-stock alerts by app notification only (STABILITY_PLAN B-02)
 
 **What's in it**

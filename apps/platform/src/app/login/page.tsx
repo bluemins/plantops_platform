@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button, Card, ErrorText, PinInput, TextField } from "@plantops/ui";
 import { api } from "@/lib/api";
 import { safeNext } from "@/lib/safe-next";
@@ -14,29 +14,46 @@ export default function LoginPage() {
   const [owner, setOwner] = useState(false);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const sending = useRef(false); // a second tap before the screen updates must not log in twice (B-03)
 
   // Staff type the plant code once; the phone remembers it.
   useEffect(() => {
     try {
       setPlantCode(localStorage.getItem(PLANT_KEY) ?? "");
     } catch {}
+    // Back button after logging in: the browser may restore this page as it was ("Logging in..."); make it usable
+    const restored = (e: PageTransitionEvent) => {
+      if (!e.persisted) return;
+      sending.current = false;
+      setBusy(false);
+    };
+    window.addEventListener("pageshow", restored);
+    return () => window.removeEventListener("pageshow", restored);
   }, []);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (sending.current) return;
+    sending.current = true;
     setBusy(true);
     setError(undefined);
+    const rawNext = new URLSearchParams(window.location.search).get("next");
+    const installed = window.matchMedia?.("(display-mode: standalone)").matches || (navigator as { standalone?: boolean }).standalone === true;
     const res = await api<{ must_change_secret: boolean }>("/api/auth/login", {
-      body: { plant_code: plantCode, username, secret },
+      body: { plant_code: plantCode, username, secret, installed, ...(rawNext ? { next: rawNext.slice(0, 2000) } : {}) },
     });
-    setBusy(false);
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      sending.current = false;
+      setBusy(false);
+      return setError(res.error);
+    }
+    // stays "Logging in..." until the next page has loaded (slow on 4G), so the button can't be tapped again
     try {
       localStorage.setItem(PLANT_KEY, plantCode.trim().toUpperCase());
     } catch {}
     // Back to where the user was going (e.g. a module link on their phone), else the launcher.
     // Full page load so the plant's brand colour applies.
-    const next = safeNext(new URLSearchParams(window.location.search).get("next"));
+    const next = safeNext(rawNext);
     if (res.data.must_change_secret) return window.location.assign(`/change-secret${next ? `?next=${encodeURIComponent(next)}` : ""}`);
     window.location.assign(next ?? "/home");
   }

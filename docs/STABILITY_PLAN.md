@@ -134,6 +134,17 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
   open PlantOps. (3) Then fix the cause (e.g. the iPhone Home Screen app keeps its own cookies; module icons that open
   in a different browser; a double-tapped login button).
 
+- *Done (2026-10-18, Claude, v0.25.2):* step (1): `user.login` in `platform.audit_log` with `device`, `browser`,
+  `app` (installed / browser / unknown), `via` (module_link + `module` / login_page / other) and `previous`
+  (none / still_valid / logged_out / expired + `ended_minutes_ago` / other_user / other_plant / unknown). Also fixed
+  at once: the login button was active again while the next page loaded, so a second tap made a second login.
+- *Reading it (Claude, read-only, 2 days after the deploy):* per person: logins per day, `previous` counts, device /
+  browser / app mix. Expected patterns: mostly `expired` = the 12-hour session ends mid-shift (fix: sliding or
+  longer sessions; a session-length change, ask the owner); mostly `none` with `app` = installed on iPhone = the Home
+  Screen app keeps its own cookies (fix: one way of opening PlantOps per person); `none` on Android with
+  `via: module_link` = module icons opening in another browser; `still_valid` = a login screen shown although logged in.
+- [ ] *Owner:* step (2), ask Dillip and Gaja which phone and how they open PlantOps.
+
 **B-04 · Attendance · S1 · The location check is effectively off.**
 - *Evidence:* the circle was set to 2,000 m (designed 200 m); marks accepted 1,749 m away with 500 m accuracy. Phones
   are reporting rough network location instead of GPS.

@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import type { RoleId } from "@plantops/types";
 import { audit } from "./audit";
 import { burnTime, randomToken, sha256, validateSecret, verifySecret, hashSecret, type SecretKind } from "./crypto";
+import type { Browser, Device } from "./client-info";
 import { appDb, schema, withTenant, type PlatformTx } from "./db";
 import { env } from "./env";
 import { badRequest, cookieHeader, forbidden, getCookie, HttpError, unauthorized } from "./http";
@@ -42,8 +43,52 @@ export async function loadRoles(tx: PlatformTx, userId: string): Promise<RoleId[
   return rows.map((r) => r.roleId as RoleId).sort();
 }
 
+/**
+ * What we note about a successful login (B-03, docs/STABILITY_PLAN.md: why people log in many times a day). No IP
+ * address, nothing about the PIN / password.
+ */
+export interface LoginContext {
+  device: Device;
+  browser: Browser;
+  /** The login page says whether it runs as the installed app (home-screen icon) or in a browser tab. */
+  app: "installed" | "browser" | "unknown";
+  /** Where the login started: a module link / icon (`/sso/start?module=…`), the plain login page, or elsewhere. */
+  via: "module_link" | "login_page" | "other";
+  module?: string;
+  /** The session cookie the phone sent with the login, if any (read with readSessionCookie). */
+  previous: SessionCookie | "none" | "unreadable";
+}
+
+/** "none" / "unreadable" / the cookie's parts: what the phone still had when it asked to log in. */
+export function readSessionCookie(req: Request): SessionCookie | "none" | "unreadable" {
+  if (!getCookie(req, SESSION_COOKIE)) return "none";
+  return parseSessionCookie(req) ?? "unreadable";
+}
+
+/** The `next` the login page was opened with → where this login started. */
+export function loginVia(next: string | undefined): Pick<LoginContext, "via" | "module"> {
+  if (!next) return { via: "login_page" };
+  if (!next.startsWith("/") || next.startsWith("//")) return { via: "other" };
+  const url = new URL(next, "http://x");
+  if (url.pathname !== "/sso/start") return { via: "other" };
+  const module = url.searchParams.get("module");
+  return module && /^[a-z_]{1,40}$/.test(module) ? { via: "module_link", module } : { via: "module_link" };
+}
+
+/** What had happened to the session the phone still sent (same plant: looked up; another plant: not looked at). */
+async function previousSessionState(tx: PlatformTx, tenantId: string, userId: string, previous: LoginContext["previous"], now: Date) {
+  if (previous === "none") return { previous: "none" };
+  if (previous === "unreadable") return { previous: "unknown" };
+  if (previous.tenantId !== tenantId) return { previous: "other_plant" };
+  const [row] = await tx.select().from(sessions).where(eq(sessions.idHash, previous.sessionHash));
+  if (!row) return { previous: "unknown" };
+  if (row.revokedAt) return { previous: "logged_out" };
+  if (row.expiresAt <= now) return { previous: "expired", ended_minutes_ago: Math.round((now.getTime() - row.expiresAt.getTime()) / 60_000) };
+  return { previous: row.userId === userId ? "still_valid" : "other_user" };
+}
+
 /** Plant code + username + PIN/password. Returns the session cookie value. */
-export async function loginUser(input: { plantCode: string; username: string; secret: string }) {
+export async function loginUser(input: { plantCode: string; username: string; secret: string; context?: LoginContext }) {
   const tenantId = await resolveTenant(input.plantCode);
   if (!tenantId) {
     await burnTime(input.secret);
@@ -71,6 +116,11 @@ export async function loginUser(input: { plantCode: string; username: string; se
     }
 
     await tx.update(users).set({ failedAttempts: 0, lockedUntil: null }).where(eq(users.id, user.id));
+    if (input.context) {
+      const { previous, module, ...client } = input.context;
+      const before = await previousSessionState(tx, tenantId, user.id, previous, new Date());
+      await audit(tx, { tenantId, actor: `user:${user.id}`, action: "user.login", target: user.id, details: { ...client, ...(module ? { module } : {}), ...before } });
+    }
     const token = randomToken();
     await tx.insert(sessions).values({
       idHash: sha256(token),
@@ -99,8 +149,10 @@ export function clearedSessionCookie() {
   return cookieHeader(SESSION_COOKIE, "", { maxAgeSeconds: 0, secure: env.secureCookies });
 }
 
+type SessionCookie = { tenantId: string; sessionHash: string };
+
 /** The session cookie is "<tenantId>.<random>"; the tenant part only tells us which tenant to look in. */
-function parseSessionCookie(req: Request) {
+function parseSessionCookie(req: Request): SessionCookie | null {
   const raw = getCookie(req, SESSION_COOKIE);
   const dot = raw?.indexOf(".") ?? -1;
   if (!raw || dot < 0) return null;
