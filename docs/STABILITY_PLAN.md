@@ -42,8 +42,8 @@ Records evening → History, from 17:01 IST); until then GitHub's late evening r
    B-03 / B-04 are still open (owner to confirm).
 8. Open question for the owner: **B-17** hourly outbox resend (section 4).
 9. **Railway cost (section 9, "Cutting the cost"):** Serverless (sleep when idle) switched on for `job-applications` on
-   2026-10-18 ~11:00 IST; wake-up time measured from here at ~11:20 IST (result: see section 9). If it is fine: same for
-   `lab-records`, then after a few days `document-store` and `complaint-box`. Owner: Healthcheck Path `/health` was empty
+   2026-10-18 ~11:00 IST; a wake-up takes ~2 s (measured, section 9). Next: same for `lab-records`, then after a few days
+   of watching the launcher tiles, `document-store` and `complaint-box`. Owner: Healthcheck Path `/health` was empty
    on `job-applications` (set it); send Railway's per-service memory (Metrics or Usage page).
 
 ---
@@ -376,7 +376,11 @@ services, not with plant use.
 | Merge modules into one service | ~$6 | Breaks the independent-module design (CLAUDE.md), big rewrite | No |
 | Move off Railway (own server) | a few $ | More running / maintenance work | No, not now |
 
-- **Wake-up time on Railway:** *pending* — `job-applications` after 16 idle minutes, measured 2026-10-18 ~11:20 IST.
+- **Wake-up time on Railway (measured 2026-10-18 11:19 IST, `job-applications` after 16 idle minutes, curl `/health`
+  from India):** first visit **2.1 s** (asleep → awake), then 0.21 s and 0.20 s (normal 0.2–0.25 s). So a wake costs
+  ~2 s, under the launcher's 3 s tile wait but close (the tile's first call also fetches the platform's key), so a
+  sleeping module's tile may now and then show "Numbers unavailable" on the first open. Next: Serverless on
+  `lab-records`; watch the tiles for a few days before `document-store` / `complaint-box`.
 - If wake-ups make the launcher tile miss its numbers too often: raise the summary timeout from 3 s to 5 s for
   sleeping modules (changes the CLAUDE.md launcher contract: ask the owner first).
 
