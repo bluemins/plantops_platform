@@ -1,10 +1,11 @@
 // Expiry reminders: stages (30 / 7 / 1 days before, on expiry, weekly after), once per stage, a renewal
-// starts afresh, owners + the responsible person, one email per person per day, missing email / no email
-// service / mail server failure are all recorded on the row.
+// starts afresh, owners + the responsible person. Email is off in PlantOps (B-02): each row then records an app
+// notification only and nothing waits to be emailed. With email set up again: one email per person per day,
+// missing email / mail server failure recorded on the row.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { POST as cron } from "@/app/api/cron/daily/route";
 import { createDocument, getDocument, listDocuments, renewDocument, setArchived, uploadFile } from "@/server/documents";
-import type { Mailer } from "@/server/mail";
+import { EMAIL_OFF, type Mailer } from "@/server/mail";
 import { deliverReminders, queueReminders, runDaily } from "@/server/reminders";
 import { reminderStage } from "@/lib/expiry";
 import { KEEPER_ID, NOMAIL_ID, startFakePlatform, type FakePlatform } from "./fake-platform";
@@ -72,7 +73,7 @@ describe("queueing and sending", () => {
     const P = plant();
     const d = await addDoc(P, "FSSAI licence", 7);
     const { mailer, sent } = fakeMailer();
-    expect(await queueReminders(P.tenantId)).toBe(3);
+    expect(await queueReminders(P.tenantId, undefined, true)).toBe(3);
     await deliverReminders(P.tenantId, mailer);
     expect((await rowsFor(d.id)).map((r) => [r.stage, r.recipient_name, r.status, r.error])).toEqual([
       ["d7", "Priya", "sent", null],
@@ -84,7 +85,7 @@ describe("queueing and sending", () => {
     expect(sent[0]!.text).toMatch(/FSSAI licence \(No\. C-1\) – Expires in 7 days/);
     expect(sent[0]!.text).toMatch(/Contact for renewal: Office, 0674-000/);
     // the same day again: nothing new
-    expect(await queueReminders(P.tenantId)).toBe(0);
+    expect(await queueReminders(P.tenantId, undefined, true)).toBe(0);
   });
 
   it("one email per person per day lists all their documents", async () => {
@@ -92,7 +93,7 @@ describe("queueing and sending", () => {
     await addDoc(P, "Fire NOC", 30);
     await addDoc(P, "Trade licence", 1);
     const { mailer, sent } = fakeMailer();
-    await queueReminders(P.tenantId);
+    await queueReminders(P.tenantId, undefined, true);
     await deliverReminders(P.tenantId, mailer);
     const toSujata = sent.filter((m) => m.to === "sujata@plant.example");
     expect(toSujata).toHaveLength(1);
@@ -133,23 +134,55 @@ describe("queueing and sending", () => {
     expect((await rowsFor(d.id)).find((r) => r.recipient_name === "Ravi")).toBeTruthy();
   });
 
-  it("keeps unsent reminders pending until SMTP is configured; records mail server failures", async () => {
+  it("email off: every row records an app notification only; nothing waits or is emailed later", async () => {
     const P = plant();
     const d = await addDoc(P, "Pollution consent", 7);
-    await queueReminders(P.tenantId);
-    await deliverReminders(P.tenantId, { configured: false, send: async () => ({ ok: false, error: "x" }) });
-    expect((await rowsFor(d.id)).filter((r) => r.email).map((r) => [r.status, r.error])).toEqual([
-      ["pending", "Email is not set up yet"],
-      ["pending", "Email is not set up yet"],
+    expect(await queueReminders(P.tenantId, undefined, false)).toBe(3);
+    expect((await rowsFor(d.id)).map((r) => [r.recipient_name, r.email, r.status, r.error])).toEqual([
+      ["Priya", null, "skipped", EMAIL_OFF],
+      ["Ravi", null, "skipped", EMAIL_OFF], // no email saved: makes no difference, the app reaches them
+      ["Sujata", null, "skipped", EMAIL_OFF],
     ]);
-    await asOwner("update document_store.reminders set status = 'skipped' where document_id = $1 and email is not null", [d.id]);
+    expect(await deliverReminders(P.tenantId, { configured: false, send: async () => ({ ok: false, error: "x" }) })).toEqual({ sent: 0 });
+    // email set up later: these reminders already went out in the app, so they are not emailed afterwards
     const { mailer, sent } = fakeMailer();
     await deliverReminders(P.tenantId, mailer);
-    expect(sent).toHaveLength(2);
-    expect((await rowsFor(d.id)).filter((r) => r.email).every((r) => r.status === "sent")).toBe(true);
+    expect(sent).toHaveLength(0);
+    const page = await getDocument(P.owner, d.id);
+    expect(page.reminders.every((r) => r.app)).toBe(true);
+    expect((await listDocuments(P.owner)).find((x) => x.id === d.id)!.last_reminder).toMatchObject({ stage: "d7", app: true });
+  });
+
+  it("email off: someone no longer an owner / keeper is still recorded as not reached", async () => {
+    const P = plant();
+    const d = await addDoc(P, "Weights & measures", 5, NOMAIL_ID);
+    const saved = platform.contacts;
+    platform.contacts = saved!.filter((c) => c.user_id !== NOMAIL_ID);
+    (globalThis as unknown as Record<string, Map<string, unknown> | undefined>).__document_store_contacts?.delete(P.tenantId); // contacts are cached 5 min
+    try {
+      await queueReminders(P.tenantId, inDays(2), false);
+    } finally {
+      platform.contacts = saved;
+    }
+    expect((await rowsFor(d.id)).find((r) => r.recipient_name === "Ravi")).toMatchObject({ status: "skipped", error: "No longer an active owner / document keeper / plant staff" });
+  });
+
+  it("email off: rows from when email was on are left as they are (history), never touched by the daily run", async () => {
+    const P = plant();
+    const d = await addDoc(P, "Fire NOC", 7);
+    await queueReminders(P.tenantId, undefined, true);
+    await deliverReminders(P.tenantId, { configured: false, send: async () => ({ ok: false, error: "x" }) });
+    expect((await rowsFor(d.id)).filter((r) => r.email).map((r) => [r.status, r.error])).toEqual([
+      ["pending", null],
+      ["pending", null],
+    ]);
+    expect((await getDocument(P.owner, d.id)).reminders.some((r) => r.app)).toBe(false);
+  });
+
+  it("email on: records mail server failures", async () => {
     const Q = plant();
     const e = await addDoc(Q, "Lab accreditation", 1);
-    await queueReminders(Q.tenantId);
+    await queueReminders(Q.tenantId, undefined, true);
     await deliverReminders(Q.tenantId, fakeMailer(true).mailer);
     expect((await rowsFor(e.id)).filter((r) => r.email).every((r) => r.status === "failed" && /535/.test(r.error))).toBe(true);
   });
@@ -157,7 +190,7 @@ describe("queueing and sending", () => {
   it("retries a failed send on later runs for up to 7 days", async () => {
     const P = plant();
     const d = await addDoc(P, "Pollution board consent", 7);
-    await queueReminders(P.tenantId);
+    await queueReminders(P.tenantId, undefined, true);
     await deliverReminders(P.tenantId, fakeMailer(true).mailer);
     const emailed = async () => (await rowsFor(d.id)).filter((r) => r.email);
     expect((await emailed()).every((r) => r.status === "failed")).toBe(true);
@@ -178,7 +211,7 @@ describe("queueing and sending", () => {
     // a failure older than 7 days is left alone
     const Q = plant();
     const e = await addDoc(Q, "BIS licence", 7);
-    await queueReminders(Q.tenantId);
+    await queueReminders(Q.tenantId, undefined, true);
     await deliverReminders(Q.tenantId, fakeMailer(true).mailer);
     const later = fakeMailer();
     await deliverReminders(Q.tenantId, later.mailer, new Date(Date.now() + 8 * 86_400_000));
@@ -189,10 +222,10 @@ describe("queueing and sending", () => {
   it("each row in the table shows its last reminder", async () => {
     const P = plant();
     const d = await addDoc(P, "Trade licence", 0);
-    await queueReminders(P.tenantId);
+    await queueReminders(P.tenantId, undefined, true);
     await deliverReminders(P.tenantId, fakeMailer().mailer);
     const row = (await listDocuments(P.owner)).find((x) => x.id === d.id)!;
-    expect(row.last_reminder).toMatchObject({ stage: "d0", status: "sent" });
+    expect(row.last_reminder).toMatchObject({ stage: "d0", status: "sent", app: false });
     expect((await getDocument(P.owner, d.id)).reminders).toHaveLength(3);
   });
 });
@@ -208,5 +241,13 @@ describe("daily job endpoint", () => {
     expect(ok.status).toBe(200);
     expect((await ok.json()).plants).toBeGreaterThan(0);
     expect((await runDaily(new Date(), fakeMailer().mailer)).plants).toBeGreaterThan(0);
+  });
+
+  it("with email off, the daily run records today's reminders as app notifications", async () => {
+    const P = plant();
+    const d = await addDoc(P, "Factory licence", 30);
+    const r = await runDaily(new Date(), { configured: false, send: async () => ({ ok: false, error: "x" }) });
+    expect(r.sent).toBe(0);
+    expect((await rowsFor(d.id)).every((x) => x.status === "skipped" && x.error === EMAIL_OFF)).toBe(true);
   });
 });

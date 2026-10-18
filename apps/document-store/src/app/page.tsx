@@ -104,8 +104,8 @@ export default async function DocumentsPage({ searchParams }: Props) {
                 <p className="text-sm text-slate-500">{t("responsible")}: {d.responsible_name}</p>
                 {d.last_reminder && (
                   <p className="text-xs text-slate-400">
-                    {t("reminders")} ({localizedStage(locale, d.last_reminder.stage)}): {localizedReminderStatus(locale, d.last_reminder.status)}
-                    {d.last_reminder.error ? ` – ${d.last_reminder.error}` : ""}
+                    {t("reminders")} ({localizedStage(locale, d.last_reminder.stage)}): {localizedReminderStatus(locale, d.last_reminder.status, d.last_reminder.app)}
+                    {d.last_reminder.error && !d.last_reminder.app ? ` – ${d.last_reminder.error}` : ""}
                   </p>
                 )}
               </a>
@@ -142,9 +142,9 @@ export default async function DocumentsPage({ searchParams }: Props) {
                     <td className="px-3 py-2 text-slate-600">
                       {d.last_reminder ? (
                         <>
-                          {localizedReminderStatus(locale, d.last_reminder.status)} ({localizedStage(locale, d.last_reminder.stage)})
+                          {localizedReminderStatus(locale, d.last_reminder.status, d.last_reminder.app)} ({localizedStage(locale, d.last_reminder.stage)})
                           <div className="text-xs text-slate-400">
-                            {d.last_reminder.sent_at ? localizedDateTime(locale, d.last_reminder.sent_at) : d.last_reminder.error}
+                            {d.last_reminder.sent_at ? localizedDateTime(locale, d.last_reminder.sent_at) : d.last_reminder.app ? localizedDateTime(locale, d.last_reminder.created_at) : d.last_reminder.error}
                           </div>
                         </>
                       ) : (

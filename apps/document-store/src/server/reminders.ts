@@ -1,8 +1,10 @@
 // The daily job (POST /api/cron/daily): for each plant, find documents in a reminder stage today (30 / 7 / 1
-// days before, on expiry, then weekly while expired), queue one reminder per person per stage (owners + the
-// responsible person), then send each person ONE email listing all their due documents.
+// days before, on expiry, then weekly while expired), record one reminder per person per stage (owners + the
+// responsible person) and send the app notification (bell + phone) for each newly reached stage.
 // The unique (version, stage, person) key means a stage is never sent twice; a renewal starts afresh.
-// A failed send (provider down, network blocked) is tried again on each run for up to RETRY_DAYS.
+// Email is off in PlantOps (owner, 2026-10-17; STABILITY_PLAN B-02): the rows are then recorded as EMAIL_OFF and
+// nothing waits to be emailed. If email is set up again, each person gets ONE email listing all their due
+// documents, and a failed send (provider down, network blocked) is tried again on each run for up to RETRY_DAYS.
 import { and, eq, gt, sql } from "drizzle-orm";
 import { fmtDate } from "@plantops/module-kit/format";
 import { reminderStage, stageText, todayIst } from "@/lib/expiry";
@@ -10,7 +12,7 @@ import { docDb, schema, withTenant } from "./db";
 import { listDocuments, type DocumentRow } from "./documents";
 
 import { kit } from "./kit";
-import { configuredMailer, looksLikeEmail, type Mailer } from "./mail";
+import { configuredMailer, EMAIL_OFF, emailIsOn, looksLikeEmail, type Mailer } from "./mail";
 import { expiryNotification, send } from "./notify";
 import { systemReader } from "./session";
 
@@ -20,8 +22,8 @@ const RETRY_DAYS = 7;
 
 type Due = { doc: DocumentRow; stage: string };
 
-/** Queue today's reminders for one plant. Returns how many new reminder rows were written. */
-export async function queueReminders(tenantId: string, today = todayIst()) {
+/** Record today's reminders for one plant (as emails to send only when email is on). Returns how many new rows. */
+export async function queueReminders(tenantId: string, today = todayIst(), emailOn = emailIsOn()) {
   const contacts = await kit.contacts(tenantId);
   if (!contacts) throw new Error("Couldn't reach PlantOps to look up who to remind"); // nothing queued: next run retries
   const docs = await listDocuments(systemReader(tenantId), { filter: "all" });
@@ -36,17 +38,12 @@ export async function queueReminders(tenantId: string, today = todayIst()) {
     for (const o of owners) people.set(o.user_id, { name: o.display_name, email: o.email ?? null });
     const resp = contacts.find((c) => c.user_id === doc.responsible_user_id);
     people.set(doc.responsible_user_id, resp ? { name: resp.display_name, email: resp.email ?? null } : { name: doc.responsible_name, email: null });
-    return [...people].map(([userId, p]) => ({
-      tenantId,
-      documentId: doc.id,
-      versionId: doc.current.id,
-      stage,
-      recipientUserId: userId,
-      recipientName: p.name,
-      email: looksLikeEmail(p.email) ? p.email : null,
-      status: looksLikeEmail(p.email) ? ("pending" as const) : ("skipped" as const),
-      error: looksLikeEmail(p.email) ? null : resp || owners.some((o) => o.user_id === userId) ? "No email saved for this person" : "No longer an active owner / document keeper / plant staff",
-    }));
+    return [...people].map(([userId, p]) => {
+      const active = !!resp || owners.some((o) => o.user_id === userId); // the responsible person may have left
+      const email = emailOn && active && looksLikeEmail(p.email) ? p.email : null;
+      const error = !active ? "No longer an active owner / document keeper / plant staff" : !emailOn ? EMAIL_OFF : email ? null : "No email saved for this person";
+      return { tenantId, documentId: doc.id, versionId: doc.current.id, stage, recipientUserId: userId, recipientName: p.name, email, status: email ? ("pending" as const) : ("skipped" as const), error };
+    });
   });
   const inserted = await withTenant(tenantId, (tx) =>
     tx.insert(reminders).values(rows).onConflictDoNothing().returning({ id: reminders.id, documentId: reminders.documentId, stage: reminders.stage }),
@@ -61,22 +58,21 @@ export async function queueReminders(tenantId: string, today = todayIst()) {
   return inserted.length;
 }
 
-/** Send this plant's waiting reminders: one email per person, listing all their documents. */
+/** Send this plant's waiting reminders: one email per person, listing all their documents. Nothing without email. */
 export async function deliverReminders(tenantId: string, mailer: Mailer = configuredMailer(), now = new Date()) {
-  if (mailer.configured) {
-    const retrySince = new Date(now.getTime() - RETRY_DAYS * 86_400_000);
-    await withTenant(tenantId, async (tx) => {
-      await tx
-        .update(reminders)
-        .set({ status: "pending", error: null })
-        .where(and(eq(reminders.tenantId, tenantId), eq(reminders.status, "skipped"), eq(reminders.error, "Email is not set up yet")));
-      // keep the last error on screen until the retry succeeds or fails again
-      await tx
-        .update(reminders)
-        .set({ status: "pending" })
-        .where(and(eq(reminders.tenantId, tenantId), eq(reminders.status, "failed"), gt(reminders.createdAt, retrySince)));
-    });
-  }
+  if (!mailer.configured) return { sent: 0 };
+  const retrySince = new Date(now.getTime() - RETRY_DAYS * 86_400_000);
+  await withTenant(tenantId, async (tx) => {
+    await tx
+      .update(reminders)
+      .set({ status: "pending", error: null })
+      .where(and(eq(reminders.tenantId, tenantId), eq(reminders.status, "skipped"), eq(reminders.error, "Email is not set up yet")));
+    // keep the last error on screen until the retry succeeds or fails again
+    await tx
+      .update(reminders)
+      .set({ status: "pending" })
+      .where(and(eq(reminders.tenantId, tenantId), eq(reminders.status, "failed"), gt(reminders.createdAt, retrySince)));
+  });
   const waiting = await withTenant(tenantId, (tx) => tx.select().from(reminders).where(and(eq(reminders.tenantId, tenantId), eq(reminders.status, "pending"))));
   if (!waiting.length) return { sent: 0 };
   const docs = await listDocuments(systemReader(tenantId), { filter: "all" });
@@ -101,9 +97,9 @@ export async function deliverReminders(tenantId: string, mailer: Mailer = config
     });
     const subject = `PlantOps · ${plant}: ${list.length} document${list.length === 1 ? "" : "s"} to renew`;
     const text = `Hello ${list[0]!.recipientName},\n\nThese licences / certificates of ${plant} need attention:\n\n${lines.filter(Boolean).join("\n\n")}${link}\n\n– PlantOps (reminders ${list.map((r) => stageText(r.stage)).filter((v, i, a) => a.indexOf(v) === i).join(", ")})`;
-    const r = mailer.configured ? await mailer.send(email, subject, text) : ({ ok: false, error: "Email is not set up yet" } as const);
+    const r = await mailer.send(email, subject, text);
     if (r.ok) sent++;
-    const status = r.ok ? "sent" : mailer.configured ? "failed" : "pending";
+    const status = r.ok ? "sent" : "failed";
     await withTenant(tenantId, (tx) =>
       tx
         .update(reminders)
@@ -122,7 +118,7 @@ export async function runDaily(now = new Date(), mailer: Mailer = configuredMail
   let sent = 0;
   for (const { id } of rows) {
     try {
-      queued += await queueReminders(id, todayIst(now));
+      queued += await queueReminders(id, todayIst(now), mailer.configured);
       sent += (await deliverReminders(id, mailer, now)).sent;
     } catch (err) {
       console.error("[document-store] daily job failed for one plant:", (err as Error).message);

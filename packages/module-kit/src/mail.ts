@@ -1,7 +1,9 @@
 // Sending email from any module (Document Store expiry reminders, Floor Stock low-stock alerts). Two ways:
 // - Brevo's HTTPS API when BREVO_API_KEY is set (works where outgoing SMTP is blocked, e.g. Railway Hobby);
 // - otherwise SMTP: Amazon SES (Mumbai), Zoho Mail, Google Workspace and most providers.
-// Until one is set up (plus MAIL_FROM), nothing is sent and messages stay "Email is not set up yet".
+// PlantOps uses NO email since 2026-10-17 (owner; STABILITY_PLAN B-02): every alert is an app notification. With
+// none of these variables set, reminder / low-stock rows are recorded as EMAIL_OFF ("app notification only") and
+// nothing waits to be emailed. The code stays so email can come back by setting the variables again.
 // Settings are the same environment variables in every module, read when a mailer is made (tests set them first).
 import nodemailer from "nodemailer";
 
@@ -37,6 +39,21 @@ export type Mailer = { configured: boolean; send: (to: string, subject: string, 
 /** The mailer this server is set up for: Brevo's API if its key is set, else SMTP. */
 export function configuredMailer(): Mailer {
   return env.brevoApiKey ? brevoMailer() : smtpMailer();
+}
+
+/** Stored as the `error` of a reminder / alert row that went out only as an app notification (no email set up). */
+export const EMAIL_OFF = "App notification only (email is off)";
+
+/**
+ * Whether email is set up on this server. Never throws: a half-filled setting counts as "on", so the mistake shows
+ * up as a failed send (as before) instead of breaking the save that queues the row.
+ */
+export function emailIsOn(): boolean {
+  try {
+    return configuredMailer().configured;
+  } catch {
+    return true;
+  }
 }
 
 /** "PlantOps <a@b.in>" or "a@b.in" → Brevo's sender object. */

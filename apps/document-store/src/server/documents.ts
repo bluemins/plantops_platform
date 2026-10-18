@@ -10,6 +10,7 @@ import { expiryStatus, todayIst, type ExpiryKind } from "@/lib/expiry";
 import { schema, withTenant, type DocTx } from "./db";
 import { badRequest, conflict, HttpError, notFound } from "./http";
 import { kit } from "./kit";
+import { EMAIL_OFF } from "./mail";
 import { addedNotification, responsibleNotification, send, storageNotification, storageStepCrossed } from "./notify";
 import { actorOf, requireManage, type DocUser } from "./session";
 import { fileSha256, fileStorage, MAX_FILE_BYTES, newStorageKey, sniffType } from "./storage";
@@ -102,7 +103,8 @@ export type VersionView = {
   entered_by_name: string;
   entered_at: string;
 };
-export type ReminderView = { stage: string; recipient_name: string; email: string | null; status: string; error: string | null; created_at: string; sent_at: string | null };
+/** `app`: the reminder went out only as an app notification (bell + phone), because email is off (B-02). */
+export type ReminderView = { stage: string; recipient_name: string; email: string | null; status: string; error: string | null; app: boolean; created_at: string; sent_at: string | null };
 export type DocumentRow = {
   id: string;
   status: "active" | "archived";
@@ -149,6 +151,7 @@ const reminderView = (r: typeof reminders.$inferSelect): ReminderView => ({
   email: r.email,
   status: r.status,
   error: r.error,
+  app: r.error === EMAIL_OFF,
   created_at: r.createdAt.toISOString(),
   sent_at: r.sentAt?.toISOString() ?? null,
 });

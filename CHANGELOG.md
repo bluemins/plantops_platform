@@ -4,6 +4,22 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.25.1 — 2026-10-18 — No email: expiry and low-stock alerts by app notification only (STABILITY_PLAN B-02)
+
+**What's in it**
+- **No email anywhere** (owner, 2026-10-17). Brevo never delivered a reminder (it refused Railway's changing
+  addresses). Without email settings, Document Store expiry reminders and Floor Stock low-stock rows are now recorded
+  as "App notification only (email is off)": nothing waits to be emailed and the daily job retries nothing. The app
+  notifications (bell + phone) were already sent and are unchanged.
+- **Document Store:** each document's reminder list and the documents table show these reminders as **"sent in the
+  app (bell + phone)"** (English, Hindi, Odia). The old Brevo rows keep their real email status as history.
+- The mail code stays in `packages/module-kit` (`emailIsOn()`, `EMAIL_OFF`); `add-railway-module.sh`, DEPLOY,
+  HANDBOOK and `.env.example` no longer list Brevo.
+- Also in this release's docs: the timed jobs are started by cron-job.org (B-01, HANDBOOK section 10).
+
+**Migrations:** none. SSO token unchanged. **Config:** remove `BREVO_API_KEY` and `MAIL_FROM` from the
+`document-store` and `floor-stock` services (while they are set, the apps still try Brevo and fail as before).
+
 ## v0.25.0 — 2026-10-17 — Job applications (new module)
 
 **What's in it**

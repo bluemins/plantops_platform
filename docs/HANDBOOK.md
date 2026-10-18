@@ -330,9 +330,9 @@ A **new module with a daily job** adds a row here and a job on cron-job.org (and
 - Platform: plan renewal reminders to owners (30 / 7 / 1 days before and on the renewal date); skipped until
   `APP_URL` is set (and needs `CRON_SECRET` on the **platform** service too)
 - Lab Records: reminders about holds older than 24 h, and Form 1 due from the 25th
-- Document Store: expiry emails and app notifications
-- Floor Stock: low-stock emails still waiting (most go out right after the count is saved); skipped until
-  `STOCK_URL` is set
+- Document Store: expiry app notifications (30 / 7 / 1 days before, on expiry, then weekly), to the owners and the
+  responsible person; each reminder is listed on the document's page
+- Floor Stock: notifications that waited in its outbox (low-stock alerts go out right after the count is saved)
 - Complaint Box: "C-0042 open for N days" reminders (day 3, 10, 17… after logging / reopening) and notifications
   that waited in its outbox; skipped until `COMPLAINT_URL` is set
 - Order Capture: notifications that waited in its outbox (no reminders in v1); skipped until `ORDER_URL` is set
@@ -353,27 +353,16 @@ Its settings live in GitHub → Settings → **Environments** → `shared`: vari
 and the secret `CRON_SECRET`. If the repo is ever made public, GitHub pauses schedules after 60 days without
 commits.
 
-**Email (Document Store reminders, Floor Stock low-stock alerts): Brevo, through its HTTPS API.** Railway's Hobby plan blocks all outgoing
-SMTP (ports 25 / 465 / 587 / 2525): SMTP settings there end in "Email failed: Connection timeout". So the shared
-copy uses Brevo's API, which is ordinary HTTPS.
-- Until email is set up, due reminders stay pending and are sent once it works (old "Email is not set up yet"
-  rows too).
-- A failed send (wrong key, provider down) is tried again by each daily run for 7 days, then left as failed.
-
-To set it up (done for `shared` on 2026-10-04):
-1. Brevo → *Senders, Domains* → authenticate the sending domain (DKIM + DMARC records at WordPress.com) and
-   verify the sender address.
-2. Brevo → *SMTP & API* → **API Keys** → generate a key (not the SMTP key).
-3. **document-store** and **floor-stock** → Variables: `BREVO_API_KEY` = that key, `MAIL_FROM` = `PlantOps <contact@bluemins.life>`
-   (an address Brevo has verified). `SMTP_*` are ignored while `BREVO_API_KEY` is set.
-   - On a host that allows SMTP (or Railway Pro) you can use `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
-     instead; leave `BREVO_API_KEY` unset.
-   - If you later restrict Brevo API keys to certain IP addresses, Railway's changing addresses will be refused.
-     Leave that restriction off.
-4. Make sure owners and responsible users have an email saved in PlantOps → **Manage users**.
-5. Use GitHub → Actions → **Daily jobs** → **Run workflow** to exercise the live delivery. Check the document's
-   reminder log for sent / failed status and check the provider's delivery logs. Do not use the production
-   workflow as a test until valid plant recipients are configured.
+**No email (owner, 2026-10-17; STABILITY_PLAN B-02).** PlantOps sends no email: every alert, including Document
+Store expiry reminders and Floor Stock low stock, is an app notification (bell + phone push, below). Brevo was
+dropped: it refused Railway's changing addresses ("unrecognised IP address") and never delivered a reminder.
+- Leave `BREVO_API_KEY`, `MAIL_FROM` and `SMTP_*` unset on every service. Without them each reminder / low-stock
+  row is recorded as "App notification only (email is off)", shown as **sent in the app (bell + phone)** on the
+  document's page; nothing waits to be emailed.
+- **Expiry reminders only help if people see them:** the owner and every document's responsible person must turn
+  on phone notifications (`/notifications` → **Send a test to this phone**).
+- The mail code stays in `packages/module-kit/src/mail.ts`. Setting the variables again would turn email back on
+  for new rows (rows recorded as app-only are never emailed afterwards).
 
 **Evening and morning jobs.** cron-job.org calls the evening jobs **every hour from 17:01 to 23:01 India time** and
 Attendance's morning job **every hour from 08:01 to 11:01** (rows 9-11 above):
@@ -687,8 +676,8 @@ Example: Floor Stock, Phase 5. It becomes **one more Railway service** and **one
 - [ ] Delete `.env.railway.shared.paste` once everything is pasted (GitHub environment included).
 - [x] Set up the nightly backups (section 11, "Setting it up") and do one practice restore, before real plant
   data.
-- [ ] Confirm the first real reminder email arrives (Brevo API) and save plant owners' / responsible users'
-  email addresses. See section 10.
+- [ ] Owner and each document's responsible person turn on phone notifications and send a test (section 10,
+  "No email").
 - [ ] Set up the 11 cron-job.org jobs (section 10); each **Test run** answers 200.
 - [ ] Choose and configure a real S3 bucket only after safely copying and verifying the existing document files.
 - [ ] WhatsApp, when Meta approves.

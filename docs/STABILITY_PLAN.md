@@ -115,6 +115,12 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
   - Floor Stock's low-stock email rows likewise stop being queued;
   - the mail code stays in `packages/module-kit` unused (easy to bring back), and HANDBOOK / DEPLOY stop listing
     Brevo as a setup step.
+- *Done (2026-10-18, Claude, v0.25.1):* the reminder / low-stock rows had to stay, because they are the "once per
+  stage / once per item per day" record the notifications depend on. So without a mailer they are now recorded as
+  "App notification only (email is off)", nothing is retried, and the document page and list say "sent in the app
+  (bell + phone)". Tests: Document Store 107, Floor Stock 159. Live before the patch: 6 reminder rows (all Brevo 401 or
+  no email), 35 low-stock rows (all "no email address").
+- [ ] *Owner:* deploy v0.25.1, then remove `BREVO_API_KEY` / `MAIL_FROM` from `document-store` and `floor-stock`.
 - *Required for this to be safe:* everyone who must hear about expiries turns on phone notifications (owner + each
   responsible person: `/notifications` → "Send a test to this phone"). Today only 3 people have a phone on.
 - *Also (owner):* one document has been **expired since 31 Mar 2026**: renew or archive it.
@@ -269,6 +275,13 @@ Salary, Floor Stock, platform, Complaint Box, Job applications, Document Store, 
 none over 2 s; 99.5 % uptime per app per month; scheduled jobs start within 5 minutes of their time (B-01).
 
 **Today:** every address answers in 0.24–0.36 s from India; database 16 MB (no size concern for years at this rate).
+
+**Railway cost (owner's usage screen, 2026-10-18; period 29 Sep – 29 Oct):** $3.44 used so far, estimated $6.43 for
+the period (Hobby: $5 fee includes $5 usage). Memory is $3.18 of it (~13,760 GB-minutes); CPU $0.08, volumes $0.04,
+egress $0.02. Attendance and Job applications joined mid-period, so a full month of 9 services is likely ~$8–9 usage.
+**Compute Usage Limit is $10, and Railway stops the services at that limit:** raise it (e.g. $20) with an email alert
+at $10. Memory per service (Railway → Metrics) is the first thing to measure here; cost grows with the number of
+services, not with plant use.
 
 **Measure:**
 1. Page times on a real phone (Lighthouse / Chrome remote debugging) for the most used screens: Order Capture order

@@ -100,8 +100,8 @@ export default async function DocumentPage({ params }: Props) {
           {doc.reminders.map((r, i) => (
             <li key={i}>
               {localizedDateTime(locale, r.created_at)} · {localizedStage(locale, r.stage)} · {r.recipient_name}
-              {r.email ? ` (${r.email})` : ""}: <b>{localizedReminderStatus(locale, r.status)}</b>
-              {r.error ? ` – ${r.error}` : ""}
+              {r.email ? ` (${r.email})` : ""}: <b>{localizedReminderStatus(locale, r.status, r.app)}</b>
+              {r.error && !r.app ? ` – ${r.error}` : ""}
             </li>
           ))}
         </ul>

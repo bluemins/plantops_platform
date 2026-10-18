@@ -1,7 +1,8 @@
-// Low-stock email: owners only, once per item per day, newly low items from a correction, one email per owner,
-// waits while email isn't set up, retried by the daily job and given up after RETRY_DAYS.
+// Low-stock rows: owners only, once per item per day, newly low items from a correction (what the notification
+// reports). Email is off in PlantOps (B-02): rows then record an app notification only and nothing is emailed. With
+// email set up (most tests below): one email per owner, retried by the daily job and given up after RETRY_DAYS.
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import type { Mailer } from "@plantops/module-kit/mail";
+import { EMAIL_OFF, type Mailer } from "@plantops/module-kit/mail";
 import { POST as cron } from "@/app/api/cron/daily/route";
 import { addDays } from "@/lib/days";
 import { lowStockEmail, runDaily, sendPending } from "@/server/alerts";
@@ -12,11 +13,16 @@ import { asOwner } from "./helpers";
 import { at, fullCount, stockPlant, TODAY } from "./stock-plant";
 
 let platform: FakePlatform;
+const MAIL_ENV = { SMTP_HOST: "smtp.example.test", MAIL_FROM: "PlantOps <alerts@example.test>" };
 beforeAll(async () => {
   platform = await startFakePlatform();
   process.env.PLATFORM_URL = platform.url;
+  Object.assign(process.env, MAIL_ENV); // email "set up" (nothing is really sent: the tests pass their own mailer)
 });
-afterAll(() => platform.close());
+afterAll(() => {
+  for (const key of Object.keys(MAIL_ENV)) delete process.env[key];
+  return platform.close();
+});
 afterEach(() => {
   delete process.env.CRON_SECRET;
 });
@@ -99,14 +105,34 @@ describe("sending", () => {
     expect((await alerts(p.tenantId)).map((a) => a.status).sort()).toEqual(["sent", "sent", "skipped", "skipped"]);
   });
 
-  it("email not set up yet: stays pending, sent once it is", async () => {
+  it("email off: rows record an app notification only, the newly low items still reach the notification, nothing is emailed", async () => {
+    const p = await stockPlant();
+    for (const key of Object.keys(MAIL_ENV)) delete process.env[key];
+    try {
+      const saved = await submitCount(p.keeper, fullCount(p, TODAY, { box: 5, label: 1, roll: 1 }), at(TODAY));
+      expect(saved.low_items.map((i) => i.name)).toEqual(["Roll"]);
+      expect((await alerts(p.tenantId)).map((a) => [a.recipient_user_id, a.status, a.error])).toEqual([
+        [NOMAIL_OWNER_ID, "skipped", EMAIL_OFF],
+        [OWNER_ID, "skipped", EMAIL_OFF],
+      ]);
+      // once per item per day still holds: a correction doesn't report Roll again
+      const fix = await submitCount(p.keeper, fullCount(p, TODAY, { box: 5, label: 1, roll: 0.5 }, { expected_version: 1, reason: "recount" }), at(TODAY));
+      expect(fix.low_items).toEqual([]);
+      expect(await sendPending(p.tenantId, fakeMailer({ configured: false }).mailer)).toEqual({ sent: 0, waiting: 0, failed: 0 });
+      // email set up later: these went out in the app, so they are not emailed afterwards
+      const { mailer, sent } = fakeMailer();
+      await sendPending(p.tenantId, mailer);
+      expect(sent).toHaveLength(0);
+    } finally {
+      Object.assign(process.env, MAIL_ENV);
+    }
+  });
+
+  it("email off: rows from when email was on stay as they are and are not touched", async () => {
     const p = await stockPlant();
     await submitCount(p.keeper, fullCount(p, TODAY, { box: 5, label: 1, roll: 1 }), at(TODAY));
-    expect(await sendPending(p.tenantId, fakeMailer({ configured: false }).mailer)).toEqual({ sent: 0, waiting: 1, failed: 0 });
-    expect((await alerts(p.tenantId)).find((a) => a.recipient_user_id === OWNER_ID)).toMatchObject({ status: "pending", error: "Email is not set up yet" });
-    const { mailer, sent } = fakeMailer();
-    await sendPending(p.tenantId, mailer);
-    expect(sent).toHaveLength(1);
+    expect(await sendPending(p.tenantId, fakeMailer({ configured: false }).mailer)).toEqual({ sent: 0, waiting: 0, failed: 0 });
+    expect((await alerts(p.tenantId)).find((a) => a.recipient_user_id === OWNER_ID)).toMatchObject({ status: "pending", error: null });
   });
 
   it("a failed send is retried, then given up after 7 days", async () => {

@@ -1,12 +1,14 @@
-// Low-stock email to the plant's owners (approved 2026-10-04):
-//   * when a count or correction is saved, every item below its limit is queued for every owner
-//   * once per item per day per owner (unique key in the database): a correction only adds newly low items
-//   * store keepers are never emailed; an owner without an email address is recorded as "skipped"
-//   * one email per owner listing all their queued items; sent right after the save and again by the daily job
-//   * email not set up yet: stays pending until it is. A failed send stays pending (with the error) and is retried
-//     by the daily job for RETRY_DAYS, then marked failed.
+// Low-stock rows for the plant's owners (approved 2026-10-04):
+//   * when a count or correction is saved, every item below its limit is recorded for every owner
+//   * once per item per day per owner (unique key in the database): a correction only adds newly low items, and
+//     those newly low items are what the owner's app notification reports
+//   * email is off in PlantOps (owner, 2026-10-11 for Floor Stock, 2026-10-17 everywhere; STABILITY_PLAN B-02):
+//     the rows are then recorded as EMAIL_OFF and nothing is emailed
+//   * if email is set up again: store keepers are never emailed; an owner without an email address is "skipped";
+//     one email per owner listing all their queued items, sent right after the save and again by the daily job;
+//     a failed send stays pending (with the error) and is retried by the daily job for RETRY_DAYS, then failed.
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
-import { configuredMailer, looksLikeEmail, type Mailer } from "@plantops/module-kit/mail";
+import { configuredMailer, EMAIL_OFF, emailIsOn, looksLikeEmail, type Mailer } from "@plantops/module-kit/mail";
 import type { AlertContact } from "@plantops/types";
 import { fmtDate } from "@plantops/module-kit/format";
 import { isLow, qty, sum } from "@/lib/compare";
@@ -31,7 +33,7 @@ export interface LowItem {
  * Rows already queued for that item, day and owner are left alone. Returns how many new rows were added and the
  * items that are NEWLY low (a correction doesn't repeat items already reported that day).
  */
-export async function queueLowStock(tx: StockTx, tenantId: string, date: string, versionId: string, owners: AlertContact[]): Promise<{ rows: number; items: LowItem[] }> {
+export async function queueLowStock(tx: StockTx, tenantId: string, date: string, versionId: string, owners: AlertContact[], emailOn = emailIsOn()): Promise<{ rows: number; items: LowItem[] }> {
   const lines = await tx.select({ itemId: countLines.itemId, name: countLines.itemName, qty: countLines.qty }).from(countLines).where(and(eq(countLines.versionId, versionId), eq(countLines.kind, "stock")));
   const ids = [...new Set(lines.map((l) => l.itemId))];
   if (!ids.length || !owners.length) return { rows: 0, items: [] };
@@ -43,7 +45,7 @@ export async function queueLowStock(tx: StockTx, tenantId: string, date: string,
     const closing = sum(mine.map((l) => Number(l.qty)));
     if (!isLow(closing, Number(it.min))) continue;
     for (const o of owners) {
-      const ok = looksLikeEmail(o.email);
+      const ok = emailOn && looksLikeEmail(o.email);
       rows.push({
         tenantId,
         countDate: date,
@@ -55,7 +57,7 @@ export async function queueLowStock(tx: StockTx, tenantId: string, date: string,
         recipientName: o.display_name,
         email: ok ? o.email : null,
         status: ok ? "pending" : "skipped",
-        error: ok ? null : "No email address in PlantOps",
+        error: ok ? null : emailOn ? "No email address in PlantOps" : EMAIL_OFF,
       });
     }
   }
@@ -85,9 +87,10 @@ export function lowStockEmail(plant: string, alerts: { countDate: string; itemNa
   return { subject, text: body.join("\n") };
 }
 
-/** Sends every pending alert of one plant: one email per owner. Returns what happened. */
+/** Sends every pending alert of one plant: one email per owner. Returns what happened. Nothing without email. */
 export async function sendPending(tenantId: string, mailer: Mailer = configuredMailer(), now = new Date()) {
   const result = { sent: 0, waiting: 0, failed: 0 };
+  if (!mailer.configured) return result;
   const pending = await withTenant(tenantId, (tx) =>
     tx.select().from(lowStockAlerts).where(and(eq(lowStockAlerts.tenantId, tenantId), eq(lowStockAlerts.status, "pending"))).orderBy(asc(lowStockAlerts.countDate), asc(lowStockAlerts.createdAt)),
   );
@@ -104,7 +107,7 @@ export async function sendPending(tenantId: string, mailer: Mailer = configuredM
     const ids = alerts.map((a) => a.id);
     // give up on a send that has failed for RETRY_DAYS (by the alert's own age)
     const tooOld = alerts.every((a) => now.getTime() - a.createdAt.getTime() > RETRY_DAYS * 86_400_000);
-    const status = r.ok ? "sent" : mailer.configured && tooOld ? "failed" : "pending";
+    const status = r.ok ? "sent" : tooOld ? "failed" : "pending";
     await withTenant(tenantId, (tx) =>
       tx
         .update(lowStockAlerts)

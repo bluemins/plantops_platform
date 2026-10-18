@@ -109,6 +109,7 @@ const messages = {
     sending: "sending…",
     notSent: "not sent",
     failed: "failed",
+    sentInApp: "sent in the app (bell + phone)",
     chooseLanguageError: "Could not save the language setting. Please try again.",
     languageSaved: "Language updated",
     accountTitle: "Account / PlantOps home",
@@ -232,6 +233,7 @@ const messages = {
     sending: "भेजा जा रहा है…",
     notSent: "नहीं भेजा गया",
     failed: "विफल",
+    sentInApp: "ऐप में भेजा गया (घंटी + फ़ोन)",
     chooseLanguageError: "भाषा सेटिंग सहेजी नहीं जा सकी। कृपया फिर कोशिश करें।",
     languageSaved: "भाषा बदल दी गई",
     accountTitle: "खाता / PlantOps होम",
@@ -355,6 +357,7 @@ const messages = {
     sending: "ପଠାଯାଉଛି…",
     notSent: "ପଠାଯାଇନାହିଁ",
     failed: "ବିଫଳ",
+    sentInApp: "ଆପରେ ପଠାଗଲା (ଘଣ୍ଟି + ଫୋନ)",
     chooseLanguageError: "ଭାଷା ସେଟିଂ ସଂରକ୍ଷଣ ହୋଇପାରିଲା ନାହିଁ। ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।",
     languageSaved: "ଭାଷା ଅଦ୍ୟତନ ହେଲା",
     accountTitle: "ଖାତା / PlantOps ହୋମ୍",
@@ -398,7 +401,9 @@ export function localizedStage(locale: Locale, stage: string) {
   return keys[stage] ? translate(locale, keys[stage]!) : translate(locale, "expiredWeeks", { weeks });
 }
 
-export function localizedReminderStatus(locale: Locale, status: string) {
+/** A reminder row's status; one that went out only as an app notification (email off, B-02) says so. */
+export function localizedReminderStatus(locale: Locale, status: string, app = false) {
+  if (app) return translate(locale, "sentInApp");
   const keys: Record<string, MessageKey> = { sent: "sent", pending: "sending", skipped: "notSent", failed: "failed" };
   return keys[status] ? translate(locale, keys[status]!) : status;
 }

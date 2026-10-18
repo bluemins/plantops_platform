@@ -132,8 +132,8 @@ After the script, run `./scripts/railway-migrate.sh <copy>` once, so the backup 
    - registers only this module's address and secret with the platform
 
    It adds two lines to `.env.railway.<copy>` (update your password-manager copy) and writes
-   `.env.railway.<copy>.<module>.paste` with only what that module needs. `CRON_SECRET` is always included. The Brevo
-   lines appear only for modules that send email; modules that store files (Document Store, Complaint Box, Job
+   `.env.railway.<copy>.<module>.paste` with only what that module needs. `CRON_SECRET` is always included (no email
+   settings: PlantOps sends no email, STABILITY_PLAN B-02). Modules that store files (Document Store, Complaint Box, Job
    applications) get their storage folder, `RAILWAY_RUN_UID=0` and the five `BACKUP_*`. Job applications also gets
    `JOBS_DEFAULT_PLANT=` (the plant at the bare address, `001` on the shared copy) and the two Turnstile lines (fill
    them in later, docs/HANDBOOK.md "Job applications"). A module without files (Floor Stock,
@@ -222,9 +222,11 @@ Migrations stay; the older code works with them because they are backward-compat
   `.env.example`), remove the volume and that setting.
 - **Backups.** Nightly, encrypted, to a Cloudflare R2 bucket: database and every app's stored files
   (`.github/workflows/backup.yml`). Set up and restore: HANDBOOK.md section 11. Needs the Postgres TCP Proxy on.
-- **Email and WhatsApp** stay off until set up. Add `BREVO_API_KEY` + `MAIL_FROM` to `document-store` and `floor-stock` (Railway Hobby blocks
-  SMTP; `SMTP_*` only on hosts that allow it) and the
-  `WHATSAPP_*` settings to `lab-records` (see `.env.example`). Until then the apps show "not set up yet".
+- **No email** (owner, 2026-10-17; STABILITY_PLAN B-02): every alert, including Document Store expiry reminders and
+  Floor Stock low stock, is an app notification (bell + phone push). Leave `BREVO_API_KEY`, `MAIL_FROM` and `SMTP_*`
+  unset on every service; the mail code stays unused in `packages/module-kit`.
+- **Lab Records WhatsApp** stays off until Meta approves: then the `WHATSAPP_*` settings on `lab-records` (see
+  `.env.example`). Until then the app shows "not set up yet".
 - **Order Capture WhatsApp thank-you (Twilio).** On `order-capture` only: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`
   and `TWILIO_WHATSAPP_SENDERS` (JSON keyed by the plant's id: `select id, code, name from platform.tenants;`, see
   `.env.example`). Without them, or for a plant not listed, the "Delivered" panel has no tick box.

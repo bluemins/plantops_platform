@@ -82,14 +82,6 @@ ${PREFIX}_SESSION_SECRET=$SESSION
 CRON_SECRET=
 ENV
 case "$MODULE" in
-  document_store|floor_stock) cat >> "$PASTE" <<ENV
-# This module sends email - copy from the document-store service (same values):
-BREVO_API_KEY=
-MAIL_FROM=
-ENV
-  ;;
-esac
-case "$MODULE" in
   document_store|complaint_box|job_applications) cat >> "$PASTE" <<ENV
 # This module stores files: attach a volume at /data to the service, and copy the five BACKUP_* values from
 # document-store (nightly encrypted copy, docs/HANDBOOK.md "Backups").

@@ -1,7 +1,7 @@
 import { createServer as createHttpServer } from "node:http";
 import { createServer, type Socket } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
-import { brevoMailer, configuredMailer, parseFrom, smtpMailer } from "@/server/mail";
+import { brevoMailer, configuredMailer, emailIsOn, parseFrom, smtpMailer } from "@/server/mail";
 
 const envKeys = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "MAIL_FROM", "BREVO_API_KEY", "BREVO_API_URL"] as const;
 const original = new Map(envKeys.map((key) => [key, process.env[key]]));
@@ -147,5 +147,22 @@ describe("Brevo API reminder mail", () => {
     const down = await brevoMailer().send("owner@example.test", "s", "t");
     expect(down.ok).toBe(false);
     expect(!down.ok && down.error).toMatch(/^Email failed:/);
+  });
+});
+
+describe("is email on? (B-02: PlantOps runs with email off)", () => {
+  it("off with no settings, on with Brevo or SMTP, and a half-filled setting counts as on instead of throwing", () => {
+    for (const key of envKeys) delete process.env[key];
+    expect(emailIsOn()).toBe(false);
+    process.env.BREVO_API_KEY = "key";
+    process.env.MAIL_FROM = "PlantOps <reminders@example.test>";
+    expect(emailIsOn()).toBe(true);
+    delete process.env.MAIL_FROM; // Brevo without a sender: configuredMailer() throws
+    expect(() => configuredMailer()).toThrow();
+    expect(emailIsOn()).toBe(true);
+    delete process.env.BREVO_API_KEY;
+    process.env.SMTP_HOST = "smtp.example.test";
+    process.env.MAIL_FROM = "reminders@example.test";
+    expect(emailIsOn()).toBe(true);
   });
 });
