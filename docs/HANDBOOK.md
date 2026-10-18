@@ -131,6 +131,22 @@ Migrations stay in place either way. That's fine, because the older code works w
 Plans and limits can be changed later on the plant's page. Billing happens outside the app (manual invoices)
 in v1.
 
+### The demo plant (999): try things here, never at a real plant
+Most tables are append-only, so a trial at a real plant ("Test", "ccxc" …) stays in its history forever. Every trial,
+demo for a buyer, and phone check after a release is done in **plant `999`, "PlantOps Demo"** on the live copy
+(STABILITY_PLAN B-06). It is just rows in the shared database: no extra Railway service, no cost.
+- Every module is switched on, including Lab Records. It has a grey brand colour so it never looks like a real plant,
+  and fake products and users. A user is a separate login per plant, so you log in with plant code `999`.
+- Users: one owner (you) plus one person per role, each named after the role (`demo_store`, `demo_order` …). Use no
+  real staff names, and use only your own mobile number.
+- The timed jobs treat it like any plant, so its alerts reach the demo users only. A phone can get alerts for 001 and
+  999 at the same time.
+- **Job applications:** `jobs.bluemins.life/999` is public. Keep the demo openings switched off except while trying
+  them, and give them titles starting with "DEMO –".
+- Order Capture's WhatsApp thank-you works only for plants listed in `TWILIO_WHATSAPP_SENDERS`. Plant 999 is not
+  listed, so it has no tick box.
+- Claude's usage and live-data checks leave plant 999 out.
+
 ## 5. A plant wants its own domain
 
 There are three levels. Offer them in this order:

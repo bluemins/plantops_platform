@@ -205,6 +205,10 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
 - *Fix (process, no code):* create a **demo plant** (code `999`, "PlantOps Demo") on the live copy with every module
   on, fake users and products; all trials there. HANDBOOK note. The test rows at 001 stay (they are in the history
   with their reasons); no deletes.
+- *Done (2026-10-18, Claude):* HANDBOOK section 4, "The demo plant (999)" (rules, public Job applications page, no
+  Twilio).
+- [ ] *Owner:* create plant 999 and set it up: New plant with every module and small limits; grey colour; 3 products;
+  one user per role (HANDBOOK section 4); set up each module; one trial per module. Then Claude checks it read-only.
 
 **B-07 · Notifications · S2 · Too many alerts, most never read.**
 - *Evidence:* 70–93 % unread; Lab Records "no tests today" daily for a module nobody uses; 25 still-open reminders
