@@ -41,6 +41,10 @@ Records evening → History, from 17:01 IST); until then GitHub's late evening r
 7. **F1 (weekly off, holidays, leave) must be planned by about 22 Oct** to be live before the 31 Oct month end, even if
    B-03 / B-04 are still open (owner to confirm).
 8. Open question for the owner: **B-17** hourly outbox resend (section 4).
+9. **Railway cost (section 9, "Cutting the cost"):** Serverless (sleep when idle) switched on for `job-applications` on
+   2026-10-18 ~11:00 IST; wake-up time measured from here at ~11:20 IST (result: see section 9). If it is fine: same for
+   `lab-records`, then after a few days `document-store` and `complaint-box`. Owner: Healthcheck Path `/health` was empty
+   on `job-applications` (set it); send Railway's per-service memory (Metrics or Usage page).
 
 ---
 
@@ -350,6 +354,31 @@ services, not with plant use.
   on the phone, keep it that way.
 - **Monthly** (S6): note the Railway usage and estimate here, next to the period's numbers.
 
+**Cutting the cost: findings (2026-10-18, Claude: local measurements + live database settings, read-only)**
+- **One app uses ~100–135 MB** (Document Store production build: 103 MB at rest, 136 MB after 180 requests). 100 MB
+  kept on all month ≈ **$1/month**. The current rate is ~0.85 GB for the 9 services ≈ **$8.50 for a full month**.
+- **The Hobby bill never goes below $5** (the fee includes $5 of usage), so at most **~$3.50/month** can be saved today.
+- Apps are already lean: Next.js `standalone` output on `node:22-slim`, one replica each.
+- **Postgres:** database 16 MB, Railway defaults (`shared_buffers` 128 MB, `work_mem` 4 MB), idle app connections close
+  by themselves (pg Pool default 10 s; only the backup login was connected): nothing to gain.
+- **The apps can sleep:** no server-side timers, no idle database connections, session re-checks only on requests;
+  the only `setInterval` is the launcher bell in the browser (platform, which stays on).
+
+| Option | Saving / month | Risk / cost | Decision |
+|---|---|---|---|
+| **Serverless** (Railway sleeps a service after 10 min without traffic, wakes it on the next request, no memory billed while asleep) for little-used modules: Lab Records (6 opens / week, not in use), Job applications (1), Document Store (15), Complaint Box (36) | ~$1–1.30 each, **~$3–4.50 for all four** | First visit after a quiet spell waits for the wake-up (local start 0.5–1.2 s + Railway's wake, to measure); a launcher tile may show "Numbers unavailable" once (3 s summary timeout, CLAUDE.md contract); the timed jobs (cron-job.org waits 30 s) and the backup call (120 s) just wake it; files and notifications unaffected. One switch per service, reversible at once | **Started 2026-10-18 with Job applications** |
+| Keep **always on**: platform (login), Order Capture, Attendance (scans at the gate must be instant), Floor Stock, Postgres | — | — | Decided |
+| Leftover services / volumes on Railway (should be 9 services, 4 volumes) | whatever they cost | none | Owner to check |
+| Railway's AI Agent | $0.11 this month | none | Don't use it |
+| Node memory cap `NODE_OPTIONS=--max-old-space-size=…` | ~$0.15 per app (64 MB cap saved ~15 MB at light load), ~$1 total | Out-of-memory crash on big jobs (Document Store ZIP / CSV exports, photo uploads) if too tight | Later, only after a week of per-service memory graphs, generous ceiling, one service at a time |
+| Postgres tuning | ~0 | — | No |
+| Merge modules into one service | ~$6 | Breaks the independent-module design (CLAUDE.md), big rewrite | No |
+| Move off Railway (own server) | a few $ | More running / maintenance work | No, not now |
+
+- **Wake-up time on Railway:** *pending* — `job-applications` after 16 idle minutes, measured 2026-10-18 ~11:20 IST.
+- If wake-ups make the launcher tile miss its numbers too often: raise the summary timeout from 3 s to 5 s for
+  sleeping modules (changes the CLAUDE.md launcher contract: ask the owner first).
+
 **Measure:**
 1. Page times on a real phone (Lighthouse / Chrome remote debugging) for the most used screens: Order Capture order
    list and new order, Attendance scan, Floor Stock count, launcher.
@@ -405,6 +434,18 @@ timed notification start times (read-only) and close B-01."
 
 **B-03, read:** "Read the user.login records of the last 2 days (read-only), per person, and tell me the cause of B-03
 with a proposed fix."
+
+**Railway cost, next step:** "Railway cost: read docs/STABILITY_PLAN.md section 9 'Cutting the cost'. Time a wake-up of
+every Serverless service after 15 idle minutes (curl /health, read-only), record the numbers there, and tell me whether
+to switch on the next module. Then, with my per-service memory screenshots, replace the estimates with real numbers."
+
+**Railway cost, launcher (only if wake-ups miss the tile numbers):** "Plan mode: let the launcher wait up to 5 s (not 3 s)
+for the tile numbers of modules that may be asleep; this changes the CLAUDE.md launcher contract, so show me the change
+first; tests; patch release."
+
+**Railway cost, memory cap (after a week of Metrics):** "Propose a NODE_OPTIONS memory ceiling per service from the
+Railway memory graphs, keeping headroom for exports and uploads; one service first; write the before / after memory in
+section 9."
 
 **B-17:** "Build B-17: /api/cron/outbox in Order Capture, Complaint Box, Attendance and Floor Stock (resend only), tests,
 patch release, and the 4 cron-job.org jobs for HANDBOOK section 10."

@@ -279,6 +279,13 @@ A reset is always temporary: the person picks their own at the next login. More 
   appeared about 15 minutes after DNS went live this time.
 - **Check DNS from anywhere:** `https://dns.google/resolve?name=app.bluemins.life&type=CNAME`.
 
+**Sleeping services (Railway Serverless, since 2026-10-18; STABILITY_PLAN section 9).** To cut the Railway bill, little-used
+modules sleep after 10 minutes without visitors and wake on the next visit (a short wait on the first open; a launcher
+tile may show "Numbers unavailable" once). Switched on: `job-applications`. Candidates: `lab-records`, then
+`document-store`, `complaint-box`. Always on: `platform`, `order-capture`, `attendance-salary`, `floor-stock`, Postgres.
+Service → Settings → **Serverless** → Enable → Apply / Deploy (one restart). Railway's own cron schedules don't work on
+sleeping services; PlantOps doesn't use them (cron-job.org calls the app and wakes it). Undo: switch it off.
+
 ## 10. Daily jobs, email and WhatsApp
 
 **Who starts the jobs: cron-job.org** (free; since 2026-10-18, STABILITY_PLAN B-01). GitHub's own scheduler
