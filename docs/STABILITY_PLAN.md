@@ -8,10 +8,43 @@ update it as items close.
 - Bugs first (section 4), in the order given; features only after the "Fix now" bugs are closed (section 10).
 - Fixes ship as small patch releases (v0.25.1, v0.25.2 …), each tried on a phone before the next one starts.
 - Ask before any schema, permission, tenant-isolation or SSO-token change (CLAUDE.md working rules).
+- **Keep the Railway bill flat** (section 9, "Railway cost"): no new Railway service for a fix or a safety net; new
+  code goes into the existing apps; timed calls come from cron-job.org (free), monitoring from free outside services.
 
 ---
 
-## 1. Where things stand (checked 2026-10-17, evening)
+## 0. Status and handover (updated 2026-10-18, 10:50 IST; read this first in a new session)
+
+**Live:** still **v0.25.0** (`production` = `1ea1c09`). **Built, pushed to `main`, tagged, NOT deployed:**
+- **v0.25.1** (`649033c`): B-02, no email; reminder / low-stock rows record "App notification only".
+- **v0.25.2** (`1063d7d`): B-03, login record in the audit log, and the login button no longer allows a double login.
+- Both are code only: no migrations, SSO token unchanged. Pushing `v0.25.2:production` deploys both (after 21:00 IST,
+  owner's OK first). Then the live checks and a row in `docs/deployments/shared.md`.
+
+**B-01 is running on cron-job.org since 2026-10-18** (11 jobs, India time, all with `x-cron-secret`; owner's
+screenshots checked: daily 07:01, evening hourly 17:01–23:01, Attendance morning hourly 08:01–11:01). The owner's Test
+run of Attendance morning at 10:12 sent the first ever "not marked" alert (owner + supervisor).
+
+**Uncommitted on purpose:** `.github/workflows/evening.yml` in the working tree is the manual-only version (schedule
+lines removed). Commit it only after the first cron-job.org evening runs show **200** (Floor Stock evening and Lab
+Records evening → History, from 17:01 IST); until then GitHub's late evening runs are the fallback. Don't discard it.
+
+**Next, in order:**
+1. Owner: deploy v0.25.2 (carries v0.25.1); afterwards remove `BREVO_API_KEY` / `MAIL_FROM` from `document-store` and
+   `floor-stock`; raise Railway's Compute Usage Limit (S0).
+2. Claude: commit `evening.yml` once the evening jobs show 200.
+3. Claude: **B-05** (Floor Stock count after midnight), plan mode with a mock-up, then **B-04** (Attendance location
+   accuracy), plan mode with a mock-up. Both need phone trials (on the demo plant, B-06).
+4. Owner: B-06 demo plant, B-07 (Lab Records off for 001, the 5 open complaints).
+5. Claude, 2 days after the deploy: read the B-03 login records (read-only) and name the cause.
+6. Claude, 7 days after 18 Oct: B-01 start-time check, then close B-01.
+7. **F1 (weekly off, holidays, leave) must be planned by about 22 Oct** to be live before the 31 Oct month end, even if
+   B-03 / B-04 are still open (owner to confirm).
+8. Open question for the owner: **B-17** hourly outbox resend (section 4).
+
+---
+
+## 1. Where things stand (checked 2026-10-17, evening; see section 0 for 18 Oct)
 
 - **Live:** platform + 7 modules, v0.25.0; `production` = `1ea1c09`, deploy record written (`a19a74d`). All 8 addresses
   answer 200 in about 0.3 s from India. Postgres 18.6, database 16 MB, `max_connections` 500.
@@ -92,8 +125,9 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
   the hour) in HANDBOOK section 10; DEPLOY.md and the deploy record updated. `daily.yml` keeps its schedule as a
   safety net (every job is dedupe-safe, so a second call adds nothing); `evening.yml` becomes Run-workflow only,
   committed once the cron-job.org jobs are confirmed (so the evening reminders never have a gap).
-- [ ] *Owner:* create the 11 jobs on cron-job.org, Test run each (200).
-- [ ] *Claude:* commit the manual-only `evening.yml` after the first good cron-job.org evening.
+- [x] *Owner (2026-10-18):* the 11 jobs on cron-job.org, time zone Asia/Kolkata, header set; Attendance morning Test
+  run sent the not-marked alert. (Plant 001 uses the default hours: count reminder 20:00, not-marked 10:00.)
+- [ ] *Claude:* commit the manual-only `evening.yml` (in the working tree) after the first good cron-job.org evening.
 - [ ] *Claude, after 7 days (read-only):* start times of the timed notifications (`platform.notifications.created_at`
   for `attendance_salary.no_exit` / `not_marked`, `floor_stock.count_missing`, `lab_records.no_tests_today`,
   `document_store.expiry`, `complaint_box.still_open`) within 5 minutes of their hour; then close B-01.
@@ -120,7 +154,8 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
   "App notification only (email is off)", nothing is retried, and the document page and list say "sent in the app
   (bell + phone)". Tests: Document Store 107, Floor Stock 159. Live before the patch: 6 reminder rows (all Brevo 401 or
   no email), 35 low-stock rows (all "no email address").
-- [ ] *Owner:* deploy v0.25.1, then remove `BREVO_API_KEY` / `MAIL_FROM` from `document-store` and `floor-stock`.
+- [ ] *Owner:* deploy v0.25.1 (with v0.25.2), then remove `BREVO_API_KEY` / `MAIL_FROM` from `document-store` and
+  `floor-stock`; close the Brevo account.
 - *Required for this to be safe:* everyone who must hear about expiries turns on phone notifications (owner + each
   responsible person: `/notifications` → "Send a test to this phone"). Today only 3 people have a phone on.
 - *Also (owner):* one document has been **expired since 31 Mar 2026**: renew or archive it.
@@ -186,6 +221,7 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
 | B-14 | Lab Records | S3 | Form 3 "Record of Test Report" prints empty | Ask a plant |
 | B-15 | Order Capture | S3 | 2 thank-yous failed on 14 Oct (Twilio token wrong at the time, fixed); those 2 customers got nothing | None: closed |
 | B-16 | Database | — | Feared running out of connections (8 apps × 10): `max_connections` is 500 | Closed |
+| B-17 | Order Capture, Complaint Box, Attendance, Floor Stock | S2 | A notification that couldn't reach the platform (e.g. during a platform deploy) waits in the module's outbox until that module's next timed job: **next morning 07:01** for Order Capture and Complaint Box. Proposed (2026-10-18, owner not yet answered): a `/api/cron/outbox` route in each of these existing apps (resend only, no reminders) called hourly 08:01–22:01 by cron-job.org; no new service, no schema change, no Railway cost | Ask the owner, then a patch |
 
 ### Found during S3–S5
 
@@ -209,19 +245,27 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
 - [ ] 5 new users log in once and set their PIN (sushil, maheswar, joshobanti, Damayanti; bluemins_doc or disable it).
 - [ ] Railway dashboard: every service on `1ea1c09`; volumes on Document Store, Complaint Box, Attendance, Job
       applications.
+- [x] cron-job.org account and 11 jobs (B-01, 2026-10-18).
+- [ ] **Railway → Usage → Update limits:** raise the Compute Usage Limit from $10 to about $20 and set an email alert at
+      $10 (at the hard limit Railway stops every service; section 9).
+- [ ] Rotate `CRON_SECRET` on the same day as the R2 keys (part of it was visible in a screenshot on 18 Oct; low risk:
+      it only starts dedupe-safe jobs): every Railway service, the GitHub environment `shared`, all 11 cron-job.org jobs.
 
 ---
 
 ## 6. Phase S2 — Safety nets
 
 1. **Tests on every push** — `.github/workflows/ci.yml`: Postgres service, database setup scripts, `pnpm typecheck`,
-   `pnpm test` on each push to `main`. Red = no release.
+   `pnpm test` on each push to `main`. Red = no release. *Cost:* runs on GitHub, not Railway; a private repo has 2,000
+   free Actions minutes a month, so cache pnpm, skip docs-only pushes (`paths-ignore: docs/**, **/*.md`) and measure
+   the first run's minutes.
 2. **Uptime checks** — UptimeRobot (free) every 5 minutes on `app.bluemins.life/login`, `/.well-known/jwks.json` and
    the seven `/health` addresses, with a keyword check on the database answer. Alerts to the owner's email and phone.
-   The same service can do B-01's timed calls if cron-job.org isn't used.
+   (cron-job.org already does the timed calls, B-01.) *Cost:* free, nothing on Railway.
 3. **Error reporting** — owner to choose: **A. Sentry** (free plan; error details leave PlantOps, scrub names /
    phones / money) or **B. built-in error log** (`platform.error_log` + super_admin "Errors" screen; needs a
-   migration). Either way wired once in `packages/module-kit` `handle()` and the platform's `http.ts`.
+   migration). Either way wired once in `packages/module-kit` `handle()` and the platform's `http.ts`. *Cost:* neither
+   adds a Railway service; B adds a few rows to the existing database.
 4. GitHub emails on failed workflows reach the owner (GitHub → Settings → Notifications → Actions).
 
 ---
@@ -294,6 +338,18 @@ egress $0.02. Attendance and Job applications joined mid-period, so a full month
 at $10. Memory per service (Railway → Metrics) is the first thing to measure here; cost grows with the number of
 services, not with plant use.
 
+**Railway cost rules** (owner, 2026-10-18: keep the cost in mind):
+- Each always-on app is billed for its memory every minute, used or not; 9 services today (platform, 7 modules,
+  Postgres). **A new service costs roughly $1/month or more**, so: no new services for fixes, safety nets or jobs
+  (cron-job.org calls the existing apps; monitoring is UptimeRobot / GitHub); a new module (Phase 6+) is a cost decision.
+- **Demo plant (B-06) = rows in the shared copy**, never a second copy or extra services.
+- **Measure before trimming** (S5): memory per service from Railway → Metrics for a week; then try a Node memory cap
+  per app (`NODE_OPTIONS=--max-old-space-size=…`) and check Next.js runs as a standalone server. Change one service at a
+  time; keep the 2 s / 300 ms targets above.
+- Egress, volumes and backups are cents; photos (Complaint Box, Attendance claims, Job applications) are already shrunk
+  on the phone, keep it that way.
+- **Monthly** (S6): note the Railway usage and estimate here, next to the period's numbers.
+
 **Measure:**
 1. Page times on a real phone (Lighthouse / Chrome remote debugging) for the most used screens: Order Capture order
    list and new order, Attendance scan, Floor Stock count, launcher.
@@ -318,7 +374,7 @@ Order chosen from section 2's usage (most used modules first) and dates that can
 | F3 | **Hindi / Odia screens**, staff modules first (Floor Stock count, Attendance scan, Order Capture) | All | Staff already type Hindi ("500ml ka stock check"); listed in CLAUDE.md UX |
 | F4 | **Fewer, better alerts:** daily summary option instead of every new order / still-open | Platform | 70–93 % unread (B-07) |
 | F5 | Floor Stock **dispatch entries** with the Lab Records batch check (token change: ask first) | Floor Stock + Lab | Next step of the core RO workflow |
-| F6 | Phase 6 **Preventive Management** | New module | Next in the build order |
+| F6 | Phase 6 **Preventive Management** | New module | Next in the build order; a new Railway service (≈ $1+/month, section 9) |
 | F7 | Phase 7 AMC, Phase 9 Marketing Contacts, Phase 10 website / provisioning | New modules | Later |
 
 Parked, no date: Lab Records WhatsApp (waiting for Meta) and batch lookup API; Document Store real S3; Floor Stock purchases, party list, returnable holders, history paging, godown stock; India hosting.
@@ -332,13 +388,28 @@ Parked, no date: Lab Records WhatsApp (waiting for Meta) and batch lookup API; D
 - **Weekly (15 min):** errors / logs; job start times; outbox rows stuck; uptime report; section 2's usage query
   again (Claude, read-only).
 - **Monthly (30 min):** restore the latest backup into a scratch database and count rows (HANDBOOK section 11);
-  `pnpm audit` and Next.js security releases; sizes; review this file.
+  `pnpm audit` and Next.js security releases; sizes; **Railway usage / estimate against the compute limit**
+  (section 9); cron-job.org failures; review this file.
 
 ---
 
 ## 12. Build prompts
 
-**S1, B-01:** "Fix B-01 in docs/STABILITY_PLAN.md: list every /api/cron/* call, secret header and IST time from the
+**Next session, start:** "Read docs/STABILITY_PLAN.md section 0 and continue with the next item there."
+
+**Deploy v0.25.2:** "Deploy v0.25.2 (includes v0.25.1) to production following docs/DEPLOY.md 'Releasing an update':
+no migrations; live checks; deploy record row; then remind me to remove BREVO_API_KEY / MAIL_FROM."
+
+**B-01, close:** "Commit the manual-only evening.yml if the cron-job.org evening jobs answer 200; after 7 days read the
+timed notification start times (read-only) and close B-01."
+
+**B-03, read:** "Read the user.login records of the last 2 days (read-only), per person, and tell me the cause of B-03
+with a proposed fix."
+
+**B-17:** "Build B-17: /api/cron/outbox in Order Capture, Complaint Box, Attendance and Floor Stock (resend only), tests,
+patch release, and the 4 cron-job.org jobs for HANDBOOK section 10."
+
+**S1, B-01 (done 2026-10-18):** "Fix B-01 in docs/STABILITY_PLAN.md: list every /api/cron/* call, secret header and IST time from the
 three workflows, write the cron-job.org job list for me, and change daily.yml / evening.yml so GitHub keeps only
 manual runs and the backup. Then check a week of start times."
 

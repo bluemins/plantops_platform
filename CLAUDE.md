@@ -1685,3 +1685,23 @@ Plan, issue list, live checklist, how to analyse each module, performance / upti
 **No email anywhere (owner, 2026-10-17):** Brevo is dropped. Every alert, including Document Store expiry reminders,
 goes by app notifications only (bell + phone push via the installed PWA). The mail code stays in
 `packages/module-kit` unused; no module queues email when no mailer is set (patch B-02 in the stability plan).
+
+### 2026-10-18 — Stability S1: B-01 on cron-job.org; B-02 (v0.25.1) and B-03 (v0.25.2) built, not deployed
+Current status, open items and next steps: **`docs/STABILITY_PLAN.md` section 0** (read it first).
+- **B-01, timed jobs:** GitHub's scheduler started the daily jobs 4–7 h late, ran the hourly evening jobs about twice a
+  day (some after midnight, doing nothing) and never the morning ones. Since 2026-10-18 **cron-job.org** (free) calls
+  the 11 `/api/cron/*` addresses at the exact minute, India time, with `x-cron-secret` (job list: HANDBOOK section 10).
+  `daily.yml` keeps a schedule as a safety net (jobs are dedupe-safe); `evening.yml` becomes manual-only once the
+  cron-job.org evening runs are confirmed. A new module with a timed job adds a cron-job.org job.
+- **B-02, no email (v0.25.1):** without email settings, Document Store reminder rows and Floor Stock low-stock rows are
+  recorded as "App notification only (email is off)" (`EMAIL_OFF`, `emailIsOn()` in `packages/module-kit/src/mail.ts`);
+  the rows stay because they are the once-per-stage / once-per-day record the notifications rely on. Document pages say
+  "sent in the app (bell + phone)". Brevo removed from the setup script and docs.
+- **B-03, repeated logins (v0.25.2):** each successful plant login writes `user.login` to `platform.audit_log` (device,
+  browser, installed app or tab, module link or login page, what happened to the previous session cookie; no IP); the
+  login button no longer allows a second login while the next page loads. Cause to be read from the live records.
+- **Railway cost** (owner, 2026-10-18): about $6.43 estimated for 29 Sep – 29 Oct, nearly all memory; it grows with the
+  number of services. Rule: no new Railway service for fixes, jobs or safety nets; raise the $10 compute limit (Railway
+  stops services at it). Details: `docs/STABILITY_PLAN.md` section 9.
+- Tests: platform 347, Document Store 107, Floor Stock 159, module-kit 69; typecheck and builds pass.
+
