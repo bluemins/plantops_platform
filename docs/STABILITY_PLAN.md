@@ -30,8 +30,8 @@ lines removed). Commit it only after the first cron-job.org evening runs show **
 Records evening → History, from 17:01 IST); until then GitHub's late evening runs are the fallback. Don't discard it.
 
 **Next, in order:**
-1. Owner: deploy v0.25.2 (carries v0.25.1); afterwards remove `BREVO_API_KEY` / `MAIL_FROM` from `document-store` and
-   `floor-stock`; raise Railway's Compute Usage Limit (S0).
+1. Owner: deploy v0.25.2 (carries v0.25.1); raise Railway's Compute Usage Limit (S0). (`BREVO_API_KEY` / `MAIL_FROM`
+   already removed from Railway, 2026-10-18.)
 2. Claude: commit `evening.yml` once the evening jobs show 200.
 3. Claude: **B-05** (Floor Stock count after midnight), plan mode with a mock-up, then **B-04** (Attendance location
    accuracy), plan mode with a mock-up. Both need phone trials (on the demo plant, B-06).
@@ -158,8 +158,8 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
   "App notification only (email is off)", nothing is retried, and the document page and list say "sent in the app
   (bell + phone)". Tests: Document Store 107, Floor Stock 159. Live before the patch: 6 reminder rows (all Brevo 401 or
   no email), 35 low-stock rows (all "no email address").
-- [ ] *Owner:* deploy v0.25.1 (with v0.25.2), then remove `BREVO_API_KEY` / `MAIL_FROM` from `document-store` and
-  `floor-stock`; close the Brevo account.
+- [ ] *Owner:* deploy v0.25.1 (with v0.25.2); close the Brevo account.
+- [x] *Owner (2026-10-18):* `BREVO_API_KEY` / `MAIL_FROM` removed from `document-store` and `floor-stock` on Railway.
 - *Required for this to be safe:* everyone who must hear about expiries turns on phone notifications (owner + each
   responsible person: `/notifications` → "Send a test to this phone"). Today only 3 people have a phone on.
 - *Also (owner):* one document has been **expired since 31 Mar 2026**: renew or archive it.
@@ -243,7 +243,8 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
       file-storing service and in GitHub, delete the old key.
 - [ ] **Delete the four leftover password files** (once saved in Railway + the password manager):
       `.env.railway.shared.{attendance_salary,complaint_box,job_applications,order_capture}.paste`.
-- [ ] Remove `BREVO_API_KEY` / `MAIL_FROM` from `document-store` and `floor-stock` on Railway (B-02); close Brevo.
+- [x] Remove `BREVO_API_KEY` / `MAIL_FROM` from `document-store` and `floor-stock` on Railway (B-02), 2026-10-18.
+- [ ] Close the Brevo account.
 - [ ] Renew or archive the document expired since 31 Mar 2026.
 - [ ] Owner and every document's responsible person turn on phone notifications and send a test (B-02).
 - [ ] 5 new users log in once and set their PIN (sushil, maheswar, joshobanti, Damayanti; bluemins_doc or disable it).
@@ -427,7 +428,7 @@ Parked, no date: Lab Records WhatsApp (waiting for Meta) and batch lookup API; D
 **Next session, start:** "Read docs/STABILITY_PLAN.md section 0 and continue with the next item there."
 
 **Deploy v0.25.2:** "Deploy v0.25.2 (includes v0.25.1) to production following docs/DEPLOY.md 'Releasing an update':
-no migrations; live checks; deploy record row; then remind me to remove BREVO_API_KEY / MAIL_FROM."
+no migrations; live checks (Brevo variables are already removed); deploy record row."
 
 **B-01, close:** "Commit the manual-only evening.yml if the cron-job.org evening jobs answer 200; after 7 days read the
 timed notification start times (read-only) and close B-01."
