@@ -133,11 +133,12 @@ in v1.
 
 ### The demo plant (999): try things here, never at a real plant
 Most tables are append-only, so a trial at a real plant ("Test", "ccxc" …) stays in its history forever. Every trial,
-demo for a buyer, and phone check after a release is done in **plant `999`, "PlantOps Demo"** on the live copy
+demo for a buyer, and phone check after a release is done in **plant `999`, "Sample RO Plant"** on the live copy
 (STABILITY_PLAN B-06). It is just rows in the shared database: no extra Railway service, no cost.
-- Every module is switched on, including Lab Records. It has a grey brand colour so it never looks like a real plant,
-  and fake products and users. A user is a separate login per plant, so you log in with plant code `999`.
-- Users: one owner (you) plus one person per role, each named after the role (`demo_store`, `demo_order` …). Use no
+- Every module is switched on, including Lab Records; max users 15. It has a bright green brand colour (`#00ff00`) so
+  it never looks like a real plant, and fake products and users. A user is a separate login per plant, so you log in
+  with plant code `999`.
+- Users: the owner `sowner` (you) plus one person per role, each named after the role (`sstore`, `sorder` …). Use no
   real staff names, and use only your own mobile number.
 - The timed jobs treat it like any plant, so its alerts reach the demo users only. A phone can get alerts for 001 and
   999 at the same time.
