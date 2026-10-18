@@ -86,6 +86,17 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
   with the `CRON_SECRET` header at the exact minute; (b) a small Railway cron service. Keep GitHub only for the
   nightly backup (its lateness doesn't matter). Recommend (a): no code, just the job list. Check one week of start
   times afterwards.
+- *Also found (2026-10-18):* several "evening" runs started after midnight (01:07, 01:28, 01:47 IST), when it is
+  already the next India day, so they did nothing at all. Each job call takes 0–2 s (cron-job.org waits 30 s).
+- *Done (2026-10-18, Claude):* cron-job.org chosen. Job list (11 jobs, minute :01 so a call never lands just before
+  the hour) in HANDBOOK section 10; DEPLOY.md and the deploy record updated. `daily.yml` keeps its schedule as a
+  safety net (every job is dedupe-safe, so a second call adds nothing); `evening.yml` becomes Run-workflow only,
+  committed once the cron-job.org jobs are confirmed (so the evening reminders never have a gap).
+- [ ] *Owner:* create the 11 jobs on cron-job.org, Test run each (200).
+- [ ] *Claude:* commit the manual-only `evening.yml` after the first good cron-job.org evening.
+- [ ] *Claude, after 7 days (read-only):* start times of the timed notifications (`platform.notifications.created_at`
+  for `attendance_salary.no_exit` / `not_marked`, `floor_stock.count_missing`, `lab_records.no_tests_today`,
+  `document_store.expiry`, `complaint_box.still_open`) within 5 minutes of their hour; then close B-01.
 
 **B-02 · Document Store · S1 · Reminder emails have never been delivered → email dropped.**
 - *Evidence:* every reminder row `failed`: "Brevo 401 … unrecognised IP address". Brevo blocks API calls from IP

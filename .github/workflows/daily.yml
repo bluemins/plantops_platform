@@ -1,4 +1,8 @@
-# Daily reminder jobs for every hosted PlantOps copy (docs/DEPLOY.md):
+# Daily reminder jobs for every hosted PlantOps copy (docs/DEPLOY.md).
+# ON TIME: cron-job.org calls each address below at 07:01 India time (job list: docs/HANDBOOK.md section 10;
+# STABILITY_PLAN B-01). GitHub's own schedule started this workflow 4-7 hours late, so the schedule here is only a
+# safety net in case cron-job.org misses a day: every job sends each reminder once (dedupe), so a second call adds
+# nothing.
 #   Platform        POST <APP_URL>/api/cron/daily   (plan renewal reminders to owners; skipped while APP_URL is unset)
 #   Lab Records     POST <LAB_URL>/api/cron/daily   (holds older than 24 h, Form 1 due)
 #   Document Store  POST <DOCS_URL>/api/cron/daily  (expiry emails)
@@ -16,7 +20,7 @@ name: Daily jobs
 
 on:
   schedule:
-    - cron: "30 1 * * *" # 07:00 India time (GitHub may start it a few minutes late)
+    - cron: "30 1 * * *" # safety net only: due 07:00 India time, GitHub starts it around 11:30-14:00
   workflow_dispatch:
 
 permissions: {}

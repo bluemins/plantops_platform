@@ -42,7 +42,9 @@ Railway project "plantops-shared" (Singapore), environment "production"
 GitHub repo bluemins/plantops_platform
   main        everyday work (pushing it does NOT deploy)
   production  what Railway runs (pushing it DEPLOYS)
-  Actions     "Daily jobs" at 07:00 India time
+  Actions     nightly backup; "Daily jobs" safety net + hand runs
+
+cron-job.org  starts the daily (07:01), evening (17:01-23:01) and morning (08:01-11:01) jobs on time
 ```
 
 - **One copy, many plants.** Every plant uses the same three addresses. The plant code at login decides which
@@ -279,8 +281,52 @@ A reset is always temporary: the person picks their own at the next login. More 
 
 ## 10. Daily jobs, email and WhatsApp
 
-**Daily jobs.** The repository configures GitHub Actions **Daily jobs** (`.github/workflows/daily.yml`) to run
-every day at **07:00 India time**, for each copy listed in it:
+**Who starts the jobs: cron-job.org** (free; since 2026-10-18, STABILITY_PLAN B-01). GitHub's own scheduler
+started the daily jobs 4-7 hours late, ran the hourly evening jobs about twice a day (often after midnight, when they
+do nothing) and never ran the morning ones. cron-job.org calls each address at the exact minute. Every job sends
+each reminder once (dedupe), so an extra or repeated call never sends twice.
+
+Set-up (once per copy): cron-job.org → sign up → **Settings** → time zone **Asia/Kolkata**. Then **Create cronjob**
+for each row below:
+- *Common*: title as in the table, URL, Execution schedule → *Custom* with the hours and minute shown, time zone
+  Asia/Kolkata (if the job form asks), **Notify me** when execution fails (and after it is disabled because of
+  failures).
+- *Advanced*: request method **POST**; **Headers** → key `x-cron-secret`, value = `CRON_SECRET` (from
+  `.env.railway.<copy>` / the password manager; it is the same on every service); timeout 30 s (each job takes
+  0-2 s); "Treat redirects as success" off.
+
+| # | Title | URL (shared copy) | Days | Hours (India time) | Minute |
+|---|---|---|---|---|---|
+| 1 | Platform daily | `https://app.bluemins.life/api/cron/daily` | every day | 7 | 1 |
+| 2 | Lab Records daily | `https://lab.bluemins.life/api/cron/daily` | every day | 7 | 1 |
+| 3 | Document Store daily | `https://docs.bluemins.life/api/cron/daily` | every day | 7 | 1 |
+| 4 | Floor Stock daily | `https://stock.bluemins.life/api/cron/daily` | every day | 7 | 1 |
+| 5 | Complaint Box daily | `https://complaints.bluemins.life/api/cron/daily` | every day | 7 | 1 |
+| 6 | Order Capture daily | `https://orders.bluemins.life/api/cron/daily` | every day | 7 | 1 |
+| 7 | Attendance daily | `https://attendance.bluemins.life/api/cron/daily` | every day | 7 | 1 |
+| 8 | Job applications daily | `https://jobs.bluemins.life/api/cron/daily` | every day | 7 | 1 |
+| 9 | Lab Records evening | `https://lab.bluemins.life/api/cron/evening` | every day | 17, 18, 19, 20, 21, 22, 23 | 1 |
+| 10 | Floor Stock evening | `https://stock.bluemins.life/api/cron/evening` | every day | 17, 18, 19, 20, 21, 22, 23 | 1 |
+| 11 | Attendance morning | `https://attendance.bluemins.life/api/cron/morning` | every day | 8, 9, 10, 11 | 1 |
+
+Minute 1, not 0, so a call can never land a second before the hour (the jobs check "has the plant's hour come" in
+India time). After saving, open each job → **Test run**: the answer must be **200** with a JSON summary. **401** = wrong
+secret; **503** = `CRON_SECRET` missing on that Railway service. **Execution history** on each job shows the exact
+start time and answer of every run.
+
+`CRON_SECRET` only starts jobs that are safe to repeat; it opens no data. Still, if it is ever changed, change it
+on every Railway service, in GitHub (environment secret) **and** in all 11 cron-job.org jobs the same day.
+
+A **new module with a daily job** adds a row here and a job on cron-job.org (and its step in `daily.yml`).
+
+**GitHub still has the jobs, for hand runs and as a safety net:**
+- **Daily jobs** (`.github/workflows/daily.yml`) keeps a schedule (due 07:00, GitHub starts it around noon). If
+  cron-job.org missed a day, this catches up; otherwise it adds nothing. *Run workflow* runs it by hand.
+- **Evening jobs** (`.github/workflows/evening.yml`) has no schedule any more: *Run workflow* only (runs the evening
+  steps and the Attendance morning step).
+- **Nightly backup** (`backup.yml`) stays on GitHub's schedule (02:00 India time); lateness there doesn't matter.
+
+**What the daily jobs do** (07:01 India time), for each copy:
 - Platform: plan renewal reminders to owners (30 / 7 / 1 days before and on the renewal date); skipped until
   `APP_URL` is set (and needs `CRON_SECRET` on the **platform** service too)
 - Lab Records: reminders about holds older than 24 h, and Form 1 due from the 25th
@@ -293,8 +339,12 @@ every day at **07:00 India time**, for each copy listed in it:
 - Attendance: notifications that waited in its outbox, then "N people didn't mark OUT yesterday" to each plant's
   owners; skipped until `ATTENDANCE_URL` is set
 
-To check or run it: GitHub → **Actions** → *Daily jobs*. Confirm a successful run before relying on reminders;
-click **Run workflow** to run it now. A failed run sends GitHub's failure email.
+- Job applications: notifications that waited in its outbox, then the 12-month removal of applications and their
+  files (incl. backup copies); skipped until `JOBS_URL` is set
+
+To check: cron-job.org → each job's **Execution history** (on time, answer 200). To run by hand: cron-job.org →
+**Test run**, or GitHub → **Actions** → *Daily jobs* → **Run workflow**. A failed GitHub run sends GitHub's failure
+email; a failed cron-job.org call sends cron-job.org's.
 If runs appear on every push, named `.github/workflows/daily.yml` instead of *Daily jobs*, GitHub can't read the
 file (a YAML mistake) and nothing runs. Until 2026-10-04 that was the case: a `run:` line containing `: ` must be
 written as `run: |` with the command on the next line.
@@ -325,15 +375,17 @@ To set it up (done for `shared` on 2026-10-04):
    reminder log for sent / failed status and check the provider's delivery logs. Do not use the production
    workflow as a test until valid plant recipients are configured.
 
-**Evening jobs.** GitHub Actions **Evening jobs** (`.github/workflows/evening.yml`) runs **every hour from 17:00 to
-23:00 India time** (GitHub may start a run 10-30 minutes late) with the same environment settings:
+**Evening and morning jobs.** cron-job.org calls the evening jobs **every hour from 17:01 to 23:01 India time** and
+Attendance's morning job **every hour from 08:01 to 11:01** (rows 9-11 above):
+- Attendance sends "N people not marked by 10:00" to each plant's owners and supervisors at the hour chosen in
+  **Attendance → Settings** (08:00-11:00, or Off; default 10:00). Once a day.
 - Floor Stock sends "Today's stock count is not done yet" to each plant without a count, at the hour its owner
   chose on **Sections & items → Evening reminder** (5 pm–11 pm, or Off; default 8 pm). Once a day.
 - Lab Records sends "No lab tests entered today" from 20:00. Once a day.
 - Every run (and every morning run) also resends notifications that waited in a module's outbox because PlantOps
   was briefly unreachable.
 
-Skipped until `STOCK_URL` / `LAB_URL` are set; *Run workflow* runs it by hand, and extra runs never send twice.
+GitHub → *Evening jobs* → *Run workflow* runs all three by hand; extra runs never send twice.
 
 **App notifications (free; no email, SMS or WhatsApp).** Owners see a bell 🔔 on the launcher, and get phone
 notifications once they tap **Turn on** there. Design and phases: `docs/notifications.md`.
@@ -449,8 +501,8 @@ the Today board, the Staff list or the Salary tab, and don't mark their own atte
   the office's marks; never sent to owners); and the morning **"N people not marked by 10:00"** alert.
 - **The not-marked alert:** Attendance → Settings → Not-marked alert: 08:00, 09:00, 10:00 (default), 11:00 or Off. One
   phone alert to the owners and supervisors listing who has no mark yet today. Weekly offs and leave aren't built
-  yet, so a day off shows there too. The GitHub variable `ATTENDANCE_URL` must be set for the morning job
-  (`evening.yml`, 08:00-11:00 India time).
+  yet, so a day off shows there too. It needs the "Attendance morning" job on cron-job.org (section 10, hourly
+  08:01-11:01 India time).
 - **Permanent / Temporary:** in each person's Salary box (from a month). The Salary tab shows "TEMP" beside temporary
   people and a **Manpower cost** card split Permanent / Temporary; the CSV has a "Staff type" column. Pay is worked out
   the same way for both.
@@ -617,7 +669,7 @@ Example: Floor Stock, Phase 5. It becomes **one more Railway service** and **one
 | `production` branch deploys, `main` doesn't | Nothing goes live by accident, and migrations can run before the code. |
 | Migrations run from your computer | Simple and rare. Can be automated later. |
 | Settings in the dashboard, Dockerfile via `RAILWAY_DOCKERFILE_PATH` | Railway's `railway.json` stops working on 2026-12-01, and new services can't use it. |
-| Daily jobs from GitHub Actions | Free. No extra Railway service. |
+| Timed jobs started by cron-job.org (GitHub as safety net) | Free, on time. GitHub's scheduler ran them hours late or not at all (B-01). No extra Railway service. |
 | Files on a Railway volume | Cheapest to start. Move to S3/R2 before relying on it for real documents. |
 | Shared for every plant, Dedicated only as a paid upgrade | Same code everywhere. No per-plant forks. |
 | One record per copy + CHANGELOG + git tags | Always clear which release runs where, and what each release changed. |
@@ -637,7 +689,7 @@ Example: Floor Stock, Phase 5. It becomes **one more Railway service** and **one
   data.
 - [ ] Confirm the first real reminder email arrives (Brevo API) and save plant owners' / responsible users'
   email addresses. See section 10.
-- [ ] Confirm GitHub Actions **Daily jobs** completes successfully before relying on expiry reminders.
+- [ ] Set up the 11 cron-job.org jobs (section 10); each **Test run** answers 200.
 - [ ] Choose and configure a real S3 bucket only after safely copying and verifying the existing document files.
 - [ ] WhatsApp, when Meta approves.
 - [ ] Optional: set Watch Paths on each service.

@@ -34,7 +34,8 @@ Service settings are set in the Railway dashboard, following this page. The Dock
 "Infrastructure as Code" (`.railway/railway.ts`, applied with the Railway CLI), is worth adopting only if
 Dedicated copies become frequent.
 
-The daily reminder jobs run from GitHub (`.github/workflows/daily.yml`), so they add nothing to Railway's bill.
+The timed jobs (daily, evening, morning) are started by cron-job.org at the exact minute (job list:
+`docs/HANDBOOK.md` section 10), with GitHub's `daily.yml` as a safety net, so they add nothing to Railway's bill.
 `apps/dev-module` is development-only and is never deployed.
 
 Secrets for a copy live in **two places only**: Railway (service variables) and your password manager. The
@@ -102,7 +103,8 @@ tag you are deploying.
    Also the variable `APP_URL` (the platform address) for the platform's daily job, and put the same `CRON_SECRET`
    on the **platform** service's Variables.
    The values are at the bottom of the `.paste` file. For a new Dedicated copy, also add its name to `copy:`
-   in `.github/workflows/daily.yml` **and** `.github/workflows/evening.yml` (8 pm "count not done" reminder).
+   in `.github/workflows/daily.yml` **and** `.github/workflows/evening.yml`. Then create the copy's 11 jobs on
+   cron-job.org with its own addresses and `CRON_SECRET` (`docs/HANDBOOK.md` section 10).
 9. **Check it** (see "Checks after a deploy" below), then write the copy's record in
    `docs/deployments/<copy>.md` and commit it.
 
