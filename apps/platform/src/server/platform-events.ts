@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { MODULE_IDS, type ModuleId } from "@plantops/types";
 import { moduleLabel } from "@/lib/modules";
 import { appDb } from "./db";
+import { purgeOldErrors } from "./errors";
 import { notifyOwnersDirect } from "./notifications";
 import type { PushSender } from "./push";
 
@@ -108,6 +109,8 @@ export async function runPlatformDaily(now = new Date(), send?: PushSender | nul
   // notifications older than 90 days (only through the locked-down database function; N4)
   const purge = await appDb().execute<{ n: number }>(sql`select platform.purge_old_notifications() as n`);
   const removed = Number(purge.rows[0]?.n ?? 0);
+  // error log rows older than 30 days (B-09)
+  const errors_removed = await purgeOldErrors();
   const { rows } = await appDb().execute<{ tenant_id: string; renews_on: string }>(sql`select tenant_id, renews_on::text from platform.renewal_tenants()`);
   let reminded = 0;
   for (const r of rows) {
@@ -128,5 +131,5 @@ export async function runPlatformDaily(now = new Date(), send?: PushSender | nul
     );
     if (n) reminded++;
   }
-  return { plants: rows.length, reminded, removed };
+  return { plants: rows.length, reminded, removed, errors_removed };
 }

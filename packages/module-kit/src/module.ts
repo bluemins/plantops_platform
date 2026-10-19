@@ -17,6 +17,7 @@ import {
   fetchTenantPlan,
   fetchUnread,
   openSession,
+  sendErrorReport,
   sendNotification,
   openSupportSession,
   PlatformRequestError,
@@ -33,6 +34,7 @@ import {
   type SupportSession,
 } from "@plantops/auth";
 import type { AlertContact, ModuleId, NotificationInput, PublicPlant, TenantBranding, TenantPlan, TenantSku } from "@plantops/types";
+import { buildErrorReport, cookieFrom, kindOf, reportError, reportErrorsTo, type ErrorWhere } from "./errors";
 import { safeNext } from "./safe-next";
 
 export interface ModuleEnv {
@@ -241,6 +243,24 @@ export function createModule(config: ModuleConfig) {
     return session ? { kind: "user", session } : null;
   }
 
+  // ---------- error log (STABILITY_PLAN B-09) ----------
+  /**
+   * Sends one server error to the platform's log, with the plant (and user) read from this module's own cookies:
+   * the signature check only, no platform call. A support view records the plant, never super_admin as a user.
+   */
+  async function sendError(err: unknown, where: ErrorWhere) {
+    const support = await openSupportCookie(cookieFrom(where.cookie, SUPPORT_COOKIE)).catch(() => null);
+    const session = support ? null : await openCookie(cookieFrom(where.cookie, SESSION_COOKIE)).catch(() => null);
+    await sendErrorReport(creds(), buildErrorReport(err, { ...where, tenant_id: support?.tenant_id ?? session?.tenant_id, user_id: session?.user_id }));
+  }
+  reportErrorsTo(sendError);
+
+  /** For the app's instrumentation.ts: errors Next catches itself (screens, server actions, the proxy, other routes). */
+  async function onRequestError(err: unknown, request: { path: string; method: string; headers: Record<string, string | string[] | undefined> }, context: { routeType?: string }) {
+    const c = request.headers.cookie;
+    await reportError(err, { method: request.method, path: request.path, kind: kindOf(context.routeType), cookie: Array.isArray(c) ? c.join("; ") : c });
+  }
+
   // ---------- small plain page for the few moments without an app screen ----------
   function messagePage(status: number, message: string) {
     const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -372,6 +392,7 @@ a{display:inline-block;margin-top:12px;padding:12px 18px;border-radius:12px;back
     currentSession,
     messagePage,
     proxy,
+    onRequestError,
     routes: { callback: callbackRoute, support: supportRoute, logout: logoutRoute, supportExit: supportExitRoute, plantLogo: plantLogoRoute },
   };
 }

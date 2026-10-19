@@ -3,7 +3,7 @@
 # (scripts/setup-ci-db.sh); each app's tests rebuild their schema from the migrations, as `pnpm test` does locally.
 # Nothing here touches the live copy: no secrets, no Railway, no environments.
 # Pushes that change only docs / Markdown are skipped (GitHub's free minutes); "Run workflow" runs it by hand.
-# A failed run emails the repo owner (GitHub → Settings → Notifications → Actions).
+# A failed run emails the repo owner (GitHub > Settings > Notifications > Actions).
 name: Tests
 
 on:

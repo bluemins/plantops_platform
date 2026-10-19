@@ -32,6 +32,7 @@ export function handle<C>(fn: (req: Request, ctx: C) => Promise<Response>) {
       if (err instanceof HttpError) return json({ error: err.message }, { status: err.status });
       if (err instanceof AccessDeniedError) return json({ error: "You don't have permission to do this" }, { status: 403 });
       console.error(err);
+      later(() => import("./errors").then((m) => m.logPlatformError(err, req, "api"))); // error log (B-09), never blocks the answer
       return json({ error: "Something went wrong" }, { status: 500 });
     }
   };

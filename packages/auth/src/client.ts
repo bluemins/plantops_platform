@@ -1,4 +1,4 @@
-import { AlertContact, NotificationInput, NotificationResult, PublicPlant, TenantBranding, TenantPlan, TenantSku, UserStatus, type ModuleId } from "@plantops/types";
+import { AlertContact, ErrorReport, NotificationInput, NotificationResult, PublicPlant, TenantBranding, TenantPlan, TenantSku, UserStatus, type ModuleId } from "@plantops/types";
 
 /** How a module app identifies itself to the platform (server-to-server only, never from the browser). */
 export interface ModuleCredentials {
@@ -85,6 +85,12 @@ export async function sendNotification(c: ModuleCredentials, tenantId: string, i
   return NotificationResult.parse(
     await call(c, `/api/m/tenants/${tenantId}/notifications`, { method: "POST", body: JSON.stringify(body), signal: AbortSignal.timeout(5_000) }),
   );
+}
+
+/** Records one server error of this module in the platform's error log (STABILITY_PLAN B-09). */
+export async function sendErrorReport(c: ModuleCredentials, report: ErrorReport) {
+  const body = ErrorReport.parse(report);
+  await call(c, "/api/m/errors", { method: "POST", body: JSON.stringify(body), signal: AbortSignal.timeout(5_000) });
 }
 
 /** How many unread notifications this person has (for the bell in a module's header). */

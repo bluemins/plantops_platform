@@ -4,6 +4,25 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.25.5 — 2026-10-19 — Error log for super_admin (STABILITY_PLAN B-09, option B)
+
+**What's in it**
+- **Every server error is recorded** (platform and all seven modules): when, which app, the address (no query
+  string), the error message, the first lines of the code trace, and which plant / user. Never form contents,
+  cookies, phone numbers (long digit runs are blanked) or money.
+- Modules send theirs to the platform (`POST /api/m/errors`, module credentials; the app name comes from the
+  credentials). Sent after the answer, never slows or breaks the request. At most 20 per app per minute are kept.
+- **super_admin → Errors** (`/super/errors`): the last 7 days, the same error on the same address grouped with its
+  count and plants; "Details" shows the code trace. The plants page shows "Errors (N)" and a red "N errors
+  yesterday" card. Plants never see any of it.
+- Rows older than 30 days are removed by the platform's daily job.
+- `ci.yml`: arrows in a comment replaced with ">" (the editor's checker showed a false error).
+
+**Migrations:** platform `0017_error_log.sql` (new table `platform.error_log` with FORCE RLS and no plant access,
+`platform.log_error()`, `platform.purge_old_errors()`; approved by the owner 2026-10-19). Run
+`./scripts/railway-migrate.sh shared` **before** deploying. SSO token unchanged. All eight apps (each module gets an
+`instrumentation.ts`).
+
 ## v0.25.4 — 2026-10-19 — Low-stock alert during a platform outage, total to load, tests on every push (STABILITY_PLAN B-10, B-08)
 
 **What's in it**

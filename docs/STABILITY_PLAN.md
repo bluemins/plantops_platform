@@ -48,9 +48,8 @@ run of Attendance morning at 10:12 sent the first ever "not marked" alert (owner
 20:01 IST from cron-job.org.
 
 **Next, in order:**
-1. Owner: deploy **v0.25.3** (carries v0.25.1 + v0.25.2); then the two plant 001 steps above; raise Railway's Compute
-   Usage Limit (S0). (`BREVO_API_KEY` / `MAIL_FROM`
-   already removed from Railway, 2026-10-18.)
+1. ~~Owner: deploy v0.25.3; plant 001 steps; raise Railway's Compute Usage Limit~~ all done 2026-10-19 (v0.25.4 live;
+   plant 001 steps marked done unchecked, circle still 2,000 m; limit $20, alert $7).
 2. ~~Claude: commit `evening.yml`~~ done 2026-10-19.
 3. B-05 and B-04 built (v0.25.3). After the deploy: phone trials on demo plant 999 (set 999's pin where you test);
    Claude reads plant 001's next marks read-only (accuracy, distance) and closes B-04; B-05 closes after the owner's
@@ -282,7 +281,7 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
 | ID | Module | Sev | Issue | Next step |
 |---|---|---|---|---|
 | B-08 | All | S2 | Tests not run automatically | **Closed 2026-10-19:** `ci.yml` + `scripts/setup-ci-db.sh`; GitHub runs #1 (`4c7cc23`) and #2 (`feb9439`) green, 3 m 53 s each (≈ 27 code pushes a week ≈ 450 of 2,000 free minutes a month) |
-| B-09 | All | S2 | No uptime check, no error reporting | Owner 2026-10-19: UptimeRobot (interval to confirm, section 6) + **built-in error log (B)**; table design to approve before the migration |
+| B-09 | All | S2 | No uptime check, no error reporting | **Error log built 2026-10-19 (v0.25.5):** platform migration `0017_error_log.sql`, `POST /api/m/errors`, each app's `instrumentation.ts` + `handle()`, super_admin **Errors** screen, 30-day cleanup. UptimeRobot: owner chose **once a day for every address**; waiting for the owner's account |
 | B-10 | Floor Stock | S2 | Platform down at the moment of a save → the alert said "Stock count saved" instead of "Low stock" | **Built 2026-10-19, no migration** (owner's OK): "newly low" from the rows + each save's audit `low` list, not the owner list. Ships in v0.25.4 |
 | B-11 | Job applications | S3 | Hourly send limit is in memory and may count Railway's proxy address instead of the phone's | S3 check, then fix |
 | B-12 | Platform | S3 | Login rate limit in memory: resets on each deploy | Accept for v1 |
@@ -316,8 +315,9 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
 - [ ] Railway dashboard: every service on `1ea1c09`; volumes on Document Store, Complaint Box, Attendance, Job
       applications.
 - [x] cron-job.org account and 11 jobs (B-01, 2026-10-18).
-- [ ] **Railway → Usage → Update limits:** raise the Compute Usage Limit from $10 to about $20 and set an email alert at
-      $10 (at the hard limit Railway stops every service; section 9).
+- [x] **Railway → Usage → Update limits:** raise the Compute Usage Limit from $10 to about $20 and set an email alert at
+      $10 (at the hard limit Railway stops every service; section 9). **Done (owner, 2026-10-19):** compute hard limit
+      $20, email alert $7; Agent hard limit $5.
 - [ ] Rotate `CRON_SECRET` on the same day as the R2 keys (part of it was visible in a screenshot on 18 Oct; low risk:
       it only starts dedupe-safe jobs): every Railway service, the GitHub environment `shared`, all 11 cron-job.org jobs.
 
@@ -334,9 +334,9 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
 2. **Uptime checks** — UptimeRobot (free) every 5 minutes on `app.bluemins.life/login`, `/.well-known/jwks.json` and
    the seven `/health` addresses, with a keyword check on the database answer. Alerts to the owner's email and phone.
    (cron-job.org already does the timed calls, B-01.) *Cost:* free, nothing on Railway.
-   **Owner (2026-10-19):** sleeping services less often, the others about once a day (exact intervals being confirmed:
-   a check only every 1–5 days would find an outage late).
-3. **Error reporting** — **owner chose B (2026-10-19)**; the table design goes to the owner before the migration.
+   **Owner (2026-10-19): every address once a day** (24-hour interval; an outage may be noticed up to a day late, but
+   the sleeping services stay asleep).
+3. **Error reporting** — **owner chose B (2026-10-19); built as v0.25.5** (design approved the same day).
    Options were: **A. Sentry** (free plan; error details leave PlantOps, scrub names /
    phones / money) or **B. built-in error log** (`platform.error_log` + super_admin "Errors" screen; needs a
    migration). Either way wired once in `packages/module-kit` `handle()` and the platform's `http.ts`. *Cost:* neither

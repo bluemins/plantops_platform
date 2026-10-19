@@ -1,6 +1,7 @@
 // JSON request/response helpers for module apps (same rules as the platform: JSON-only mutations, safe errors).
 import { z } from "zod";
 import { AccessDeniedError } from "@plantops/auth";
+import { reportError } from "./errors";
 
 /** Error with an HTTP status and a plain-language message that is safe to show the user. */
 export class HttpError extends Error {
@@ -34,6 +35,7 @@ export function handle<C>(fn: (req: Request, ctx: C) => Promise<Response>) {
       if (err instanceof HttpError) return json({ error: err.message }, { status: err.status });
       if (err instanceof AccessDeniedError) return json({ error: "You don't have permission to do this" }, { status: 403 });
       console.error(err);
+      void reportError(err, { method: req.method, path: req.url, kind: "api", cookie: req.headers.get("cookie") });
       return json({ error: "Something went wrong" }, { status: 500 });
     }
   };
@@ -89,6 +91,7 @@ export function handleUpload<C>(maxBytes: number, fn: (req: Request, body: Buffe
       if (err instanceof HttpError) return json({ error: err.message }, { status: err.status });
       if (err instanceof AccessDeniedError) return json({ error: "You don't have permission to do this" }, { status: 403 });
       console.error(err);
+      void reportError(err, { method: req.method, path: req.url, kind: "api", cookie: req.headers.get("cookie") });
       return json({ error: "Something went wrong" }, { status: 500 });
     }
   };

@@ -26,12 +26,15 @@ export default function SuperHome() {
   const [plan, setPlan] = useState(emptyPlan);
   const [profile, setProfile] = useState(emptyProfile);
   const [logo, setLogo] = useState<LogoChange>();
+  const [errors, setErrors] = useState<{ today: number; yesterday: number }>();
 
   const load = useCallback(async () => {
     const r = await api<Tenant[]>("/api/super/tenants");
     if (r.status === 401) return router.replace("/super/login");
     if (!r.ok) return setError(r.error);
     setTenants(r.data);
+    const e = await api<{ today: number; yesterday: number }>("/api/super/errors"); // error log counts (B-09)
+    if (e.ok) setErrors({ today: e.data.today, yesterday: e.data.yesterday });
   }, [router]);
   useEffect(() => void load(), [load]);
 
@@ -69,6 +72,7 @@ export default function SuperHome() {
         <div className="flex flex-wrap gap-2">
           <Link href="/super/dashboard"><Button variant="secondary">Dashboard</Button></Link>
           <Link href="/super/modules"><Button variant="secondary">Modules</Button></Link>
+          <Link href="/super/errors"><Button variant="secondary">Errors{errors && errors.today + errors.yesterday > 0 ? ` (${errors.today + errors.yesterday})` : ""}</Button></Link>
           <Link href="/super/change-password"><Button variant="secondary">Change password</Button></Link>
           <Button variant="secondary" onClick={logout}>Log out</Button>
         </div>
@@ -80,6 +84,14 @@ export default function SuperHome() {
           <p className="text-sm text-slate-600">Shown only once. The owner must change the password at first login.</p>
           <Button variant="secondary" className="mt-3" onClick={() => setCreated(undefined)}>Done</Button>
         </Card>
+      )}
+      {errors && errors.yesterday > 0 && (
+        <Link href="/super/errors" className="block">
+          <Card className="border-red-300 bg-red-50">
+            <p className="font-semibold text-red-800">{errors.yesterday} {errors.yesterday === 1 ? "error" : "errors"} yesterday{errors.today ? ` · ${errors.today} today` : ""}</p>
+            <p className="text-sm text-red-700">Open the error log</p>
+          </Card>
+        </Link>
       )}
       <ErrorText>{error}</ErrorText>
       {tenants.map((t) => (

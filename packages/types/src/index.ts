@@ -360,3 +360,51 @@ export const SupportTokenPayload = z.object({
   read_only: z.literal(true),
 });
 export type SupportTokenPayload = z.infer<typeof SupportTokenPayload>;
+
+// ---------- error log (STABILITY_PLAN B-09) ----------
+
+/**
+ * One server error, as a module sends it to the platform (POST /api/m/errors) and as the platform records its own.
+ * Only where and what went wrong: never form contents, query strings, cookies, phone numbers or money. The app is
+ * never in it: the platform takes it from the module's credentials.
+ */
+export const ErrorReport = z.object({
+  method: z.string().regex(/^[A-Z]{1,10}$/),
+  /** path only, no query string */
+  path: z.string().min(1).max(300).regex(/^\/[^?#\s]*$/),
+  /** api = a JSON route, page = a screen, action = a server action, proxy = the module's proxy */
+  kind: z.enum(["api", "page", "action", "proxy"]),
+  message: z.string().min(1).max(500),
+  stack: z.string().max(2000).nullable().default(null),
+  tenant_id: z.uuid().nullable().default(null),
+  user_id: z.uuid().nullable().default(null),
+});
+export type ErrorReport = z.infer<typeof ErrorReport>;
+
+const longDigits = /\d{7,}/g; // phone numbers, account numbers: never kept, even inside an error message
+const clean = (s: string, max: number) => s.replace(longDigits, "#######").slice(0, max);
+
+/**
+ * Turns a caught error into an ErrorReport: the path without its query string, the message cut to 500 characters,
+ * the first 12 lines of the code trace, and long digit runs (phones) blanked out.
+ */
+export function buildErrorReport(
+  err: unknown,
+  where: { method: string; path: string; kind: ErrorReport["kind"]; tenant_id?: string | null; user_id?: string | null },
+): ErrorReport {
+  const e = err instanceof Error ? err : null;
+  const message = clean((e ? `${e.name === "Error" ? "" : `${e.name}: `}${e.message}` : String(err)).trim() || "(no message)", 500);
+  const stack = e?.stack ? clean(e.stack.split("\n").slice(1, 13).map((l) => l.trim()).join("\n"), 2000) || null : null;
+  const path = (where.path.split(/[?#]/)[0] || "/").replace(/\s/g, "").slice(0, 300);
+  const method = /^[A-Z]{1,10}$/.test(where.method.toUpperCase()) ? where.method.toUpperCase() : "GET";
+  const uuid = (v: string | null | undefined) => (v && z.uuid().safeParse(v).success ? v : null);
+  return {
+    method,
+    path: path.startsWith("/") ? path : `/${path}`,
+    kind: where.kind,
+    message,
+    stack,
+    tenant_id: uuid(where.tenant_id),
+    user_id: uuid(where.user_id),
+  };
+}
