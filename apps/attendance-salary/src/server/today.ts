@@ -5,6 +5,7 @@
 import { addDays, istDay } from "@/lib/days";
 import { workDays, type WorkDay } from "@/lib/sessions";
 import { requireAccess } from "./access";
+import { loadDayMarks } from "./day-marks";
 import { withTenant } from "./db";
 import { activeEmployees, loadMarks, type Person } from "./people";
 import type { AtUser } from "./session";
@@ -16,6 +17,8 @@ export interface TodayBoard {
   inside: (Person & { since: Date; by: string | null })[];
   cameLeft: (Person & { firstIn: Date | null; lastOut: Date | null; minutes: number })[];
   notMarked: Person[];
+  /** marked OFF for today by the owner (docs/DAY_MARKS_PLAN.md): not counted as "not marked" */
+  dayOff: Person[];
   noExitYesterday: (Person & { inAt: Date })[];
   /** the platform couldn't be reached: the list is the people who marked in the last 3 days */
   platformDown: boolean;
@@ -31,11 +34,14 @@ export async function todayBoard(user: AtUser, now: Date = new Date()): Promise<
 export async function boardFor(tenantId: string, now: Date = new Date()): Promise<TodayBoard> {
   const today = istDay(now);
   const yesterday = addDays(today, -1);
-  const [staff, loaded] = await Promise.all([activeEmployees(tenantId), withTenant(tenantId, (tx) => loadMarks(tx, tenantId, yesterday, today))]);
+  const [staff, [loaded, marked]] = await Promise.all([
+    activeEmployees(tenantId),
+    withTenant(tenantId, async (tx) => [await loadMarks(tx, tenantId, yesterday, today), await loadDayMarks(tx, tenantId, today, today)] as const),
+  ]);
   // the people: active Plant staff; if the platform is down, whoever marked in the window
   const people: Person[] = staff.platformDown ? [...loaded.entries()].map(([userId, l]) => ({ userId, name: l.name })).sort((a, b) => a.name.localeCompare(b.name)) : staff.active;
 
-  const board: TodayBoard = { today, yesterday, inside: [], cameLeft: [], notMarked: [], noExitYesterday: [], platformDown: staff.platformDown };
+  const board: TodayBoard = { today, yesterday, inside: [], cameLeft: [], notMarked: [], dayOff: [], noExitYesterday: [], platformDown: staff.platformDown };
   for (const p of people) {
     const l = loaded.get(p.userId);
     const days = l ? workDays(l.marks, l.cancels, now) : new Map<string, WorkDay>();
@@ -58,7 +64,8 @@ export async function boardFor(tenantId: string, now: Date = new Date()): Promis
       });
       continue;
     }
-    board.notMarked.push(p);
+    if (marked.get(p.userId)?.get(today) === "off") board.dayOff.push(p);
+    else board.notMarked.push(p);
   }
   board.inside.sort((a, b) => a.since.getTime() - b.since.getTime());
   return board;

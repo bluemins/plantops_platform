@@ -479,7 +479,13 @@ Salary lives in the Attendance module (v0.20.0). Only the owner sees money; work
 - **Can see own salary** (person page, off by default): with the tick, the worker sees their own slip for paid months
   and gets "Your salary is paid"; without it, they see attendance only. Turning it off hides the slips at once.
 - **CSV:** Salary tab → Download CSV (one row per person, rupees with 2 decimals for a spreadsheet).
-- **Not done by the app:** weekly offs, holidays, leave requests, PF / ESI / TDS, printed payslips.
+- **Day off or present without times (v0.26.0, owner only):** Staff → the person → tap the date → **Mark the whole
+  day**: **ON** = counted as present (e.g. worked outside, forgot the phone), **OFF** = a paid day off (a Sunday, a
+  festival: not absent, no paid leave used, also paid for per-day people), **Clear** = back to the IN / OUT marks. No
+  times, no reason; today or any earlier day. The calendar shows "OFF" / "ON", the Today board lists people OFF today
+  (and the morning "not marked" alert leaves them out), the Salary tab and CSV count "Days off". Office staff still
+  mark IN / OUT with times. Do it before marking the month paid; a change afterwards goes to the next month.
+- **Not done by the app:** weekly-off rules, holiday lists, leave requests, PF / ESI / TDS, printed payslips.
 
 ### Attendance: field duty and expenses (v0.22.0)
 Workers send **claims** from the phone; the owner approves them; only approved ones are paid with that month's salary.

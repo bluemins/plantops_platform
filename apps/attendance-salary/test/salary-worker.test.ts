@@ -76,7 +76,7 @@ describe("day statuses for the calendars", () => {
   it("1. the worked example: 26 / 2 / 3 and 14 h; nothing about money in the answer", async () => {
     const p = await workedExample();
     const st = (await monthStatuses(p.worker, p.worker.userId, "2026-10", await octDays(p.worker, p.worker), NOV5))!;
-    expect(st.counts).toEqual({ present: 26, half: 2, absent: 3, otMinutes: 14 * 60 });
+    expect(st.counts).toEqual({ present: 26, half: 2, absent: 3, off: 0, otMinutes: 14 * 60 });
     expect(st).toMatchObject({ getsOvertime: true, complete: true, countedDays: 31 });
     expect(st.days[day(1)]).toEqual({ status: "present", otMinutes: 60 });
     expect(st.days[day(27)]).toEqual({ status: "half", otMinutes: 0 });

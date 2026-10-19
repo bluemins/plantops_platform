@@ -185,7 +185,7 @@ export async function salaryTab(user: AtUser, month: string, now: Date = new Dat
 export const SALARY_CSV_HEADER = [
   "Name", "Month", "Full or part month", "Counted days",
   "Monthly salary", "Pay basis", "Staff type", "Day rate", "Shift hours", "Paid leave allowed (days)",
-  "Present", "Half days", "Absent", "Paid leave used (days)", "Unpaid days", "Day's pay", "Earned",
+  "Present", "Half days", "Absent", "Days off", "Paid leave used (days)", "Unpaid days", "Day's pay", "Earned",
   "Overtime", "Overtime hours", "Overtime rate", "Overtime pay",
   "Field duty days", "Km", "TA rate", "TA", "DA days", "DA rate", "DA", "Expenses", "Claims waiting",
   "Advances", "Carried in", "Adjustment", "Remaining",
@@ -217,6 +217,7 @@ export async function salaryCsv(user: AtUser, month: string, now: Date = new Dat
       r.counts.present,
       r.counts.half,
       r.counts.absent,
+      r.counts.off ?? 0, // rule 20: paid days off marked by the owner
       perDay ? "" : halvesText(x.leaveUsedHalves),
       perDay ? "" : halvesText(x.unpaidHalves),
       rupees(x.dayPayPaise),

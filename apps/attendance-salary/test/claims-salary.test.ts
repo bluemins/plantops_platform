@@ -161,7 +161,7 @@ describe("paid months and the slip", () => {
     // 12,000 + TA 60 km × ₹3 = ₹180 + DA 2 × ₹150 = ₹300 + ₹450 = ₹12,930
     await payMonth(p.owner, { user_id: w.userId, month: "2026-09", paid_on: "2026-09-30", note: "UPI", expect_remaining: R(12930) } as never);
     const slip = await mySlip(w, "2026-09");
-    expect(slip.figures).toMatchObject({ rules: 4, fieldDutyDays: 2, kmTenths: 600 });
+    expect(slip.figures).toMatchObject({ rules: 5, fieldDutyDays: 2, kmTenths: 600 });
     expect(slip.figures.claims.map((c) => [c.kind, c.onDate])).toEqual([["field_duty", sep(3)], ["expense", sep(12)], ["field_duty", sep(17)]]);
     signInAs(w);
     const text = textOf(await MySlipPage({ params: Promise.resolve({ month: "2026-09" }) })).replace(/\s+/g, " ");

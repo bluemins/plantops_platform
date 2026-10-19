@@ -123,6 +123,7 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
                     <th className={th}>Present</th>
                     <th className={th}>Half</th>
                     <th className={th}>Absent</th>
+                    <th className={th}>Days off</th>
                     <th className={th}>Paid leave</th>
                     <th className={th}>OT hours</th>
                     <th className={th}>Earned</th>
@@ -167,6 +168,7 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
                         <td className={td}>{r.counts.present}</td>
                         <td className={td}>{r.counts.half}</td>
                         <td className={td}>{r.counts.absent}</td>
+                        <td className={td}>{r.counts.off ?? 0}</td>
                         <td className={td}>{r.payBasis === "per_day" ? "—" : halvesText(r.result.leaveUsedHalves)}</td>
                         <td className={td}>{r.getsOvertime ? hoursText(r.result.otMinutes) : "—"}</td>
                         <td className={td}>{rupeesText(r.result.earnedPaise)}</td>
@@ -204,7 +206,7 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
                 <td className={td}>{tab.rows.some((r) => r.payBasis === "monthly") ? rupeesText(t.salaryPaise) : "—"}</td>
                 {all ? (
                   <>
-                    <td colSpan={5} />
+                    <td colSpan={6} />
                     <td className={td}>{rupeesText(t.earnedPaise)}</td>
                     <td className={td}>{rupeesText(t.otPayPaise)}</td>
                     <td className={td}>{rupeesText(t.taPaise)}</td>

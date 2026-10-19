@@ -17,5 +17,6 @@ describe("merged columns", () => {
     expect(daysText({ present: 20, half: 1, absent: 2 }, 3)).toEqual({ main: "20 present", sub: "1 half · 2 absent · 1.5 leave" });
     expect(daysText({ present: 0, half: 0, absent: 18 }, 0)).toEqual({ main: "0 present", sub: "18 absent" });
     expect(daysText({ present: 1, half: 0, absent: 17 }, null)).toEqual({ main: "1 present", sub: "17 absent" }); // per day
+    expect(daysText({ present: 22, half: 0, absent: 1, off: 4 }, 2)).toEqual({ main: "22 present", sub: "4 off · 1 absent · 1 leave" }); // day marks
   });
 });

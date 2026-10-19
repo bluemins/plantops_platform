@@ -48,8 +48,12 @@ export function MonthCalendar({ view, dayHref, monthHref, statuses }: { view: Mo
           const st = statuses?.days[d.date];
           const tone = future
             ? "text-slate-300"
-            : d.noExit
+            : st?.status === "off"
+              ? "border border-emerald-300 bg-emerald-50 text-emerald-900" // rule 20: the owner's paid day off
+              : d.noExit
               ? "border border-amber-500 bg-amber-100 text-amber-950"
+              : st?.mark === "on"
+                ? "border border-(--brand) bg-(--brand-soft) text-slate-900"
               : st?.status === "half"
                 ? "border border-yellow-300 bg-yellow-50 text-slate-900"
                 : st?.status === "absent"
@@ -62,10 +66,16 @@ export function MonthCalendar({ view, dayHref, monthHref, statuses }: { view: Mo
             <>
               <span className="text-sm font-bold">{n}</span>
               <span className="text-[11px] leading-tight">
-                {d.open ? "in now" : d.minutes > 0 ? `${fmtMinutes(d.minutes)}${st?.status === "half" ? " ½" : ""}` : d.noExit ? "0h" : st?.status === "absent" ? "absent" : ""}
+                {d.open ? "in now" : d.minutes > 0 ? `${fmtMinutes(d.minutes)}${st?.status === "half" ? " ½" : ""}` : st?.status === "off" ? "day off" : st?.mark === "on" ? "present" : d.noExit ? "0h" : st?.status === "absent" ? "absent" : ""}
               </span>
               {st && st.otMinutes > 0 && !d.noExit && <span className="text-[10px] font-bold text-(--brand)">+{hoursText(st.otMinutes)} h</span>}
-              {d.noExit ? <span className="text-[10px] font-bold text-amber-800">no exit</span> : d.changed ? <span className="text-[10px] font-bold text-violet-700">changed</span> : null}
+              {st?.mark ? (
+                <span className="text-[10px] font-bold">{st.mark === "off" ? "OFF" : "ON"}</span>
+              ) : d.noExit ? (
+                <span className="text-[10px] font-bold text-amber-800">no exit</span>
+              ) : d.changed ? (
+                <span className="text-[10px] font-bold text-violet-700">changed</span>
+              ) : null}
             </>
           );
           const cls = `flex min-h-16 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 ${tone} ${today}`;
@@ -105,6 +115,14 @@ export function CalendarKey({ statuses }: { statuses?: MonthStatuses | null } = 
           <span className="flex items-center gap-1.5">
             <span className="h-3 w-3 rounded border border-red-200 bg-red-50" />
             Absent
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded border border-emerald-300 bg-emerald-50" />
+            OFF: paid day off (owner)
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded border border-(--brand) bg-(--brand-soft)" />
+            ON: present (owner)
           </span>
           {statuses.getsOvertime && (
             <span className="flex items-center gap-1.5">

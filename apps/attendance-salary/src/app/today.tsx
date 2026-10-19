@@ -79,6 +79,18 @@ export function TodayView({ user, board }: { user: AtUser; board: TodayBoard }) 
           </li>
         ))}
       </Group>
+      {board.dayOff.length > 0 && (
+        <Group title="Day off today (owner)" tone="slate" count={board.dayOff.length}>
+          {board.dayOff.map((p) => (
+            <li key={p.userId}>
+              <Item href={dayLink(p.userId, board.today)} className={row}>
+                <span className="font-semibold">{p.name}</span>
+                <span className="text-sm text-slate-600">OFF</span>
+              </Item>
+            </li>
+          ))}
+        </Group>
+      )}
       <Group title="No exit yesterday" tone="amber" count={board.noExitYesterday.length}>
         {board.noExitYesterday.map((p) => (
           <li key={p.userId}>

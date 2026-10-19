@@ -96,7 +96,7 @@ describe("one month's pay", () => {
     const c = countedDates("2026-10", "2026-11-01", null, null)!;
     const days = dayStatuses(everyDay("2026-10", 12 * H), 8 * H, c.dates, false);
     const counts = countDays(days);
-    expect(counts).toEqual({ present: 31, half: 0, absent: 0, otMinutes: 0 });
+    expect(counts).toEqual({ present: 31, half: 0, absent: 0, off: 0, otMinutes: 0 });
     expect(monthPay({ ...base, ...counts, getsOvertime: false, otRatePaise: null, advancesPaise: 0 })).toMatchObject({ otMinutes: 0, otPayPaise: 0, earnedPaise: R(12000) });
     // even if minutes were handed in, no overtime without "Gets overtime"
     expect(monthPay({ ...base, getsOvertime: false, otRatePaise: null }).otPayPaise).toBe(0);

@@ -27,6 +27,8 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
     ["half", "Half days", row.input.half],
     ["absent", "Absent days", row.input.absent],
   ];
+  // rule 20: the owner's paid days off, when there are any
+  if (row.input.off) fields.push(["off", "Days off (paid)", row.input.off]);
   if (!perDay) fields.push(["leave", "Paid leave allowed (days)", row.input.paidLeaveHalfdays / 2]);
   if (row.getsOvertime) {
     fields.push(["otHours", "Overtime hours", Math.round((row.input.otMinutes / 60) * 100) / 100]);
@@ -41,10 +43,10 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
   fields.push(["advances", "Advances (₹)", row.input.advancesPaise / 100]);
   fields.push(["carried", "Carried in (₹)", row.input.carriedInPaise / 100]);
 
-  const total = yin.present + yin.half + yin.absent;
+  const total = yin.present + yin.half + yin.absent + (yin.off ?? 0);
   const daysOk = total === row.countedDays;
   const target = complete && row.fullMonth ? `${fmtMonth(month).split(" ")[0]} has ${monthLength}` : complete ? `${row.countedDays} days worked here` : `${row.countedDays} days so far`;
-  const daysText = `${num(yin.present)} present + ${num(yin.half)} half + ${num(yin.absent)} absent = ${num(total)} days`;
+  const daysText = `${num(yin.present)} present + ${num(yin.half)} half + ${num(yin.absent)} absent${yin.off ? ` + ${num(yin.off)} off` : ""} = ${num(total)} days`;
   const diff = yours.remainingPaise - auto.remainingPaise;
 
   const line = (label: string, value: string, strong = false) => (
@@ -85,7 +87,7 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
                 type="number"
                 inputMode="decimal"
                 min={0}
-                step={k === "present" || k === "half" || k === "absent" || k === "leave" ? 0.5 : "any"}
+                step={k === "present" || k === "half" || k === "absent" || k === "off" || k === "leave" ? 0.5 : "any"}
                 value={typed[k] ?? String(a)}
                 onChange={(e) => setTyped((t) => ({ ...t, [k]: e.target.value }))}
               />

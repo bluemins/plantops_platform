@@ -19,6 +19,7 @@ import {
   type ClaimTotals,
   type Counted,
   type DayCounts,
+  type DayMark,
   type DayResult,
   type DayStatus,
   type FrozenMonth,
@@ -29,6 +30,7 @@ import {
 import { workDays } from "@/lib/sessions";
 import { can, requireAccess } from "./access";
 import { loadClaims, type ClaimRow } from "./claims";
+import { loadDayMarks } from "./day-marks";
 import { schema, withTenant, type AtTx } from "./db";
 import type { StaffType } from "./schema";
 import { notFound } from "./http";
@@ -131,7 +133,7 @@ export interface PersonSalary {
 }
 
 /** Works out one person's months up to `month` from already-loaded rows (also used for the whole plant). */
-function personMonths(userId: string, data: SalaryData, days: ReadonlyMap<string, { minutes: number }>, month: string, today: string): PersonSalary {
+function personMonths(userId: string, data: SalaryData, days: ReadonlyMap<string, { minutes: number }>, marks: ReadonlyMap<string, DayMark>, month: string, today: string): PersonSalary {
   const settings = data.settings.filter((s) => s.userId === userId);
   const first = firstSalaryMonth(settings)!;
   const months: Omit<SalaryMonth, "chain">[] = [];
@@ -140,7 +142,7 @@ function personMonths(userId: string, data: SalaryData, days: ReadonlyMap<string
     // rule 1: Joined on blank = the first day of the first salary month
     const counted = countedDates(m, today, setting.joinedOn ?? `${first}-01`, setting.leftOn);
     if (!counted) continue; // not employed on any day of this month
-    const dayResults = dayStatuses(days, setting.shiftMinutes, counted.dates, setting.getsOvertime);
+    const dayResults = dayStatuses(days, setting.shiftMinutes, counted.dates, setting.getsOvertime, marks); // rule 20: the owner's day marks
     const claims = data.claims.filter((c) => c.userId === userId && ym(c.onDate) === m);
     months.push({
       month: m,
@@ -206,11 +208,12 @@ export async function salaryMonthsOf(tenantId: string, month: string, opts: { pe
     if (firsts.length === 0) return { month, today, people: [] };
     const from = firsts.reduce((a, b) => (a < b ? a : b));
     const loaded = await loadMarks(tx, tenantId, `${from}-01`, monthDays(month).at(-1)!, opts.personId);
+    const marked = await loadDayMarks(tx, tenantId, `${from}-01`, monthDays(month).at(-1)!, opts.personId ? [opts.personId] : undefined);
     const people = userIds
       .filter((id) => firstSalaryMonth(data.settings.filter((s) => s.userId === id))! <= month)
       .map((id) => {
         const l = loaded.get(id);
-        return personMonths(id, data, workDays(l?.marks ?? [], l?.cancels ?? [], now), month, today);
+        return personMonths(id, data, workDays(l?.marks ?? [], l?.cancels ?? [], now), marked.get(id) ?? new Map(), month, today);
       })
       .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
     return { month, today, people };
@@ -266,7 +269,8 @@ export const frozenOf = (figures: Record<string, unknown>): FrozenMonth | null =
 
 /** What a calendar may show about a month's days: statuses and counts only, never an amount, rate or shift. */
 export interface MonthStatuses {
-  days: Record<string, { status: DayStatus; otMinutes: number }>;
+  /** `mark`: the owner's whole-day ON / OFF (rule 20), so the calendar can say so */
+  days: Record<string, { status: DayStatus; otMinutes: number; mark?: DayMark }>;
   counts: DayCounts;
   /** the person gets overtime this month (otherwise no overtime is shown anywhere) */
   getsOvertime: boolean;
@@ -285,17 +289,21 @@ export interface MonthStatuses {
 export async function monthStatuses(user: AtUser, personId: string, month: string, days: ReadonlyMap<string, { minutes: number }>, now: Date = new Date()): Promise<MonthStatuses | null> {
   const own = personId === user.userId;
   if (!(own ? can(user, "see_own") || can(user, "see_everyone") : can(user, "see_everyone"))) throw notFound("Not found");
-  const rows = await withTenant(user.tenantId, (tx) =>
-    tx.select().from(salarySettings).where(and(eq(salarySettings.tenantId, user.tenantId), eq(salarySettings.userId, personId))),
-  );
+  const [rows, marked] = await withTenant(user.tenantId, async (tx) => [
+    await tx.select().from(salarySettings).where(and(eq(salarySettings.tenantId, user.tenantId), eq(salarySettings.userId, personId))),
+    await loadDayMarks(tx, user.tenantId, `${month}-01`, monthDays(month).at(-1)!, [personId]),
+  ] as const);
   const settings = rows.map((r) => ({ ...r, fromMonth: ym(r.fromMonth) }));
   const setting = settingFor(settings, month);
   if (!setting) return null;
   const counted = countedDates(month, istDay(now), setting.joinedOn ?? `${firstSalaryMonth(settings)}-01`, setting.leftOn);
   if (!counted) return null;
-  const results = dayStatuses(days, setting.shiftMinutes, counted.dates, setting.getsOvertime);
+  const results = dayStatuses(days, setting.shiftMinutes, counted.dates, setting.getsOvertime, marked.get(personId)); // rule 20
   return {
-    days: Object.fromEntries(results.map((d) => [d.date, { status: d.status, otMinutes: d.otMinutes }])),
+    days: Object.fromEntries(results.map((d) => {
+      const mark = marked.get(personId)?.get(d.date);
+      return [d.date, { status: d.status, otMinutes: d.otMinutes, ...(mark ? { mark } : {}) }];
+    })),
     counts: countDays(results),
     getsOvertime: setting.getsOvertime,
     complete: counted.complete,

@@ -41,6 +41,8 @@ export function MonthTiles({ statuses }: { statuses: MonthStatuses }) {
     ["Half days", String(statuses.counts.half)],
     ["Absent", String(statuses.counts.absent)],
   ];
+  // rule 20: paid days off the owner marked, only when there are any
+  if (statuses.counts.off) tiles.push(["Days off", String(statuses.counts.off)]);
   if (statuses.getsOvertime) tiles.push(["Overtime", `${hoursText(statuses.counts.otMinutes)} h`]);
   return (
     <section aria-label="This month" className="space-y-1">

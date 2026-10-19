@@ -6,6 +6,9 @@ import { describe, expect, it } from "vitest";
 import { asApp, asOwner, dbError, plant, seedPlant, TABLES } from "./helpers";
 
 /** Every column of the salary tables (migrations 0002-0004), in table order; each gets its own refused UPDATE. */
+/** Every column of day_marks (migration 0008): none may change. */
+const DAY_MARK_COLUMNS = ["id", "tenant_id", "user_id", "user_name", "day", "mark", "created_by", "created_by_name", "created_at"];
+
 const SALARY_COLUMNS: Record<string, string[]> = {
   salary_advances: ["id", "tenant_id", "user_id", "user_name", "on_date", "amount_paise", "note", "corrects_id", "reason", "created_by", "created_by_name", "created_at"],
   salary_claim_decisions: ["id", "tenant_id", "claim_id", "decision", "reason", "created_by", "created_by_name", "created_at"],
@@ -71,8 +74,16 @@ describe("append-only for attendance_app", () => {
       `update attendance_salary.notification_outbox set id = gen_random_uuid() where id = '${ids.outbox}'`,
       // salary: nothing ever changes, in any column (a change is always a new row)
       ...Object.entries(SALARY_COLUMNS).flatMap(([tbl, cols]) => cols.map((c) => `update attendance_salary.${tbl} set ${c} = ${c}`)),
+      // day marks (0008): a mark never changes; a change is a new row
+      ...DAY_MARK_COLUMNS.map((c) => `update attendance_salary.day_marks set ${c} = ${c}`),
     ];
   };
+
+  it("the day-mark column list covers every column of day_marks", async () => {
+    const { rows } = await asOwner<{ column_name: string }>(`
+      select column_name from information_schema.columns where table_schema = 'attendance_salary' and table_name = 'day_marks' order by ordinal_position`);
+    expect(rows.map((r) => r.column_name)).toEqual(DAY_MARK_COLUMNS);
+  });
 
   it("the salary column lists below cover every column of the salary tables", async () => {
     const { rows } = await asOwner<{ table_name: string; column_name: string }>(`
@@ -85,7 +96,7 @@ describe("append-only for attendance_app", () => {
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(151); // + field_staff (0005), staff_type (0006), wants_da (0007)
+    expect(list.length).toBe(162); // + field_staff (0005), staff_type (0006), wants_da (0007); day_marks (0008): delete, truncate, 9 columns
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 

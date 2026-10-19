@@ -49,6 +49,11 @@ export function describeChange(action: string, d: Record<string, unknown>): stri
       return `Added ${show(d.kind).toUpperCase()} ${when(d.at)} for ${show(d.person)}: ${show(d.reason)}`;
     case "fix.cancel":
       return `Cancelled ${show(d.kind).toUpperCase()} ${when(d.at)} for ${show(d.person)}: ${show(d.reason)}`;
+    case "day.mark":
+      // docs/DAY_MARKS_PLAN.md: the owner's whole-day mark, no times
+      return d.mark === "clear"
+        ? `Cleared the day mark on ${fmtDayLong(show(d.day))} for ${show(d.person)} (back to the IN / OUT marks)`
+        : `Marked ${fmtDayLong(show(d.day))} ${d.mark === "on" ? "ON (present)" : "OFF (paid day off)"} for ${show(d.person)}`;
     case "salary.set":
       return `Salary for ${show(d.person)} from ${shortMonth(d.from)}: ${settingText({ monthly: typeof d.monthly === "number" ? d.monthly : null, day_rate: typeof d.day_rate === "number" ? d.day_rate : null, km_rate: typeof d.km_rate === "number" ? d.km_rate : null, da_day: typeof d.da_day === "number" ? d.da_day : null, field: d.field === true, temporary: d.staff_type === "temporary", shift: num(d.shift), leave: num(d.leave), ot_rate: typeof d.ot_rate === "number" ? d.ot_rate : null, joined: d.joined as string | null, left: d.left as string | null })}${d.reason ? `: ${show(d.reason)}` : ""}`;
     case "claim.sent":

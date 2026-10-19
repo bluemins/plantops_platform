@@ -12,11 +12,12 @@ export const extrasPaise = (r: Money) => r.otPayPaise + r.taPaise + r.daPaise + 
 export const takenPaise = (r: Money) => r.advancesPaise + r.carriedInPaise;
 
 /**
- * The Days cell: "3 present" on top, "1 half · 15 absent · 2 leave" under it. Half days and leave only when there
- * are any; per-day people have no paid leave (rule 15), so `leaveHalves` is null for them.
+ * The Days cell: "3 present" on top, "4 off · 1 half · 15 absent · 2 leave" under it. Days off, half days and leave
+ * only when there are any; per-day people have no paid leave (rule 15), so `leaveHalves` is null for them.
  */
-export function daysText(c: Pick<DayCounts, "present" | "half" | "absent">, leaveHalves: number | null): { main: string; sub: string } {
+export function daysText(c: Pick<DayCounts, "present" | "half" | "absent" | "off">, leaveHalves: number | null): { main: string; sub: string } {
   const sub: string[] = [];
+  if (c.off) sub.push(`${c.off} off`); // rule 20: the owner's paid days off
   if (c.half) sub.push(`${c.half} half`);
   sub.push(`${c.absent} absent`);
   if (leaveHalves) sub.push(`${halvesText(leaveHalves)} leave`);

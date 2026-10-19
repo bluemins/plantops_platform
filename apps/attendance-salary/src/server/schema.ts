@@ -53,6 +53,21 @@ export const punchCancels = at.table("punch_cancels", {
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 
+/** The owner's whole-day mark (migration 0008): on = present, off = paid day off, clear = back to the IN / OUT marks */
+export type DayMarkKind = "on" | "off" | "clear";
+
+export const dayMarks = at.table("day_marks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  userId: uuid("user_id").notNull(),
+  userName: text("user_name").notNull(),
+  day: date("day").notNull(),
+  mark: text("mark").$type<DayMarkKind>().notNull(),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
 export const supportViews = at.table("support_views", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
   tenantId: uuid("tenant_id").notNull(),

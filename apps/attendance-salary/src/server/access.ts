@@ -19,6 +19,7 @@ export type Action =
   | "see_everyone" // the Staff list, anyone's calendar and days
   | "see_today" // the Today board (Supervisor: read-only)
   | "fix" // add a time / cancel a mark, with a reason (Office staff: never their own, checked next to the fix)
+  | "day_mark" // mark a person's whole day ON / OFF / Clear, no times (docs/DAY_MARKS_PLAN.md: owner only)
   | "mark_for" // Office staff's "Mark for someone": IN / OUT now for a person without a phone (never yourself)
   | "settings" // plant location, circle, print QR, make a new QR
   | "view_settings" // see the settings page (support: read-only)
@@ -43,6 +44,7 @@ export const ACCESS: Record<Action, readonly Capacity[]> = {
   see_everyone: ["owner", "office", "support"],
   see_today: ["owner", "office", "supervisor", "support"],
   fix: ["owner", "office"],
+  day_mark: ["owner"],
   mark_for: ["office"],
   settings: ["owner"],
   view_settings: ["owner", "support"],

@@ -1,8 +1,12 @@
 # Day marks: owner marks a day ON or OFF (Attendance & Salary, STABILITY_PLAN F1)
 
 **Status:** design agreed with the owner 2026-10-19; **migration `0008_day_marks.sql` approved by the owner
-2026-10-19**. **On hold:** the owner said to wait for other changes first (the parallel F1b field-day work in
-Attendance). Then build as **v0.26.0**, live before the first salary month end (31 Oct).
+2026-10-19**; **built 2026-10-19 as v0.26.0** (owner: "go for the next one"). Live before the first salary month end
+(31 Oct) once deployed.
+
+**Made while building:** a day can be marked **today or earlier** only (the calendar opens past days and today; a
+future date is refused), so "mark Sunday OFF" happens on Sunday or after it. People without a salary setting can be
+marked too; their calendar shows no ON / OFF colour (it has no day statuses), the day page does.
 
 ## Why
 The salary rules (v0.20.0) count every day of the month; a day without IN / OUT marks is **absent**, and only 2 paid
@@ -23,8 +27,8 @@ owner wants to decide day by day instead of setting weekly-off rules.
 | **Clear** | back to the IN / OUT marks (present / half / absent by shift hours) | as before |
 
 - The owner's mark decides present / absent for that day; **overtime still comes only from real IN / OUT times**.
-- Only days the person is employed and that are over count (rule 1 unchanged); a mark on a later date waits for that
-  day. A mark outside the person's Joined on / Last day does nothing.
+- Only days the person is employed and that are over count (rule 1 unchanged); today's mark counts from tomorrow,
+  like today's marks. A mark outside the person's Joined on / Last day does nothing.
 - **Paid months** stay frozen: a mark changed after payment flows into the next month once, like a fix today.
 - New salary rule **20** in `src/lib/salary.ts` (`RULES_VERSION` 5); paid months frozen with an older version read as
   before.

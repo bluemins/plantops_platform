@@ -34,6 +34,7 @@ export default async function MySlipPage({ params }: { params: Promise<{ month: 
     ["Half", String(f.counts.half)],
     ["Absent", String(f.counts.absent)],
   ];
+  if (f.counts.off) tiles.push(["Days off", String(f.counts.off)]); // rule 20
   if (ot) tiles.push(["Overtime", `${hoursText(r.otMinutes)} h`]);
 
   return (

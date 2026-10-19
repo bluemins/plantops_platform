@@ -66,7 +66,7 @@ describe("salary from the database", () => {
     expect(view.people.map((x) => x.name)).toEqual(["Ramu"]);
     const oct = view.people[0]!.current!;
     expect(oct.counted).toMatchObject({ fullMonth: true, complete: true });
-    expect(oct.counts).toEqual({ present: 26, half: 2, absent: 3, otMinutes: 14 * 60 });
+    expect(oct.counts).toEqual({ present: 26, half: 2, absent: 3, off: 0, otMinutes: 14 * 60 });
     expect(oct.chain.live).toMatchObject({ earnedPaise: R(11200), otPayPaise: R(840), advancesPaise: R(3000), remainingPaise: R(9040) });
   });
 
@@ -175,7 +175,7 @@ describe("per-day pay from the database (Salary extras rule 15)", () => {
     expect(nov!.chain.live).toMatchObject({ dayPayPaise: R(450), leaveUsedHalves: 0, earnedPaise: R(21 * 450), remainingPaise: R(9450) });
     // a per-day month frozen now carries the rules version and the pay basis
     const f = freezeMonth(nov!);
-    expect(f).toMatchObject({ rules: 4, setting: { payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450) }, input: { payBasis: "per_day", monthlyPaise: 0, dayRatePaise: R(450) } });
+    expect(f).toMatchObject({ rules: 5, setting: { payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450) }, input: { payBasis: "per_day", monthlyPaise: 0, dayRatePaise: R(450) } });
   });
 
   it("28. a slip frozen before per-day pay (rules 1) still opens, as monthly", async () => {
@@ -240,7 +240,7 @@ describe("claims from the database (Salary extras rules 16-19)", () => {
     await decide(w, await claim(w, "field_duty", day(30), 50), "withdrawn");
     // the field-duty day on the 30th had no marks: still absent
     const oct = (await salaryMonths(p.owner, "2026-10", { now: NOW })).people[0]!.current!;
-    expect(oct.counts).toEqual({ present: 26, half: 2, absent: 3, otMinutes: 14 * 60 });
+    expect(oct.counts).toEqual({ present: 26, half: 2, absent: 3, off: 0, otMinutes: 14 * 60 });
     expect(Object.fromEntries(oct.claims.map((c) => [`${c.onDate} ${c.kind}`, c.status]))).toMatchObject({
       "2026-10-22 expense": "waiting", "2026-10-24 expense": "rejected", "2026-10-25 expense": "cancelled", "2026-10-30 field_duty": "withdrawn", "2026-10-02 field_duty": "approved",
     });
@@ -248,7 +248,7 @@ describe("claims from the database (Salary extras rules 16-19)", () => {
     expect(oct.chain.live).toMatchObject({ earnedPaise: R(11200), otPayPaise: R(840), advancesPaise: R(3000), remainingPaise: R(12136) });
     // frozen now: rules 3, the eight counted claims and the rates
     const f = freezeMonth(oct);
-    expect(f).toMatchObject({ rules: 4, fieldDutyDays: 6, kmTenths: 1820, setting: { kmRatePaise: R(3), daDayPaise: R(150) } });
+    expect(f).toMatchObject({ rules: 5, fieldDutyDays: 6, kmTenths: 1820, setting: { kmRatePaise: R(3), daDayPaise: R(150) } });
     expect(f.claims).toHaveLength(8);
   });
 

@@ -13,6 +13,7 @@ export function SalaryStrip({ month, figures }: { month: string; figures: Salary
     ["Present", String(counts.present)],
     ["Half days", String(counts.half)],
     ["Absent", String(counts.absent)],
+    ...(counts.off ? ([["Days off (paid)", String(counts.off)]] as [string, string][]) : []),
     ["Paid leave used", setting.payBasis === "per_day" ? "—" : `${halvesText(live.leaveUsedHalves)} of ${halvesText(setting.paidLeaveHalfdays)}`],
     ["Overtime", setting.getsOvertime ? `${hoursText(live.otMinutes)} h` : "—"],
     ["Remaining to pay", rupeesText(live.remainingPaise), live.remainingPaise < 0 ? "text-red-700" : "text-(--brand)"],

@@ -4,6 +4,22 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.26.0 — 2026-10-19 — Owner marks a day ON / OFF (Attendance & Salary, STABILITY_PLAN F1)
+
+**What's in it** (owner, 2026-10-19; docs/DAY_MARKS_PLAN.md)
+- **Staff → person → a date → "Mark the whole day":** **ON** (counted as present), **OFF** (a paid day off: not
+  absent, no paid leave used, paid for per-day people too) or **Clear** (back to the IN / OUT marks). Owner only, no
+  times, no reason, today or earlier. Office staff, Supervisors and workers can't; Office staff keep marking with times.
+- **Salary (rule 20, `RULES_VERSION` 5):** OFF days are paid, ON days are present; overtime still only from real
+  times. Months frozen before stay as they were (no "off" = 0).
+- **Shown:** calendar "OFF" / "ON" days and key; the worker's day page; Today board "Day off today" (left out of
+  "not marked", the morning alert and the tile); Salary tab Days cell ("4 off") and a "Days off" column under Show all;
+  checking panel box, person strip, worker's slip, CSV "Days off"; Recent changes "Marked Sun, 25 Oct OFF for Ramu".
+
+**Migrations:** Attendance `0008_day_marks.sql` (new append-only table `day_marks`, FORCE RLS, `attendance_app`
+SELECT + INSERT only; approved by the owner 2026-10-19). Run `./scripts/railway-migrate.sh shared` **before**
+deploying. Platform and SSO token unchanged. Attendance only.
+
 ## v0.25.6 — 2026-10-19 — Simpler Salary tab (Attendance & Salary)
 
 **What's in it** (owner, 2026-10-19; mock-up https://claude.ai/artifact/VnGsfKjT5WRc4dhvF5EsdM)

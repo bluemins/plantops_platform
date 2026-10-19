@@ -1,4 +1,5 @@
 import { dayFor } from "@/server/calendar";
+import { personDayMarks } from "@/server/day-marks";
 import { kit } from "@/server/kit";
 import { orNotFound } from "@/server/pages";
 import { requirePageUser } from "@/server/session";
@@ -9,7 +10,9 @@ import { Header } from "../../header";
 export default async function DayPage({ params }: { params: Promise<{ date: string }> }) {
   const { date } = await params;
   const user = await requirePageUser(`/day/${date}`);
-  const [plant, view] = await Promise.all([kit.branding(user.tenantId), orNotFound(dayFor(user, user.userId, date))]);
+  const [plant, view, marks] = await Promise.all([kit.branding(user.tenantId), orNotFound(dayFor(user, user.userId, date)), personDayMarks(user, user.userId, date, date)]);
+  // the owner's whole-day mark (docs/DAY_MARKS_PLAN.md), shown to the worker on their own day
+  const mark = marks.get(date);
   const back = user.isOwner ? `/my?m=${date.slice(0, 7)}` : `/?m=${date.slice(0, 7)}`;
   return (
     <div className="space-y-4">
@@ -21,6 +24,11 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
         Back to the month
       </a>
       <DayView day={view.day} />
+      {mark && (
+        <p className="rounded-2xl border border-slate-200 bg-white p-4 font-semibold">
+          {mark === "off" ? "OFF (owner): a paid day off" : "ON (owner): counted as present"}
+        </p>
+      )}
       <p className="px-1 text-sm text-slate-500">Something wrong? Tell the owner. Only the owner can add or cancel a time.</p>
     </div>
   );

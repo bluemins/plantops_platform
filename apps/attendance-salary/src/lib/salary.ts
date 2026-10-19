@@ -9,7 +9,7 @@
 import { monthDays } from "./days";
 
 /** Saved with every payment's frozen figures; raise it whenever a rule here changes. */
-export const RULES_VERSION = 4;
+export const RULES_VERSION = 5;
 /** Rule 7: a day's pay is always the monthly salary ÷ 30, whatever the month's length. */
 export const DAYS_FOR_PAY = 30;
 
@@ -121,7 +121,10 @@ export function countedDates(month: string, today: string, joinedOn: string | nu
 
 // ---------- day statuses (rules 2, 3, 9) ----------
 
-export type DayStatus = "present" | "half" | "absent";
+/** "off" = the owner marked a paid day off (rule 20); never from the IN / OUT marks */
+export type DayStatus = "present" | "half" | "absent" | "off";
+/** The owner's whole-day mark for one person and day (rule 20); "clear" rows are already left out */
+export type DayMark = "on" | "off";
 
 export interface DayResult {
   date: string;
@@ -136,11 +139,15 @@ export interface DayResult {
  * Rules 2, 3 and 9 for each counted day: present if worked ≥ shift, half day if ≥ shift ÷ 2, otherwise absent (also
  * with no marks at all). Overtime = worked − shift when positive, exact minutes, only with "Gets overtime". `days`
  * is sessions.ts's workDays() (a night shift is already on the day it started).
+ * Rule 20 (v0.26.0, docs/DAY_MARKS_PLAN.md): the owner's day mark decides the day instead: "on" = present, "off" =
+ * a paid day off. Overtime still comes only from the real IN / OUT times.
  */
-export function dayStatuses(days: ReadonlyMap<string, { minutes: number }>, shiftMinutes: number, counted: readonly string[], getsOvertime: boolean): DayResult[] {
+export function dayStatuses(days: ReadonlyMap<string, { minutes: number }>, shiftMinutes: number, counted: readonly string[], getsOvertime: boolean, marks?: ReadonlyMap<string, DayMark>): DayResult[] {
   return counted.map((date) => {
     const minutes = days.get(date)?.minutes ?? 0;
-    const status: DayStatus = minutes >= shiftMinutes ? "present" : minutes * 2 >= shiftMinutes ? "half" : "absent";
+    const mark = marks?.get(date);
+    const byTime: DayStatus = minutes >= shiftMinutes ? "present" : minutes * 2 >= shiftMinutes ? "half" : "absent";
+    const status: DayStatus = mark === "on" ? "present" : mark === "off" ? "off" : byTime;
     return { date, minutes, status, otMinutes: getsOvertime ? Math.max(0, minutes - shiftMinutes) : 0 };
   });
 }
@@ -149,11 +156,13 @@ export interface DayCounts {
   present: number;
   half: number;
   absent: number;
+  /** rule 20: paid days off marked by the owner; missing in figures frozen before v0.26.0 (= 0) */
+  off?: number;
   otMinutes: number;
 }
 
 export function countDays(days: readonly DayResult[]): DayCounts {
-  const c: DayCounts = { present: 0, half: 0, absent: 0, otMinutes: 0 };
+  const c = { present: 0, half: 0, absent: 0, off: 0, otMinutes: 0 };
   for (const d of days) {
     c[d.status] += 1;
     c.otMinutes += d.otMinutes;
@@ -230,13 +239,13 @@ export function monthPay(i: PayInput): PayResult {
   if (perDay) {
     // rule 15: day rate × (present + ½ × half days), rounded once; absent days earn nothing; no full / part month
     // difference (the counted days already keep the month inside the employment)
-    paidHalves = 2 * i.present + i.half;
+    paidHalves = 2 * (i.present + (i.off ?? 0)) + i.half; // rule 20: a day off is paid like a present day
     earnedPaise = Math.round((paidHalves * dayPayPaise) / 2);
   } else if (i.fullMonth) {
     deductionPaise = Math.round((unpaidHalves * dayPayPaise) / 2);
     earnedPaise = Math.max(0, i.monthlyPaise - deductionPaise);
   } else {
-    paidHalves = 2 * i.present + i.half + leaveUsedHalves;
+    paidHalves = 2 * (i.present + (i.off ?? 0)) + i.half + leaveUsedHalves; // rule 20: days off are paid
     earnedPaise = Math.max(0, Math.min(i.monthlyPaise, Math.round((paidHalves * dayPayPaise) / 2)));
   }
   // rule 9: overtime only with "Gets overtime" and a rate; exact minutes
@@ -346,7 +355,7 @@ export function claimTotals(claims: readonly Claim[], rates: { kmRatePaise: numb
 // ---------- the owner's checking panel (docs/SALARY_PHASE_PLAN.md "Owner: checking panel") ----------
 
 /** The panel's boxes: days, hours and rupees as typed. */
-export type PanelField = "ta" | "da" | "expenses" | "monthly" | "dayRate" | "present" | "half" | "absent" | "leave" | "otHours" | "otRate" | "advances" | "carried";
+export type PanelField = "ta" | "da" | "expenses" | "monthly" | "dayRate" | "present" | "half" | "absent" | "off" | "leave" | "otHours" | "otRate" | "advances" | "carried";
 
 /**
  * The panel's typed boxes -> monthPay()'s input, so the panel runs exactly the server's arithmetic. An empty or
@@ -369,6 +378,7 @@ export function panelInput(auto: PayInput, typed: Partial<Record<PanelField, str
     present: n("present", auto.present),
     half: n("half", auto.half),
     absent: n("absent", auto.absent),
+    off: n("off", auto.off ?? 0),
     paidLeaveHalfdays: Math.round(n("leave", auto.paidLeaveHalfdays / 2) * 2),
     otMinutes: Math.round(n("otHours", auto.otMinutes / 60) * 60),
     otRatePaise: auto.getsOvertime ? paise("otRate", auto.otRatePaise ?? 0) : auto.otRatePaise,
