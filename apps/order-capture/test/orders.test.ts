@@ -4,8 +4,9 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/orders/route";
 import { GET as lookupRoute } from "@/app/api/customers/lookup/route";
+import { GET as searchRoute } from "@/app/api/customers/search/route";
 import { createCustomer, CustomerInput, updateCustomer } from "@/server/customers";
-import { createOrder, formProducts, lookupCustomer, OrderInput } from "@/server/orders";
+import { createOrder, formProducts, lookupCustomer, OrderInput, searchForOrder } from "@/server/orders";
 import { saveRates } from "@/server/rates";
 import { SKUS, startFakePlatform, type FakePlatform } from "./fake-platform";
 import { asApp, asOwner, auditRows, jsonReq, plant, refused, signInAs } from "./helpers";
@@ -299,6 +300,38 @@ describe("rate pre-fill: this customer's last rate, else the default", () => {
     signInAs(a.owner);
     const bad = await lookupRoute(new Request("http://localhost:3005/api/customers/lookup?phone=12345"), undefined as never);
     expect(bad.status).toBe(400);
+  });
+});
+
+describe("the order form's customer search: name, place or phone", () => {
+  it("finds by name, place and phone digits, switched-off customers too; never another plant's", async () => {
+    const p = plant();
+    await order(p.desk);
+    await order(p.desk, { phone: "9123456780", name: "Maa Tarini Store", place: "Bargarh" });
+    const { customer: off } = await createCustomer(p.owner, CustomerInput.parse({ name: "Old Tarini Hotel", phone: "9000000001", place: "Sambalpur" }));
+    await updateCustomer(p.owner, off.id, { active: false });
+    const names = async (q: string) => (await searchForOrder(p.desk, q)).customers.map((c) => c.name);
+    expect(await names("tarini")).toEqual(["Maa Tarini Store", "Old Tarini Hotel"]);
+    expect(await names("bijepur")).toEqual(["Sri ram hotel"]);
+    expect(await names("98765")).toEqual(["Sri ram hotel"]);
+    expect(await names("+91 91234 56780")).toEqual(["Maa Tarini Store"]);
+    expect(await names("t")).toEqual([]);
+    expect((await searchForOrder(plant().owner, "tarini")).customers).toEqual([]);
+  });
+
+  it("at most 8, through the API", async () => {
+    const p = plant();
+    for (let i = 0; i < 9; i++) await createCustomer(p.owner, CustomerInput.parse({ name: `Shop ${i}`, phone: `90000000${10 + i}`, place: "Bhadrak" }));
+    signInAs(p.desk);
+    const res = await searchRoute(new Request("http://localhost:3005/api/customers/search?q=shop"), undefined as never);
+    const body = await res.json();
+    expect(body.customers).toHaveLength(8);
+    expect(body.more).toBe(true);
+  });
+
+  it("only for people who enter orders", async () => {
+    const p = plant();
+    for (const u of [p.staff, p.keeper, p.support]) expect((await refused(() => searchForOrder(u, "sri"))).status).toBe(403);
   });
 });
 

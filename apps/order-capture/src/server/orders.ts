@@ -18,7 +18,7 @@ import { formatRef } from "@/lib/ref";
 import { clean, NAME_MAX, NAME_MIN, PHONE_TYPED_MAX, PLACE_MAX, PLACE_MIN } from "@/lib/upload";
 import { requireAccess } from "./access";
 import { audit } from "./audit";
-import { findByPhone } from "./customers";
+import { findByPhone, listCustomers } from "./customers";
 import { schema, withTenant, type OcTx } from "./db";
 import { badRequest, conflict, HttpError } from "./http";
 import { activeProducts, effectiveRates } from "./rates";
@@ -79,6 +79,19 @@ export async function lastRates(tx: OcTx, tenantId: string, customerId: string):
 }
 
 /** The form asks this once the phone is a valid mobile: who is it, when did they last order, at what rates. */
+/**
+ * The order form's customer search (owner and Order desk): name, place or phone digits, switched-off customers
+ * included (the form offers "Switch back on"); at most 8. Picking one fills in the phone, which then goes through
+ * `lookupCustomer` as before.
+ */
+export async function searchForOrder(user: OcUser, q: string) {
+  requireAccess(user, "enter");
+  const text = q.trim();
+  if (text.length < 2) return { customers: [], more: false };
+  const { customers: found, more } = await listCustomers(user, { q: text, showOff: true, limit: 8 });
+  return { customers: found, more };
+}
+
 export async function lookupCustomer(user: OcUser, typedPhone: string) {
   requireAccess(user, "enter");
   const phone = normalisePhone(typedPhone);
