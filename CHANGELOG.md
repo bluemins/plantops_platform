@@ -4,6 +4,19 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.25.6 — 2026-10-19 — Simpler Salary tab (Attendance & Salary)
+
+**What's in it** (owner, 2026-10-19; mock-up https://claude.ai/artifact/VnGsfKjT5WRc4dhvF5EsdM)
+- **PC table: 16 columns → 9.** **#** (serial number); **Person** with the "per day" / "TEMP" / "(left)" tags under
+  the name, so the column is narrow; Salary; **Days** ("3 present" over "15 absent · 2 leave", half days only when
+  there are any); Earned; **Extras** (OT pay + TA + DA + expenses); **Taken** (advances + carried in); Remaining; Paid.
+- **"Show all columns"** switch brings back every column as before (plus #); the browser remembers it.
+- **Phone list:** a serial number before each name; "₹5,100 earned + ₹415 extras − ₹2,000 taken" over the days line.
+- Tapping a person still opens the checking panel with every figure. **No amount changes**: the same monthPay()
+  figures, merged on the screen only. CSV, checking panel, Mark paid and the worker's slip are unchanged.
+
+**Migrations:** none. SSO token unchanged. Attendance only.
+
 ## v0.25.5 — 2026-10-19 — Error log for super_admin (STABILITY_PLAN B-09, option B)
 
 **What's in it**
