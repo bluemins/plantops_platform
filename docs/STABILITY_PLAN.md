@@ -15,7 +15,7 @@ update it as items close.
 
 ## 0. Status and handover (updated 2026-10-18, 15:26 IST; read this first in a new session)
 
-**Live since 2026-10-19 11:04 IST: v0.25.5** (error log, B-09; before it v0.25.4 at 10:10, `production` = `9057e7a`; carries everything below + B-10, Order
+**Live since 2026-10-19 12:24 IST: v0.26.0** (day marks ON / OFF, F1, + v0.25.6 simpler Salary tab; `production` = `cf11623`). Before it: v0.25.5 at 11:04 (error log, B-09), v0.25.4 at 10:10 ( carries everything below + B-10, Order
 Capture "Total to load", tests on GitHub). Live checks OK (deploy record). The list below is what that deploy brought:
 - **v0.25.1** (`649033c`): B-02, no email; reminder / low-stock rows record "App notification only".
 - **v0.25.2** (`1063d7d`): B-03, login record in the audit log, and the login button no longer allows a double login.
@@ -475,7 +475,7 @@ Order chosen from section 2's usage (most used modules first) and dates that can
 
 | # | Feature | Module | Why now |
 |---|---|---|---|
-| F1 | **Weekly off, holidays, leave requests** | Attendance & Salary | First salary month end is 31 Oct; without weekly offs every Sunday counts as absent unless covered by paid leave |
+| F1 | **Weekly off, holidays, leave requests** → built as **day marks** (owner marks a day ON / OFF, no times) | Attendance & Salary | **Live 2026-10-19 (v0.26.0)**, `docs/DAY_MARKS_PLAN.md`. Weekly-off rules, holiday lists and leave requests stay for later |
 | F1b | **Field day log** for Field staff (start / end km + photo, shop visits from Order Capture customers, GPS at each) | Attendance & Salary (+ lookup ticket: platform, Order Capture) | Asked by the owner 2026-10-19, after F1; plan `docs/FIELD_DAY_PHASE_PLAN.md`; claims untouched |
 | F2 | **Demo plant set-up script** (fake users, products, sample data) | Platform | Makes B-06 easy and gives a plant demo for selling |
 | F3 | **Hindi / Odia screens**, staff modules first (Floor Stock count, Attendance scan, Order Capture) | All | Staff already type Hindi ("500ml ka stock check"); listed in CLAUDE.md UX |
