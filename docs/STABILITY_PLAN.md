@@ -226,7 +226,9 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
   location" (warns above ±50 m). `MAX_ACCURACY_M` 500 → 150 on the server; a rougher reading isn't sent and the screen
   shows the Android / iPhone steps. Live data behind it (12 scans at 001): rough readings ±200–500 m were 1.0–1.7 km
   off, good ones ±4–17 m within 190 m. Saving the circle never touches the QR. Tests: Attendance 423 (+5).
-- [ ] *Owner, after the deploy:* plant 001 pin re-set standing outside, circle 300 m; Dillip + two others mark.
+- [x] *Owner, after the deploy:* plant 001 pin re-set standing outside, circle 300 m; Dillip + two others mark.
+  **Marked done by the owner without checking (2026-10-19).** Live value read the same day: plant 001's circle is
+  still **2,000 m** (last set 16 Oct), so the location check stays loose until it is set to 300 m.
 - [ ] *Claude, the day after:* read the new marks (accuracy, distance, refusals) read-only; then close B-04.
 
 **B-05 · Floor Stock · S1 · A count saved after midnight takes the next day.**
@@ -239,7 +241,8 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
   home page's main card ("Last night's count · 16 Oct"), `/count` with no date (the 8 pm reminder's link) and the
   launcher tile; after midnight the calendar day is a small switch card, and its count page has an amber "This count
   is for 17 Oct (today)" note. Saving rules unchanged. Tests: Floor Stock 172 (+13, `test/count-day.test.ts`).
-- [ ] *Owner, after the deploy:* check plant 001's 16 / 17 Oct day pages, correct if needed (old versions stay).
+- [x] *Owner, after the deploy:* check plant 001's 16 / 17 Oct day pages, correct if needed (old versions stay).
+  Marked done by the owner without checking (2026-10-19), assumed fine.
 
 **B-06 · All modules · S2 · Trials are done on the real plant, and append-only keeps the test rows forever.**
 - *Evidence:* "Test", "ccxc", "jkjkjk" … in orders, counts and attendance; 10 undo-delivered (most while trying
