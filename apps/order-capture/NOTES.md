@@ -415,3 +415,13 @@ Asked by the owner 2026-10-14: the note typed with the order stays fixed; more n
   who / when; History shows "Note by …". New order form: "More notes can be added to the order later."
 - **Notification:** `order_capture.note` "Note added to an order", bell only, owners + ticked people, not the author.
 - **Tests:** Order Capture 262 (+4).
+
+### 2026-10-19 — Customer search by name on New order (v0.26.2)
+Asked by the owner 2026-10-19: the New order box searched by phone only.
+- **One box, "Customer name or phone":** a full mobile number goes to `lookupCustomer` as before; anything else (≥ 2
+  characters, 250 ms after typing stops) goes to `GET /api/customers/search?q=` → `searchForOrder`
+  (`src/server/orders.ts`): `enter` access (owner, Order desk), `listCustomers` with switched-off customers, at most 8
+  + `more`. Tapping a match fills in its phone, which then runs the usual lookup.
+- No match for a typed name → the name is kept and filled into the new customer's Name box once the number is typed.
+- No schema or permission change. **Tests:** Order Capture 267 (+3).
+- **Not yet checked:** on screen.

@@ -4,6 +4,19 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.26.2 — 2026-10-19 — Find the customer by name on New order (Order Capture)
+
+**What's in it** (owner, 2026-10-19)
+- The **New order** box is now "Customer name or phone": typing a name, a place or part of a phone number lists up
+  to 8 matching customers (name, place, phone; switched-off ones marked). Tapping one fills in the number, and the
+  customer card and last rates appear as before. A full mobile number is still looked up at once.
+- No match: "For a new customer, type their 10-digit mobile number"; the searched name is filled into the new
+  customer's Name box.
+- Owner and Order desk only (the people who take orders), never another plant's customers
+  (`GET /api/customers/search`).
+
+**Migrations:** none. No database, permission or SSO token change. Order Capture only.
+
 ## v0.26.1 — 2026-10-19 — Supervisor marks and fixes the Office staff (Attendance & Salary)
 
 **What's in it** (owner, 2026-10-19)
