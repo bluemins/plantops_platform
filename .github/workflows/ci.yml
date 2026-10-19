@@ -1,0 +1,56 @@
+# Tests on every push to main (docs/STABILITY_PLAN.md B-08). Red = no release tag until it is green again.
+# A throwaway Postgres (same major version as the live copy) gets the same logins as this computer
+# (scripts/setup-ci-db.sh); each app's tests rebuild their schema from the migrations, as `pnpm test` does locally.
+# Nothing here touches the live copy: no secrets, no Railway, no environments.
+# Pushes that change only docs / Markdown are skipped (GitHub's free minutes); "Run workflow" runs it by hand.
+# A failed run emails the repo owner (GitHub → Settings → Notifications → Actions).
+name: Tests
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["docs/**", "**/*.md"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Test database
+        run: ./scripts/setup-ci-db.sh
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Tests
+        run: pnpm test

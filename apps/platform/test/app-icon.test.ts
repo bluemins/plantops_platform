@@ -37,7 +37,9 @@ describe("signed links", () => {
     const [id, v, sig] = t.split(".");
     expect(readAppToken(`${B.tenantId}.${v}.${sig}`)).toBeNull();
     expect(readAppToken(`${id}.124.${sig}`)).toBeNull();
-    expect(readAppToken(`${id}.${v}.${sig!.slice(0, -1)}x`)).toBeNull();
+    // change the FIRST character: the last one of a base64url HMAC carries only 4 bits, so "x" there was sometimes
+    // read back as the same signature (a 1-in-16 flaky test)
+    expect(readAppToken(`${id}.${v}.${sig![0] === "A" ? "B" : "A"}${sig!.slice(1)}`)).toBeNull();
     for (const bad of ["", "x", `${id}.${v}`, `${t}.more`, `not-a-uuid.1.${sig}`]) expect(readAppToken(bad)).toBeNull();
   });
 });
