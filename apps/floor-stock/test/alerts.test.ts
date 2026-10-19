@@ -77,14 +77,59 @@ describe("queued on submit", () => {
     expect((await submitCount(p.keeper, fullCount(p, tomorrow, { box: 5, label: 1, roll: 1 }), at(tomorrow))).low_stock_emails).toBe(4);
   });
 
-  it("platform unreachable: the count is still saved, no email queued", async () => {
+  it("platform unreachable: the count is still saved, no rows, but the notification still reports the low items (B-10)", async () => {
     const p = await stockPlant();
     platform.contacts = null;
     try {
-      expect(await submitCount(p.keeper, fullCount(p, TODAY, { box: 5, label: 1, roll: 1 }), at(TODAY))).toMatchObject({ version: 1, low_stock_emails: 0 });
+      const saved = await submitCount(p.keeper, fullCount(p, TODAY, { box: 5, label: 1, roll: 1 }), at(TODAY));
+      expect(saved).toMatchObject({ version: 1, low_stock_emails: 0 });
+      expect(saved.low_items).toEqual([{ name: "Roll", qty: 1, min: 2 }]);
+      expect(await alerts(p.tenantId)).toEqual([]);
     } finally {
       platform.contacts = (await import("./fake-platform")).CONTACTS;
     }
+  });
+
+  it("platform down at the count, back for the correction: the correction records the rows but doesn't report Roll again", async () => {
+    const p = await stockPlant();
+    platform.contacts = null;
+    try {
+      await submitCount(p.keeper, fullCount(p, TODAY, { box: 5, label: 1, roll: 1 }), at(TODAY));
+    } finally {
+      platform.contacts = (await import("./fake-platform")).CONTACTS;
+    }
+    const fix = await submitCount(p.keeper, fullCount(p, TODAY, { box: 5, label: 1, roll: 0.5 }, { expected_version: 1, reason: "recount" }), at(TODAY));
+    expect(fix.low_items).toEqual([]);
+    expect(fix.low_stock_emails).toBe(2);
+    expect((await alerts(p.tenantId)).map((a) => [a.item_name, a.qty])).toEqual([
+      ["Roll", "0.50"],
+      ["Roll", "0.50"],
+    ]);
+  });
+
+  it("platform down all day: low, then fine, then low again is reported once", async () => {
+    const p = await stockPlant();
+    platform.contacts = null;
+    try {
+      expect((await submitCount(p.keeper, fullCount(p, TODAY, { box: 5, label: 1, roll: 1 }), at(TODAY))).low_items.map((i) => i.name)).toEqual(["Roll"]);
+      const ok = await submitCount(p.keeper, fullCount(p, TODAY, { box: 5, label: 1, roll: 5 }, { expected_version: 1, reason: "found more" }), at(TODAY));
+      expect(ok.low_items).toEqual([]);
+      const again = await submitCount(p.keeper, fullCount(p, TODAY, { box: 5, label: 1, roll: 1 }, { expected_version: 2, reason: "miscounted" }), at(TODAY));
+      expect(again.low_items).toEqual([]);
+      // the next day it is reported again
+      const tomorrow = addDays(TODAY, 1);
+      expect((await submitCount(p.keeper, fullCount(p, tomorrow, { box: 5, label: 1, roll: 1 }), at(tomorrow))).low_items.map((i) => i.name)).toEqual(["Roll"]);
+    } finally {
+      platform.contacts = (await import("./fake-platform")).CONTACTS;
+    }
+  });
+
+  it("several lines of one item are added up before comparing with the limit", async () => {
+    const p = await stockPlant();
+    const input = fullCount(p, TODAY, { box: 5, label: 1, roll: 1 });
+    input.lines.push({ item_id: p.roll, kind: "stock", qty: 1.5, remark: "store room" });
+    const saved = await submitCount(p.keeper, input, at(TODAY));
+    expect(saved.low_items).toEqual([]); // 1 + 1.5 = 2.5, limit 2
   });
 });
 

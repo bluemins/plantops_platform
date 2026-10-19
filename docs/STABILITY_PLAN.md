@@ -61,6 +61,9 @@ run of Attendance morning at 10:12 sent the first ever "not marked" alert (owner
 7. **F1 (weekly off, holidays, leave) must be planned by about 22 Oct** to be live before the 31 Oct month end, even if
    B-03 / B-04 are still open (owner to confirm).
 8. Open question for the owner: **B-17** hourly outbox resend (section 4).
+8a. **2026-10-19:** B-08 (tests on GitHub) and B-10 (low-stock alert during an outage) built; v0.25.4 waits until
+   v0.25.3 is deployed and tried. Error log (B-09 B): table design to the owner, then the migration. UptimeRobot:
+   intervals to confirm, then the owner makes the account.
 9. **Rotate the R2 keys and `CRON_SECRET`** (S0): **deferred by the owner (2026-10-18), not now.** Steps in HANDBOOK section 8 "Changing a secret" (corrected
    2026-10-18: R2 keys on 4 services, `CRON_SECRET` on 8 services + GitHub + 11 cron-job.org jobs). Owner, at night
    between 23:05 and 06:55 IST, after the v0.25.2 deploy; then Claude checks (backup in R2, wrong secret → 401 on all 8).
@@ -183,7 +186,7 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
   "App notification only (email is off)", nothing is retried, and the document page and list say "sent in the app
   (bell + phone)". Tests: Document Store 107, Floor Stock 159. Live before the patch: 6 reminder rows (all Brevo 401 or
   no email), 35 low-stock rows (all "no email address").
-- [ ] *Owner:* deploy v0.25.1 (with v0.25.2); close the Brevo account.
+- [ ] *Owner:* deploy v0.25.1 (with v0.25.2). Brevo account deleted (owner, 2026-10-19).
 - [x] *Owner (2026-10-18):* `BREVO_API_KEY` / `MAIL_FROM` removed from `document-store` and `floor-stock` on Railway.
 - *Required for this to be safe:* everyone who must hear about expiries turns on phone notifications (owner + each
   responsible person: `/notifications` → "Send a test to this phone"). Today only 3 people have a phone on.
@@ -274,9 +277,9 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
 
 | ID | Module | Sev | Issue | Next step |
 |---|---|---|---|---|
-| B-08 | All | S2 | Tests not run automatically | Phase S2 (`ci.yml`) |
-| B-09 | All | S2 | No uptime check, no error reporting | Phase S2 |
-| B-10 | Floor Stock | S2 | Platform down at the moment of a save → no low-stock alert queued for it (needs a migration: ask) | S4 Floor Stock |
+| B-08 | All | S2 | Tests not run automatically | **Built 2026-10-19** (`ci.yml` + `scripts/setup-ci-db.sh`; locally 1,880 tests in 147 s). Close after the first green run on GitHub |
+| B-09 | All | S2 | No uptime check, no error reporting | Owner 2026-10-19: UptimeRobot (interval to confirm, section 6) + **built-in error log (B)**; table design to approve before the migration |
+| B-10 | Floor Stock | S2 | Platform down at the moment of a save → the alert said "Stock count saved" instead of "Low stock" | **Built 2026-10-19, no migration** (owner's OK): "newly low" from the rows + each save's audit `low` list, not the owner list. Ships in v0.25.4 |
 | B-11 | Job applications | S3 | Hourly send limit is in memory and may count Railway's proxy address instead of the phone's | S3 check, then fix |
 | B-12 | Platform | S3 | Login rate limit in memory: resets on each deploy | Accept for v1 |
 | B-13 | Floor Stock | S3 | History pages stop at 120 counts / 60 days | Later |
@@ -302,7 +305,7 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
 - [x] **Delete the four leftover password files** (owner, 2026-10-18):
       `.env.railway.shared.{attendance_salary,complaint_box,job_applications,order_capture}.paste`.
 - [x] Remove `BREVO_API_KEY` / `MAIL_FROM` from `document-store` and `floor-stock` on Railway (B-02), 2026-10-18.
-- [ ] Close the Brevo account.
+- [x] Close the Brevo account (owner, 2026-10-19).
 - [ ] Renew or archive the document expired since 31 Mar 2026.
 - [ ] Owner and every document's responsible person turn on phone notifications and send a test (B-02).
 - [ ] 5 new users log in once and set their PIN (sushil, maheswar, joshobanti, Damayanti; bluemins_doc or disable it).
@@ -321,11 +324,16 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
 1. **Tests on every push** — `.github/workflows/ci.yml`: Postgres service, database setup scripts, `pnpm typecheck`,
    `pnpm test` on each push to `main`. Red = no release. *Cost:* runs on GitHub, not Railway; a private repo has 2,000
    free Actions minutes a month, so cache pnpm, skip docs-only pushes (`paths-ignore: docs/**, **/*.md`) and measure
-   the first run's minutes.
+   the first run's minutes. **Built 2026-10-19** (owner's OK): Postgres 18 container, `scripts/setup-ci-db.sh`. Checked
+   before: every app typechecks without the uncommitted `next-env.d.ts`; a platform test that failed 1 run in 16
+   (`app-icon.test.ts`, damaged-signature check) fixed. About 27 code pushes a week × ~5 min ≈ 600 minutes a month.
 2. **Uptime checks** — UptimeRobot (free) every 5 minutes on `app.bluemins.life/login`, `/.well-known/jwks.json` and
    the seven `/health` addresses, with a keyword check on the database answer. Alerts to the owner's email and phone.
    (cron-job.org already does the timed calls, B-01.) *Cost:* free, nothing on Railway.
-3. **Error reporting** — owner to choose: **A. Sentry** (free plan; error details leave PlantOps, scrub names /
+   **Owner (2026-10-19):** sleeping services less often, the others about once a day (exact intervals being confirmed:
+   a check only every 1–5 days would find an outage late).
+3. **Error reporting** — **owner chose B (2026-10-19)**; the table design goes to the owner before the migration.
+   Options were: **A. Sentry** (free plan; error details leave PlantOps, scrub names /
    phones / money) or **B. built-in error log** (`platform.error_log` + super_admin "Errors" screen; needs a
    migration). Either way wired once in `packages/module-kit` `handle()` and the platform's `http.ts`. *Cost:* neither
    adds a Railway service; B adds a few rows to the existing database.

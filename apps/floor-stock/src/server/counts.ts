@@ -162,9 +162,10 @@ const dbCode = (err: unknown) => (err as { cause?: { code?: string } }).cause?.c
 export async function submitCount(user: StockUser, input: CountInput, now = new Date()) {
   requireCount(user);
   if (!allowedDates(now).includes(input.date)) throw badRequest("A count can only be entered for today or yesterday");
-  // who gets the low-stock email; if the platform can't be reached the count is still saved (no email queued)
+  // owners for the low-stock rows; if the platform can't be reached the count is still saved without rows, and the
+  // notification still reports the newly low items (B-10)
   const contacts = await kit.contacts(user.tenantId);
-  if (!contacts) console.error("[floor-stock] owners could not be loaded; no low-stock email queued for", input.date);
+  if (!contacts) console.error("[floor-stock] owners could not be loaded; no low-stock rows for", input.date);
   try {
     return await withTenant(user.tenantId, (tx) => saveCount(tx, user, input, ownersOf(contacts ?? [])));
   } catch (err) {
@@ -243,7 +244,8 @@ async function saveCount(tx: StockTx, user: StockUser, input: CountInput, owners
     actor: actorOf(user),
     action: version === 1 ? "count.submit" : "count.correct",
     target: input.date,
-    details: { by: user.name, version, lines: values.length, ...(version > 1 ? { reason } : {}) },
+    // `low`: the items this save reported as newly low, so a later save that day doesn't repeat them (B-10)
+    details: { by: user.name, version, lines: values.length, ...(version > 1 ? { reason } : {}), ...(queued.ids.length ? { low: queued.ids } : {}) },
   });
   return {
     date: input.date,

@@ -189,9 +189,11 @@ they stay as built until then):**
 - An item switched off after a count is left out when that count is corrected.
 
 **Known limitations:**
-- If the platform can't be reached at the moment a count is saved, no low-stock email is queued for that count.
-  The next save or correction that day queues it. A full fix needs a small migration: `stock_tenants()` would also
-  list plants with an unqueued low count. Ask before changing the schema.
+- If the platform can't be reached at the moment a count is saved, no low-stock rows are written for that count (the
+  owners aren't known). Since v0.25.4 (STABILITY_PLAN B-10) the app notification still says "Low stock" with the
+  items: "newly low" is worked out from the rows **and** the `low` list in each save's `count.submit` /
+  `count.correct` audit entry, so it no longer needs the owner list, and a later correction that day doesn't repeat
+  an item. No migration.
 - Low-stock emails are in English only.
 - History pages show the last 120 counts / 60 days per item (no paging yet). There is no plan-based history
   window like Lab Records'.

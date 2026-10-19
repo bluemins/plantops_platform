@@ -15,7 +15,7 @@ import { isLow, qty, sum } from "@/lib/compare";
 import { schema, stockDb, withTenant, type StockTx } from "./db";
 import { kit } from "./kit";
 
-const { countLines, items, lowStockAlerts } = schema;
+const { auditLog, countLines, items, lowStockAlerts } = schema;
 export const RETRY_DAYS = 7;
 
 /** Owners only (the platform also lists store keepers for this module). */
@@ -29,30 +29,55 @@ export interface LowItem {
 }
 
 /**
- * Inside the count's transaction: queue an alert for each item of this version below its limit, for each owner.
- * Rows already queued for that item, day and owner are left alone. Returns how many new rows were added and the
- * items that are NEWLY low (a correction doesn't repeat items already reported that day).
+ * Inside the count's transaction: the items of this version below their limit, and a row for each of them for each
+ * owner (rows already there for that item, day and owner are left alone). Returns how many new rows were added, the
+ * items that are NEWLY low (which the app notification reports) and their ids (kept in the count's audit entry).
+ *
+ * "Newly low" doesn't depend on the owner list (STABILITY_PLAN B-10): when the platform can't be reached at the save,
+ * there are no owners and no rows, yet the notification (which then waits in the outbox) must still say "Low stock".
+ * An item counts as already reported that day when a row exists for it, or when an earlier save that day listed it
+ * in its audit entry (`details.low`), so a correction never repeats it. Each save is judged with the limit of its
+ * time, as before.
  */
-export async function queueLowStock(tx: StockTx, tenantId: string, date: string, versionId: string, owners: AlertContact[], emailOn = emailIsOn()): Promise<{ rows: number; items: LowItem[] }> {
+export async function queueLowStock(tx: StockTx, tenantId: string, date: string, versionId: string, owners: AlertContact[], emailOn = emailIsOn()): Promise<{ rows: number; items: LowItem[]; ids: string[] }> {
   const lines = await tx.select({ itemId: countLines.itemId, name: countLines.itemName, qty: countLines.qty }).from(countLines).where(and(eq(countLines.versionId, versionId), eq(countLines.kind, "stock")));
   const ids = [...new Set(lines.map((l) => l.itemId))];
-  if (!ids.length || !owners.length) return { rows: 0, items: [] };
+  if (!ids.length) return { rows: 0, items: [], ids: [] };
   const limits = await tx.select({ id: items.id, min: items.minLevel }).from(items).where(and(eq(items.tenantId, tenantId), inArray(items.id, ids)));
-  const rows: (typeof lowStockAlerts.$inferInsert)[] = [];
+  const low: { itemId: string; name: string; closing: number; min: string }[] = [];
   for (const it of limits) {
     if (it.min === null) continue;
     const mine = lines.filter((l) => l.itemId === it.id);
     const closing = sum(mine.map((l) => Number(l.qty)));
-    if (!isLow(closing, Number(it.min))) continue;
+    if (isLow(closing, Number(it.min))) low.push({ itemId: it.id, name: mine[0]!.name, closing, min: it.min });
+  }
+  if (!low.length) return { rows: 0, items: [], ids: [] };
+
+  const lowIds = low.map((c) => c.itemId);
+  const reported = new Set<string>();
+  const queued = await tx
+    .selectDistinct({ itemId: lowStockAlerts.itemId })
+    .from(lowStockAlerts)
+    .where(and(eq(lowStockAlerts.tenantId, tenantId), eq(lowStockAlerts.countDate, date), inArray(lowStockAlerts.itemId, lowIds)));
+  for (const q of queued) reported.add(q.itemId);
+  const saves = await tx
+    .select({ low: sql<string[] | null>`${auditLog.details} -> 'low'` })
+    .from(auditLog)
+    .where(and(eq(auditLog.tenantId, tenantId), eq(auditLog.target, date), inArray(auditLog.action, ["count.submit", "count.correct"])));
+  for (const s of saves) for (const id of Array.isArray(s.low) ? s.low : []) reported.add(id);
+  const newly = low.filter((c) => !reported.has(c.itemId));
+
+  const rows: (typeof lowStockAlerts.$inferInsert)[] = [];
+  for (const c of low) {
     for (const o of owners) {
       const ok = emailOn && looksLikeEmail(o.email);
       rows.push({
         tenantId,
         countDate: date,
-        itemId: it.id,
-        itemName: mine[0]!.name,
-        qty: String(closing),
-        minLevel: it.min,
+        itemId: c.itemId,
+        itemName: c.name,
+        qty: String(c.closing),
+        minLevel: c.min,
         recipientUserId: o.user_id,
         recipientName: o.display_name,
         email: ok ? o.email : null,
@@ -61,15 +86,8 @@ export async function queueLowStock(tx: StockTx, tenantId: string, date: string,
       });
     }
   }
-  if (!rows.length) return { rows: 0, items: [] };
-  const added = await tx
-    .insert(lowStockAlerts)
-    .values(rows)
-    .onConflictDoNothing()
-    .returning({ itemId: lowStockAlerts.itemId, name: lowStockAlerts.itemName, qty: lowStockAlerts.qty, min: lowStockAlerts.minLevel });
-  const newly = new Map<string, LowItem>();
-  for (const a of added) newly.set(a.itemId, { name: a.name, qty: Number(a.qty), min: Number(a.min) });
-  return { rows: added.length, items: [...newly.values()] };
+  const added = rows.length ? await tx.insert(lowStockAlerts).values(rows).onConflictDoNothing().returning({ id: lowStockAlerts.id }) : [];
+  return { rows: added.length, items: newly.map((c) => ({ name: c.name, qty: c.closing, min: Number(c.min) })), ids: newly.map((c) => c.itemId) };
 }
 
 /** The email for one owner: every queued item, grouped by day. */

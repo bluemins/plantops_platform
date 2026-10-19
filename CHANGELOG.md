@@ -4,6 +4,19 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## Next release (v0.25.4, not tagged yet) — Low-stock alert during a platform outage, tests on every push (STABILITY_PLAN B-10, B-08)
+
+**What's in it**
+- **Floor Stock: the low-stock alert survives a platform outage (B-10).** If PlantOps couldn't be reached at the moment
+  a count was saved (e.g. during a deploy), the alert that waited in the outbox said only "Stock count saved". It now
+  says "Low stock: N items" with the items, and a correction later that day still doesn't repeat them. Each save's
+  audit entry records which items it reported as low.
+- **Tests run on GitHub on every push to `main` (B-08):** `.github/workflows/ci.yml` + `scripts/setup-ci-db.sh`
+  (throwaway Postgres 18, same logins as this computer). Docs-only pushes are skipped. Nothing to set up on Railway.
+- A platform test that failed about 1 run in 16 (a damaged signature that sometimes still matched) fixed.
+
+**Migrations:** none. SSO token unchanged. Floor Stock only.
+
 ## v0.25.3 — 2026-10-18 — Count after midnight, precise location for attendance (STABILITY_PLAN B-05, B-04)
 
 **What's in it**
