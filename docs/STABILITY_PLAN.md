@@ -278,7 +278,7 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
 
 | ID | Module | Sev | Issue | Next step |
 |---|---|---|---|---|
-| B-08 | All | S2 | Tests not run automatically | **Built 2026-10-19** (`ci.yml` + `scripts/setup-ci-db.sh`; locally 1,880 tests in 147 s). Close after the first green run on GitHub |
+| B-08 | All | S2 | Tests not run automatically | **Closed 2026-10-19:** `ci.yml` + `scripts/setup-ci-db.sh`; GitHub runs #1 (`4c7cc23`) and #2 (`feb9439`) green, 3 m 53 s each (≈ 27 code pushes a week ≈ 450 of 2,000 free minutes a month) |
 | B-09 | All | S2 | No uptime check, no error reporting | Owner 2026-10-19: UptimeRobot (interval to confirm, section 6) + **built-in error log (B)**; table design to approve before the migration |
 | B-10 | Floor Stock | S2 | Platform down at the moment of a save → the alert said "Stock count saved" instead of "Low stock" | **Built 2026-10-19, no migration** (owner's OK): "newly low" from the rows + each save's audit `low` list, not the owner list. Ships in v0.25.4 |
 | B-11 | Job applications | S3 | Hourly send limit is in memory and may count Railway's proxy address instead of the phone's | S3 check, then fix |
