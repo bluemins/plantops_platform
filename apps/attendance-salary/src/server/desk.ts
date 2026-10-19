@@ -2,6 +2,7 @@
 // a person without a smartphone, from the office phone. No QR: Office staff is a trusted role, and the office phone's
 // location still proves the desk is at the plant. The server decides the time and IN / OUT exactly as for a scan; the
 // mark counts like a scan (never "changed"). Never for yourself: everyone scans the QR for their own attendance.
+// A Supervisor uses the same screen for the Office staff only (owner, 2026-10-19).
 import { z } from "zod";
 import { distanceM, fmtDistance } from "@/lib/geo";
 import { fmtTime, isDoubleTap, MAX_ACCURACY_M, nextKind, type Kind } from "@/lib/punch";
@@ -10,7 +11,7 @@ import { audit } from "./audit";
 import { schema, withTenant } from "./db";
 import { forbidden } from "./http";
 import { dbNow, lastValidMark, lockPerson, MarkRefused } from "./marks";
-import { activeEmployees, knownPerson } from "./people";
+import { knownPerson, reachableEmployees } from "./people";
 import { readSettings } from "./settings";
 import type { AtUser } from "./session";
 
@@ -27,10 +28,10 @@ export interface DeskPerson {
   self: boolean;
 }
 
-/** The people Office staff may mark (every active employee), with their state now; yourself greyed out. */
+/** The people Office staff may mark (every active employee; a Supervisor: the Office staff), with their state now; yourself greyed out. */
 export async function deskList(user: AtUser): Promise<{ people: DeskPerson[]; locationSet: boolean; platformDown: boolean }> {
   requireAccess(user, "mark_for");
-  const staff = await activeEmployees(user.tenantId);
+  const staff = await reachableEmployees(user);
   return withTenant(user.tenantId, async (tx) => {
     const settings = await readSettings(tx, user.tenantId);
     const now = await dbNow(tx);
@@ -55,7 +56,7 @@ export const DeskInput = z.object({
   location: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180), accuracy: z.number().min(0).max(1_000_000) }).nullable(),
 }); // the time, the plant and the distance are the server's, never the browser's
 
-/** Office staff marks IN / OUT now for an active employee (not themselves), from the office phone at the plant. */
+/** Office staff (a Supervisor: for Office staff only) mark IN / OUT now for an active employee (not themselves), at the plant. */
 export async function deskMark(user: AtUser, input: z.infer<typeof DeskInput>) {
   requireAccess(user, "mark_for");
   if (input.user_id === user.userId) throw forbidden(SELF_MESSAGE);
@@ -77,7 +78,7 @@ export async function deskMark(user: AtUser, input: z.infer<typeof DeskInput>) {
     }
     const distance = distanceM({ lat: Number(settings.lat), lng: Number(settings.lng) }, input.location);
     if (distance > settings.radiusM) {
-      throw new MarkRefused(403, `The office phone is ${fmtDistance(distance)} from the plant. Mark at the plant.`, "outside", { distance_m: Math.round(distance) });
+      throw new MarkRefused(403, `This phone is ${fmtDistance(distance)} from the plant. Mark at the plant.`, "outside", { distance_m: Math.round(distance) });
     }
     const [row] = await tx
       .insert(punches)

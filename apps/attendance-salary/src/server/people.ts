@@ -5,7 +5,7 @@ import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { isEmployee } from "@plantops/types";
 import { dayStart, addDays } from "@/lib/days";
 import type { Cancel, Mark } from "@/lib/sessions";
-import { requireAccess } from "./access";
+import { can, requireAccess } from "./access";
 import { schema, withTenant, type AtTx } from "./db";
 import { notFound } from "./http";
 import { kit } from "./kit";
@@ -52,8 +52,33 @@ export async function activeEmployees(tenantId: string): Promise<{ active: Perso
   return { active, platformDown: contacts === null };
 }
 
-/** Active Plant staff (from the platform) and people who left (from their marks). */
+/**
+ * A Supervisor's reach (owner, 2026-10-19): the active Office staff who are tracked (Plant staff + Office staff), never
+ * the Supervisor themselves. They may open these people's calendars and days, mark them and fix their times.
+ */
+export async function officeStaffFor(user: AtUser): Promise<{ active: Person[]; platformDown: boolean }> {
+  requireAccess(user, "see_office_staff");
+  const contacts = await kit.contacts(user.tenantId);
+  const active = (contacts ?? [])
+    .filter((c) => isEmployee(c.roles) && c.roles.includes("office_staff") && c.user_id !== user.userId)
+    .map((c) => ({ userId: c.user_id, name: c.display_name }))
+    .sort(byName);
+  return { active, platformDown: contacts === null };
+}
+
+/** Everyone `user` may mark for or fix: all active employees, or for a Supervisor only the Office staff. */
+export async function reachableEmployees(user: AtUser): Promise<{ active: Person[]; platformDown: boolean }> {
+  return can(user, "see_everyone") ? activeEmployees(user.tenantId) : officeStaffFor(user);
+}
+
+/** Someone else's attendance: anyone for the owner / Office staff / support; a Supervisor only their reach (else 404). */
+export async function requireReach(user: AtUser, personId: string): Promise<void> {
+  if (!can(user, "see_everyone")) await knownPerson(user, personId);
+}
+
+/** Active Plant staff (from the platform) and people who left (from their marks); a Supervisor: the Office staff only. */
 export async function staffList(user: AtUser): Promise<StaffList> {
+  if (!can(user, "see_everyone") && can(user, "see_office_staff")) return { ...(await officeStaffFor(user)), former: [] };
   requireAccess(user, "see_everyone");
   const { active, platformDown } = await activeEmployees(user.tenantId);
   const ids = new Set(active.map((p) => p.userId));
@@ -63,9 +88,16 @@ export async function staffList(user: AtUser): Promise<StaffList> {
 
 /**
  * The person's name if they are active Plant staff or have marks in this plant; otherwise 404. `activeOnly`: only an
- * active employee (Office staff marking or giving an advance never reach someone who left).
+ * active employee (Office staff marking or giving an advance never reach someone who left). A Supervisor: only an
+ * active Office staff person (`officeStaffFor`), whatever `activeOnly` says.
  */
 export async function knownPerson(user: AtUser, personId: string, opts: { activeOnly?: boolean } = {}): Promise<Person> {
+  if (!can(user, "see_everyone") && can(user, "see_office_staff")) {
+    // a Supervisor: only the active Office staff, never themselves; anyone else is "not found"
+    const p = (await officeStaffFor(user)).active.find((x) => x.userId === personId);
+    if (!p) throw notFound("Not found");
+    return p;
+  }
   requireAccess(user, "see_everyone");
   const contacts = await kit.contacts(user.tenantId);
   const c = contacts?.find((x) => x.user_id === personId && isEmployee(x.roles));

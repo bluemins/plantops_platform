@@ -34,7 +34,7 @@ import { loadDayMarks } from "./day-marks";
 import { schema, withTenant, type AtTx } from "./db";
 import type { StaffType } from "./schema";
 import { notFound } from "./http";
-import { loadMarks } from "./people";
+import { loadMarks, requireReach } from "./people";
 import type { AtUser } from "./session";
 
 const { salarySettings, salaryAdvances, salaryPayments, salaryPaymentUndos } = schema;
@@ -283,12 +283,14 @@ export interface MonthStatuses {
 /**
  * Present / half / absent and overtime for the calendar (docs/SALARY_PHASE_PLAN.md "Worker: My attendance"): the same
  * rules as the salary (shift hours, Gets overtime, Joined on / Last day from the month's setting), but only days come
- * back, never money. Your own month needs `see_own`, anyone else's `see_everyone` (otherwise 404). null = no salary
+ * back, never money. Your own month needs `see_own`, anyone else's `see_everyone` (a Supervisor: an Office staff
+ * person) (otherwise 404). null = no salary
  * setting that month (the calendar then stays plain).
  */
 export async function monthStatuses(user: AtUser, personId: string, month: string, days: ReadonlyMap<string, { minutes: number }>, now: Date = new Date()): Promise<MonthStatuses | null> {
   const own = personId === user.userId;
-  if (!(own ? can(user, "see_own") || can(user, "see_everyone") : can(user, "see_everyone"))) throw notFound("Not found");
+  if (!(own ? can(user, "see_own") || can(user, "see_everyone") : can(user, "see_everyone") || can(user, "see_office_staff"))) throw notFound("Not found");
+  if (!own) await requireReach(user, personId); // a Supervisor: Office staff only
   const [rows, marked] = await withTenant(user.tenantId, async (tx) => [
     await tx.select().from(salarySettings).where(and(eq(salarySettings.tenantId, user.tenantId), eq(salarySettings.userId, personId))),
     await loadDayMarks(tx, user.tenantId, `${month}-01`, monthDays(month).at(-1)!, [personId]),

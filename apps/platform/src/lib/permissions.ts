@@ -44,7 +44,7 @@ export const gridModules = (enabled: readonly string[]) => MODULE_IDS.filter((m)
 /** What a role does, when its module's name alone doesn't say it (docs/ATTENDANCE_ROLES_PHASE_PLAN.md mock-ups). */
 const ROLE_HINTS: Partial<Record<RoleId, string>> = {
   office_staff: "Attendance: marks for others, fixes times, advances (no salaries)",
-  supervisor: "Attendance: Today board and IN / OUT alerts",
+  supervisor: "Attendance: Today board, IN / OUT alerts, marks and fixes Office staff",
   hr_desk: "Job applications: see and call applicants",
 };
 

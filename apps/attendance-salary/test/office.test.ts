@@ -84,7 +84,7 @@ const salary = (u: { tenantId: string; userId: string; name: string }, fromMonth
   );
 
 describe("Mark for someone", () => {
-  it("1. the list: every active employee with their state; yourself greyed; Supervisors, workers and owners refused", async () => {
+  it("1. the list: every active employee with their state; yourself greyed; a Supervisor the Office staff only; workers and owners refused", async () => {
     const { p, office, officeOnly, supervisor, bindu } = await setup();
     await markAt(bindu, "in", `${TODAY} 08:02`);
     const list = await deskList(office);
@@ -96,7 +96,8 @@ describe("Mark for someone", () => {
     expect(list.people[0]).toMatchObject({ next: "out", state: "IN since 8:02" });
     expect(list.people[2]).toMatchObject({ next: "in", state: "Not in today" });
     expect((await deskList(officeOnly)).people.map((x) => x.name)).toEqual(["Bindu", "Ramesh", "Ramu"]); // not themselves: not Plant staff
-    for (const u of [supervisor, p.worker]) expect((await refusal(() => deskList(u))).status, u.name).toBe(403);
+    expect((await deskList(supervisor)).people.map((x) => x.name)).toEqual(["Ramesh"]); // Office staff who are tracked (Mitu isn't Plant staff)
+    expect((await refusal(() => deskList(p.worker))).status).toBe(403);
     expect(await refusal(() => deskList(p.owner))).toEqual({ status: 403, message: "Owners use Fix on the person's day to add a time" });
   });
 
@@ -137,7 +138,7 @@ describe("Mark for someone", () => {
     const tap = (location: ReturnType<typeof at> | null) => refusal(() => deskMark(office, { user_id: bindu.userId, expect: "in", location }));
     expect(await tap(null)).toMatchObject({ status: 400, message: "Allow location on this phone to mark for someone." });
     expect((await tap(at(40, 600))).message).toMatch(/^Location too rough/);
-    expect(await tap(at(1200))).toMatchObject({ status: 403, message: "The office phone is 1.2 km from the plant. Mark at the plant." });
+    expect(await tap(at(1200))).toMatchObject({ status: 403, message: "This phone is 1.2 km from the plant. Mark at the plant." });
     await settle();
     expect(sent(p.tenantId)).toEqual([]);
     const q = await setup({ location: false });
@@ -198,7 +199,7 @@ describe("Fix by Office staff", () => {
     expect(sent(q.p.tenantId).filter((n) => n.kind === "attendance_salary.desk_fix")).toEqual([]);
   });
 
-  it("8. never their own attendance (add or cancel); a Supervisor can't fix at all", async () => {
+  it("8. never their own attendance (add or cancel); a Supervisor can't fix a worker (Office staff only: 404)", async () => {
     const { office, supervisor, bindu } = await setup();
     const own = await markAt(office, "in", `${DAY} 09:00`);
     const stamp = await dayStamp(office, office.userId, DAY);
@@ -207,7 +208,7 @@ describe("Fix by Office staff", () => {
       message: "Ask the owner to fix your own attendance",
     });
     expect((await refusal(() => cancelFix(office, { punch_id: own, day: DAY, reason: "wrong", expect: stamp }))).message).toBe("Ask the owner to fix your own attendance");
-    expect((await refusal(() => addFix(supervisor, { user_id: bindu.userId, day: DAY, kind: "out", date: DAY, time: "18:00", reason: "forgot", expect: stamp }))).status).toBe(403);
+    expect((await refusal(() => addFix(supervisor, { user_id: bindu.userId, day: DAY, kind: "out", date: DAY, time: "18:00", reason: "forgot", expect: stamp }))).status).toBe(404);
   });
 });
 

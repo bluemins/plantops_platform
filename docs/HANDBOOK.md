@@ -524,6 +524,10 @@ the Today board, the Staff list or the Salary tab, and don't mark their own atte
   - They see attendance and advances ("still to recover from earlier months"), **never a salary, slip or claim**.
 - **Supervisor** (e.g. the shift in-charge): the **Today board**, read-only; a **bell for every IN / OUT** (theirs and
   the office's marks; never sent to owners); and the morning **"N people not marked by 10:00"** alert.
+  - **Marks and fixes the Office staff** (v0.26.1): Attendance → Mark for someone lists only the Office staff (people
+    with Office staff + Plant staff), same location rules. Attendance → Office staff → the person → the day → Fix adds a
+    forgotten IN / OUT or cancels a wrong mark, with a reason; your phone gets "Sunil changed Mohan's attendance".
+    Never their own attendance and never other workers. Office staff can still scan the QR themselves.
 - **The not-marked alert:** Attendance → Settings → Not-marked alert: 08:00, 09:00, 10:00 (default), 11:00 or Off. One
   phone alert to the owners and supervisors listing who has no mark yet today. Weekly offs and leave aren't built
   yet, so a day off shows there too. It needs the "Attendance morning" job on cron-job.org (section 10, hourly

@@ -11,6 +11,7 @@ import { DeskList } from "./desk-list";
 /**
  * Office staff: "Mark for someone" (docs/ATTENDANCE_ROLES_PHASE_PLAN.md mock-up 1). Every active employee with their
  * state now and one Mark IN / Mark OUT button; the office phone's location is checked like a scan. Never yourself.
+ * A Supervisor sees only the Office staff (owner, 2026-10-19).
  */
 export default async function DeskPage() {
   const user = await requirePageUser("/desk");
@@ -20,7 +21,7 @@ export default async function DeskPage() {
     return (
       <div className="space-y-5">
         <Header user={user} plant={plant} />
-        <Card>You don&apos;t have access to this page. Only Office staff can mark for someone. Ask the plant owner.</Card>
+        <Card>You don&apos;t have access to this page. Only Office staff and Supervisors can mark for someone. Ask the plant owner.</Card>
         <a href="/" className="flex min-h-11 items-center justify-center font-semibold text-(--brand)">
           Back to Attendance
         </a>

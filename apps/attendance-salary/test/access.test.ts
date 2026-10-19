@@ -52,6 +52,8 @@ describe("the access table", () => {
   const OWNER: Action[] = ["see_everyone", "see_today", "fix", "day_mark", "settings", "view_settings", "export", "view_changes", "support_log", ...OWNER_SALARY, "advance_add", "advance_view", ...OWNER_CLAIMS];
   const EMPLOYEE: Action[] = ["mark", "see_own", "see_own_salary", "claim_own"];
   const OFFICE: Action[] = ["see_everyone", "see_today", "fix", "mark_for", "advance_add", "advance_view"];
+  // a Supervisor marks and fixes the Office staff only (owner, 2026-10-19; the person is checked in people.ts)
+  const SUPERVISOR: Action[] = ["see_today", "see_office_staff", "fix", "mark_for"];
   const expected: Record<"owner" | "ownerWorker" | "worker" | "keeper" | "support" | keyof typeof q, Action[]> = {
     owner: OWNER,
     ownerWorker: [...OWNER, ...EMPLOYEE],
@@ -59,17 +61,17 @@ describe("the access table", () => {
     keeper: [],
     support: ["see_everyone", "see_today", "view_settings", "view_changes", "salary_view", "advance_view", "claim_view"],
     office: OFFICE,
-    supervisor: ["see_today"],
+    supervisor: SUPERVISOR,
     officeWorker: [...OFFICE, ...EMPLOYEE],
-    supervisorWorker: ["see_today", ...EMPLOYEE],
-    both: [...OFFICE, ...EMPLOYEE],
+    supervisorWorker: [...SUPERVISOR, ...EMPLOYEE],
+    both: [...OFFICE, "see_office_staff", ...EMPLOYEE],
   };
 
   it("each person can do exactly their actions", () => {
     const actions = Object.keys(ACCESS) as Action[];
     expect(actions.sort()).toEqual([
       "advance_add", "advance_view", "claim_decide", "claim_own", "claim_view", "day_mark", "export", "fix", "mark", "mark_for", "salary_edit", "salary_export", "salary_pay",
-      "salary_view", "see_everyone", "see_own", "see_own_salary", "see_today", "settings", "support_log", "view_changes", "view_settings",
+      "salary_view", "see_everyone", "see_office_staff", "see_own", "see_own_salary", "see_today", "settings", "support_log", "view_changes", "view_settings",
     ]);
     const people = { ...p, ...q };
     for (const [name, allowed] of Object.entries(expected)) {
@@ -143,7 +145,7 @@ describe("Office staff and Supervisor in the access table (docs/ATTENDANCE_ROLES
     for (const a of ["settings", "view_settings", "export", "view_changes", "support_log"] as Action[]) {
       expect(await refused(() => requireAccess(q.office, a)), a).toEqual({ status: 403, message: "Only the plant owner can do this" });
     }
-    for (const a of ["see_everyone", "fix", "mark_for", "advance_add", "advance_view", "mark", "see_own"] as Action[]) {
+    for (const a of ["see_everyone", "advance_add", "advance_view", "mark", "see_own"] as Action[]) {
       expect(await refused(() => requireAccess(q.supervisor, a)), a).toEqual({ status: 403, message: "Only the plant owner can do this" });
     }
   });

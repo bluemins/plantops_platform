@@ -6,13 +6,13 @@ import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { z } from "zod";
 import { addDays, dayStart, istDay, validDay } from "@/lib/days";
 import { fmtTime } from "@/lib/punch";
-import { requireAccess } from "./access";
+import { can, requireAccess } from "./access";
 import { audit } from "./audit";
 import { schema, withTenant, type AtTx } from "./db";
 import { badRequest, conflict, forbidden, notFound } from "./http";
 import { dbNow, lockPerson } from "./marks";
 import { correctedNotification, deskFixNotification } from "./notify";
-import { knownPerson } from "./people";
+import { knownPerson, requireReach } from "./people";
 import type { AtUser } from "./session";
 
 const { punches, punchCancels } = schema;
@@ -31,9 +31,10 @@ async function stampOf(tx: AtTx, tenantId: string, personId: string, date: strin
   return { stamp: `${marks.length}.${cancels.length}.${all[0]?.createdAt.getTime() ?? 0}`, lastBy: all[0]?.by ?? null };
 }
 
-/** The stamp for the owner's day page. */
+/** The stamp for the owner's day page (a Supervisor: Office staff only). */
 export async function dayStamp(user: AtUser, personId: string, date: string) {
-  requireAccess(user, "see_everyone");
+  if (!can(user, "see_office_staff")) requireAccess(user, "see_everyone");
+  await requireReach(user, personId);
   return (await withTenant(user.tenantId, (tx) => stampOf(tx, user.tenantId, personId, date))).stamp;
 }
 
@@ -60,12 +61,12 @@ export const AddInput = z.object({
   expect: z.string().max(100),
 });
 
-/** Office staff never fix their own attendance (docs/ATTENDANCE_ROLES_PHASE_PLAN.md "Office staff"). */
+/** Office staff and Supervisors never fix their own attendance (docs/ATTENDANCE_ROLES_PHASE_PLAN.md "Office staff"). */
 function notOwnAsOffice(user: AtUser, personId: string) {
   if (!user.isOwner && personId === user.userId) throw forbidden("Ask the owner to fix your own attendance");
 }
 
-/** Owner or Office staff: add a forgotten IN or OUT for a person, with a reason. */
+/** Owner, Office staff or a Supervisor (Office staff only, via `knownPerson`): add a forgotten IN or OUT, with a reason. */
 export async function addFix(user: AtUser, input: z.infer<typeof AddInput>) {
   requireAccess(user, "fix");
   notOwnAsOffice(user, input.user_id);
@@ -97,7 +98,7 @@ export async function addFix(user: AtUser, input: z.infer<typeof AddInput>) {
   // (none when an owner who is also Plant staff fixes their own marks)
   const what = `Added ${input.kind.toUpperCase()} ${input.time}: ${input.reason}`;
   const notice = person.userId === user.userId ? null : correctedNotification(user, person.userId, input.date, what, saved.id);
-  // Office staff's fix: the owners hear of it too (bell)
+  // Office staff's or a Supervisor's fix: the owners hear of it too (bell)
   const ownerNotice = user.isOwner ? null : deskFixNotification(user, person, input.date, `added ${input.kind.toUpperCase()} ${input.time} · ${input.reason}`, saved.id);
   return { id: saved.id, at: saved.at.toISOString(), notice, ownerNotice };
 }
@@ -109,13 +110,14 @@ export const CancelInput = z.object({
   expect: z.string().max(100),
 });
 
-/** Owner or Office staff: cancel a wrong mark, with a reason. It stays on record, crossed out. Once per mark. */
+/** Owner, Office staff or a Supervisor (Office staff only): cancel a wrong mark, with a reason. It stays on record, crossed out. Once per mark. */
 export async function cancelFix(user: AtUser, input: z.infer<typeof CancelInput>) {
   requireAccess(user, "fix");
   const done = await withTenant(user.tenantId, async (tx) => {
     const [mark] = await tx.select().from(punches).where(and(eq(punches.tenantId, user.tenantId), eq(punches.id, input.punch_id)));
     if (!mark) throw notFound("Not found");
     notOwnAsOffice(user, mark.userId);
+    await requireReach(user, mark.userId); // a Supervisor: Office staff only (from the platform's list, no database)
     await lockPerson(tx, user.tenantId, mark.userId);
     const [already] = await tx.select({ by: punchCancels.createdByName }).from(punchCancels).where(and(eq(punchCancels.tenantId, user.tenantId), eq(punchCancels.punchId, mark.id))).orderBy(desc(punchCancels.createdAt));
     if (already) throw conflict(`Already cancelled by ${already.by}.`);

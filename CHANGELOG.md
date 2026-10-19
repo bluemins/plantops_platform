@@ -4,6 +4,22 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.26.1 — 2026-10-19 — Supervisor marks and fixes the Office staff (Attendance & Salary)
+
+**What's in it** (owner, 2026-10-19)
+- **A Supervisor can now mark the Office staff's IN / OUT** on "Mark for someone" (same rules as Office staff: the
+  phone's location at the plant, double tap, the server decides the time) and **Fix their times** (add a forgotten IN
+  / OUT or cancel a wrong mark, with a reason) from the new **"Office staff"** tab → person → day.
+- **Only the Office staff** who are tracked (Office staff + Plant staff), **never the Supervisor themselves** and never
+  other workers: those answer "not found" on the server. Their Today board stays read-only except the Office staff's
+  names, which open their day.
+- Office staff can still scan the QR for themselves; the owner keeps every right as before.
+- The owners get the same bell as for an office fix ("Sunil changed Mohan's attendance"); Recent changes says
+  "Sunil (supervisor)". A desk mark now reads "IN by Sunil" (was "by … (office)"). The Supervisor role button on
+  Manage users says "marks and fixes Office staff".
+
+**Migrations:** none. No database or SSO token change. Attendance + platform (role button text only).
+
 ## v0.26.0 — 2026-10-19 — Owner marks a day ON / OFF (Attendance & Salary, STABILITY_PLAN F1)
 
 **What's in it** (owner, 2026-10-19; docs/DAY_MARKS_PLAN.md)

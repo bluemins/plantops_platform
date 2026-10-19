@@ -17,10 +17,11 @@ export type Action =
   | "mark" // scan the QR: IN / OUT for yourself
   | "see_own" // your own calendar and days
   | "see_everyone" // the Staff list, anyone's calendar and days
+  | "see_office_staff" // a Supervisor: the Office staff's calendars and days only (to mark and fix them; never yourself)
   | "see_today" // the Today board (Supervisor: read-only)
-  | "fix" // add a time / cancel a mark, with a reason (Office staff: never their own, checked next to the fix)
+  | "fix" // add a time / cancel a mark, with a reason (never your own unless owner; a Supervisor only for Office staff)
   | "day_mark" // mark a person's whole day ON / OFF / Clear, no times (docs/DAY_MARKS_PLAN.md: owner only)
-  | "mark_for" // Office staff's "Mark for someone": IN / OUT now for a person without a phone (never yourself)
+  | "mark_for" // "Mark for someone": IN / OUT now (never yourself; a Supervisor only for Office staff, owner 2026-10-19)
   | "settings" // plant location, circle, print QR, make a new QR
   | "view_settings" // see the settings page (support: read-only)
   | "export" // month CSV
@@ -42,10 +43,11 @@ export const ACCESS: Record<Action, readonly Capacity[]> = {
   mark: ["employee"],
   see_own: ["employee"],
   see_everyone: ["owner", "office", "support"],
+  see_office_staff: ["supervisor"],
   see_today: ["owner", "office", "supervisor", "support"],
-  fix: ["owner", "office"],
+  fix: ["owner", "office", "supervisor"],
   day_mark: ["owner"],
-  mark_for: ["office"],
+  mark_for: ["office", "supervisor"],
   settings: ["owner"],
   view_settings: ["owner", "support"],
   export: ["owner"],

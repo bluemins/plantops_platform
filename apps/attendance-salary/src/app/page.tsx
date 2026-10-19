@@ -8,6 +8,7 @@ import { MyTabs, myTabs } from "./my-tabs";
 import { OwnerNav } from "./owner-nav";
 import { TodayView } from "./today";
 import { todayBoard } from "@/server/today";
+import { officeStaffFor } from "@/server/people";
 import { waitingClaims } from "@/server/claims";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
@@ -41,11 +42,13 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
   }
 
   const board = await todayBoard(user);
+  // a Supervisor: the Office staff's names open their day (to fix it)
+  const reach = !can(user, "see_everyone") && can(user, "see_office_staff") ? new Set((await officeStaffFor(user)).active.map((p) => p.userId)) : undefined;
   return (
     <div className="space-y-4">
       <Header user={user} plant={plant} />
       <OwnerNav user={user} current="today" claimsWaiting={await waitingClaims(user)} />
-      <TodayView user={user} board={board} />
+      <TodayView user={user} board={board} reach={reach} />
       {user.isOwner && can(user, "see_own") && (
         <a href="/my" className="flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-white font-semibold">
           My attendance

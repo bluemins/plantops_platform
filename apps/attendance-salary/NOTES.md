@@ -26,10 +26,11 @@ office (Office staff), supervisor (Supervisor); support alone. Each column below
 |---|---|---|---|---|---|
 | Mark IN / OUT (QR) (`mark`) | – | ✔ | – | – | – |
 | Own calendar and days, never money (`see_own`) | – | ✔ (home, or `/my`) | – | – | – |
-| Today board (`see_today`) | ✔ | – | ✔ | ✔ read-only, no links | read-only |
+| Today board (`see_today`) | ✔ | – | ✔ | ✔ read-only; only Office staff names open their day | read-only |
 | Staff list, anyone's calendar and days (`see_everyone`) | ✔ | – (404) | ✔ | – | read-only |
-| Mark for someone, office phone (`mark_for`) | – (use Fix) | – | ✔ not themselves | – | – |
-| Fix (add a time / cancel a mark) (`fix`) | ✔ | – | ✔ not themselves | – | – |
+| Office staff list + their calendars and days (`see_office_staff`, v0.26.1) | – | – | – | ✔ tracked Office staff only, not themselves | – |
+| Mark for someone, office phone (`mark_for`) | – (use Fix) | – | ✔ not themselves | ✔ Office staff only (v0.26.1) | – |
+| Fix (add a time / cancel a mark) (`fix`) | ✔ | – | ✔ not themselves | ✔ Office staff only (v0.26.1) | – |
 | Give an advance (`advance_add`) | ✔ | – | ✔ not themselves, ≤ 7 days back, ≤ ₹1 lakh; correct own entry the same day | – | – |
 | A person's advances + still to recover (`advance_view`) | ✔ | – | ✔ | – | read-only |
 | Settings (location, circle, QR, not-marked hour) | ✔ | – | – (404) | – (404) | read-only |
@@ -690,3 +691,16 @@ fix (±200-500 m), which placed people 1.0-1.7 km away, while good GPS readings 
 - **The QR is unchanged** (owner): saving the circle never touches the QR key; plant 001 sets the circle to 300 m and
   re-checks the pin after the release.
 - Tests: `test/locate.test.ts` (5), punch 150 / 151 m, desk 151 m refused.
+
+## 2026-10-19: Supervisor marks and fixes the Office staff (v0.26.1)
+Asked by the owner 2026-10-19 (Office staff can't mark or fix themselves; the Supervisor now does it for them).
+Decisions: Office staff only; mark now **and** Fix (add / cancel with a reason); Office staff still scan the QR themselves.
+- Access: `see_office_staff` (new, supervisor), `mark_for` and `fix` gain supervisor. The person is checked in
+  `people.ts`: `officeStaffFor` (active, Plant staff + Office staff, not themselves), used by `knownPerson`,
+  `staffList`, `reachableEmployees` (desk list) and `requireReach` (`dayStamp`, `cancelFix`, `monthStatuses`); anyone
+  else is 404. A Supervisor who is also Office staff has `see_everyone` and reaches everyone (never themselves).
+- Screens: Supervisor tabs Today · Mark for someone · Office staff (`/staff`, titled "Office staff"); the Today board
+  links only the Office staff (`reach`); person month without salary / advances; day with Fix.
+- Labels: `byLabel` "Sunil (supervisor)"; desk marks "IN by Sunil" for everyone (the role isn't stored on the mark);
+  "This phone is 1.2 km from the plant". Owners get `desk_fix` for a Supervisor's fix as for Office staff.
+- No migration; SSO token unchanged. Tests: `supervisor.test.ts` 10-12, access / office tests updated.

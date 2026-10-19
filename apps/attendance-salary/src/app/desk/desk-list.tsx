@@ -33,7 +33,7 @@ export function DeskList({ people: first }: { people: DeskPerson[] }) {
     }
     if (location && location.accuracy > MAX_ACCURACY_M) {
       setBusy(null);
-      return setMsg({ id: p.userId, ok: false, text: `Not saved: the office phone's location is too rough (±${Math.round(location.accuracy)} m). Turn on precise location (Android: Google Location Accuracy; iPhone: Precise Location), step near a window and try again.` });
+      return setMsg({ id: p.userId, ok: false, text: `Not saved: this phone's location is too rough (±${Math.round(location.accuracy)} m). Turn on precise location (Android: Google Location Accuracy; iPhone: Precise Location), step near a window and try again.` });
     }
     const r = await api<{ kind: Kind; at: string; next?: Kind; state?: string }>("/api/desk/mark", { body: { user_id: p.userId, expect: p.next, location } });
     setBusy(null);

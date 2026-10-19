@@ -220,7 +220,7 @@ describe("platform screens for Office staff and Supervisor (docs/ATTENDANCE_ROLE
   it("role buttons say what each role does, and only show with Attendance switched on", () => {
     const on = roleChoices(["attendance_salary", "floor_stock"], []);
     expect(on.find((c) => c.role === "office_staff")).toEqual({ role: "office_staff", label: "Office staff", hint: "Attendance: marks for others, fixes times, advances (no salaries)", off: false });
-    expect(on.find((c) => c.role === "supervisor")).toEqual({ role: "supervisor", label: "Supervisor", hint: "Attendance: Today board and IN / OUT alerts", off: false });
+    expect(on.find((c) => c.role === "supervisor")).toEqual({ role: "supervisor", label: "Supervisor", hint: "Attendance: Today board, IN / OUT alerts, marks and fixes Office staff", off: false });
     const off = roleChoices(["floor_stock"], []);
     expect(off.some((c) => c.role === "office_staff" || c.role === "supervisor")).toBe(false);
     expect(roleChoices(["floor_stock"], ["supervisor"]).find((c) => c.role === "supervisor")).toMatchObject({ off: true, hint: "Attendance & Salary · not switched on" });

@@ -5,7 +5,7 @@ import { sendScanAlert } from "@/server/notify";
 import { requireApiUser } from "@/server/session";
 import { after } from "next/server";
 
-/** Office staff: "Mark for someone" (IN / OUT now from the office phone). A refusal answers its message and a `code`. */
+/** Office staff (a Supervisor: Office staff only): "Mark for someone" (IN / OUT now from the office phone). A refusal answers its message and a `code`. */
 export const POST = handle(async (req) => {
   const user = await requireApiUser();
   const input = await readJson(req, DeskInput);

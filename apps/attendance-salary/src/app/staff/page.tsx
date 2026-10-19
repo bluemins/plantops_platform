@@ -8,10 +8,14 @@ import { Header } from "../header";
 import { OwnerNav } from "../owner-nav";
 import { waitingClaims } from "@/server/claims";
 
-/** Owner (and support): everyone tracked, A-Z, then people who are no longer Plant staff (their history stays). */
+/**
+ * Owner, Office staff (and support): everyone tracked, A-Z, then people who are no longer Plant staff (their history
+ * stays). A Supervisor: the Office staff only, to mark and fix them.
+ */
 export default async function StaffPage() {
   const user = await requirePageUser("/staff");
-  if (!can(user, "see_everyone")) notFound();
+  if (!can(user, "see_everyone") && !can(user, "see_office_staff")) notFound();
+  const officeOnly = !can(user, "see_everyone");
   const [plant, list] = await Promise.all([kit.branding(user.tenantId), staffList(user)]);
   const link = (id: string, name: string) => (
     <li key={id}>
@@ -27,11 +31,13 @@ export default async function StaffPage() {
     <div className="space-y-4">
       <Header user={user} plant={plant} />
       <OwnerNav user={user} current="staff" claimsWaiting={await waitingClaims(user)} />
-      <h1 className="text-xl font-bold">Staff</h1>
+      <h1 className="text-xl font-bold">{officeOnly ? "Office staff" : "Staff"}</h1>
       {list.platformDown && <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">PlantOps can&apos;t be reached right now; showing people from their marks.</p>}
       <Card>
         {list.active.length === 0 ? (
-          <p className="text-slate-600">Nobody has the Plant staff role yet. Give it to each employee on PlantOps → Manage users.</p>
+          <p className="text-slate-600">
+            {officeOnly ? "Nobody holds Office staff + Plant staff yet. The owner gives both roles on PlantOps → Manage users." : "Nobody has the Plant staff role yet. Give it to each employee on PlantOps → Manage users."}
+          </p>
         ) : (
           <ul>{list.active.map((p) => link(p.userId, p.name))}</ul>
         )}

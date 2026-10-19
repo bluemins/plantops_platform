@@ -17,12 +17,14 @@ type Tab = "today" | "desk" | "staff" | "salary" | "claims" | "changes" | "setti
 /**
  * The tabs of everyone who sees more than their own attendance (mock-up "Owner · Today"; docs/ATTENDANCE_ROLES_PHASE_PLAN.md
  * mock-ups 1 and 5): the owner Today · Staff · Salary · Claims (N waiting) · Recent changes · Settings; Office staff
- * Today · Mark for someone · Staff; a Supervisor Today. "My attendance" is a tab for non-owners who are also Plant staff
+ * Today · Mark for someone · Staff; a Supervisor Today · Mark for someone · Office staff. "My attendance" is a tab for non-owners who are also Plant staff
  * (owners keep the button under the board). `claimsWaiting` comes from the page; the number only shows when something
  * waits.
  */
 export function OwnerNav({ user, current, claimsWaiting = 0 }: { user: AtUser; current: Tab; claimsWaiting?: number }) {
   const shown: [string, string, string][] = TABS.filter(([, , , action]) => can(user, action)).map(([id, href, label]) => [id, href, label]);
+  // a Supervisor: the Office staff they mark and fix (owner, 2026-10-19)
+  if (!can(user, "see_everyone") && can(user, "see_office_staff")) shown.push(["staff", "/staff", "Office staff"]);
   if (!user.isOwner && can(user, "see_own")) shown.push(["mine", "/my", "My attendance"]);
   return (
     <nav aria-label="Attendance" className="flex flex-wrap gap-1.5">

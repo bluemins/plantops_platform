@@ -14,13 +14,13 @@ import { FixPanel, type FixMark } from "./fix-panel";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Owner and Office staff: one person's day (mock-up "Owner · Person's day + Fix"). Support sees the day without Fix;
- * Office staff get no Fix on their own day (the server refuses it too).
+ * Owner, Office staff and a Supervisor (Office staff only, owner 2026-10-19): one person's day (mock-up "Owner · Person's day + Fix"). Support sees the day without Fix;
+ * Office staff and Supervisors get no Fix on their own day (the server refuses it too).
  */
 export default async function PersonDayPage({ params }: { params: Promise<{ user: string; date: string }> }) {
   const { user: personId, date } = await params;
   const user = await requirePageUser(`/staff/${personId}/${date}`);
-  if (!can(user, "see_everyone") || !UUID.test(personId)) notFound();
+  if (!(can(user, "see_everyone") || can(user, "see_office_staff")) || !UUID.test(personId)) notFound();
   const [plant, view, stamp, dayMarksMap] = await Promise.all([kit.branding(user.tenantId), orNotFound(dayFor(user, personId, date)), dayStamp(user, personId, date), personDayMarks(user, personId, date, date)]);
   const dayMark = dayMarksMap.get(date) ?? null;
   // the marks the owner may cancel: every valid mark shown on this day

@@ -18,13 +18,13 @@ type Search = Promise<Record<string, string | string[] | undefined>>;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Owner, Office staff (no salary parts) and support: one person's month; a tap opens that day with Fix. Below the calendar, the salary sections for
+ * Owner, Office staff (no salary parts), a Supervisor (Office staff only, attendance only) and support: one person's month; a tap opens that day with Fix. Below the calendar, the salary sections for
  * the same month (mock-up 2): summary strip, Salary box + history, Can see own salary, advances. Support: read-only.
  */
 export default async function PersonMonthPage({ params, searchParams }: { params: Promise<{ user: string }>; searchParams: Search }) {
   const { user: personId } = await params;
   const user = await requirePageUser(`/staff/${personId}`);
-  if (!can(user, "see_everyone") || !UUID.test(personId)) notFound();
+  if (!(can(user, "see_everyone") || can(user, "see_office_staff")) || !UUID.test(personId)) notFound();
   const sp = await searchParams;
   const [plant, view] = await Promise.all([kit.branding(user.tenantId), orNotFound(monthFor(user, personId, typeof sp.m === "string" ? sp.m : null))]);
   const salary = can(user, "salary_view") ? await salaryPanel(user, personId, view.month) : null;
@@ -37,7 +37,7 @@ export default async function PersonMonthPage({ params, searchParams }: { params
     <div className="space-y-4">
       <Header user={user} plant={plant} />
       <a href="/staff" className="flex min-h-11 items-center gap-1 font-semibold text-(--brand)">
-        ‹ Staff
+        ‹ {can(user, "see_everyone") ? "Staff" : "Office staff"}
       </a>
       <h1 className="text-xl font-bold">{view.name}</h1>
       <MonthCalendar view={view} dayHref={(d) => `/staff/${personId}/${d}`} monthHref={(m) => `/staff/${personId}?m=${m}`} statuses={statuses} />

@@ -2,17 +2,21 @@
 // the morning "not marked" alert at the plant's hour, and the owner's Settings choice. Real database, real routes.
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as deskRoute from "@/app/api/desk/mark/route";
+import * as addRoute from "@/app/api/fix/add/route";
+import * as cancelRoute from "@/app/api/fix/cancel/route";
 import * as notMarkedRoute from "@/app/api/settings/not-marked/route";
 import * as punchRoute from "@/app/api/punch/route";
 import HomePage from "@/app/page";
 import { TodayView } from "@/app/today";
 import { describeChange } from "@/lib/changes";
 import { addDays, istDay } from "@/lib/days";
-import { monthFor } from "@/server/calendar";
-import { deskList } from "@/server/desk";
+import { dayFor, monthFor } from "@/server/calendar";
+import { deskList, deskMark } from "@/server/desk";
+import { recentChanges } from "@/server/audit";
+import { addFix, cancelFix, dayStamp } from "@/server/fixes";
 import { runMorning } from "@/server/notify";
 import { staffList } from "@/server/people";
-import { salaryMonths } from "@/server/salary";
+import { monthStatuses, salaryMonths } from "@/server/salary";
 import { newQr, qrLinkFor, saveNotMarkedHour, saveSettings, settingsFor } from "@/server/settings";
 import { boardFor, todayBoard } from "@/server/today";
 import { startFakePlatform, type FakePlatform } from "./fake-platform";
@@ -82,14 +86,15 @@ function links(node: unknown, out: string[] = []): string[] {
 }
 
 describe("the Supervisor's Today board", () => {
-  it("1. sees the board, read-only: names without links; refused the Staff list, calendars, desk and salary", async () => {
+  it("1. sees the board, read-only: names without links; Staff list and desk hold only Office staff; no calendars of workers, no salary", async () => {
     const { p, sunil, bindu } = await setup();
     await markAt(bindu, "in", `${YESTERDAY} 08:00`);
     const board = await todayBoard(sunil);
     expect(board.notMarked.map((x) => x.name)).toEqual(["Bindu", "Ramu", "Tapan"]); // employees only: Sunil and Ramesh aren't Plant staff
     expect(links(TodayView({ user: sunil, board }))).toEqual([]);
     expect(links(TodayView({ user: p.owner, board })).filter((h) => h.startsWith("/staff/")).length).toBeGreaterThan(0);
-    for (const fn of [() => staffList(sunil), () => deskList(sunil)]) expect((await refusal(fn)).status).toBe(403);
+    expect((await staffList(sunil)).active).toEqual([]); // Ramesh is Office staff but not Plant staff: not tracked
+    expect((await deskList(sunil)).people).toEqual([]);
     expect((await refusal(() => monthFor(sunil, bindu.userId, null))).status).toBe(404); // someone else's calendar: "not found", as for a worker
     expect((await refusal(() => salaryMonths(sunil, TODAY.slice(0, 7)))).status).toBe(404);
     signInAs(sunil);
@@ -206,6 +211,73 @@ describe("the not-marked alert", () => {
     await runMorning(ist(`${TODAY} 10:20`));
     const after = await asOwner<{ sent_at: Date | null }>("select sent_at from attendance_salary.notification_outbox where tenant_id = $1", [s.p.tenantId]);
     expect(after.rows[0]!.sent_at).not.toBeNull();
+  });
+});
+
+describe("the Supervisor marks and fixes the Office staff (owner, 2026-10-19)", () => {
+  const DAY = "2026-09-14";
+  /** + Mohan (Office staff + Plant staff, tracked) and Gopal (Office staff + Supervisor + Plant staff). */
+  async function withOffice() {
+    const s = await setup();
+    const mohan = atUser(s.p.tenantId, ["office_staff", "plant_staff"], "Mohan");
+    const gopal = atUser(s.p.tenantId, ["office_staff", "supervisor", "plant_staff"], "Gopal");
+    platform.contacts = [...(platform.contacts ?? []), ...contactsFor(mohan, gopal)];
+    return { ...s, mohan, gopal };
+  }
+
+  it("10. Mark for someone: only the tracked Office staff, never a worker or themselves", async () => {
+    const { p, sunil, tapan, bindu, mohan, gopal } = await withOffice();
+    expect((await deskList(sunil)).people.map((x) => x.name)).toEqual(["Gopal", "Mohan"]);
+    expect((await deskList(gopal)).people.map((x) => [x.name, x.self])).toContainEqual(["Bindu", false]); // Gopal is Office staff too: everyone
+    const saved = await deskMark(sunil, { user_id: mohan.userId, expect: "in", location: at(40) });
+    expect(saved).toMatchObject({ kind: "in", person: { name: "Mohan" } });
+    expect((await refusal(() => deskMark(sunil, { user_id: bindu.userId, expect: "in", location: at(40) }))).status).toBe(404);
+    expect((await refusal(() => deskMark(tapan, { user_id: tapan.userId, expect: "in", location: at(40) }))).message).toBe("Scan the QR for your own attendance");
+    expect((await refusal(() => deskMark(sunil, { user_id: gopal.userId, expect: "in", location: at(1200) }))).status).toBe(403); // the location rules of a scan
+    expect((await recentChanges(p.owner))[0]).toMatchObject({ by: "Sunil (supervisor)" });
+    expect((await boardFor(p.tenantId)).inside).toEqual([expect.objectContaining({ name: "Mohan", by: "Sunil" })]);
+  });
+
+  it("11. Fix (add and cancel) for Office staff; workers 404; never their own; the owners' bell and the person's 'corrected'", async () => {
+    const { p, sunil, bindu, mohan, gopal } = await withOffice();
+    const id = await markAt(mohan, "in", `${DAY} 09:10`);
+    signInAs(sunil);
+    const add = { user_id: mohan.userId, day: DAY, kind: "out", date: DAY, time: "18:30", reason: "forgot to mark", expect: await dayStamp(sunil, mohan.userId, DAY) };
+    expect((await addRoute.POST(jsonReq("POST", "/api/fix/add", add), undefined as never)).status).toBe(201);
+    expect((await dayFor(sunil, mohan.userId, DAY)).day.entries).toHaveLength(1);
+    const cancel = { punch_id: id, day: DAY, reason: "came at 10", expect: await dayStamp(sunil, mohan.userId, DAY) };
+    expect((await cancelRoute.POST(jsonReq("POST", "/api/fix/cancel", cancel), undefined as never)).status).toBe(201);
+    // a worker: "not found" everywhere, as if they didn't exist
+    const w = await markAt(bindu, "in", `${DAY} 09:10`);
+    for (const fn of [
+      () => dayStamp(sunil, bindu.userId, DAY),
+      () => dayFor(sunil, bindu.userId, DAY),
+      () => monthFor(sunil, bindu.userId, null),
+      () => monthStatuses(sunil, bindu.userId, DAY.slice(0, 7), new Map()),
+      () => addFix(sunil, { user_id: bindu.userId, day: DAY, kind: "out", date: DAY, time: "18:30", reason: "forgot", expect: "x" }),
+      () => cancelFix(sunil, { punch_id: w, day: DAY, reason: "wrong one", expect: "x" }),
+    ])
+      expect((await refusal(fn)).status).toBe(404);
+    // a Supervisor who is also Office staff: never their own
+    const own = await markAt(gopal, "in", `${DAY} 09:00`);
+    expect((await refusal(() => cancelFix(gopal, { punch_id: own, day: DAY, reason: "wrong one", expect: "x" }))).message).toBe("Ask the owner to fix your own attendance");
+    await settle();
+    const kinds = sent(p.tenantId).map((n) => n.kind);
+    expect(kinds.filter((k) => k === "attendance_salary.desk_fix")).toHaveLength(2);
+    expect(sent(p.tenantId, "attendance_salary.desk_fix")[0]).toMatchObject({ title: "Sunil changed Mohan's attendance" });
+    expect(kinds.filter((k) => k === "attendance_salary.corrected")).toHaveLength(2);
+    const changes = await recentChanges(p.owner);
+    expect(changes.filter((c) => c.by === "Sunil (supervisor)")).toHaveLength(2);
+  });
+
+  it("12. the Staff list, calendar and Today links: only the Office staff", async () => {
+    const { p, sunil, mohan, gopal } = await withOffice();
+    expect((await staffList(sunil)).active.map((x) => x.name)).toEqual(["Gopal", "Mohan"]);
+    expect((await monthFor(sunil, mohan.userId, null)).name).toBe("Mohan");
+    expect((await refusal(() => monthFor(sunil, p.worker.userId, null))).status).toBe(404);
+    const board = await todayBoard(sunil);
+    const hrefs = links(TodayView({ user: sunil, board, reach: new Set([mohan.userId, gopal.userId]) }));
+    expect(hrefs.sort()).toEqual([`/staff/${gopal.userId}/${TODAY}`, `/staff/${mohan.userId}/${TODAY}`].sort());
   });
 });
 

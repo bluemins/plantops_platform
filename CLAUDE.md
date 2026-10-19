@@ -57,7 +57,8 @@ through the Lab Records API.
   v0.23.0, `docs/ATTENDANCE_ROLES_PHASE_PLAN.md`). Office staff mark IN / OUT for people without a phone ("Mark for
   someone", office phone at the plant), fix times and give advances, never for themselves, and never see a salary,
   slip or claim. A Supervisor sees the Today board read-only, gets a bell for every IN / OUT and the morning
-  "not marked" alert. Neither is tracked or paid unless they also hold Plant staff. Inside Attendance a person's roles
+  "not marked" alert, and marks / fixes the Office staff's IN / OUT (only them, never themselves; owner 2026-10-19,
+  v0.26.1). Neither is tracked or paid unless they also hold Plant staff. Inside Attendance a person's roles
   become a set of capacities (owner, employee, office, supervisor) in one access table (`src/server/access.ts`).
 - **HR desk** (`hr_desk`), Job applications only (owner, 2026-10-17; v0.25.0): sees every application, calls /
   WhatsApps, changes the status and adds notes. Openings, CSV and "Remove now" are owner-only. Plant staff never work in

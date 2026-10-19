@@ -25,13 +25,14 @@ const row = "flex min-h-11 items-center justify-between gap-3 border-t border-bl
 /**
  * The Today board (mock-up "Owner · Today"; Supervisor: docs/ATTENDANCE_ROLES_PHASE_PLAN.md mock-up 5). For those who
  * see everyone's days (owner, Office staff, support) every name opens that person's day; a Supervisor's board is
- * read-only: names only, no links, no Fix.
+ * read-only except the Office staff (`reach`), whose names open their day with Fix (owner, 2026-10-19).
  */
-export function TodayView({ user, board }: { user: AtUser; board: TodayBoard }) {
+export function TodayView({ user, board, reach }: { user: AtUser; board: TodayBoard; reach?: ReadonlySet<string> }) {
   const months = Array.from({ length: 12 }, (_, i) => addMonths(istMonth(), -i));
-  const linked = can(user, "see_everyone");
+  const all = can(user, "see_everyone");
+  const linked = (href: string) => all || (reach?.has(href.split("/")[2] ?? "") ?? false);
   const Item = ({ href, className, children }: { href: string; className: string; children: React.ReactNode }) =>
-    linked ? (
+    linked(href) ? (
       <a href={href} className={className}>
         {children}
       </a>
@@ -97,7 +98,7 @@ export function TodayView({ user, board }: { user: AtUser; board: TodayBoard }) 
             <Item href={dayLink(p.userId, board.yesterday)} className={`${row} text-amber-950`}>
               <span className="font-semibold">{p.name}</span>
               <span className="text-sm">
-                IN {fmtTime(p.inAt)}, no OUT{can(user, "fix") ? " · Fix" : ""}
+                IN {fmtTime(p.inAt)}, no OUT{can(user, "fix") && linked(dayLink(p.userId, board.yesterday)) ? " · Fix" : ""}
               </span>
             </Item>
           </li>
