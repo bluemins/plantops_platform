@@ -476,6 +476,7 @@ Order chosen from section 2's usage (most used modules first) and dates that can
 | # | Feature | Module | Why now |
 |---|---|---|---|
 | F1 | **Weekly off, holidays, leave requests** | Attendance & Salary | First salary month end is 31 Oct; without weekly offs every Sunday counts as absent unless covered by paid leave |
+| F1b | **Field day log** for Field staff (start / end km + photo, shop visits from Order Capture customers, GPS at each) | Attendance & Salary (+ lookup ticket: platform, Order Capture) | Asked by the owner 2026-10-19, after F1; plan `docs/FIELD_DAY_PHASE_PLAN.md`; claims untouched |
 | F2 | **Demo plant set-up script** (fake users, products, sample data) | Platform | Makes B-06 easy and gives a plant demo for selling |
 | F3 | **Hindi / Odia screens**, staff modules first (Floor Stock count, Attendance scan, Order Capture) | All | Staff already type Hindi ("500ml ka stock check"); listed in CLAUDE.md UX |
 | F4 | **Fewer, better alerts:** daily summary option instead of every new order / still-open | Platform | 70–93 % unread (B-07) |
