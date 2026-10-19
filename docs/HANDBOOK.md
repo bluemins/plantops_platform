@@ -633,10 +633,40 @@ the Today board, the Staff list or the Salary tab, and don't mark their own atte
 
 ## 12. When something goes wrong
 
-**Is it up?** Open these. All should load:
-- `https://app.bluemins.life/.well-known/jwks.json` shows a key
-- `https://lab.bluemins.life/health` shows `"database":"ok"`
-- `https://docs.bluemins.life/health` shows `"database":"ok"`
+**Is it up?** These 10 addresses are the whole live copy. Open them by hand, or let UptimeRobot check them (below).
+
+| # | What | Address | Up means |
+|---|---|---|---|
+| 1 | Platform: login page | `https://app.bluemins.life/login` | page loads (200) |
+| 2 | Platform: login keys (every module needs them) | `https://app.bluemins.life/.well-known/jwks.json` | shows `"keys"` |
+| 3 | Lab Records | `https://lab.bluemins.life/health` | shows `"database":"ok"` |
+| 4 | Document Store | `https://docs.bluemins.life/health` | shows `"database":"ok"` |
+| 5 | Floor Stock | `https://stock.bluemins.life/health` | shows `"database":"ok"` |
+| 6 | Complaint Box | `https://complaints.bluemins.life/health` | shows `"database":"ok"` |
+| 7 | Order Capture | `https://orders.bluemins.life/health` | shows `"database":"ok"` |
+| 8 | Attendance & Salary | `https://attendance.bluemins.life/health` | shows `"database":"ok"` |
+| 9 | Job applications (sleeps when idle; the first answer takes ~3 s) | `https://jobs.bluemins.life/health` | shows `"database":"ok"` |
+| 10 | Job applications: the public page strangers see | `https://jobs.bluemins.life/001` | page loads (200) |
+
+A `/health` that answers 503 with `"database":"unreachable"` means the app runs but can't reach Postgres (table below).
+
+**UptimeRobot (free; STABILITY_PLAN B-09, owner 2026-10-19: every address once a day).** One monitor per row
+above, all at the **longest interval (24 hours)**, so services that sleep when idle (`job-applications`, later
+`lab-records` and others) are woken only once a day and the Railway saving holds. The cost of this choice: an outage
+may be noticed up to a day late; shorten the interval of rows 1–2 (the platform: nothing works without it) if that
+proves too slow.
+1. uptimerobot.com → free account (owner's email; turn on the mobile app's alerts too).
+2. **Add New Monitor** for each row:
+   - rows 1 and 10: type **HTTP(s)**, the address, interval **24 hours**
+   - rows 2–9: type **Keyword**, the address, keyword `"keys"` (row 2) or `"database":"ok"` (rows 3–9), alert when
+     the keyword is **not present**, interval **24 hours**
+   - friendly name = the "What" column; alert contact = the owner
+3. Nothing to set up on Railway or in the code, and no secret is involved (these addresses are public).
+4. A new module adds its `/health` row here and a monitor.
+
+**What went wrong inside an app** (since v0.25.5): super_admin → Plants → **Errors**. Every server error of the
+platform and all modules from the last 7 days, grouped, with the plant and "Details" (the code trace). A red card on
+the Plants page says "N errors yesterday". Plants never see it; rows are kept 30 days.
 
 **Logs:** Railway → service → **Deployments** → the active deployment → **View logs**. There are build logs
 and deploy (runtime) logs. Copy the last ~30 lines when asking for help.

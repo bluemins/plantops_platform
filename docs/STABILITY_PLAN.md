@@ -227,7 +227,8 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
   off, good ones ±4–17 m within 190 m. Saving the circle never touches the QR. Tests: Attendance 423 (+5).
 - [x] *Owner, after the deploy:* plant 001 pin re-set standing outside, circle 300 m; Dillip + two others mark.
   **Marked done by the owner without checking (2026-10-19).** Live value read the same day: plant 001's circle is
-  still **2,000 m** (last set 16 Oct), so the location check stays loose until it is set to 300 m.
+  still **2,000 m** (last set 16 Oct), so the location check stays loose until it is set to 300 m. **Deferred by the
+  owner (2026-10-19): "it's ok, I will check later".**
 - [ ] *Claude, the day after:* read the new marks (accuracy, distance, refusals) read-only; then close B-04.
 
 **B-05 · Floor Stock · S1 · A count saved after midnight takes the next day.**
@@ -335,7 +336,8 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
    the seven `/health` addresses, with a keyword check on the database answer. Alerts to the owner's email and phone.
    (cron-job.org already does the timed calls, B-01.) *Cost:* free, nothing on Railway.
    **Owner (2026-10-19): every address once a day** (24-hour interval; an outage may be noticed up to a day late, but
-   the sleeping services stay asleep).
+   the sleeping services stay asleep). **The 10 addresses and the step-by-step setup are in `docs/HANDBOOK.md`
+   section 12** ("Is it up?"). [ ] Owner: UptimeRobot account + the 10 monitors.
 3. **Error reporting** — **owner chose B (2026-10-19); built as v0.25.5** (design approved the same day).
    Options were: **A. Sentry** (free plan; error details leave PlantOps, scrub names /
    phones / money) or **B. built-in error log** (`platform.error_log` + super_admin "Errors" screen; needs a
