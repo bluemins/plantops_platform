@@ -45,8 +45,8 @@ amounts) came only with Plant staff (= every employee).
 - **SSO token unchanged.**
 
 ## Status
-Built 2026-10-19 (v0.27.0, not deployed). Release steps: CHANGELOG, tag, `./scripts/railway-migrate.sh shared`
-(platform `0018`, Floor Stock `0005`), push the tag to `production`.
+Built and **live** 2026-10-19 (v0.27.0, `production` = `3d15b82`; migrations platform `0018`, Floor Stock `0005`
+applied first). Record: `docs/deployments/shared.md`.
 
 Owner's checklist after deploying (plant 001):
 1. Manage users → give someone **Stock viewer** (and tick "Gets Floor Stock alerts" if they should get alerts).

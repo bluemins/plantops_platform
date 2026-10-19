@@ -1714,7 +1714,7 @@ Current status, open items and next steps: **`docs/STABILITY_PLAN.md` section 0*
   owner), printed QRs unchanged. Plus a dead-code clean-up (knip). No migrations.
 - Tests: platform 347, Document Store 107, Floor Stock 172, Attendance 423, module-kit 69; typecheck and builds pass.
 
-### 2026-10-19 — View-only roles: Stock viewer, Document viewer, Order viewer — built (v0.27.0)
+### 2026-10-19 — View-only roles: Stock viewer, Document viewer, Order viewer — live (v0.27.0)
 Asked by the owner 2026-10-19 (no role could only look at Floor Stock). Design and decisions:
 `docs/VIEW_ROLES_PHASE_PLAN.md`; notes in each module's NOTES.md.
 - **Shared rule** (`packages/types`): `VIEW_ROLE_MODULE`, `viewOnlyIn()` widened, `getsAlertsIn()`, `VIEWER_ALERTS`
@@ -1733,5 +1733,6 @@ if ticked; Stock viewer sees only the sections ticked for them; "Can make" only 
 theirs. **Made while building:** Order viewers can never be ticked (the new-order alert has the amount); Stock viewers
 don't open Sections & items; "setup changed" never goes to viewers; "count not done" goes to ticked viewers unchanged.
 
-**Not yet verified:** on screen with real logins; not deployed.
+**Live (2026-10-19):** migrations platform `0018` and Floor Stock `0005` applied, `v0.27.0:production` (`3d15b82`), live
+checks OK (`docs/deployments/shared.md`). **Not yet verified:** on screen with real logins (the owner's checklist).
 
