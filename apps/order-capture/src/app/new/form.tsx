@@ -12,6 +12,8 @@ import type { RateView } from "@/server/rates";
 import { LinesEditor, linesBody, linesProblem, plainRate, totalOf, unitsOf, type EditLine } from "../lines-editor";
 
 type Lookup = { phone: string; customer: { id: string; name: string; place: string; active: boolean } | null; last_order_at: string | null; last_rates: Record<string, string> };
+type Match = { id: string; name: string; phone: string; place: string; active: boolean };
+const spaced = (p: string) => `${p.slice(0, 5)} ${p.slice(5)}`;
 
 let counter = 0;
 /**
@@ -42,8 +44,34 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState<SavedOrder>();
   const asked = useRef("");
+  const [matches, setMatches] = useState<{ q: string; list: Match[]; more: boolean } | null>(null);
+  const typedName = useRef("");
 
+  // the box takes a name, a place or a phone: a full mobile number is looked up at once, anything else is searched
   const normal = normalisePhone(phone);
+  const query = normal ? "" : phone.trim();
+
+  useEffect(() => {
+    if (query.length < 2) {
+      setMatches(null);
+      return;
+    }
+    const t = setTimeout(async () => {
+      const r = await api<{ customers: Match[]; more: boolean }>(`/api/customers/search?q=${encodeURIComponent(query)}`).catch(() => null);
+      if (r?.ok) setMatches({ q: query, list: r.data.customers, more: r.data.more });
+    }, 250);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  /** Remember a typed name that wasn't found, so the new-customer box starts with it once the number is typed. */
+  useEffect(() => {
+    if (matches && matches.list.length === 0 && /[^\d\s+()-]/.test(matches.q)) typedName.current = matches.q;
+  }, [matches]);
+
+  function pick(m: Match) {
+    setPhone(spaced(m.phone));
+    setMatches(null);
+  }
 
   // look the phone up as soon as it is a valid mobile number
   useEffect(() => {
@@ -64,6 +92,7 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
     setLooking(false);
     if (!r?.ok || asked.current !== p) return;
     setFound(r.data);
+    if (!r.data.customer && typedName.current) setName((n) => n || typedName.current);
     // lines whose rate nobody typed take this customer's last rates
     setLines((ls) => ls.map((l) => (l.edited ? l : { ...l, rate: startRate(l.sku_id, products, r.data) })));
   }
@@ -83,7 +112,7 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
   const off = Boolean(found?.customer && !found.customer.active);
 
   function problem(): string | null {
-    if (!normal) return "Enter the customer's 10-digit mobile number";
+    if (!normal) return "Pick the customer from the list, or enter their 10-digit mobile number";
     if (!found) return "Checking the customer…";
     if (off) return `${found.customer!.name} is switched off. Switch them back on first.`;
     if (isNew && (name.trim().length < 2 || place.trim().length < 2)) return "Enter the new customer's name and place";
@@ -113,6 +142,8 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
     setPhone("");
     setFound(null);
     asked.current = "";
+    setMatches(null);
+    typedName.current = "";
     setName("");
     setPlace("");
     setLines([]);
@@ -127,19 +158,38 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
   return (
     <div className="space-y-4">
       <label className="block">
-        <span className="mb-1 block text-sm font-semibold">Customer phone</span>
+        <span className="mb-1 block text-sm font-semibold">Customer name or phone</span>
         <input
           className="min-h-14 w-full rounded-xl border-2 border-(--brand) bg-white px-4 text-xl tracking-wide focus:outline-none focus:ring-2 focus:ring-(--brand-ring)"
-          inputMode="tel"
+          type="search"
           autoComplete="off"
-          placeholder="98765 43210"
+          placeholder="Name, place or 98765 43210"
           value={phone}
-          maxLength={30}
+          maxLength={NAME_MAX}
           onChange={(e) => setPhone(e.target.value)}
         />
       </label>
       {phone.replace(/\D/g, "").length >= 10 && !normal && <p className="text-sm text-amber-800">Enter a 10-digit mobile number</p>}
       {looking && <p className="text-sm text-slate-500">Checking…</p>}
+
+      {matches && matches.q === query && (
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          {matches.list.map((m) => (
+            <button key={m.id} type="button" onClick={() => pick(m)} className="flex min-h-14 w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-2 text-left last:border-b-0 hover:bg-slate-50">
+              <span className="min-w-0">
+                <span className="block truncate font-semibold">{m.name}</span>
+                <span className="block truncate text-sm text-slate-600">
+                  {m.place}
+                  {!m.active && " · switched off"}
+                </span>
+              </span>
+              <span className="shrink-0 text-sm text-slate-500">{spaced(m.phone)}</span>
+            </button>
+          ))}
+          {matches.more && <p className="px-4 py-2 text-sm text-slate-500">More customers match: type more of the name.</p>}
+          {matches.list.length === 0 && <p className="px-4 py-3 text-sm text-slate-600">No customer matches “{matches.q}”. For a new customer, type their 10-digit mobile number.</p>}
+        </div>
+      )}
 
       {found?.customer && found.customer.active && (
         <div className="flex gap-3 rounded-xl border border-green-300 bg-green-50 px-4 py-3">
