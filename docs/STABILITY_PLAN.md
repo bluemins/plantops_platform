@@ -15,7 +15,8 @@ update it as items close.
 
 ## 0. Status and handover (updated 2026-10-18, 15:26 IST; read this first in a new session)
 
-**Live:** still **v0.25.0** (`production` = `1ea1c09`). **Built, pushed to `main`, tagged, NOT deployed:**
+**Live since 2026-10-19 10:10 IST: v0.25.4** (`production` = `feb9439`; carries everything below + B-10, Order
+Capture "Total to load", tests on GitHub). Live checks OK (deploy record). The list below is what that deploy brought:
 - **v0.25.1** (`649033c`): B-02, no email; reminder / low-stock rows record "App notification only".
 - **v0.25.2** (`1063d7d`): B-03, login record in the audit log, and the login button no longer allows a double login.
 - **v0.25.3** (tag on `main`, 2026-10-18): **B-05** (Floor Stock count after midnight goes to last night) + **B-04**
