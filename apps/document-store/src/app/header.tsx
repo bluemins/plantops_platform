@@ -19,7 +19,7 @@ const initials = (name: string) =>
 export async function Header({ user, plant, locale }: { user: DocUser; plant: TenantBranding | null; locale: Locale }) {
   const unread = user.isSupport ? null : await kit.unread(user.tenantId, user.userId);
   const t = (key: Parameters<typeof translate>[1], values?: Record<string, string | number>) => translate(locale, key, values);
-  const role = user.isSupport ? t("readOnly") : user.isOwner ? t("owner") : t("documentKeeper");
+  const role = user.isSupport ? t("readOnly") : user.isOwner ? t("owner") : user.canManage ? t("documentKeeper") : t("viewOnly");
   return (
     <>
       {user.isSupport && (

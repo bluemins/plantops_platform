@@ -26,8 +26,10 @@ export default async function HomePage() {
 
       {sections.length === 0 ? (
         <Card className="space-y-3">
-          <p className="text-lg font-semibold">Sections are not set up yet</p>
-          {user.isOwner ? (
+          <p className="text-lg font-semibold">{user.isViewer ? "No sections to show" : "Sections are not set up yet"}</p>
+          {user.isViewer ? (
+            <p className="text-slate-600">The plant owner hasn&apos;t picked any sections for you to see yet. Please ask them.</p>
+          ) : user.isOwner ? (
             <>
               <p className="text-slate-600">Set up the sections and items your staff count every evening. You can start from a ready starter list.</p>
               <LinkButton href="/setup">⚙ Set up sections</LinkButton>
@@ -69,7 +71,7 @@ export default async function HomePage() {
         <LinkButton href="/history" variant="secondary">
           History
         </LinkButton>
-        {sections.length > 0 && (
+        {sections.length > 0 && !user.isViewer && (
           <LinkButton href="/setup" variant="secondary">
             ⚙ Sections &amp; items
           </LinkButton>

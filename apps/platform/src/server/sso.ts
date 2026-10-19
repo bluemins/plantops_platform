@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { importJWK, SignJWT, type JWK } from "jose";
 import { canAccessModule } from "@plantops/auth";
-import { ModuleId, ROLE_IDS, roleWorksIn, TOKEN_ISSUER, type AlertContact, type RoleId, type TokenPayload, type UserStatus } from "@plantops/types";
+import { ModuleId, ROLE_IDS, roleWorksIn, viewRoleFor, TOKEN_ISSUER, type AlertContact, type RoleId, type TokenPayload, type UserStatus } from "@plantops/types";
 import { loadRoles, type CurrentUser } from "./auth";
 import { randomToken, safeEqual, sha256 } from "./crypto";
 import { appDb, schema, withTenant, type PlatformTx } from "./db";
@@ -154,8 +154,11 @@ export async function getUserStatus(tenantId: string, userId: string): Promise<U
   });
 }
 
-/** Roles that work in one module (e.g. lab_records -> lab_technician, lab_lead; floor_stock -> store_keeper; attendance_salary -> plant_staff). */
-const moduleRoles = (moduleId: ModuleId) => ROLE_IDS.filter((r) => roleWorksIn(r, moduleId));
+/**
+ * Roles of one module: those that work there (e.g. lab_records -> lab_technician, lab_lead; floor_stock -> store_keeper;
+ * attendance_salary -> plant_staff) and its view role (floor_stock -> stock_viewer). Modules pick by role.
+ */
+const moduleRoles = (moduleId: ModuleId) => ROLE_IDS.filter((r) => roleWorksIn(r, moduleId) || viewRoleFor(r, moduleId));
 
 /**
  * Who a module may alert (WhatsApp on a failed lab test, email before a licence expires): active owners plus

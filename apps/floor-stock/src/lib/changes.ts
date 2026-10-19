@@ -49,6 +49,10 @@ export function describeChange(action: string, target: string | null, details: R
       if (details.made_from) return `${name} made from (1 pcs): ${list(details.from)} → ${list(details.to)}`;
       return `Recipe of ${name} (1 bottle): ${list(details.from)} → ${list(details.to)}`;
     }
+    case "setup.viewer_sections": {
+      const list = (v: unknown) => (Array.isArray(v) && v.length ? v.join(", ") : "none");
+      return `Stock viewer ${name} sees: ${list(details.from)} → ${list(details.to)}`;
+    }
     case "count.correct":
       return `Corrected the count of ${target ? fmtDate(target) : "—"} (version ${show(details.version)}): ${show(details.reason)}`;
     default:

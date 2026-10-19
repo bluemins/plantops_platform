@@ -113,3 +113,11 @@ Local setup: `./scripts/setup-module-db.sh document_store doc_app DOC 3003`, the
   2026-10-04: GitHub rejected `daily.yml` because an unquoted `run:` line contained `x-cron-secret: ` (fixed with
   `run: |`). Reminders created before SMTP is configured remain pending (and old "Email is not set up yet"
   skipped rows are retried once SMTP is configured).
+
+### 2026-10-19 — Document viewer (v0.27.0)
+Plan: `docs/VIEW_ROLES_PHASE_PLAN.md`. The platform role **Document viewer** opens Document Store read-only: list,
+documents and files. Every write already needed `requireManage` (owner / document keeper), the CSV / ZIP stay
+owner-only, and `responsibleChoices` keeps `roleWorksIn`, so a viewer is never responsible. Header label "View only"
+(`viewOnly` in English / Hindi / Odia). `reminders.ts`: a responsible person counts as active only while owner /
+document keeper (the contacts list now includes viewers). Ticked viewers get Document Store alerts like ticked
+keepers. No schema change. Tests: Document Store 109 (+2). **Not yet checked:** on screen.

@@ -9,17 +9,13 @@ import { addDays } from "@/lib/days";
 import type { CanMakeGroup } from "@/lib/recipe";
 import { countDates, latestVersion, versionInfo, type VersionInfo } from "./counts";
 import { schema, withTenant, type StockTx } from "./db";
-import { forbidden, notFound } from "./http";
+import { notFound } from "./http";
 import { canMakeForVersion } from "./recipes";
 import type { SectionKind } from "./schema";
-import { actorOf, requireOwner, type StockUser } from "./session";
+import { actorOf, requireOwner, requireView, type StockUser } from "./session";
+import { visibleSections } from "./viewers";
 
 const { auditLog, countLines, countVersions, counts, items, sections } = schema;
-
-/** Owner, store keeper and PlantOps support (read-only) may look at counts. */
-function requireView(user: StockUser) {
-  if (!user.isSupport && !user.canCount) throw forbidden();
-}
 
 type Line = typeof countLines.$inferSelect;
 
@@ -85,7 +81,7 @@ export async function dayView(user: StockUser, date: string, version?: number): 
   requireView(user);
   const found = await countDay(user, date, version);
   if (!found) return null;
-  return { ...found.view, can_make: await canMakeForVersion(user.tenantId, found.versionId) };
+  return { ...found.view, can_make: await canMakeForVersion(user.tenantId, found.versionId, found.allowed) };
 }
 
 async function countDay(user: StockUser, date: string, version?: number) {
@@ -100,6 +96,8 @@ async function countDay(user: StockUser, date: string, version?: number) {
     const previousDate = addDays(date, -1);
     const prev = await latestVersion(tx, user.tenantId, previousDate);
     const prevClosing = prev ? closingByItem(await linesOf(tx, prev.version.id)) : new Map();
+    // a Stock viewer sees only their sections (null = everything)
+    const allowed = await visibleSections(tx, user);
 
     // Current section and limit of every item in this count (an item's section is today's, not that day's).
     const ids = [...new Set(lines.map((l) => l.itemId))];
@@ -139,7 +137,7 @@ async function countDay(user: StockUser, date: string, version?: number) {
         comparison: compare({ finished, previousCounted: !!prev, previous, production: production_total, closing, unit: first.unit }),
       });
     }
-    const filled = result.filter((s) => s.rows.length);
+    const filled = result.filter((s) => s.rows.length && (!allowed || allowed.has(s.id)));
     const view: Omit<DayView, "can_make"> = {
       date,
       previous_date: previousDate,
@@ -149,7 +147,7 @@ async function countDay(user: StockUser, date: string, version?: number) {
       sections: filled,
       low: filled.flatMap((s) => s.rows.filter((r) => r.low)),
     };
-    return { view, versionId: shown.id };
+    return { view, versionId: shown.id, allowed };
   });
 }
 
@@ -192,6 +190,8 @@ export async function itemHistory(user: StockUser, itemId: string, limit = 60) {
   return withTenant(user.tenantId, async (tx) => {
     const [row] = await tx.select({ item: items, kind: sections.kind, section: sections.name }).from(items).innerJoin(sections, eq(sections.id, items.sectionId)).where(and(eq(items.tenantId, user.tenantId), eq(items.id, itemId)));
     if (!row) throw notFound("Item not found");
+    const allowed = await visibleSections(tx, user);
+    if (allowed && !allowed.has(row.item.sectionId)) throw notFound("Item not found");
     const finished = row.kind === "finished";
     const minLevel = row.item.minLevel === null ? null : Number(row.item.minLevel);
     // latest version of each count, newest first (one more than shown, for the oldest day's comparison)

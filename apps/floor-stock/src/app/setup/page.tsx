@@ -1,19 +1,24 @@
+import { redirect } from "next/navigation";
 import { productLabel } from "@plantops/module-kit";
 import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
 import { getSettings } from "@/server/settings";
 import { listSetup } from "@/server/setup";
+import { listViewers } from "@/server/viewers";
 import { starterTemplate } from "@/lib/template";
 import { Header } from "../header";
 import { SetupEditor } from "./editor";
 import { ReminderSetting } from "./reminder";
+import { ViewerSections } from "./viewers";
 
 /** "Sections & items": the plant's own list of what is counted each evening. */
 export default async function SetupPage() {
   const user = await requirePageUser("/setup");
+  if (user.isViewer) redirect("/"); // Stock viewers see stock, not the setup
   const [plant, sections, skus, settings] = await Promise.all([kit.branding(user.tenantId), listSetup(user), kit.products(user.tenantId), getSettings(user)]);
   const products = skus.map((s) => ({ id: s.id, label: productLabel(s), active: s.status === "active", per_box: s.units_per_pack }));
   // first start: what the starter list would create, so the owner sees it before saying yes
+  const viewers = user.isOwner ? await listViewers(user) : undefined;
   const template = sections.length === 0 && user.isOwner ? starterTemplate(skus).map((s) => ({ name: s.name, kind: s.kind, items: s.items.map((i) => i.name) })) : null;
 
   return (
@@ -30,6 +35,9 @@ export default async function SetupPage() {
         template={template}
         can={{ owner: user.isOwner, edit: user.canCount && !user.isSupport }}
       />
+      {viewers !== undefined && sections.length > 0 && (
+        <ViewerSections viewers={viewers} sections={sections.map((s) => ({ id: s.id, name: s.name, off: s.status !== "active" }))} />
+      )}
     </div>
   );
 }

@@ -221,3 +221,20 @@ the calendar day is a one-tap switch. No schema change. Tests: `test/count-day.t
 001's 16 / 17 Oct on the day pages and corrects if needed.
 **Made while building:** the "Can make" title says "from the stock of 16 Oct" after midnight; the tile still reads the
 newest count, so in the rare case where both last night and the calendar day are counted before 5 am it says "not done".
+
+### 2026-10-19 — Stock viewer (v0.27.0)
+Plan: `docs/VIEW_ROLES_PHASE_PLAN.md`. The platform role **Stock viewer** opens Floor Stock read-only.
+- Migration `0005_viewer_sections.sql`: `viewer_sections` (tenant, viewer user id, section, on / off, who / when);
+  FORCE RLS; `stock_app` SELECT + INSERT + UPDATE (status, changed_*), no DELETE.
+- `src/server/viewers.ts`: `visibleSections()` (null for everyone but viewers) filters `dayView`, `itemHistory` (404
+  outside), `listSetup` and "Can make" (`canMakeFor(..., allowed)`: product, its materials and their "made from"
+  materials must all be in ticked sections). `listViewers` / `setViewerSections` (owner only, audited as
+  `setup.viewer_sections`, in Recent changes). Owner screen: Sections & items → "Who sees what".
+- Session: `isViewer` (from `viewOnlyIn`); `requireView` moved to `session.ts`. Viewers are redirected from `/setup`;
+  `/count`, `/changes`, CSV and Support access were already closed to them. Header: "View only".
+- Alerts: the count notification carries `no_viewers`; `viewerCountNotifications()` builds one per viewer with sections
+  (only their low / check items; `if_ticked`, dedupe `count:<date>:v<n>:<viewer>`). `setup_changed` has `no_viewers`.
+  `LowItem` / `CheckItem` now carry `item_id`.
+- Tile: summary view `viewer` → only the count status badge.
+- Tests: `test/viewers.test.ts` (12); Floor Stock 187.
+- **Not yet checked:** on screen.

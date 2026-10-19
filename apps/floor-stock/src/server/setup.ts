@@ -16,6 +16,7 @@ import { kit } from "./kit";
 import { recipeData, type RecipeView } from "./recipes";
 import type { OnOff, SectionKind } from "./schema";
 import { actorOf, requireCount, requireOwner, type StockUser } from "./session";
+import { inSections, visibleSections } from "./viewers";
 
 const { auditLog, items, sections } = schema;
 
@@ -55,10 +56,14 @@ const itemView = (r: typeof items.$inferSelect): ItemView => ({
   status: r.status,
 });
 
-/** Every section with its items, in the plant's order (switched-off ones included; screens filter). */
+/**
+ * Every section with its items, in the plant's order (switched-off ones included; screens filter). A Stock viewer gets
+ * only their sections.
+ */
 export async function listSetup(user: StockUser): Promise<SectionView[]> {
   return withTenant(user.tenantId, async (tx) => {
-    const secs = await tx.select().from(sections).where(eq(sections.tenantId, user.tenantId)).orderBy(asc(sections.sortOrder), asc(sections.createdAt));
+    const allowed = await visibleSections(tx, user);
+    const secs = inSections(await tx.select().from(sections).where(eq(sections.tenantId, user.tenantId)).orderBy(asc(sections.sortOrder), asc(sections.createdAt)), allowed);
     const its = await tx.select().from(items).where(eq(items.tenantId, user.tenantId)).orderBy(asc(items.sortOrder), asc(items.createdAt));
     const data = await recipeData(tx, user.tenantId);
     const view = (i: typeof items.$inferSelect): SetupItemView => ({ ...itemView(i), content: data.contents.get(i.id) ?? null, recipe: data.recipes.get(i.id) ?? null });

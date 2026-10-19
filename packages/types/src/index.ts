@@ -30,12 +30,15 @@ export const ROLE_IDS = [
   "office_staff",
   "supervisor",
   "hr_desk",
+  "stock_viewer",
+  "document_viewer",
+  "order_viewer",
 ] as const;
 export const RoleId = z.enum(ROLE_IDS);
 export type RoleId = z.infer<typeof RoleId>;
 
 /** The working module each staff role operates. tenant_admin and plant_staff are not tied to one module. */
-export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin" | "plant_staff">, ModuleId> = {
+export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin" | "plant_staff" | ViewRole>, ModuleId> = {
   lab_technician: "lab_records",
   /** a lab technician who can also approve batches, release holds, verify entries and set limits */
   lab_lead: "lab_records",
@@ -54,6 +57,36 @@ export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin" | "plant_staff">
   /** Job applications: sees and calls applicants, changes status, adds notes (openings, CSV and Remove now are owner-only) */
   hr_desk: "job_applications",
 };
+
+/**
+ * View-only roles (owner, 2026-10-19; docs/VIEW_ROLES_PHASE_PLAN.md): the person opens that one module read-only and
+ * never works in it (they are NOT in ROLE_MODULE, so roleWorksIn stays false: never staff, never responsible for a
+ * document, never in a module's working-role lists). A Stock viewer sees only the sections the owner picks for them; an
+ * Order viewer sees the orders without amounts (like Plant staff).
+ */
+export type ViewRole = "stock_viewer" | "document_viewer" | "order_viewer";
+export const VIEW_ROLE_MODULE: Record<ViewRole, ModuleId> = {
+  stock_viewer: "floor_stock",
+  document_viewer: "document_store",
+  order_viewer: "order_capture",
+};
+const isViewRole = (role: RoleId): role is ViewRole => role in VIEW_ROLE_MODULE;
+/** Does this role give the read-only view of this module? */
+export const viewRoleFor = (role: RoleId, moduleId: ModuleId) => isViewRole(role) && VIEW_ROLE_MODULE[role] === moduleId;
+
+/**
+ * Modules whose viewers can be ticked for alerts ("Gets alerts", owner 2026-10-19). Not Order Capture: its new-order
+ * alert carries the amount, which viewers never see.
+ */
+export const VIEWER_ALERTS: readonly ModuleId[] = ["floor_stock", "document_store"];
+
+/**
+ * May someone with this role be ticked for (and receive) this module's alerts? A role that works there, or the module's
+ * view role where VIEWER_ALERTS allows it. Owners always get alerts and are handled separately.
+ */
+export function getsAlertsIn(role: RoleId, moduleId: ModuleId): boolean {
+  return roleWorksIn(role, moduleId) || (viewRoleFor(role, moduleId) && VIEWER_ALERTS.includes(moduleId));
+}
 
 /**
  * The only modules plant_staff WORKS in (owner, 2026-10-15): Plant staff marks "this person is an employee", so it
@@ -76,14 +109,13 @@ export const OWNER_ONLY_ALERTS: readonly ModuleId[] = ["attendance_salary"];
  */
 export const PLANT_STAFF_VIEW_ONLY: readonly ModuleId[] = ["order_capture"];
 
-/** Does this person have only the read-only view of this module (plant staff in a view-only module, no working role)? */
+/**
+ * Does this person have only the read-only view of this module: plant staff in a view-only module, or the module's view
+ * role (Stock / Document / Order viewer), and no owner or working role there?
+ */
 export function viewOnlyIn(roles: readonly RoleId[], moduleId: ModuleId): boolean {
-  return (
-    roles.includes("plant_staff") &&
-    PLANT_STAFF_VIEW_ONLY.includes(moduleId) &&
-    !roles.includes("tenant_admin") &&
-    !roles.some((r) => roleWorksIn(r, moduleId))
-  );
+  const viewer = (roles.includes("plant_staff") && PLANT_STAFF_VIEW_ONLY.includes(moduleId)) || roles.some((r) => viewRoleFor(r, moduleId));
+  return viewer && !roles.includes("tenant_admin") && !roles.some((r) => roleWorksIn(r, moduleId));
 }
 
 /**
@@ -107,6 +139,7 @@ export const DESK_ROLES: Partial<Record<ModuleId, readonly RoleId[]>> = { attend
 export function roleWorksIn(role: RoleId, moduleId: ModuleId): boolean {
   if (role === "tenant_admin") return false;
   if (role === "plant_staff") return PLANT_STAFF_MODULES.includes(moduleId);
+  if (isViewRole(role)) return false;
   return ROLE_MODULE[role] === moduleId;
 }
 
@@ -163,9 +196,10 @@ export const SUMMARY_TOKEN_SECONDS = 60;
 /**
  * Whose tile asks for numbers: the owner's read-only summary, a working staff member's, or "desk" = a non-owner holding
  * one of DESK_ROLES for that module (docs/ATTENDANCE_ROLES_PHASE_PLAN.md Phase 0 finding 2). A module that doesn't know
- * "desk" treats it like "staff".
+ * "desk" treats it like "staff". "viewer" = a view-only person (viewOnlyIn, v0.27.0); a module that doesn't know it
+ * treats it like "staff".
  */
-export const SummaryView = z.enum(["owner", "staff", "desk"]);
+export const SummaryView = z.enum(["owner", "staff", "desk", "viewer"]);
 export type SummaryView = z.infer<typeof SummaryView>;
 export const SummaryRequestPayload = z.object({
   iss: z.literal(TOKEN_ISSUER),
@@ -247,6 +281,13 @@ export const NotificationInput = z.object({
   also_user_ids: z.array(z.uuid()).max(20).optional(),
   /** only also_user_ids, nobody else (e.g. "you are now responsible for …"); each is still checked */
   only_listed: z.boolean().optional(),
+  /**
+   * leave out people whose only link to the module is its view role (Floor Stock sends Stock viewers their own version,
+   * limited to their sections)
+   */
+  no_viewers: z.boolean().optional(),
+  /** each also_user_ids person must also be ticked for this module ("Gets alerts") and allowed its alerts (getsAlertsIn) */
+  if_ticked: z.boolean().optional(),
 });
 export type NotificationInput = z.input<typeof NotificationInput>;
 export const NotificationResult = z.object({ recipients: z.number().int(), created: z.number().int() });

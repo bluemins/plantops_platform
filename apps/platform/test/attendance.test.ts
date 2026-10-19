@@ -2,7 +2,7 @@
 // its alerts are OWNER-ONLY - nobody can be ticked for them, so a worker never gets a bell about a colleague's
 // attendance. An event about one worker (also_user_ids + only_listed) still reaches that worker.
 import { beforeAll, describe, expect, it } from "vitest";
-import { OWNER_ONLY_ALERTS, ROLE_IDS, ROLE_MODULE, roleWorksIn } from "@plantops/types";
+import { OWNER_ONLY_ALERTS, ROLE_IDS, ROLE_MODULE, VIEW_ROLE_MODULE, roleWorksIn, type ViewRole } from "@plantops/types";
 import { getAlertContacts } from "@/server/sso";
 import * as handoffRoute from "@/app/api/sso/handoff/route";
 import * as launcherRoute from "@/app/api/launcher/route";
@@ -197,7 +197,8 @@ describe("Office staff and Supervisor (docs/ATTENDANCE_ROLES_PHASE_PLAN.md, migr
     const db = new Map(rows.map((r) => [r.id, r.module_id]));
     for (const role of ROLE_IDS) {
       expect(db.has(role), role).toBe(true);
-      if (role !== "tenant_admin" && role !== "plant_staff") expect(db.get(role), role).toBe(ROLE_MODULE[role]);
+      if (role in VIEW_ROLE_MODULE) expect(db.get(role), role).toBe(VIEW_ROLE_MODULE[role as ViewRole]);
+      else if (role !== "tenant_admin" && role !== "plant_staff") expect(db.get(role), role).toBe(ROLE_MODULE[role as keyof typeof ROLE_MODULE]);
     }
     expect(db.get("office_staff")).toBe("attendance_salary");
     expect(db.get("supervisor")).toBe("attendance_salary");

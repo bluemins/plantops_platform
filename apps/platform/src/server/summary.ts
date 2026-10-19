@@ -2,7 +2,7 @@
 // Never stored (CLAUDE.md: owner tiles show the same data staff enter, never a copy).
 import { eq } from "drizzle-orm";
 import { canAccessModule } from "@plantops/auth";
-import { DESK_ROLES, MODULE_SUMMARY_PATH, ModuleSummary, SUMMARY_TOKEN_SECONDS, type ModuleId, type RoleId, type SummaryView } from "@plantops/types";
+import { DESK_ROLES, viewOnlyIn, MODULE_SUMMARY_PATH, ModuleSummary, SUMMARY_TOKEN_SECONDS, type ModuleId, type RoleId, type SummaryView } from "@plantops/types";
 import type { CurrentUser } from "./auth";
 import { appDb, schema, superDb, withTenant } from "./db";
 import { forbidden } from "./http";
@@ -39,10 +39,12 @@ export async function fetchModuleSummary(moduleId: ModuleId, tenantId: string, v
 
 /**
  * Which numbers this person's tile asks for: owner, "desk" (a non-owner holding one of the module's DESK_ROLES, e.g.
- * Attendance's Office staff / Supervisor), else staff.
+ * Attendance's Office staff / Supervisor), "viewer" (view-only: a Stock / Document / Order viewer, Plant staff in
+ * Order Capture), else staff.
  */
 export function summaryViewFor(roles: readonly RoleId[], moduleId: ModuleId): SummaryView {
   if (roles.includes("tenant_admin")) return "owner";
+  if (viewOnlyIn(roles, moduleId)) return "viewer";
   return DESK_ROLES[moduleId]?.some((r) => roles.includes(r)) ? "desk" : "staff";
 }
 

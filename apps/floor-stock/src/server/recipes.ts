@@ -223,11 +223,12 @@ export async function setRecipe(user: StockUser, productId: string, input: z.inf
 
 // ---------- the result, for one version of a count ----------
 /** "Can make" for one saved version (plant products loaded only when the plant has a recipe). */
-export async function canMakeForVersion(tenantId: string, versionId: string): Promise<CanMakeGroup[]> {
+/** `allowed`: a Stock viewer's sections (null = all); see canMakeFor. */
+export async function canMakeForVersion(tenantId: string, versionId: string, allowed: Set<string> | null = null): Promise<CanMakeGroup[]> {
   const any = await withTenant(tenantId, (tx) => tx.select({ id: recipes.id }).from(recipes).where(and(eq(recipes.tenantId, tenantId), eq(recipes.status, "active"))).limit(1));
   if (!any.length) return [];
   const products = await kit.products(tenantId);
-  return withTenant(tenantId, async (tx) => canMakeFor(tx, tenantId, await tx.select().from(countLines).where(eq(countLines.versionId, versionId)), products));
+  return withTenant(tenantId, async (tx) => canMakeFor(tx, tenantId, await tx.select().from(countLines).where(eq(countLines.versionId, versionId)), products, allowed));
 }
 
 /** Bottles per box: the linked product's pack size; an item without a product: its case_size, else 1. */
@@ -241,16 +242,23 @@ function perBox(item: typeof items.$inferSelect, recipe: RecipeView | undefined,
 
 /**
  * "Can make" for one version's lines. Empty when the plant has no recipe yet (so nothing shows until the owner sets
- * one). Products are today's active finished items, in the plant's order.
+ * one). Products are today's active finished items, in the plant's order. With `allowed` (a Stock viewer's sections,
+ * owner 2026-10-19) a product is shown only when its own section and the section of every material it uses (and of what
+ * those are made from) are allowed.
  */
-export async function canMakeFor(tx: StockTx, tenantId: string, lines: (typeof countLines.$inferSelect)[], products: TenantSku[]): Promise<CanMakeGroup[]> {
+export async function canMakeFor(tx: StockTx, tenantId: string, lines: (typeof countLines.$inferSelect)[], products: TenantSku[], allowed: Set<string> | null = null): Promise<CanMakeGroup[]> {
   const data = await recipeData(tx, tenantId);
   if (!data.recipes.size) return [];
   const rows = await tx.select({ item: items, section: sections }).from(items).innerJoin(sections, eq(sections.id, items.sectionId)).where(eq(items.tenantId, tenantId));
   rows.sort((a, b) => a.section.sortOrder - b.section.sortOrder || a.item.sortOrder - b.item.sortOrder || a.item.createdAt.getTime() - b.item.createdAt.getTime());
 
+  const sectionOf = new Map(rows.map((r) => [r.item.id, r.section.id]));
+  const seen = (itemId: string) => !allowed || allowed.has(sectionOf.get(itemId) ?? "");
+  const allSeen = (productId: string) =>
+    seen(productId) &&
+    (data.recipes.get(productId)?.lines ?? []).every((l) => seen(l.material_item_id) && (data.recipes.get(l.material_item_id)?.lines ?? []).every((m) => seen(m.material_item_id)));
   const finished: Product[] = rows
-    .filter((r) => r.section.kind === "finished" && r.section.status === "active" && r.item.status === "active")
+    .filter((r) => r.section.kind === "finished" && r.section.status === "active" && r.item.status === "active" && allSeen(r.item.id))
     .map((r) => {
       const recipe = data.recipes.get(r.item.id);
       return { item_id: r.item.id, name: r.item.name, unit: r.item.unit, per_box: perBox(r.item, recipe, products), lines: recipe?.lines ?? null };

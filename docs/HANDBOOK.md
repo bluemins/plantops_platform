@@ -538,6 +538,18 @@ the Today board, the Staff list or the Salary tab, and don't mark their own atte
 - Launcher tiles: Office staff see "Attendance desk", supervisors "Today board", both with attendance numbers, never
   money.
 
+### View-only roles: Stock viewer, Document viewer, Order viewer (v0.27.0)
+For people who only need to **look** (a manager, the sales person). Give the role on PlantOps → Manage users; the
+button shows when the module is switched on. They can't enter or change anything.
+- **Stock viewer** (Floor Stock): then open Floor Stock → ⚙ Sections & items → **Who sees what** and tick the sections
+  that person may see (a new viewer appears there within a minute). With nothing ticked they see no stock. They see the
+  day page, history and low stock of those sections, and "Can make" for a product only when all the sections its recipe
+  uses are ticked.
+- **Document viewer** (Document Store): sees every document and opens its files.
+- **Order viewer** (Order Capture): sees the orders without amounts, like Plant staff.
+- **Alerts:** tick "Gets Floor Stock alerts" / "Gets Document Store alerts" on Manage users if they should get them. A
+  Stock viewer's count alert lists only the items in their sections. Order viewers can't get Order Capture alerts.
+
 ### Job applications: public page, Turnstile, QR poster, removal (v0.25.0)
 - **Switching it on for a plant:** super_admin → the plant → plan → tick Job applications (optionally set "Job
   applications storage (MB)"). Give the person who calls applicants the **HR desk** role on Manage users; tick "Gets

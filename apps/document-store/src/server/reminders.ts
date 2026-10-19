@@ -6,6 +6,7 @@
 // nothing waits to be emailed. If email is set up again, each person gets ONE email listing all their due
 // documents, and a failed send (provider down, network blocked) is tried again on each run for up to RETRY_DAYS.
 import { and, eq, gt, sql } from "drizzle-orm";
+import { roleWorksIn } from "@plantops/types";
 import { fmtDate } from "@plantops/module-kit/format";
 import { reminderStage, stageText, todayIst } from "@/lib/expiry";
 import { docDb, schema, withTenant } from "./db";
@@ -36,7 +37,8 @@ export async function queueReminders(tenantId: string, today = todayIst(), email
   const rows = due.flatMap(({ doc, stage }) => {
     const people = new Map<string, { name: string; email: string | null }>();
     for (const o of owners) people.set(o.user_id, { name: o.display_name, email: o.email ?? null });
-    const resp = contacts.find((c) => c.user_id === doc.responsible_user_id);
+    // still an owner / document keeper (a Document viewer is in the contacts too, but can't be responsible)
+    const resp = contacts.find((c) => c.user_id === doc.responsible_user_id && c.roles.some((r) => r === "tenant_admin" || roleWorksIn(r, "document_store")));
     people.set(doc.responsible_user_id, resp ? { name: resp.display_name, email: resp.email ?? null } : { name: doc.responsible_name, email: null });
     return [...people].map(([userId, p]) => {
       const active = !!resp || owners.some((o) => o.user_id === userId); // the responsible person may have left

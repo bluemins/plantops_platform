@@ -262,6 +262,7 @@ export type SavedCount = Awaited<ReturnType<typeof saveCount>>;
 
 /** A finished good whose Sold came out negative against the day before ("check the count"). */
 export interface CheckItem {
+  item_id: string;
   name: string;
   unit: string;
   /** how much more than possible */
@@ -293,7 +294,7 @@ async function negativeSold(
       closing: sum(mine.filter((l) => l.kind === "stock").map((l) => Number(l.qty))),
       unit: mine[0]!.unit,
     });
-    if (c.kind === "check") out.push({ name: mine[0]!.itemName, unit: mine[0]!.unit, extra: c.value });
+    if (c.kind === "check") out.push({ item_id: id, name: mine[0]!.itemName, unit: mine[0]!.unit, extra: c.value });
   }
   return out;
 }

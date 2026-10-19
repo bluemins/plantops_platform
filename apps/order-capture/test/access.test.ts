@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { ACCESS, can, requireAccess, type Action } from "@/server/access";
 import { roleLabel, whoFor } from "@/server/session";
-import { plant, refused } from "./helpers";
+import { ocUser, plant, refused } from "./helpers";
 
 const p = plant();
 const people = { owner: p.owner, desk: p.desk, staff: p.staff, keeper: p.keeper, support: p.support };
@@ -38,6 +38,9 @@ describe("who is who", () => {
     expect(whoFor(["plant_staff"])).toBe("viewer"); // view only, no amounts (owner, 2026-10-14)
     expect(whoFor(["plant_staff", "store_keeper"])).toBe("viewer");
     expect(whoFor(["tenant_admin", "plant_staff"])).toBe("owner");
+    expect(whoFor(["order_viewer"])).toBe("viewer"); // Order viewer role (v0.27.0): same view as plant staff
+    expect(whoFor(["order_viewer", "order_desk"])).toBe("desk");
+    expect(whoFor(["stock_viewer"])).toBeNull(); // another module's viewer
     expect(whoFor(["store_keeper"])).toBeNull();
     expect(whoFor(["complaint_desk"])).toBeNull();
     expect(whoFor(["lab_technician", "lab_lead"])).toBeNull();
@@ -56,6 +59,10 @@ describe("the access table", () => {
 
   it.each(TABLE)("%s: owner %s, Order desk %s, plant staff %s, store keeper %s, support %s", (action, ...expected) => {
     expect(Object.values(people).map((u) => can(u, action))).toEqual(expected);
+  });
+
+  it.each(TABLE)("%s: an Order viewer may do exactly what plant staff may", (action, _o, _d, staff) => {
+    expect(can(ocUser(p.owner.tenantId, ["order_viewer"], "Vimal"), action)).toBe(staff);
   });
 
   it("refusals say why in plain words", async () => {

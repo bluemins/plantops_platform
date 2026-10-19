@@ -23,6 +23,7 @@ export const ownersOf = (contacts: AlertContact[]) => contacts.filter((c) => c.r
 
 /** An item that went below its limit with this count (for the owner's notification). */
 export interface LowItem {
+  item_id: string;
   name: string;
   qty: number;
   min: number;
@@ -87,7 +88,7 @@ export async function queueLowStock(tx: StockTx, tenantId: string, date: string,
     }
   }
   const added = rows.length ? await tx.insert(lowStockAlerts).values(rows).onConflictDoNothing().returning({ id: lowStockAlerts.id }) : [];
-  return { rows: added.length, items: newly.map((c) => ({ name: c.name, qty: c.closing, min: Number(c.min) })), ids: newly.map((c) => c.itemId) };
+  return { rows: added.length, items: newly.map((c) => ({ item_id: c.itemId, name: c.name, qty: c.closing, min: Number(c.min) })), ids: newly.map((c) => c.itemId) };
 }
 
 /** The email for one owner: every queued item, grouped by day. */

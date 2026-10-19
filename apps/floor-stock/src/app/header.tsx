@@ -15,7 +15,7 @@ const initials = (name: string) =>
 /** Top bar on every screen: plant logo + name, who is logged in, the way back to PlantOps (or out of support). */
 export async function Header({ user, plant }: { user: StockUser; plant: TenantBranding | null }) {
   const unread = user.isSupport ? null : await kit.unread(user.tenantId, user.userId);
-  const role = user.isSupport ? "Read-only" : user.isOwner ? "Owner" : "Store keeper";
+  const role = user.isSupport ? "Read-only" : user.isOwner ? "Owner" : user.isViewer ? "View only" : "Store keeper";
   return (
     <>
       {user.isSupport && (

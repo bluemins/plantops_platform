@@ -3,16 +3,19 @@
 //   * one notification per saved count: low stock > check the count > corrected > saved (most serious wins the title)
 //   * setup changed by a store keeper / plant staff: bell only, so building the item list doesn't flood the phone
 //   * "Today's stock count is not done yet" at the plant's chosen hour (default 8 pm India time; the evening job)
+// Stock viewers (v0.27.0) ticked for alerts get their own version of a count notification, listing only the items in
+// their sections: the main one goes out with no_viewers, theirs with if_ticked (the platform still checks the tick).
 import { randomUUID } from "node:crypto";
-import { sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { NotificationInput } from "@plantops/types";
 import { qty } from "@/lib/compare";
 import { istDay, istTime } from "@/lib/days";
 import { latestVersion, type SavedCount } from "./counts";
 import { reminderFor } from "./settings";
-import { stockDb, withTenant } from "./db";
+import { schema, stockDb, withTenant } from "./db";
 import { kit } from "./kit";
 import type { StockUser } from "./session";
+import { viewerSectionMap } from "./viewers";
 
 const MAX_LISTED = 3;
 const istHour = (at: Date) => Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", hourCycle: "h23" }).format(at));
@@ -54,7 +57,30 @@ export function countNotification(user: StockUser, saved: SavedCount): Notificat
     level: "push",
     dedupe_key: `count:${saved.date}:v${saved.version}`,
     exclude_user_id: user.userId,
+    no_viewers: true,
   };
+}
+
+/**
+ * Each Stock viewer's own version of the count notification: low / check items only from their sections (owner,
+ * 2026-10-19). Sent to that viewer only, and only if the owner ticked them for Floor Stock alerts (if_ticked).
+ */
+export async function viewerCountNotifications(user: StockUser, saved: SavedCount): Promise<NotificationInput[]> {
+  return withTenant(user.tenantId, async (tx) => {
+    const viewers = await viewerSectionMap(tx, user.tenantId);
+    viewers.delete(user.userId);
+    if (!viewers.size) return [];
+    const ids = [...new Set([...saved.low_items.map((i) => i.item_id), ...saved.checks.map((c) => c.item_id)])];
+    const rows = ids.length
+      ? await tx.select({ id: schema.items.id, section: schema.items.sectionId }).from(schema.items).where(and(eq(schema.items.tenantId, user.tenantId), inArray(schema.items.id, ids)))
+      : [];
+    const sectionOf = new Map(rows.map((r) => [r.id, r.section]));
+    return [...viewers].map(([viewerId, sections]) => {
+      const mine = (id: string) => sections.has(sectionOf.get(id) ?? "");
+      const n = countNotification(user, { ...saved, low_items: saved.low_items.filter((i) => mine(i.item_id)), checks: saved.checks.filter((c) => mine(c.item_id)) });
+      return { ...n, dedupe_key: `${n.dedupe_key}:${viewerId}`, no_viewers: undefined, also_user_ids: [viewerId], only_listed: true, if_ticked: true };
+    });
+  });
 }
 
 const FIELD_WORDS: Record<string, string> = {
@@ -94,6 +120,7 @@ export function setupNotification(user: StockUser, change: SetupChange): Notific
     level: "bell",
     dedupe_key: `setup:${randomUUID()}`,
     exclude_user_id: user.userId,
+    no_viewers: true,
   };
 }
 

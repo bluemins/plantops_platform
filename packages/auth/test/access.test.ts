@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { roleWorksIn, viewOnlyIn, type ModuleId, type RoleId } from "@plantops/types";
+import { getsAlertsIn, roleWorksIn, viewOnlyIn, type ModuleId, type RoleId } from "@plantops/types";
 import { AccessDeniedError, canAccessModule, requireModuleAccess, requireRole } from "../src";
 
-const enabled: ModuleId[] = ["lab_records", "floor_stock", "complaint_box", "order_capture", "attendance_salary"];
+const enabled: ModuleId[] = ["lab_records", "document_store", "floor_stock", "complaint_box", "order_capture", "attendance_salary"];
 
 describe("canAccessModule", () => {
   it.each<[RoleId[], ModuleId, boolean]>([
@@ -34,6 +34,14 @@ describe("canAccessModule", () => {
     [["store_keeper"], "order_capture", false],
     [["complaint_desk"], "order_capture", false],
     [["tenant_admin"], "order_capture", true],
+    // view-only roles (owner, 2026-10-19): each opens its own module only
+    [["stock_viewer"], "floor_stock", true],
+    [["stock_viewer"], "document_store", false],
+    [["stock_viewer"], "order_capture", false],
+    [["document_viewer"], "document_store", true],
+    [["document_viewer"], "floor_stock", false],
+    [["order_viewer"], "order_capture", true],
+    [["order_viewer"], "attendance_salary", false],
   ])("%j -> %s = %s", (roles, mod, expected) => {
     expect(canAccessModule(roles, enabled, mod)).toBe(expected);
   });
@@ -60,6 +68,34 @@ describe("viewOnlyIn", () => {
     expect(viewOnlyIn(["plant_staff"], "lab_records")).toBe(false); // still excluded
     expect(viewOnlyIn(["plant_staff"], "floor_stock")).toBe(false); // not there at all
     expect(viewOnlyIn(["store_keeper"], "order_capture")).toBe(false);
+  });
+
+  it("a view role gives the read-only view of its own module, unless the person works there or owns the plant", () => {
+    expect(viewOnlyIn(["stock_viewer"], "floor_stock")).toBe(true);
+    expect(viewOnlyIn(["stock_viewer", "store_keeper"], "floor_stock")).toBe(false); // the working role wins
+    expect(viewOnlyIn(["tenant_admin", "stock_viewer"], "floor_stock")).toBe(false);
+    expect(viewOnlyIn(["document_viewer"], "document_store")).toBe(true);
+    expect(viewOnlyIn(["document_viewer", "document_keeper"], "document_store")).toBe(false);
+    expect(viewOnlyIn(["order_viewer"], "order_capture")).toBe(true);
+    expect(viewOnlyIn(["order_viewer"], "floor_stock")).toBe(false);
+  });
+
+  it("view roles never work in a module", () => {
+    for (const r of ["stock_viewer", "document_viewer", "order_viewer"] as RoleId[]) {
+      for (const m of enabled) expect(roleWorksIn(r, m), `${r} ${m}`).toBe(false);
+    }
+  });
+});
+
+describe("getsAlertsIn", () => {
+  it("working roles, plus Stock and Document viewers in their own module; never Order viewers", () => {
+    expect(getsAlertsIn("store_keeper", "floor_stock")).toBe(true);
+    expect(getsAlertsIn("stock_viewer", "floor_stock")).toBe(true);
+    expect(getsAlertsIn("stock_viewer", "document_store")).toBe(false);
+    expect(getsAlertsIn("document_viewer", "document_store")).toBe(true);
+    expect(getsAlertsIn("order_viewer", "order_capture")).toBe(false); // the new-order alert carries the amount
+    expect(getsAlertsIn("plant_staff", "order_capture")).toBe(false);
+    expect(getsAlertsIn("tenant_admin", "floor_stock")).toBe(false); // owners are handled separately
   });
 });
 

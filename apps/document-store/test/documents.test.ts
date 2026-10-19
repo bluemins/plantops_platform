@@ -9,6 +9,7 @@ import {
   listDocuments,
   readFile,
   renewDocument,
+  responsibleChoices,
   setArchived,
   setResponsible,
   uploadFile,
@@ -17,7 +18,7 @@ import { exportDocumentBundle, exportDocuments } from "@/server/export";
 import { supportUser } from "@/server/session";
 import { expiryStatus } from "@/lib/expiry";
 import { KEEPER_ID, NOMAIL_ID, OWNER_ID, startFakePlatform, type FakePlatform } from "./fake-platform";
-import { asApp, asOwner, dbError, inDays, JPEG, PDF, plant, PNG, refused, WEBP } from "./helpers";
+import { asApp, asOwner, dbError, docUser, inDays, JPEG, PDF, plant, PNG, refused, WEBP } from "./helpers";
 
 let platform: FakePlatform;
 let P: ReturnType<typeof plant>;
@@ -315,5 +316,35 @@ describe("owner's export", () => {
     expect(csv.startsWith("﻿document_id,status,version,kind,name")).toBe(true);
     expect(csv).toMatch(/,2,renewal,FSSAI licence,NEW-2027,/);
     expect(csv).toMatch(/,archived,|,active,/);
+  });
+});
+
+// Document viewer (v0.27.0, owner 2026-10-19): sees every document and opens its files, never changes anything, and
+// can never be the responsible person.
+describe("Document viewer", () => {
+  it("reads documents and files; every change, the export and the responsible list are closed to them", async () => {
+    const viewer = docUser(P.tenantId, ["document_viewer"], "Vimal");
+    expect(viewer).toMatchObject({ canManage: false, isOwner: false });
+    const d = await addDoc({ name: "Pollution board consent" });
+    expect((await listDocuments(viewer, { filter: "all" })).some((x) => x.id === d.id)).toBe(true);
+    const doc = await getDocument(viewer, d.id);
+    expect((await readFile(viewer, doc.current.file.id)).data.equals(PDF)).toBe(true);
+
+    expect((await refused(() => upload(viewer))).status).toBe(403);
+    expect((await refused(() => addDoc({}, viewer))).status).toBe(403);
+    expect((await refused(() => renewDocument(viewer, d.id, {} as never))).status).toBe(403);
+    expect((await refused(() => correctDocument(viewer, d.id, {} as never))).status).toBe(403);
+    expect((await refused(() => setResponsible(viewer, d.id, { responsible_user_id: KEEPER_ID } as never))).status).toBe(403);
+    expect((await refused(() => setArchived(viewer, d.id, { archived: true } as never))).status).toBe(403);
+    expect((await refused(() => exportDocuments(viewer))).status).toBe(403);
+  });
+
+  it("is never offered as the responsible person", async () => {
+    const tenantId = crypto.randomUUID();
+    const viewerId = crypto.randomUUID();
+    platform.contacts = [...platform.contacts!, { user_id: viewerId, display_name: "Vimal", phone: null, email: null, roles: ["document_viewer"] }];
+    const people = await responsibleChoices(docUser(tenantId, ["tenant_admin"], "Sujata"));
+    expect(people.some((p) => p.user_id === viewerId)).toBe(false);
+    expect(people.some((p) => p.user_id === KEEPER_ID)).toBe(true);
   });
 });

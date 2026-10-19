@@ -2,10 +2,11 @@
 // Modules only report events; the platform decides who receives them, stores one row per person (own read mark)
 // and sends "push" level ones to the phones those people turned on. Who (N2, decided 2026-10-11):
 //   the plant's active owners (always) + people the owner ticked for this module + also_user_ids (the people the
-//   event is about), each active and working in the module (roleWorksIn) - minus whoever did it.
+//   event is about), each active and working in the module (roleWorksIn; ticked Stock / Document viewers too,
+//   getsAlertsIn) - minus whoever did it.
 import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import { NOTIFICATION_KINDS, NotificationInput, NotificationMode, OWNER_ONLY_ALERTS, roleWorksIn, type ModuleId, type RoleId, isEmployee } from "@plantops/types";
+import { NOTIFICATION_KINDS, NotificationInput, NotificationMode, OWNER_ONLY_ALERTS, getsAlertsIn, roleWorksIn, type ModuleId, type RoleId, isEmployee } from "@plantops/types";
 import type { CurrentUser } from "./auth";
 import { schema, withTenant, type PlatformTx } from "./db";
 import { badRequest, forbidden, notFound } from "./http";
@@ -29,14 +30,25 @@ export function targetUrl(moduleId: string | null, link: string | null) {
   return link ? `${url}&next=${encodeURIComponent(link)}` : url;
 }
 
-/** Who gets this module's event in this plant (the rule above). Inside the plant's transaction. */
-async function recipientsFor(tx: PlatformTx, tenantId: string, moduleId: ModuleId, alsoUserIds: string[] = [], onlyListed = false) {
+type Who = Pick<Input, "also_user_ids" | "only_listed" | "no_viewers" | "if_ticked">;
+
+/**
+ * Who gets this module's event in this plant (the rule above). Inside the plant's transaction. Ticked people need a
+ * role that may get the module's alerts (getsAlertsIn: working roles, plus Stock / Document viewers); `no_viewers`
+ * leaves out the viewers. People in also_user_ids need a working role, or with `if_ticked` must be ticked and allowed
+ * the module's alerts (Floor Stock's own version for each Stock viewer, v0.27.0).
+ */
+async function recipientsFor(tx: PlatformTx, tenantId: string, moduleId: ModuleId, who: Who = {}) {
+  const alsoUserIds = who.also_user_ids ?? [];
+  const onlyListed = who.only_listed ?? false;
   if (onlyListed && !alsoUserIds.length) return [];
   // owner-only modules (Attendance): ticks are never used, even if a row exists
-  const ticked = onlyListed || OWNER_ONLY_ALERTS.includes(moduleId)
+  const tickRows = OWNER_ONLY_ALERTS.includes(moduleId)
     ? []
     : await tx.select({ id: alertRecipients.userId }).from(alertRecipients).where(and(eq(alertRecipients.tenantId, tenantId), eq(alertRecipients.moduleId, moduleId)));
-  const candidates = [...new Set([...ticked.map((t) => t.id), ...alsoUserIds])];
+  const tickedIds = new Set(tickRows.map((t) => t.id));
+  const listed = new Set(alsoUserIds);
+  const candidates = [...new Set([...(onlyListed ? [] : tickedIds), ...alsoUserIds])];
   const rows = await tx
     .select({ id: users.id, role: userRoles.roleId })
     .from(users)
@@ -54,11 +66,21 @@ async function recipientsFor(tx: PlatformTx, tenantId: string, moduleId: ModuleI
             : eq(userRoles.roleId, "tenant_admin"),
       ),
     );
-  const people = new Set<string>();
-  for (const r of rows) {
-    if (r.role === "tenant_admin" || roleWorksIn(r.role as RoleId, moduleId)) people.add(r.id);
+  const roles = new Map<string, RoleId[]>();
+  for (const r of rows) roles.set(r.id, [...(roles.get(r.id) ?? []), r.role as RoleId]);
+  const people: string[] = [];
+  for (const [id, rs] of roles) {
+    const owner = rs.includes("tenant_admin");
+    const works = rs.some((r) => roleWorksIn(r, moduleId));
+    const alerts = rs.some((r) => getsAlertsIn(r, moduleId));
+    let ok: boolean;
+    if (listed.has(id) && who.if_ticked) ok = !owner && tickedIds.has(id) && alerts;
+    else if (listed.has(id)) ok = owner || works;
+    else if (owner) ok = !onlyListed;
+    else ok = !onlyListed && tickedIds.has(id) && (who.no_viewers ? works : alerts);
+    if (ok) people.push(id);
   }
-  return [...people];
+  return people;
 }
 
 /**
@@ -93,7 +115,7 @@ export async function notifyPlant(moduleId: ModuleId, tenantId: string, input: I
   const rows = await withTenant(tenantId, async (tx) => {
     const enabled = await enabledModules(tx, tenantId);
     if (!enabled.includes(moduleId)) throw forbidden("This module is not enabled for this plant");
-    const recipients = (await recipientsFor(tx, tenantId, moduleId, input.also_user_ids, input.only_listed)).filter((id) => id !== input.exclude_user_id);
+    const recipients = (await recipientsFor(tx, tenantId, moduleId, input)).filter((id) => id !== input.exclude_user_id);
     const people = await withPrefs(tx, tenantId, input.kind, recipients, input.level);
     if (!people.length) return { recipients: 0, created: [] as { id: string; userId: string; level: string }[] };
     const created = await tx
@@ -267,7 +289,7 @@ async function kindsFor(tx: PlatformTx, user: CurrentUser) {
     if (OWNER_ONLY_ALERTS.includes(k.module) && !k.aboutYou) return false;
     // "about you" in an owner-only module (Attendance): only employees are tracked, so only Plant staff get them
     if (OWNER_ONLY_ALERTS.includes(k.module) && !isEmployee(user.roles)) return false;
-    return user.roles.some((r) => roleWorksIn(r, k.module!));
+    return user.roles.some((r) => getsAlertsIn(r, k.module!));
   });
 }
 

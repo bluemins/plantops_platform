@@ -425,3 +425,9 @@ Asked by the owner 2026-10-19: the New order box searched by phone only.
 - No match for a typed name → the name is kept and filled into the new customer's Name box once the number is typed.
 - No schema or permission change. **Tests:** Order Capture 267 (+3).
 - **Not yet checked:** on screen.
+
+### 2026-10-19 — Order viewer (v0.27.0)
+Plan: `docs/VIEW_ROLES_PHASE_PLAN.md`. The platform role **Order viewer** is `viewOnlyIn` Order Capture, so `whoFor`
+already makes it a "viewer": the same view as Plant staff (orders, no amounts, no writes). It can never be ticked for
+Order Capture alerts (the new-order alert has the amount). No code change; tests: Order Capture 284 (+1 per access
+row).

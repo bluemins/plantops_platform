@@ -65,6 +65,11 @@ through the Lab Records API.
   Job applications. Its public page (`jobs.bluemins.life`, `/<plant code>`) is the **only PlantOps page strangers can
   write to**, without a login; the plant comes from the address only (`GET /api/m/plants/by-code/:code`, Job
   applications' credentials only, one 404 for every refusal).
+- **View-only roles** (owner, 2026-10-19; v0.27.0, `docs/VIEW_ROLES_PHASE_PLAN.md`): **Stock viewer** (Floor Stock,
+  only the sections the owner ticks for that person), **Document viewer** (Document Store) and **Order viewer** (Order
+  Capture, no amounts). Each opens its one module read-only (`VIEW_ROLE_MODULE` + `viewOnlyIn()`), never works there
+  (`roleWorksIn` false), and gets alerts only if the owner ticks them (`getsAlertsIn`; never Order Capture). New modules
+  get a view role only when the owner asks.
 - A user can hold **more than one role** (e.g. lab technician AND store keeper in a small plant). tenant_admin
   is a role in `users`/`user_roles`, not a separate account type.
 - Login: plant users log in with **plant code + username + secret**. Staff use a 6-digit **PIN**; anyone holding
@@ -1708,4 +1713,25 @@ Current status, open items and next steps: **`docs/STABILITY_PLAN.md` section 0*
   (`countDay()`); Attendance waits up to 20 s for good GPS (`bestLocation()`) and refuses rougher than ±150 m (was 500 m;
   owner), printed QRs unchanged. Plus a dead-code clean-up (knip). No migrations.
 - Tests: platform 347, Document Store 107, Floor Stock 172, Attendance 423, module-kit 69; typecheck and builds pass.
+
+### 2026-10-19 — View-only roles: Stock viewer, Document viewer, Order viewer — built (v0.27.0)
+Asked by the owner 2026-10-19 (no role could only look at Floor Stock). Design and decisions:
+`docs/VIEW_ROLES_PHASE_PLAN.md`; notes in each module's NOTES.md.
+- **Shared rule** (`packages/types`): `VIEW_ROLE_MODULE`, `viewOnlyIn()` widened, `getsAlertsIn()`, `VIEWER_ALERTS`
+  (Floor Stock, Document Store), summary view `"viewer"`, notification fields `no_viewers` / `if_ticked`.
+- **Platform:** migration `0018_view_roles.sql`; labels, role buttons, Permissions screen; "Gets alerts" and the
+  send-time check use `getsAlertsIn`; `alert-contacts` lists a module's viewers.
+- **Floor Stock:** migration `0005_viewer_sections.sql` (FORCE RLS, no DELETE); "Who sees what" on Sections & items
+  (owner, audited); every read filtered on the server; each ticked viewer's own count alert with only their items;
+  viewer tile shows the count status only.
+- **Document Store:** read-only for Document viewers (no schema change); never responsible.
+- **Order Capture:** Order viewer = the existing view without amounts (tests only).
+- **SSO token unchanged.** Tests: platform 366, auth 67, Floor Stock 187, Document Store 109, Order Capture 284.
+
+**Decisions (owner, 2026-10-19):** one view role per module (Floor Stock, Document Store, Order Capture); alerts only
+if ticked; Stock viewer sees only the sections ticked for them; "Can make" only when every section of the recipe is
+theirs. **Made while building:** Order viewers can never be ticked (the new-order alert has the amount); Stock viewers
+don't open Sections & items; "setup changed" never goes to viewers; "count not done" goes to ticked viewers unchanged.
+
+**Not yet verified:** on screen with real logins; not deployed.
 

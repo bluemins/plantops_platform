@@ -1,7 +1,7 @@
 // Who is using Floor Stock right now (from the module kit's session cookies), and what they may do.
 import { redirect } from "next/navigation";
 import type { ModuleSession } from "@plantops/auth";
-import { roleWorksIn, type RoleId } from "@plantops/types";
+import { roleWorksIn, viewOnlyIn, type RoleId } from "@plantops/types";
 import { schema, withTenant } from "./db";
 import { forbidden, HttpError } from "./http";
 import { kit } from "./kit";
@@ -15,6 +15,8 @@ export interface StockUser {
   isOwner: boolean;
   /** enter the daily count, add and edit items (owner or store keeper) */
   canCount: boolean;
+  /** Stock viewer (v0.27.0): read-only, and only the sections the owner picked for them (src/server/viewers.ts) */
+  isViewer: boolean;
   /** PlantOps support (super_admin) looking read-only: every write is refused */
   isSupport: boolean;
 }
@@ -28,6 +30,7 @@ export function toStockUser(s: ModuleSession): StockUser {
     roles: s.roles,
     isOwner,
     canCount: isOwner || s.roles.some((r) => roleWorksIn(r, "floor_stock")),
+    isViewer: viewOnlyIn(s.roles, "floor_stock"),
     isSupport: false,
   };
 }
@@ -39,6 +42,7 @@ export const supportUser = (tenantId: string, superAdminId: string): StockUser =
   roles: [],
   isOwner: false,
   canCount: false,
+  isViewer: false,
   isSupport: true,
 });
 
@@ -70,6 +74,11 @@ export async function requireApiUser(): Promise<StockUser> {
 export function requireCount(user: StockUser) {
   if (user.isSupport) throw forbidden("PlantOps support view is read-only");
   if (!user.canCount) throw forbidden("Only the plant owner or a store keeper can do this");
+}
+
+/** Looking at counts: owner, store keeper, Stock viewer (their sections only) and PlantOps support (read-only). */
+export function requireView(user: StockUser) {
+  if (!user.isSupport && !user.canCount && !user.isViewer) throw forbidden();
 }
 
 /** Owner-only changes (sections, limits, moving items, ...). Support is never an owner. */

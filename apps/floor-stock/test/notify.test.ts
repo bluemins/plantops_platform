@@ -39,7 +39,7 @@ describe("one notification per saved count", () => {
   it("an item below its limit: the title says low stock and the body lists it", async () => {
     const p = await stockPlant();
     const saved = await submitCount(p.keeper, fullCount(p, TODAY, { box: 5, label: 3, roll: 1 }), at(TODAY));
-    expect(saved.low_items).toEqual([{ name: "Roll", qty: 1, min: 2 }]);
+    expect(saved.low_items).toEqual([{ item_id: p.roll, name: "Roll", qty: 1, min: 2 }]);
     const n = countNotification(p.keeper, saved);
     expect(n).toMatchObject({ kind: "floor_stock.low_stock", title: "Low stock: 1 item" });
     expect(n.body).toContain("Low: Roll 1 (limit 2).");
@@ -64,7 +64,7 @@ describe("one notification per saved count", () => {
     await submitCount(p.keeper, fullCount(p, YESTERDAY, { box: 10, label: 3, roll: 4 }), at(TODAY));
     // 10 yesterday + 0 made, 15 today: 5 box more than possible
     const saved = await submitCount(p.keeper, fullCount(p, TODAY, { made: 0, box: 15, label: 3, roll: 4 }), at(TODAY));
-    expect(saved.checks).toEqual([{ name: "Bluemins 1 L", unit: "box", extra: 5 }]);
+    expect(saved.checks).toEqual([{ item_id: p.box, name: "Bluemins 1 L", unit: "box", extra: 5 }]);
     const n = countNotification(p.keeper, saved);
     expect(n).toMatchObject({ kind: "floor_stock.count_check", title: "Check the count: 1 item" });
     expect(n.body).toContain("Check: Bluemins 1 L (5 box more than possible).");
@@ -84,13 +84,13 @@ describe("one notification per saved count", () => {
       reason: null,
       entered_at: new Date(`${TODAY}T18:40:00+05:30`).toISOString(),
       low_stock_emails: 5,
-      low_items: ["A", "B", "C", "D", "E"].map((name) => ({ name, qty: 1, min: 10 })),
-      checks: [{ name: "Box", unit: "box", extra: 2 }],
+      low_items: ["A", "B", "C", "D", "E"].map((name) => ({ item_id: name, name, qty: 1, min: 10 })),
+      checks: [{ item_id: "Box", name: "Box", unit: "box", extra: 2 }],
     };
     const n = countNotification(user, saved);
     expect(n.title).toBe("Low stock: 5 items");
     expect(n.body).toBe("Atharv, 8 Oct, 6:40 pm. Low: A 1 (limit 10), B 1 (limit 10), C 1 (limit 10) + 2 more. Check: Box (2 box more than possible).");
-    const long = countNotification(user, { ...saved, low_items: [{ name: "x".repeat(400), qty: 1, min: 2 }] });
+    const long = countNotification(user, { ...saved, low_items: [{ item_id: "x", name: "x".repeat(400), qty: 1, min: 2 }] });
     expect(long.body!.length).toBeLessThanOrEqual(300);
   });
 

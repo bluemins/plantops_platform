@@ -3,6 +3,7 @@
 //   "Today's count not done" (warn) / "Counted 6:40 pm" (ok) - for the counting day (until 5 am: last night, B-05)
 //   "N items low" (danger) - from the newest count, against today's limits
 //   "Made 120 box" (info) - today's production
+// A Stock viewer's tile (view "viewer") shows only the first one.
 import { sql } from "drizzle-orm";
 import type { ModuleSummary, SummaryView } from "@plantops/types";
 import { countDay, istTime } from "@/lib/days";
@@ -11,7 +12,7 @@ import { withTenant } from "./db";
 
 const MAX_TEXT = 40;
 
-export function summaryFor(tenantId: string, _view: SummaryView, now = new Date()): Promise<ModuleSummary> {
+export function summaryFor(tenantId: string, view: SummaryView, now = new Date()): Promise<ModuleSummary> {
   const today = countDay(now);
   return withTenant(tenantId, async (tx) => {
     const { rows: setup } = await tx.execute<{ items: number }>(sql`
@@ -34,7 +35,8 @@ export function summaryFor(tenantId: string, _view: SummaryView, now = new Date(
     const badges: ModuleSummary["badges"] = [];
     const countedToday = last?.date === today;
     badges.push(countedToday ? { text: `Counted ${istTime(last!.first_at)}`, tone: "ok" } : { text: "Today's count not done", tone: "warn" });
-    if (!last) return { badges };
+    // a Stock viewer sees only some sections, and the tile can't tell which: the count's status only (v0.27.0)
+    if (!last || view === "viewer") return { badges };
 
     const { rows: low } = await tx.execute<{ n: number }>(sql`
       select count(*)::int as n from (

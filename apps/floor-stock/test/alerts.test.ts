@@ -83,7 +83,7 @@ describe("queued on submit", () => {
     try {
       const saved = await submitCount(p.keeper, fullCount(p, TODAY, { box: 5, label: 1, roll: 1 }), at(TODAY));
       expect(saved).toMatchObject({ version: 1, low_stock_emails: 0 });
-      expect(saved.low_items).toEqual([{ name: "Roll", qty: 1, min: 2 }]);
+      expect(saved.low_items).toEqual([{ item_id: p.roll, name: "Roll", qty: 1, min: 2 }]);
       expect(await alerts(p.tenantId)).toEqual([]);
     } finally {
       platform.contacts = (await import("./fake-platform")).CONTACTS;

@@ -9,6 +9,8 @@ import * as superUserRoute from "@/app/api/super/tenants/[id]/users/[userId]/rou
 import * as inboxRoute from "@/app/api/notifications/route";
 import * as launcherRoute from "@/app/api/launcher/route";
 import { sha256 } from "@/server/crypto";
+import { getAlertContacts } from "@/server/sso";
+import { summaryViewFor } from "@/server/summary";
 import { asOwner, call, makePlant, makeStaff, makeSuperAdmin, type Handler } from "./helpers";
 
 const STOCK_SECRET = "stock-module-test-secret";
@@ -181,5 +183,58 @@ describe("unread count for a module's header bell", () => {
     expect(r.status).toBe(200);
     expect(r.body.unread).toBeGreaterThan(0);
     expect((await unread(A.tenantId, bKeeper.userId)).body.unread).toBe(0);
+  });
+});
+
+// View-only roles (v0.27.0, owner 2026-10-19): a Stock viewer can be ticked for Floor Stock alerts. Floor Stock sends
+// its count alerts with no_viewers and then each viewer's own version (only their sections) with if_ticked.
+describe("Stock viewers", () => {
+  let viewer: Awaited<ReturnType<typeof makeStaff>>; // ticked
+  let quiet: Awaited<ReturnType<typeof makeStaff>>; // not ticked
+  beforeAll(async () => {
+    viewer = await makeStaff(A, "viewer", ["stock_viewer"]);
+    quiet = await makeStaff(A, "quietviewer", ["stock_viewer"]);
+    expect((await tick(A.adminCookie, viewer.userId, ["floor_stock"])).status).toBe(200);
+  });
+
+  it("can be ticked for Floor Stock, but not for Lab Records", async () => {
+    expect((await tick(A.adminCookie, quiet.userId, ["lab_records"])).status).toBe(400);
+  });
+
+  it("a ticked viewer gets an ordinary event; no_viewers leaves them out but keeps ticked store keepers", async () => {
+    await send(A.tenantId);
+    expect(await titles(viewer.cookie)).toContain(`Event ${seq}`);
+    const r = await send(A.tenantId, { no_viewers: true });
+    expect(r.body.recipients).toBe(2); // owner + manager
+    expect(await titles(viewer.cookie)).not.toContain(`Event ${seq}`);
+    expect(await titles(manager.cookie)).toContain(`Event ${seq}`);
+  });
+
+  it("if_ticked: only the listed person, and only when ticked and still a viewer of this plant", async () => {
+    const r = await send(A.tenantId, { also_user_ids: [viewer.userId, quiet.userId, bKeeper.userId, A.adminUserId], only_listed: true, if_ticked: true });
+    expect(r.body.recipients).toBe(1);
+    expect(await titles(viewer.cookie)).toContain(`Event ${seq}`);
+    expect(await titles(quiet.cookie)).not.toContain(`Event ${seq}`);
+    expect(await titles(A.adminCookie)).not.toContain(`Event ${seq}`); // owners got the full version already
+  });
+
+  it("an Order viewer can never be ticked", async () => {
+    const ov = await makeStaff(A, "orderviewer", ["order_viewer"]);
+    expect((await tick(A.adminCookie, ov.userId, ["floor_stock"])).status).toBe(400);
+  });
+});
+
+describe("view roles in contacts and tiles", () => {
+  it("Floor Stock's contacts list its Stock viewers (it lets the owner pick their sections); Lab Records' don't", async () => {
+    const v = await makeStaff(A, "contactviewer", ["stock_viewer"]);
+    expect((await getAlertContacts("floor_stock", A.tenantId)).find((c) => c.user_id === v.userId)?.roles).toEqual(["stock_viewer"]);
+    expect((await getAlertContacts("lab_records", A.tenantId)).some((c) => c.user_id === v.userId)).toBe(false);
+  });
+
+  it("a view-only person's tile asks for the 'viewer' numbers", () => {
+    expect(summaryViewFor(["stock_viewer"], "floor_stock")).toBe("viewer");
+    expect(summaryViewFor(["stock_viewer", "store_keeper"], "floor_stock")).toBe("staff");
+    expect(summaryViewFor(["plant_staff"], "order_capture")).toBe("viewer");
+    expect(summaryViewFor(["tenant_admin", "stock_viewer"], "floor_stock")).toBe("owner");
   });
 });

@@ -4,6 +4,26 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.27.0 — 2026-10-19 — View-only roles: Stock viewer, Document viewer, Order viewer
+
+**What's in it** (owner, 2026-10-19; docs/VIEW_ROLES_PHASE_PLAN.md)
+- Three new roles on Manage users for people who only **look**:
+  - **Stock viewer** (Floor Stock): sees the counts, Sold / Used, low stock and history **only of the sections the
+    owner ticks for them** (Floor Stock → Sections & items → **Who sees what**). "Can make" shows a product only when
+    every section its recipe uses is theirs. Never counts, adds items or opens Sections & items.
+  - **Document viewer** (Document Store): sees every document and opens its files; never adds, renews, corrects,
+    archives or changes the responsible person, and can't be made responsible.
+  - **Order viewer** (Order Capture): the same view Plant staff have (orders, no amounts, no changes), for people who
+    aren't Plant staff.
+- **Alerts only if ticked:** Stock and Document viewers can be ticked for their module's alerts ("Gets alerts"). A Stock
+  viewer's count alert lists only the items in their sections. Order viewers can't be ticked (the alert has the amount).
+- The Permissions screen shows them as "View only, chosen sections" / "View only" / "View only, no amounts". A Stock
+  viewer's launcher tile shows only whether today is counted.
+
+**Migrations:** platform `0018_view_roles.sql` (three role rows); Floor Stock `0005_viewer_sections.sql` (new table
+`viewer_sections`, FORCE RLS, no DELETE). SSO token unchanged. Platform, Floor Stock, Document Store, Order Capture
+(tests only) and `packages/types`.
+
 ## v0.26.2 — 2026-10-19 — Find the customer by name on New order (Order Capture)
 
 **What's in it** (owner, 2026-10-19)

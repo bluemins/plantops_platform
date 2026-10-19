@@ -176,3 +176,15 @@ export const recipeLines = stock.table("recipe_lines", {
   updatedByName: text("updated_by_name").notNull(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
+
+/** Which sections a Stock viewer sees (0005, v0.27.0). Switched off, never deleted. */
+export const viewerSections = stock.table("viewer_sections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  userId: uuid("user_id").notNull(),
+  sectionId: uuid("section_id").notNull(),
+  status: text("status").$type<"on" | "off">().notNull().default("on"),
+  changedBy: uuid("changed_by").notNull(),
+  changedByName: text("changed_by_name").notNull(),
+  changedAt: ts("changed_at").notNull().defaultNow(),
+});
