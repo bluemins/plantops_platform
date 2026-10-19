@@ -43,15 +43,14 @@ and unused re-exports (Lab Records `session-cookie.ts`, `orHidden` / `orNotFound
 screenshots checked: daily 07:01, evening hourly 17:01–23:01, Attendance morning hourly 08:01–11:01). The owner's Test
 run of Attendance morning at 10:12 sent the first ever "not marked" alert (owner + supervisor).
 
-**Uncommitted on purpose:** `.github/workflows/evening.yml` in the working tree is the manual-only version (schedule
-lines removed). Commit it only after the first cron-job.org evening runs show **200** (Floor Stock evening and Lab
-Records evening → History, from 17:01 IST); until then GitHub's late evening runs are the fallback. Don't discard it.
+**`evening.yml` is manual-only since 2026-10-19** (schedule lines removed): the 18 Oct evening reminders went out at
+20:01 IST from cron-job.org.
 
 **Next, in order:**
 1. Owner: deploy **v0.25.3** (carries v0.25.1 + v0.25.2); then the two plant 001 steps above; raise Railway's Compute
    Usage Limit (S0). (`BREVO_API_KEY` / `MAIL_FROM`
    already removed from Railway, 2026-10-18.)
-2. Claude: commit `evening.yml` once the evening jobs show 200.
+2. ~~Claude: commit `evening.yml`~~ done 2026-10-19.
 3. B-05 and B-04 built (v0.25.3). After the deploy: phone trials on demo plant 999 (set 999's pin where you test);
    Claude reads plant 001's next marks read-only (accuracy, distance) and closes B-04; B-05 closes after the owner's
    16 / 17 Oct check and one late-night count.
@@ -155,7 +154,9 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
   committed once the cron-job.org jobs are confirmed (so the evening reminders never have a gap).
 - [x] *Owner (2026-10-18):* the 11 jobs on cron-job.org, time zone Asia/Kolkata, header set; Attendance morning Test
   run sent the not-marked alert. (Plant 001 uses the default hours: count reminder 20:00, not-marked 10:00.)
-- [ ] *Claude:* commit the manual-only `evening.yml` (in the working tree) after the first good cron-job.org evening.
+- [x] *Claude (2026-10-19):* manual-only `evening.yml` committed. Evidence (live database, read-only): on 18 Oct plant
+  001's `floor_stock.count_missing` (6 people) and `lab_records.no_tests_today` (3) were created at 20:01:07 IST, the
+  cron-job.org minute.
 - [ ] *Claude, after 7 days (read-only):* start times of the timed notifications (`platform.notifications.created_at`
   for `attendance_salary.no_exit` / `not_marked`, `floor_stock.count_missing`, `lab_records.no_tests_today`,
   `document_store.expiry`, `complaint_box.still_open`) within 5 minutes of their hour; then close B-01.
@@ -260,7 +261,8 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
 - [ ] *Left (Claude, when the owner says so):* re-check the done parts read-only; Attendance Office staff / Supervisor
   refusals; Order Capture "Plant staff sees no amounts"; one complaint with a photo; Job applications opening (ends
   switched off) + one public application + HR desk refusals; launcher tiles for all 10 users. Then tick B-06.
-- [ ] *19 Oct morning (Claude, read-only):* the document-expiry notification reached `sdoc` and `sowner`.
+- [x] *19 Oct morning (Claude, read-only):* the document-expiry notification reached `sdoc` and `sowner` ("Sample FSSAI
+  licence: expires today", 07:01:08 IST, from the cron-job.org daily job).
 
 **B-07 · Notifications · S2 · Too many alerts, most never read.**
 - *Evidence:* 70–93 % unread; Lab Records "no tests today" daily for a module nobody uses; 25 still-open reminders

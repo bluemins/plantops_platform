@@ -1,21 +1,18 @@
-# Evening jobs for every hosted PlantOps copy (docs/notifications.md):
-#   Lab Records  POST <LAB_URL>/api/cron/evening    ("No lab tests entered today", from 8 pm; earlier runs do nothing)
-#   Floor Stock  POST <STOCK_URL>/api/cron/evening  ("Today's stock count is not done yet" at each plant's hour; skipped while STOCK_URL
-#                is unset)
-#   Attendance   POST <ATTENDANCE_URL>/api/cron/morning ("N people not marked by 10:00" at each plant's hour, to owners and
-#                supervisors; docs/ATTENDANCE_ROLES_PHASE_PLAN.md) - on the MORNING schedule line only
-# Lab Records / Floor Stock go to the plant's owners and the people ticked for that module; once a day each (dedupe).
-# Every run also resends notifications waiting in the modules' outboxes (platform briefly down).
-# Two schedule lines: the evening steps run only on the evening line, the Attendance step only on the morning line
-# (github.event.schedule); "Run workflow" by hand runs every step.
-# Same GitHub environments, variables and CRON_SECRET as daily.yml. GitHub may start it 10-30 minutes late.
-# A failed call fails the run, and GitHub emails the repo owner. "Run workflow" runs it by hand.
+# Evening and morning jobs for every hosted PlantOps copy (docs/notifications.md). MANUAL RUNS ONLY.
+# ON TIME: cron-job.org calls these addresses (job list: docs/HANDBOOK.md section 10; STABILITY_PLAN B-01):
+#   Lab Records  POST <LAB_URL>/api/cron/evening    hourly 17:01-23:01 India time ("No lab tests entered today", from
+#                8 pm; earlier calls do nothing)
+#   Floor Stock  POST <STOCK_URL>/api/cron/evening  hourly 17:01-23:01 ("Today's stock count is not done yet" at each
+#                plant's hour)
+#   Attendance   POST <ATTENDANCE_URL>/api/cron/morning hourly 08:01-11:01 ("N people not marked by 10:00" at each
+#                plant's hour, to owners and supervisors; docs/ATTENDANCE_ROLES_PHASE_PLAN.md)
+# GitHub's schedule ran these only about twice a day, often after midnight (when they do nothing), and never in the
+# morning, so the schedule lines were removed. Every job sends each reminder once a day (dedupe), so a manual run
+# never sends twice; every call also resends notifications waiting in the modules' outboxes.
+# Same GitHub environments, variables and CRON_SECRET as daily.yml. "Run workflow" runs every step.
 name: Evening jobs
 
 on:
-  schedule:
-    - cron: "30 11-17 * * *" # every hour 17:00-23:00 India time (each plant's chosen reminder hour; N4)
-    - cron: "30 2-5 * * *" # every hour 08:00-11:00 India time (Attendance: each plant's not-marked alert hour)
   workflow_dispatch:
 
 permissions: {}
@@ -30,21 +27,21 @@ jobs:
     environment: ${{ matrix.copy }}
     steps:
       - name: Lab Records
-        if: ${{ vars.LAB_URL != '' && github.event.schedule != '30 2-5 * * *' }}
+        if: ${{ vars.LAB_URL != '' }}
         env:
           URL: ${{ vars.LAB_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           curl -fsS --max-time 120 -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/evening"
       - name: Floor Stock
-        if: ${{ !cancelled() && vars.STOCK_URL != '' && github.event.schedule != '30 2-5 * * *' }}
+        if: ${{ !cancelled() && vars.STOCK_URL != '' }}
         env:
           URL: ${{ vars.STOCK_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           curl -fsS --max-time 120 -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/evening"
       - name: Attendance (not marked)
-        if: ${{ !cancelled() && vars.ATTENDANCE_URL != '' && github.event.schedule != '30 11-17 * * *' }}
+        if: ${{ !cancelled() && vars.ATTENDANCE_URL != '' }}
         env:
           URL: ${{ vars.ATTENDANCE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
