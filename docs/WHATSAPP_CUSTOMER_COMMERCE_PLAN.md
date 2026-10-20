@@ -1,5 +1,8 @@
 # Bluemins WhatsApp customer commerce — rules-first plan
 
+**Build order, current status and the prompt for each step: `docs/WHATSAPP_BUILD_PLAN.md`** (work from that file;
+this one stays the design reference).
+
 **Status:** Architecture decisions reviewed with the owner on 2026-10-20. This is a finalized planning baseline for
 implementation planning, not authorization to run migrations, change permissions, start production campaigns, change
 Twilio configuration, or share customer data.

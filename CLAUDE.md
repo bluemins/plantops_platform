@@ -20,7 +20,7 @@ independently, with its own URL, Docker image and database schema.
   by the owner 2026-10-17; v0.25.0)
 - `apps/marketing-contacts`
 - **Not in this repo:** the Bluemins WhatsApp bot, a separate private repo (`github.com/bluemins/order_handoff`,
-  local clone `~/projects/order_handoff`; moved from `bluemins/whatsappbot` 2026-10-20). Plan and its link to Order Capture: `docs/WHATSAPP_CUSTOMER_COMMERCE_PLAN.md`.
+  local clone `~/projects/order_handoff`; moved from the old repo 2026-10-20). Goal and the PlantOps changes it needs: "WhatsApp bot integration" below.
 - `packages/auth` — SSO token verification + role guards, used by every module
 - `packages/ui` — shared UI components (tiles, buttons, forms)
 - `packages/types` — shared TypeScript types (token payload, roles, plan JSON)
@@ -384,6 +384,39 @@ WhatsApp, or setting them up. Existing email alerts stay as they are; notificati
   80 % / 95 % / full (owners only)
 - Complaint Box: done in its own phase plan (v0.12.0): new, resolved, reopened, still open, updated, storage
 - Order Capture: done in its own phase plan (v0.13.0): new order, delivered, cancelled
+
+## WhatsApp bot integration (planned, owner 2026-10-20)
+**Goal (shared with the bot repo `~/projects/order_handoff`):** a rules-first WhatsApp ordering and reorder flow for
+Bluemins packaged water where **Order Capture is the order ledger** and the separate bot is only the conversation.
+Steps R, 0–5, status, one prompt per step and the Insights list: **`docs/WHATSAPP_BUILD_PLAN.md`** (work from it).
+Design and rules: `docs/WHATSAPP_CUSTOMER_COMMERCE_PLAN.md`. The bot side of the same goal (its Sheet / Redis
+changes): the bot's `CLAUDE.md`.
+
+**Rules for this work:**
+- Built **generic, never Bluemins-only** ("no customer-specific code"): any plant could get a bot credential; the plant
+  comes from server-side config bound to the credential, never from the WhatsApp message.
+- The bot never touches PlantOps databases, sessions, module secrets or the SSO token. It gets **one narrow,
+  rotatable credential** for an Order Capture bot API (server-to-server, rate-limited, audited).
+- Staff-entered orders, amounts rules (plant staff / viewers see no amounts), notifications, CSV and the thank-you keep
+  working unchanged. Order Capture keeps sending the delivery thank-you; the bot never sends a second one.
+
+**Changes PlantOps needs, by step** (plan first; **ask** before any schema, grant, credential or Twilio change):
+- **Step 0:** decide where the **area list** (served villages) and **consent** records live (Order Capture vs the bot),
+  how a bot customer matches an Order Capture customer (`packages/module-kit/src/phone.ts`), and the bot credential
+  design. Written to `docs/WHATSAPP_CONTRACT.md`. No code.
+- **Step 2 (Order Capture, read-only):** bot credential (likely a new table or module-credential variant: **ask**);
+  endpoints for customer context by phone (match, place, active products, the rate this customer gets, last delivered
+  basket) and the product list. Tests: auth, tenant isolation, minimal fields, unknown phone.
+- **Step 3 (Order Capture, write):** create-order endpoint reusing `src/server/orders.ts` (no second rule set):
+  idempotency key, server revalidation, reference only after commit; orders marked as from WhatsApp (likely
+  `source` + idempotency storage: **schema change, ask**); visible in the list, notifications, CSV and tile like any
+  order.
+- **Step 4 (Order Capture):** delivered event to the bot through an outbox (like `notification_outbox`), signed,
+  retried, deduped by event id (**schema change, ask**); consent storage if Step 0 puts it here (**ask**).
+- **Insights** (`docs/WHATSAPP_BUILD_PLAN.md` section 11): an owner-only "Customer insights" page in Order Capture
+  after Step 3 (delivery time by area, cancellations, new vs repeat, reorder interval, pack mix, orders per village,
+  lapsed list); group-level only, no individual scores. A **customer type** field (shop / household / office /
+  institution) only after approval (**schema change**). Bot demand vs Floor Stock "Can make" only through module APIs.
 
 ## Status log
 
