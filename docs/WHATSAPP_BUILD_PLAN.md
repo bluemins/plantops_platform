@@ -31,7 +31,7 @@ Both repos open together in VS Code with `~/projects/bluemins.code-workspace`.
 | Bot repo | `github.com/bluemins/order_handoff` (private), local `~/projects/order_handoff`. Branches: `main` (work, never deploys) and `production` (deploys). `production` = `d17d983`, `main` = `f3de58f` (docs only ahead). |
 | Bot hosting | Railway project **`bluemins-whatsapp-bot`** (separate from PlantOps, Singapore): service `whatsappbot` (`https://whatsappbot-production-70de.up.railway.app`, auto-deploys `production`) + `Redis` (volume). Live order → Google Sheet confirmed 2026-10-20. |
 | Bot code | Node/Express, ~1,100 lines: `src/server.js` (webhook `POST /whatsapp/inbound`, stages `picking_sku → awaiting_quantity → awaiting_more → awaiting_name → awaiting_address → confirming`, 30-min session TTL, 24 h MessageSid dedupe, 7-day customer cache), `src/feedback-flow.js`. Writes Sheet tabs `Message_Logs`, `Leads`, `Sessions_Log`, `Customers`, `Orders`, `Feedback`. **No tests, no Twilio signature check.** |
-| Old repo | **Kept** on GitHub as history (owner, 2026-10-20), private; to be **archived** (read-only). Nothing deploys from it. Its history holds old, no-longer-live secrets (switched off in step R). |
+| Old repo | Kept by the owner; not tracked in this plan. Nothing deploys from it. Its history holds old, not-live secrets (switched off in step R). |
 | Secrets | The live Railway secrets were **never committed**. Leaked but not live: Google key `…f32e`, an Anthropic key, the Sheets Apps Script URL (still set in Railway, unused by code). |
 | PlantOps side | Order Capture live (v0.27.0 era): staff-entered orders, Twilio delivery thank-you (`apps/order-capture/src/server/thanks.ts`, `TWILIO_WHATSAPP_SENDERS`). No bot-facing API yet. |
 | Design decisions | Owner decisions of 2026-10-20 in the commerce plan (jar app separate; Order Capture = order ledger; Order Capture keeps the thank-you; 15-day reminder pilot with holdout; opt-in required; Odia + English; staff-kept area list). |
@@ -40,7 +40,7 @@ Both repos open together in VS Code with `~/projects/bluemins.code-workspace`.
 
 | # | Step | Repo(s) | Needs owner approval for | Status |
 |---|---|---|---|---|
-| R | Finish the repo move (old repo kept, archived) | both | deleting local folders | open |
+| R | Finish the repo move (old keys off, local copies removed) | both | deleting local folders | local copies done; owner: items 1–4 + unused Railway variables |
 | 0 | Confirm rules and the integration contract | read-only | the contract, wording, templates | open |
 | 1 | Harden the bot (signature, help / cancel / STOP, handoff, tests) | bot | the plan; any new dependency; production push | open |
 | 2 | Read-only Order Capture adapter + bot reads it | both | the API design; credential setup; production pushes | open |
@@ -81,29 +81,27 @@ From PlantOps CLAUDE.md, the commerce plan and the bot's CLAUDE.md:
 
 ## 4. Step R — finish the repo move
 
-**Goal:** the bot repo is the only place work happens; the old repo stays as read-only history (owner, 2026-10-20:
-keep it); no old key still works; no stray local copies.
+**Goal:** the bot repo is the only place work happens; no old key still works; no stray local copies. The old GitHub
+repo is the owner's own business and is not part of this plan (owner, 2026-10-20).
 
 Owner, by hand (any time):
-1. GitHub → the old repo → Settings → Danger Zone → **Archive this repository** (keeps it, read-only; can be undone).
-   Keep it **private**. Do not delete it.
-2. Google Cloud → project `whatsapp-order-bot-507010` → Service accounts → `whatsapp-bot-sheets-writer` → Keys:
+1. Google Cloud → project `whatsapp-order-bot-507010` → Service accounts → `whatsapp-bot-sheets-writer` → Keys:
    delete key `…f32e` if listed (the live key ends `…097c`, keep it).
-3. console.anthropic.com → API keys: delete the key from the old `.env`.
-4. The Apps Script behind the old Sheets URL: Deploy → Manage deployments → archive it.
-5. Twilio Console → API keys & tokens: no **secondary** auth token should exist.
+2. console.anthropic.com → API keys: delete the key from the old `.env`.
+3. The Apps Script behind the old Sheets URL: Deploy → Manage deployments → archive it.
+4. Twilio Console → API keys & tokens: no **secondary** auth token should exist.
 
 **Prompt R:**
-> Finish step R of `docs/WHATSAPP_BUILD_PLAN.md`. The old GitHub repo is **kept** (archived, private): do not delete
-> or change it. Show me what is in `~/projects/whatsappbot-main` and `~/projects/whatsappbot-download-old` (names
-> only, no file contents); both are local copies of the old repo, which GitHub still keeps. Wait for my "go" before
+
+> Finish step R of `docs/WHATSAPP_BUILD_PLAN.md`. Leave the old GitHub repo alone (not part of this plan). Show me
+> what is in `~/projects/whatsappbot-main` and `~/projects/whatsappbot-download-old` (names only, no file contents);
+> both are local copies of the old repo, which GitHub still keeps. Wait for my "go" before
 > deleting both and removing `whatsappbot-main` from `.claude/settings.local.json` `additionalDirectories`. Afterwards list the Railway
 > variables the bot code never reads (names only, from `~/projects/order_handoff/.env` vs `src/`) so I can delete them
 > in Railway, update `docs/REPO_MOVE_PLAN.md` (status + done log) and this plan's status table, commit on `main` in both
 > repos and push. Do not touch `production`.
 
-**Exit:** old repo archived (kept), both local folders deleted, items 2–5 ticked by the owner, unused Railway
-variables removed.
+**Exit:** both local folders deleted, items 1–4 ticked by the owner, unused Railway variables removed.
 
 ---
 
@@ -319,4 +317,5 @@ design.
 | Date | Step | What |
 |---|---|---|
 | 2026-10-20 | R (part) | Bot moved to `bluemins/order_handoff` (clean import, no secrets); Railway project `bluemins-whatsapp-bot` deploys `production`; live order → Sheet OK; live secrets checked (never committed). Details: bot `docs/REPO_MOVE_PLAN.md`. |
+| 2026-10-20 | R (part) | Both `~/projects` copies of the old repo were already gone; `whatsappbot-main` removed from `additionalDirectories`; copies outside `~/projects` left alone (owner). Unused Railway variables listed in bot `docs/REPO_MOVE_PLAN.md` step 2 (keep `RAILPACK_INSTALL_CMD`). Left for the owner: items 1–4, deleting those variables. |
 | 2026-10-20 | — | This plan written. |
