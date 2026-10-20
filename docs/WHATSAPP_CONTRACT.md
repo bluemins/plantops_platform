@@ -261,6 +261,22 @@ sender has in Twilio.**
   inside a WhatsApp message is never used as authority.
 - Every error has the same body: `{ "error": { "code": "<code>", "message": "<plain English>" } }` (table 3.7).
 
+### 3.1a One meaning for "item" and "count" (owner, 2026-10-20)
+
+The bot and Order Capture must mean exactly the same thing by an item and a quantity. Rules, for every step:
+
+| | Rule |
+|---|---|
+| **Item** | Identified by the PlantOps product's **`sku_code`** (`PV_BM_1`, `PV_BM_500`, `PV_BM_250`) on the bot side and its **`sku_id`** in every API call. Never by a name or label, which can change. The bot's keys `PV_BM_1/500/250` are the same codes (already set in PlantOps). |
+| **Count** | **1 = one pack (box)** of the product: 12 × 1 L, 24 × 500 ml, 35 × 250 ml, from the PlantOps product's `units_per_pack`. Never bottles. Whole numbers 1–200 per product per WhatsApp order. |
+| **Unit word** | The unit from **Order Capture → Rates** (`unit` in the context answer), shown by the bot as-is ("5 box"). Live check 2026-10-20: all three are "box"; PlantOps' pack type says "case", which the bot never shows. If the owner renames the unit in Rates, the bot follows. |
+| **Label** | The bot shows Order Capture's label ("Bluemins 1L (1 L × 12)") from the context answer, so the customer sees the pack size the order will carry. `SKU_LABELS` in the bot is used only when Order Capture is unreachable (Step 2 fallback). |
+| **Estimator** | `public/estimate.html` speaks in boxes with the same pack sizes (12 / 24 / 35); its "Boxes: N" becomes quantity N of that product. Over 200 → staff. |
+| **Reminder template** | `{{2}}` is built from the same lines: "5 box Bluemins 1L, 2 box Bluemins 500ml" (quantity + Rates unit + product name). |
+| **Mismatch guard** | Order Capture refuses a bot order whose `sku_id` is not one of the key's listed codes or not active (409 `product_unavailable`). The bot refuses to start if a listed code is missing from the context answer, and falls back to staff, never guessing. |
+
+Tests that must exist (Steps 2–3): code ↔ id mapping for all three products; "5" stays 5 boxes end to end (bot cart → API → order line → CSV → notification → reminder text); a unit renamed in Rates shows up in the bot; a product switched off or not on the list is refused; the estimator's boxes land as the same quantity; a pack size changed in PlantOps (e.g. 24 → 20) is shown from Order Capture, not from the bot's old label.
+
 ### 3.2 (a) Customer + product context by phone
 
 `POST /api/bot/v1/context` (POST so the phone is not in URLs or access logs)
