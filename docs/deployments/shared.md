@@ -27,7 +27,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | WhatsApp | not set up (waiting for Meta approval) |
 | File storage | Railway volume (move to S3-compatible storage + backups before real plant documents) |
 | Backups | nightly 02:00 IST, encrypted (`age`), to Cloudflare R2 bucket `plantops-backup` (`backup.yml`): database dump (30 days, read-only login `plantops_backup`) + Document Store files. Private key in the password manager. Practice restore done 2026-10-11 |
-| Runs release | v0.27.0 (`production` = commit `3d15b82`, 2026-10-19) |
+| Runs release | v0.28.0 (`production` = commit `919f990`, 2026-10-20) |
 
 ## History
 | Date | What |
@@ -124,3 +124,4 @@ From `docs/SALARY_EXTRAS_PHASE_PLAN.md` Phase B6; how-to in `docs/HANDBOOK.md` (
    - the daily job deleting a file and its R2 backup copy (`files.removed` in the Daily jobs output)
    - which address header Railway's proxy sends: the 20-per-hour limit counts it. If many people are refused at once,
      the proxy may be giving one shared address.
+| 2026-10-20 | v0.28.0 live (Attendance "Mark days": several days ON / OFF / Clear at once on a person's month). No migration. `attendance.bluemins.life/health` OK; `POST /api/day-marks` answers 401 without a login. Not yet tried on screen by the owner. |
