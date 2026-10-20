@@ -616,7 +616,9 @@ before the Step 4 build, the tests and the owner's go-live.
 **Body:**
 > Hello {{1}}, this is a reminder from Bluemins. Your last order was {{2}}. Would you like to order again?
 
-**Footer:** `Reply STOP to stop these reminders.`
+**Footer:** none. Twilio's quick-reply type has no footer field (owner, 2026-10-20); the **Stop reminders** button is
+the opt-out, and the bot also honours a typed STOP. If a written line is wanted later, resubmit as `_v2` with "Tap
+\"Stop reminders\" or reply STOP to stop these messages." at the end of the body.
 
 **Buttons (quick reply), with the id the bot reads:**
 
