@@ -32,7 +32,7 @@ Both repos open together in VS Code with `~/projects/bluemins.code-workspace`.
 | Bot hosting | Railway project **`bluemins-whatsapp-bot`** (separate from PlantOps, Singapore): service `whatsappbot` (`https://whatsappbot-production-70de.up.railway.app`, auto-deploys `production`) + `Redis` (volume). Live order → Google Sheet confirmed 2026-10-20. |
 | Bot code | Node/Express, ~1,100 lines: `src/server.js` (webhook `POST /whatsapp/inbound`, stages `picking_sku → awaiting_quantity → awaiting_more → awaiting_name → awaiting_address → confirming`, 30-min session TTL, 24 h MessageSid dedupe, 7-day customer cache), `src/feedback-flow.js`. Writes Sheet tabs `Message_Logs`, `Leads`, `Sessions_Log`, `Customers`, `Orders`, `Feedback`. **No tests, no Twilio signature check.** |
 | Old repo | Kept by the owner; not tracked in this plan. Nothing deploys from it. Its history holds old, not-live secrets (switched off in step R). |
-| Secrets | The live Railway secrets were **never committed**. Leaked but not live: Google key `…f32e`, an Anthropic key, the Sheets Apps Script URL (still set in Railway, unused by code). |
+| Secrets | The live Railway secrets were **never committed**. The leaked old ones (Google key `…f32e`, an Anthropic key, the Sheets Apps Script URL) are switched off and the unused Railway variables deleted (owner, 2026-10-20, step R). |
 | PlantOps side | Order Capture live (v0.27.0 era): staff-entered orders, Twilio delivery thank-you (`apps/order-capture/src/server/thanks.ts`, `TWILIO_WHATSAPP_SENDERS`). No bot-facing API yet. |
 | Design decisions | Owner decisions of 2026-10-20 in the commerce plan (jar app separate; Order Capture = order ledger; Order Capture keeps the thank-you; 15-day reminder pilot with holdout; opt-in required; Odia + English; staff-kept area list). |
 
@@ -40,7 +40,7 @@ Both repos open together in VS Code with `~/projects/bluemins.code-workspace`.
 
 | # | Step | Repo(s) | Needs owner approval for | Status |
 |---|---|---|---|---|
-| R | Finish the repo move (old keys off, local copies removed) | both | deleting local folders | local copies done; owner: items 1–4 + unused Railway variables |
+| R | Finish the repo move (old keys off, local copies removed) | both | deleting local folders | **done** (2026-10-20) |
 | 0 | Confirm rules and the integration contract | read-only | the contract, wording, templates | open |
 | 1 | Harden the bot (signature, help / cancel / STOP, handoff, tests) | bot | the plan; any new dependency; production push | open |
 | 2 | Read-only Order Capture adapter + bot reads it | both | the API design; credential setup; production pushes | open |
@@ -318,4 +318,5 @@ design.
 |---|---|---|
 | 2026-10-20 | R (part) | Bot moved to `bluemins/order_handoff` (clean import, no secrets); Railway project `bluemins-whatsapp-bot` deploys `production`; live order → Sheet OK; live secrets checked (never committed). Details: bot `docs/REPO_MOVE_PLAN.md`. |
 | 2026-10-20 | R (part) | Both `~/projects` copies of the old repo were already gone; `whatsappbot-main` removed from `additionalDirectories`; copies outside `~/projects` left alone (owner). Unused Railway variables listed in bot `docs/REPO_MOVE_PLAN.md` step 2 (keep `RAILPACK_INSTALL_CMD`). Left for the owner: items 1–4, deleting those variables. |
+| 2026-10-20 | R | Owner: items 1–4 done and the unused Railway variables deleted (owner-confirmed); bot `/health` OK. **Step R done.** Next: step 0. |
 | 2026-10-20 | — | This plan written. |
