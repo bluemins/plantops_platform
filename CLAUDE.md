@@ -19,6 +19,8 @@ independently, with its own URL, Docker image and database schema.
 - `apps/job-applications` (public job page + applicants for owner / HR desk; built before Preventive Management, decided
   by the owner 2026-10-17; v0.25.0)
 - `apps/marketing-contacts`
+- **Not in this repo:** the Bluemins WhatsApp bot, a separate private repo (`github.com/bluemins/order_handoff`,
+  local clone `~/projects/order_handoff`; moved from `bluemins/whatsappbot` 2026-10-20). Plan and its link to Order Capture: `docs/WHATSAPP_CUSTOMER_COMMERCE_PLAN.md`.
 - `packages/auth` — SSO token verification + role guards, used by every module
 - `packages/ui` — shared UI components (tiles, buttons, forms)
 - `packages/types` — shared TypeScript types (token payload, roles, plan JSON)
