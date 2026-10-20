@@ -53,7 +53,8 @@ Google Sheet become a second source of truth for packaged-water orders after Ord
 - Order Capture is not currently a public, bot-facing order API. Its interactive routes use PlantOps module sessions
   and the Order Capture access table. Do not expose those routes or a module credential directly to the public bot.
 - The chatbot already has an inbound Twilio route, Redis conversation state and message-SID deduplication in
-  `whatsappbot-main/src/server.js`; its feedback flow is deterministic in `src/feedback-flow.js`.
+  `src/server.js` of the bot repo (`github.com/bluemins/order_handoff`, private; local clone
+  `~/projects/order_handoff`; deployed on Railway from that repo, owner 2026-10-20); its feedback flow is deterministic in `src/feedback-flow.js`.
 - The chatbot's README describes AI capabilities, but its current package manifest does not include an AI SDK.
   Preserve the deployed deterministic behavior; this plan does not add AI dependencies.
 - The current chatbot writes order and customer data to Google Sheets. Before any live Order Capture integration,
@@ -295,7 +296,7 @@ data changes. Never implement a later phase before its prerequisite phase has pa
 ### Prompt 0 — Confirm rules and integration contract
 
 > Read `docs/WHATSAPP_CUSTOMER_COMMERCE_PLAN.md`, the existing chatbot repository at
-> `/home/rocky/projects/whatsappbot-main`, and the relevant Order Capture code and notes. Do not edit files or contact
+> `/home/rocky/projects/order_handoff` (and its `docs/REPO_MOVE_PLAN.md`, which must be finished first), and the relevant Order Capture code and notes. Do not edit files or contact
 > production services. Produce a concise current-state map of the inbound Twilio webhook, outbound thank-you, bot
 > state/deduplication, Google Sheets writes, customer/order fields, available Order Capture APIs and deployment
 > configuration. Compare the actual code with this plan and list discrepancies.
