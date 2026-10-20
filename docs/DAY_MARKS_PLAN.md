@@ -58,5 +58,9 @@ Clear, overtime from real marks only, a paid month frozen then "changed after pa
 Supervisor / Plant staff / support refused), tenant isolation + the FORCE RLS guard, the append-only refusal, the
 not-marked alert skipping OFF people, the worker's calendar.
 
+## Added in v0.28.0 (owner, 2026-10-20)
+**Mark days** on the person's month: the owner picks several days (up to 31) and marks them all ON / OFF / Clear in
+one save (`POST /api/day-marks`); one row and one Recent changes line per day.
+
 ## Later (not in v0.26.0)
 Marking a date for everyone; weekly-off rules; holiday lists; leave requests from the worker's phone.

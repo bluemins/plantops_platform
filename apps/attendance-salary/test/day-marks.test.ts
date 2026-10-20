@@ -4,7 +4,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { describeChange } from "@/lib/changes";
 import { dayStatuses, monthPay, type PayInput } from "@/lib/salary";
-import { setDayMark } from "@/server/day-marks";
+import { DayMarksInput, setDayMark, setDayMarks } from "@/server/day-marks";
 import { monthStatuses } from "@/server/salary";
 import { salaryTab } from "@/server/salary-tab";
 import { todayBoard } from "@/server/today";
@@ -111,6 +111,39 @@ describe("the owner marks a day", () => {
       "Marked Tue, 20 Oct OFF (paid day off) for Ramu",
       "Cleared the day mark on Tue, 20 Oct for Ramu (back to the IN / OUT marks)",
     ]);
+  });
+
+  it("Mark days: several days in one save, one row and one Recent changes line each, the same mark skipped", async () => {
+    const p = await plantWithWorker();
+    await mark(p.owner, p.worker, day(11), "off");
+    const r = await setDayMarks(p.owner, { user_id: p.worker.userId, days: [day(18), day(4), day(11), day(4)], mark: "off" }, NOW);
+    expect(r).toEqual({
+      changed: 2,
+      days: [
+        { day: day(4), mark: "off", changed: true },
+        { day: day(11), mark: "off", changed: false },
+        { day: day(18), mark: "off", changed: true },
+      ],
+    });
+    expect((await rowOf(p.owner)).counts).toMatchObject({ off: 3 });
+    const { rows } = await asOwner<{ details: { day: string } }>(`select details from attendance_salary.audit_log where tenant_id = $1 and action = 'day.mark' order by id`, [p.tenantId]);
+    expect(rows.map((x) => x.details.day)).toEqual([day(11), day(4), day(18)]);
+    // Clear on all three goes back to the IN / OUT marks
+    expect((await setDayMarks(p.owner, { user_id: p.worker.userId, days: [day(4), day(11), day(18)], mark: "clear" }, NOW)).changed).toBe(3);
+    expect((await rowOf(p.owner)).counts).toMatchObject({ off: 0 });
+  });
+
+  it("Mark days: all or nothing; owner only; at most 31 days", async () => {
+    const p = await plantWithWorker();
+    const now = ist("2026-10-20 09:00");
+    // one future day refuses the whole save
+    expect(await refusal(() => setDayMarks(p.owner, { user_id: p.worker.userId, days: ["2026-10-19", "2026-10-21"], mark: "off" }, now))).toMatchObject({ status: 400 });
+    for (const u of [p.office, p.supervisor, p.worker, p.support]) {
+      expect((await refusal(() => setDayMarks(u, { user_id: p.worker.userId, days: [day(4)], mark: "on" }, now))).status, u.name).toBeGreaterThanOrEqual(403);
+    }
+    expect((await asOwner(`select count(*)::int as n from attendance_salary.day_marks where tenant_id = $1`, [p.tenantId])).rows[0]).toEqual({ n: 0 });
+    expect(DayMarksInput.safeParse({ user_id: p.worker.userId, days: Array.from({ length: 32 }, () => day(1)), mark: "on" }).success).toBe(false);
+    expect(DayMarksInput.safeParse({ user_id: p.worker.userId, days: [], mark: "on" }).success).toBe(false);
   });
 
   it("someone the plant doesn't know: 404", async () => {

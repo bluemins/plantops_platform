@@ -44,30 +44,61 @@ export function personDayMarks(user: AtUser, personId: string, fromDate: string,
   return withTenant(user.tenantId, async (tx) => (await loadDayMarks(tx, user.tenantId, fromDate, toDate, [personId])).get(personId) ?? new Map<string, DayMark>());
 }
 
+/** At most this many days in one "Mark days" save (owner 2026-10-20: a month's worth). */
+export const MAX_DAYS_PER_SAVE = 31;
+
+export const DayMarksInput = z.object({
+  user_id: z.uuid(),
+  days: z.array(z.string().refine(validDay, "Not a date")).min(1, "Pick at least one day").max(MAX_DAYS_PER_SAVE, `At most ${MAX_DAYS_PER_SAVE} days at once`),
+  mark: z.enum(["on", "off", "clear"]),
+});
+
+type Mark = DayMark | "clear";
+
 /**
  * Owner only: marks one person's day, today or earlier (the calendar opens past days and today only); a mark that is
  * the same as the day's current one saves nothing. Recorded in Recent changes.
  */
 export async function setDayMark(user: AtUser, input: z.infer<typeof DayMarkInput>, now = new Date()) {
+  const { days } = await setDayMarks(user, { user_id: input.user_id, days: [input.day], mark: input.mark }, now);
+  return days[0]!;
+}
+
+/**
+ * Owner only, the person page's "Mark days" (owner 2026-10-20): one mark for several days of one person, all saved
+ * or none. Each day follows `setDayMark`'s rules (today or earlier; the same mark again is skipped) and gets its own
+ * row and its own line in Recent changes.
+ */
+export async function setDayMarks(user: AtUser, input: z.infer<typeof DayMarksInput>, now = new Date()) {
   requireAccess(user, "day_mark");
   const today = istDay(now);
-  if (input.day > today) throw badRequest("A day can be marked from that day on, not before");
-  if (input.day < "2026-01-01") throw badRequest("That date is too far back");
+  const days = [...new Set(input.days)].sort();
+  if (days.length > MAX_DAYS_PER_SAVE) throw badRequest(`At most ${MAX_DAYS_PER_SAVE} days at once`);
+  if (days.some((d) => d > today)) throw badRequest("A day can be marked from that day on, not before");
+  if (days.some((d) => d < "2026-01-01")) throw badRequest("That date is too far back");
   const person = await knownPerson(user, input.user_id);
   return withTenant(user.tenantId, async (tx) => {
     await lockPerson(tx, user.tenantId, person.userId);
-    const current = (await loadDayMarks(tx, user.tenantId, input.day, input.day, [person.userId])).get(person.userId)?.get(input.day) ?? null;
-    if ((current ?? "clear") === input.mark) return { day: input.day, mark: current, changed: false };
-    await tx.insert(dayMarks).values({
-      tenantId: user.tenantId,
-      userId: person.userId,
-      userName: person.name.slice(0, 100),
-      day: input.day,
-      mark: input.mark,
-      createdBy: user.userId,
-      createdByName: user.name.slice(0, 100),
-    });
-    await audit(tx, user, "day.mark", input.day, { person: person.name, day: input.day, mark: input.mark });
-    return { day: input.day, mark: input.mark === "clear" ? null : input.mark, changed: true };
+    const current = (await loadDayMarks(tx, user.tenantId, days[0]!, days.at(-1)!, [person.userId])).get(person.userId) ?? new Map<string, DayMark>();
+    const out: { day: string; mark: DayMark | null; changed: boolean }[] = [];
+    for (const day of days) {
+      const was = current.get(day) ?? null;
+      if (((was ?? "clear") as Mark) === input.mark) {
+        out.push({ day, mark: was, changed: false });
+        continue;
+      }
+      await tx.insert(dayMarks).values({
+        tenantId: user.tenantId,
+        userId: person.userId,
+        userName: person.name.slice(0, 100),
+        day,
+        mark: input.mark,
+        createdBy: user.userId,
+        createdByName: user.name.slice(0, 100),
+      });
+      await audit(tx, user, "day.mark", day, { person: person.name, day, mark: input.mark });
+      out.push({ day, mark: input.mark === "clear" ? null : input.mark, changed: true });
+    }
+    return { days: out, changed: out.filter((d) => d.changed).length };
   });
 }

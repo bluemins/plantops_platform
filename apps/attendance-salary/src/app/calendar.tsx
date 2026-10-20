@@ -84,7 +84,7 @@ export function MonthCalendar({ view, dayHref, monthHref, statuses }: { view: Mo
               {body}
             </div>
           ) : (
-            <a key={d.date} href={dayHref(d.date)} className={cls}>
+            <a key={d.date} href={dayHref(d.date)} data-day={d.date} className={cls}>
               {body}
             </a>
           );

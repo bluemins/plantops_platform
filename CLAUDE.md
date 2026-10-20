@@ -1771,3 +1771,8 @@ don't open Sections & items; "setup changed" never goes to viewers; "count not d
 **Live (2026-10-19):** migrations platform `0018` and Floor Stock `0005` applied, `v0.27.0:production` (`3d15b82`), live
 checks OK (`docs/deployments/shared.md`). **Not yet verified:** on screen with real logins (the owner's checklist).
 
+### 2026-10-20 — Attendance: "Mark days" (several days ON / OFF at once) — v0.28.0
+Asked by the owner 2026-10-20 (some people don't mark IN / OUT). On Staff → person, the owner taps **Mark days**, picks
+days on the calendar (today or earlier, up to 31) and marks them all ON / OFF / Clear in one save (all or none; one
+row and one Recent changes line per day). Mock-up approved; notes in `apps/attendance-salary/NOTES.md`. No migration;
+SSO token unchanged. Tests: Attendance 443 (+2).

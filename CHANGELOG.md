@@ -4,6 +4,17 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.28.0 — 2026-10-20 — Mark several days ON / OFF at once (Attendance)
+
+**What's in it** (owner, 2026-10-20)
+- On a person's month (Staff → person), the owner taps **Mark days**, taps the days (today or earlier, any day of the
+  week, up to 31, across months), then **ON** (present), **OFF** (paid day off) or **Clear** (back to the IN / OUT
+  marks) in the bar at the bottom. All the picked days are saved together, or none if something is wrong.
+- Each day still gets its own line in Recent changes. A day that already has that mark is skipped.
+- For people who don't mark IN / OUT: mark their working days ON and days off OFF from the calendar.
+
+**Migrations:** none. Attendance only; SSO token unchanged.
+
 ## v0.27.0 — 2026-10-19 — View-only roles: Stock viewer, Document viewer, Order viewer
 
 **What's in it** (owner, 2026-10-19; docs/VIEW_ROLES_PHASE_PLAN.md)

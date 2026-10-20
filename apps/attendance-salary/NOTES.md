@@ -704,3 +704,16 @@ Decisions: Office staff only; mark now **and** Fix (add / cancel with a reason);
 - Labels: `byLabel` "Sunil (supervisor)"; desk marks "IN by Sunil" for everyone (the role isn't stored on the mark);
   "This phone is 1.2 km from the plant". Owners get `desk_fix` for a Supervisor's fix as for Office staff.
 - No migration; SSO token unchanged. Tests: `supervisor.test.ts` 10-12, access / office tests updated.
+
+## 2026-10-20: "Mark days" on the person's month (v0.28.0)
+Asked by the owner 2026-10-20 (some people don't mark IN / OUT; the owner wants to mark their days ON / OFF from the
+calendar, several at once). Mock-up approved: https://claude.ai/artifact/GZKHK5ovwTPFjtoEL6fihw.
+- Owner only (`day_mark`). **Mark days** above the calendar → taps pick days (tick + outline) instead of opening them;
+  only today and earlier (future days aren't links); any weekday, Sunday like any day; at most 31 at once. The bottom
+  bar marks them all **ON / OFF / Clear**; Cancel / Done leaves without saving. Picks survive moving month (this tab's
+  sessionStorage).
+- Server: `setDayMarks` + `DayMarksInput` (`POST /api/day-marks`), one transaction, all or nothing (one future day
+  refuses the whole save); each day its own `day_marks` row and its own Recent changes line; a day that already has
+  that mark is skipped. `setDayMark` (the day page) now goes through it.
+- Calendar day links carry `data-day`. No migration; platform and SSO token unchanged.
+- Tests: `day-marks.test.ts` +2 (Attendance 443).

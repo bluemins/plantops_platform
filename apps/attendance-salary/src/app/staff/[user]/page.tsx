@@ -10,6 +10,7 @@ import { requirePageUser } from "@/server/session";
 import { CalendarKey, MonthCalendar } from "../../calendar";
 import { Header } from "../../header";
 import { Advances } from "./advances";
+import { MarkDays } from "./mark-days";
 import { PersonClaims } from "./claims";
 import { SalaryBox, SalaryReadOnly, VisibilityTick } from "./salary-box";
 import { SalaryStrip } from "./salary-strip";
@@ -33,14 +34,24 @@ export default async function PersonMonthPage({ params, searchParams }: { params
   const advances = !salary && can(user, "advance_view") ? await advancePanel(user, personId, view.month) : null;
   const statuses = await monthStatuses(user, personId, view.month, new Map(view.days.map((d) => [d.date, d])));
   const name = view.name ?? "This person";
+  const calendar = <MonthCalendar view={view} dayHref={(d) => `/staff/${personId}/${d}`} monthHref={(m) => `/staff/${personId}?m=${m}`} statuses={statuses} />;
   return (
     <div className="space-y-4">
       <Header user={user} plant={plant} />
       <a href="/staff" className="flex min-h-11 items-center gap-1 font-semibold text-(--brand)">
         ‹ {can(user, "see_everyone") ? "Staff" : "Office staff"}
       </a>
-      <h1 className="text-xl font-bold">{view.name}</h1>
-      <MonthCalendar view={view} dayHref={(d) => `/staff/${personId}/${d}`} monthHref={(m) => `/staff/${personId}?m=${m}`} statuses={statuses} />
+      {can(user, "day_mark") ? (
+        // the owner's "Mark days": several days ON / OFF / Clear at once (owner 2026-10-20)
+        <MarkDays personId={personId} name={view.name ?? ""}>
+          {calendar}
+        </MarkDays>
+      ) : (
+        <>
+          <h1 className="text-xl font-bold">{view.name}</h1>
+          {calendar}
+        </>
+      )}
       <CalendarKey statuses={statuses} />
       {salary && (
         <>
