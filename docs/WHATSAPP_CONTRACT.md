@@ -63,6 +63,11 @@ Other routes: `GET /health`, static `/estimate.html` and `/tds-and-water.html`.
 The intro template's buttons presumably send `Order` / `feedback` / `estimator` as text (the code has no intro stage);
 **to confirm in the Twilio Content Template.**
 
+**Open (owner, 2026-10-20): the owner shares the six live Twilio Content Templates at the start of the next session**
+(name, type, body, each button's text **and ID**, from the edit view): `CONTENT_SID_INTRO`, `_SKU_PICKER`,
+`_ADD_MORE`, `_ESTIMATOR`, `_FEEDBACK_RATING`, `_FEEDBACK_INTEREST`. Record them here and check the IDs against the
+code (`PV_BM_1/500/250`, `add_more` / `order_done`, `great` / `okay` / `not_great`, the intro buttons).
+
 **Order stages:**
 
 | Stage | Accepts | Reply |

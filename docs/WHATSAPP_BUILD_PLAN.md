@@ -41,7 +41,7 @@ Both repos open together in VS Code with `~/projects/bluemins.code-workspace`.
 | # | Step | Repo(s) | Needs owner approval for | Status |
 |---|---|---|---|---|
 | R | Finish the repo move (old keys off, local copies removed) | both | deleting local folders | **done** (2026-10-20) |
-| 0 | Confirm rules and the integration contract | read-only | the contract, wording, templates | answers recorded in `docs/WHATSAPP_CONTRACT.md`; contract sign-off pending |
+| 0 | Confirm rules and the integration contract | read-only | the contract, wording, templates | answers recorded in `docs/WHATSAPP_CONTRACT.md`; **next session: owner shares the 6 bot templates (contract 1.1), then contract sign-off** |
 | 1 | Harden the bot (signature, help / cancel / STOP, handoff, tests) | bot | the plan; any new dependency; production push | open |
 | 2 | Read-only Order Capture adapter + bot reads it | both | the API design; credential setup; production pushes | open |
 | 3 | Confirmed-order write; Sheets stops being an order ledger | both | endpoint + transaction design; any schema / grant change; go-live | open |
