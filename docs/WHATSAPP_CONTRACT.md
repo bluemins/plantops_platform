@@ -69,21 +69,23 @@ The intro template's buttons presumably send `Order` / `feedback` / `estimator` 
 code (`PV_BM_1/500/250`, `add_more` / `order_done`, `great` / `okay` / `not_great`, the intro buttons).
 
 **Owner (2026-10-21): only the ordering templates for now;** `_FEEDBACK_RATING` and `_FEEDBACK_INTEREST` are left for
-later.
+later. `_ESTIMATOR`: as used in the bot code (sent on "estimator"; the calculator's message is parsed by
+`parseEstimatorHandoff`).
 
 **Templates received (2026-10-21):**
 
 | Variable | Name | SID | Type / category | Status | Body | Buttons (text → ID) |
 |---|---|---|---|---|---|---|
 | `CONTENT_SID_INTRO` | `greetings_bluemins` (language set to English (EN)) | `HXb163de4948654960767097319a0bc683` | Text / Utility | Approved (updated 2026-09-24) | Odia welcome to Bluemins (250 ml, 500 ml, 1 L boxes); type "Order" to order; type "Feedback" to give feedback; the rest is scrolled off in the screenshot | **none** (Text type) |
-| `CONTENT_SID_SKU_PICKER` | `copy_skupicker_odia` (language set to English (EN)) | `HX11c124d15e01ed552e058c1f4872cd80` | Quick reply / Marketing | Approved (updated 2026-09-24) | ଆଜ୍ଞା କୁହାର... ଆପଣଙ୍କୁ କେଉଁ ଟା ଦରକାର ଅଛେ ଯେ ବାଛି ଦଉନ ବଟ୍‌ନ ଛି ନଉନ ଅଡର କରବାର ଲାଗିର୍ ‖ (copied from the screenshot, check against the Console) | "1L - ବକ୍ସ (12) ଟା" → ?; "500ml ବକ୍ସ ( 24 ଟା)" → ?; "250ml ବକ୍ସ ( 35 ଟା)" → ? |
-| `CONTENT_SID_ADD_MORE` | `add_more_odia` (language set to English (EN)) | `HX9fffd021393694b6cd9ea4e08965368f` | Quick reply / Marketing | Approved (updated 2026-09-24) | ଆଉ କିଛି ଲାଗବା କାଲେ....? କି ଅପଣଂକର ସବୁ ହେଇଗଲା! (copied from the screenshot) | "ଆଉ ଲାଗବା" → ? (must be `add_more`); "ଆଉ ନାହିଁ ଲାଗେ କିଛି" → ? (must be `order_done`) |
+| `CONTENT_SID_SKU_PICKER` | `copy_skupicker_odia` (language set to English (EN)) | `HX11c124d15e01ed552e058c1f4872cd80` | Quick reply / Marketing | Approved (updated 2026-09-24) | ଆଜ୍ଞା କୁହାର... ଆପଣଙ୍କୁ କେଉଁ ଟା ଦରକାର ଅଛେ ଯେ ବାଛି ଦଉନ ବଟ୍‌ନ ଛି ନଉନ ଅଡର କରବାର ଲାଗିର୍ ‖ (copied from the screenshot, check against the Console) | "1L - ବକ୍ସ (12) ଟା" → `PV_BM_1`; "500ml ବକ୍ସ ( 24 ଟା)" → `PV_BM_500`; "250ml ବକ୍ସ ( 35 ଟା)" → `PV_BM_250` |
+| `CONTENT_SID_ADD_MORE` | `add_more_odia` (language set to English (EN)) | `HX9fffd021393694b6cd9ea4e08965368f` | Quick reply / Marketing | Approved (updated 2026-09-24) | ଆଉ କିଛି ଲାଗବା କାଲେ....? କି ଅପଣଂକର ସବୁ ହେଇଗଲା! (copied from the screenshot) | "ଆଉ ଲାଗବା" → `add_more`; "ଆଉ ନାହିଁ ଲାଗେ କିଛି" → `order_done` |
 
 - **Intro has no buttons** (answers the "to confirm" above): the customer **types** "Order" or "Feedback", matched by
   the bot's text rules. There is no `estimator` choice in the intro.
 - **The IDs must be `PV_BM_1` / `PV_BM_500` / `PV_BM_250`** (bot `src/server.js:608`). Otherwise the bot falls back to
   the button **text**, and its English-only aliases don't match the Odia labels, so every tap would be refused. IDs to be
-  read from the template's Details tab.
+  read from the template's Details tab. **Owner (2026-10-21): the IDs are the ones the bot code uses**; Step 1's live
+  check confirms one real tap of each button.
 - **Same for Add more:** the IDs must be `add_more` / `order_done` (bot `src/server.js:651`); the text fallback
   (`resolveAddMoreIntent`) knows English words only.
 - Category **Marketing**: a marketing template sent to the customer as a reply. It works inside the 24 h window; check
