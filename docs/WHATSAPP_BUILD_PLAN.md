@@ -24,7 +24,45 @@ Both repos open together in VS Code with `~/projects/bluemins.code-workspace`.
 
 ---
 
-## 1. Where things stand (2026-10-20)
+## 0. Handover: start the next session here (2026-10-21, end of day)
+
+**Where it stopped:** Step 1 is built and pushed to the bot's `production` branch, but **not live**. A Railway outage
+("Dashboard and API unavailable, builds paused", 2026-10-21 ~17:40 IST) stopped every build. After an hour of checks
+both services still ran their old code. During the outage the bot's Redis refused connections for a while (17:40);
+it answered normally again afterwards.
+
+| Item | State on 2026-10-21 |
+|---|---|
+| Bot `production` branch | `e9e52a2` (tag `3.1.0`, Step 1) — **pushed, not built**. Live service still runs deployment `eb94237f` (2026-10-20 13:20, old code). |
+| Bot Railway variables (`whatsappbot`) | **Set by the owner:** `PUBLIC_BASE_URL=https://whatsappbot-production-70de.up.railway.app`, `TWILIO_SIGNATURE_MODE=report`, `SUPPORT_PHONE=7090443303`, `SUPPORT_HOURS`. Twilio webhook checked: exactly `…/whatsapp/inbound`, HTTP POST. |
+| PlantOps v0.28.1 (support phone + hours on Business details) | Migration `0019` **applied on the shared copy** (columns checked); `production` = `3fd9a0c` (tag `v0.28.1`) — **pushed, not built**. Old code works with the new columns. |
+| Step 2 | **Plan approved** (done log, 2026-10-21); build only after Step 1 passes its live checks (owner). |
+| Test rows | About 20 `Message_Logs` rows from the made-up number `whatsapp:+910000000001` (deploy checks): safe to delete. |
+
+**Next session, in this order:**
+1. Railway banner gone? If the new deployments did not start by themselves, open each service, **Ctrl+K → "Deploy
+   latest commit"** (not "Redeploy", which rebuilds the old commit): `whatsappbot` must show `e9e52a2`, `platform`
+   (project `plantops-shared`) `3fd9a0c`. Source branch must be `production`.
+2. Quick check from the terminal: an unsigned `POST /whatsapp/inbound` with `Body=help` from `+910000000001` answers
+   "How to use…" (new code, report mode) instead of "Say 'Hi'…" (old code). Platform: the page build id is no longer
+   `f6Xv-By4unn9reuc3CjmQ`.
+3. **Step 1 live checks (owner's phone):** HELP → "How to use…"; a full order tapping every Odia button (sizes,
+   "ଆଉ ଲାଗବା", "ଆଉ ନାହିଁ ଲାଗେ କିଛି"), `yes` → exactly one `Orders` row and, for a new number, one `Customers` row;
+   PERSON → 7090443303 + hours; STOP then START; MENU → welcome template.
+4. Owner sends the new deployment's Deploy Logs: every inbound line must show `"signature":"valid"`. Then the owner
+   sets `TWILIO_SIGNATURE_MODE=enforce`, and an unsigned test message must get 403. Tick Step 1 done (status + done log).
+5. PlantOps: owner fills **Customer support phone** (7090443303) and **Support hours** (with days) in Business details;
+   update `docs/deployments/shared.md` and the v0.28.1 status note in CLAUDE.md ("live").
+6. Then build **Step 2** from the approved plan (done log 2026-10-21; section 7 prompt with the corrections noted
+   there).
+
+**Known gap until Step 2:** the handoff text says "We have passed your message to our team", but in Step 1 nothing
+reaches staff; handoffs are only `handoff_…` rows in `Sessions_Log`. Step 2's alerts fix this.
+
+**Rules learnt this session:** give a recommendation with every question (owner); never push a bot release before its
+Railway variables exist (enforce mode with no `PUBLIC_BASE_URL` refuses every message).
+
+## 1. Where things stood (2026-10-20)
 
 | Area | State |
 |---|---|
@@ -42,7 +80,7 @@ Both repos open together in VS Code with `~/projects/bluemins.code-workspace`.
 |---|---|---|---|---|
 | R | Finish the repo move (old keys off, local copies removed) | both | deleting local folders | **done** (2026-10-20) |
 | 0 | Confirm rules and the integration contract | read-only | the contract, wording, templates | **done** (2026-10-21, contract signed off) |
-| 1 | Harden the bot (signature, help / cancel / STOP, handoff, tests) | bot | the plan; any new dependency; production push | **built** (bot `main` `e9e52a2`, 2026-10-21); not live |
+| 1 | Harden the bot (signature, help / cancel / STOP, handoff, tests) | bot | the plan; any new dependency; production push | **built**, pushed to `production` (`e9e52a2`, tag `3.1.0`); **not live** (Railway outage, see section 0) |
 | 2 | Read-only Order Capture adapter + bot reads it | both | the API design; credential setup; production pushes | **plan approved** (2026-10-21); build after Step 1 is live |
 | 3 | Confirmed-order write; Sheets stops being an order ledger | both | endpoint + transaction design; any schema / grant change; go-live | open |
 | 4 | Delivered event, opt-in, 15-day pilot | both | schema / consent design; templates; pilot start | open |
@@ -177,6 +215,12 @@ a test order, a request without a signature gets 403, STOP then "hi".
 
 **Goal:** the bot shows real products, rates and the customer's last delivered basket from Order Capture, but still
 writes orders only to the Sheet.
+
+**Corrections from the approved plan (2026-10-21; they win over the prompt below):** no rates anywhere (contract:
+no price in the bot); the context call (contract 3.2) carries the products, so no separate product endpoint; add the
+alerts route (contract 3.11: `handoff` + `feedback_not_great`, owners + ticked people + the last order's taker); bot
+"REPEAT" of the last delivered order; `support` in the context answer from Business details through the branding
+answer; area list moved to Step 3.
 
 **Prompt 2:**
 > Step 2 of `docs/WHATSAPP_BUILD_PLAN.md` (commerce plan Phase 2). Read the approved contract
@@ -323,4 +367,5 @@ design.
 | 2026-10-21 | 0 | Ordering templates recorded (intro = Text with no buttons; product picker and add more: button IDs as in the bot code, owner); feedback templates left for later. Support phone + hours added to Business details (v0.28.1, migration `0019`). **Owner signed off the contract (section 3). Step 0 done.** Next: Step 1. |
 | 2026-10-21 | 1 | Plan approved (BACK = CANCEL; today's yes words until Step 3; signature report mode for go-live). Built on bot `main` `e9e52a2`: signature check, order lock, customer row on yes, HELP / MENU / CANCEL / STOP / START / PERSON, two misses → handoff, logs, 33 tests, no new dependency. Next: Railway variables, push `production`, live checks, then `enforce`. |
 | 2026-10-21 | 2 (plan) | Approved: context endpoint (no rates, contract wins over this prompt), REPEAT last delivered order ("Your last order (12 Oct): … Reply REPEAT to order the same again, or tap a size below."), handoff + "Not great" alerts via Order Capture (owners + ticked + last order's taker), support from Business details via branding, bot key in `ORDER_BOT_KEYS` (credential approved), area list moved to Step 3. Build waits for Step 1 live. |
+| 2026-10-21 | 1 (go-live) | Owner set the bot's Railway variables; Twilio webhook checked. Pushed `e9e52a2` (tag `3.1.0`) and PlantOps v0.28.1 (`3fd9a0c`, migration `0019` applied live) to `production`; a Railway outage paused builds, both still on old code after an hour. Handover in section 0. |
 | 2026-10-20 | — | This plan written. |

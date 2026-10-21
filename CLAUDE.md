@@ -1782,4 +1782,6 @@ Asked by the owner 2026-10-21 for the WhatsApp bot's "talk to a person" reply. B
 support phone** and **Support hours** (free text ≤ 60, days included as the owner types them), owner and super_admin,
 audited. Platform migration `0019_support_contact.sql` (approved by the owner): two columns on `tenant_profiles`, no
 grant change. Order Capture passes them to the bot from Step 2 (`support` in `docs/WHATSAPP_CONTRACT.md` 3.2); Step 1
-uses the bot's own `SUPPORT_PHONE` / `SUPPORT_HOURS`. SSO token unchanged. Tests: platform 369. **Not deployed.**
+uses the bot's own `SUPPORT_PHONE` / `SUPPORT_HOURS`. SSO token unchanged. Tests: platform 369. Migration `0019` applied on
+the shared copy and `production` = `3fd9a0c` (tag `v0.28.1`), **not built yet** (Railway outage 2026-10-21; next steps:
+`docs/WHATSAPP_BUILD_PLAN.md` section 0).
