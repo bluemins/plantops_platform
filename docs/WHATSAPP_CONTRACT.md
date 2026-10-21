@@ -1,7 +1,7 @@
 # WhatsApp bot ↔ Order Capture — current state, owner checklist, contract, texts
 
-**Step 0 of `docs/WHATSAPP_BUILD_PLAN.md`. Status (2026-10-20): owner answers recorded; formal sign-off of the
-contract (section 3) pending.**
+**Step 0 of `docs/WHATSAPP_BUILD_PLAN.md`. Status (2026-10-21): signed off by the owner (contract section 3); Step 0
+done.**
 Written from the code only: bot `~/projects/order_handoff` at `main` `f8a127b` (same code as `production` `d17d983`;
 only docs differ), PlantOps `main`. No live service was called and no secret was read.
 
@@ -699,6 +699,6 @@ pilot). "Repeat last order" only starts the normal flow: summary → `YES` → o
 9. **An extra cron-job.org job** for the event outbox (Step 4).
 
 **State on 2026-10-20:** items 1–8 answered by the owner and recorded above (checklist rows 9 and 20 stay as
-recommended / later). Still to do: the owner's formal sign-off of the contract (section 3), which closes Step 0;
+recommended / later). **2026-10-21: the owner signed off the contract (section 3); Step 0 is closed.**
 Step 4's infrastructure (item 4's Step 4 tables, the event secret, the cron job) is confirmed again when Step 4 starts.
 The approved bot clean-up (delete `faq.json`, rewrite README, drop `uuid`) is the first part of Step 1.

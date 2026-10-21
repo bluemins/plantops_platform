@@ -41,8 +41,8 @@ Both repos open together in VS Code with `~/projects/bluemins.code-workspace`.
 | # | Step | Repo(s) | Needs owner approval for | Status |
 |---|---|---|---|---|
 | R | Finish the repo move (old keys off, local copies removed) | both | deleting local folders | **done** (2026-10-20) |
-| 0 | Confirm rules and the integration contract | read-only | the contract, wording, templates | answers recorded in `docs/WHATSAPP_CONTRACT.md`; **next session: owner shares the 6 bot templates (contract 1.1), then contract sign-off** |
-| 1 | Harden the bot (signature, help / cancel / STOP, handoff, tests) | bot | the plan; any new dependency; production push | open |
+| 0 | Confirm rules and the integration contract | read-only | the contract, wording, templates | **done** (2026-10-21, contract signed off) |
+| 1 | Harden the bot (signature, help / cancel / STOP, handoff, tests) | bot | the plan; any new dependency; production push | **planning** (2026-10-21) |
 | 2 | Read-only Order Capture adapter + bot reads it | both | the API design; credential setup; production pushes | open |
 | 3 | Confirmed-order write; Sheets stops being an order ledger | both | endpoint + transaction design; any schema / grant change; go-live | open |
 | 4 | Delivered event, opt-in, 15-day pilot | both | schema / consent design; templates; pilot start | open |
@@ -320,4 +320,5 @@ design.
 | 2026-10-20 | R (part) | Both `~/projects` copies of the old repo were already gone; `whatsappbot-main` removed from `additionalDirectories`; copies outside `~/projects` left alone (owner). Unused Railway variables listed in bot `docs/REPO_MOVE_PLAN.md` step 2 (keep `RAILPACK_INSTALL_CMD`). Left for the owner: items 1–4, deleting those variables. |
 | 2026-10-20 | R | Owner: items 1–4 done and the unused Railway variables deleted (owner-confirmed); bot `/health` OK. **Step R done.** Next: step 0. |
 | 2026-10-20 | 0 (part) | `docs/WHATSAPP_CONTRACT.md` written: current-state map (whole bot repo read), owner checklist answered (no price in the bot, Rates default rate, 200-box limit, area list in Order Capture, support contact in Business details, English first, consent in Order Capture via bot + staff tick, pilot 70/30 ₹500 cap), draft API, English texts approved, reminder template wording. Left: formal contract sign-off. |
+| 2026-10-21 | 0 | Ordering templates recorded (intro = Text with no buttons; product picker and add more: button IDs as in the bot code, owner); feedback templates left for later. Support phone + hours added to Business details (v0.28.1, migration `0019`). **Owner signed off the contract (section 3). Step 0 done.** Next: Step 1. |
 | 2026-10-20 | — | This plan written. |
