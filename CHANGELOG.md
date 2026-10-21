@@ -4,6 +4,18 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.28.1 — 2026-10-21 — Customer support phone and hours on Business details
+
+**What's in it** (owner, 2026-10-21; docs/WHATSAPP_CONTRACT.md 3.2)
+- Business details has two new optional boxes: **Customer support phone** and **Support hours** (free text up to 60
+  characters, days included, e.g. "10 am – 6 pm, Mon–Sat"). The owner and PlantOps support can edit them; audited
+  like the other fields.
+- Not used anywhere yet. From WhatsApp Step 2 the bot tells customers who ask for a person to call this number in
+  these hours (until then the bot reads `SUPPORT_PHONE` / `SUPPORT_HOURS` from its own settings).
+
+**Migrations:** platform `0019_support_contact.sql` (two columns on `tenant_profiles`, no grant change). Platform only;
+SSO token unchanged.
+
 ## v0.28.0 — 2026-10-20 — Mark several days ON / OFF at once (Attendance)
 
 **What's in it** (owner, 2026-10-20)

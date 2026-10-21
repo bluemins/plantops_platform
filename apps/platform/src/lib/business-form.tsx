@@ -17,8 +17,20 @@ export type ProfileValue = {
   state: string;
   pincode: string;
   phone: string;
+  support_phone: string;
+  support_hours: string;
 };
-export const emptyProfile: ProfileValue = { brand_color: "", description: "", address: "", city: "", state: "", pincode: "", phone: "" };
+export const emptyProfile: ProfileValue = {
+  brand_color: "",
+  description: "",
+  address: "",
+  city: "",
+  state: "",
+  pincode: "",
+  phone: "",
+  support_phone: "",
+  support_hours: "",
+};
 
 /** undefined = keep the current logo, null = remove it, otherwise the new image. */
 export type LogoChange = { data_base64: string; preview: string } | null | undefined;
@@ -115,7 +127,10 @@ export function ProfileFields({
         <TextField label="State" value={value.state} onChange={set("state")} maxLength={80} />
         <TextField label="PIN code" value={value.pincode} onChange={set("pincode")} inputMode="numeric" pattern="\d{6}" maxLength={6} />
         <TextField label="Business phone" type="tel" value={value.phone} onChange={set("phone")} maxLength={20} />
+        <TextField label="Customer support phone" type="tel" value={value.support_phone} onChange={set("support_phone")} maxLength={20} />
+        <TextField label="Support hours" value={value.support_hours} onChange={set("support_hours")} placeholder="10 am – 6 pm, Mon–Sat" maxLength={60} />
       </div>
+      <p className="text-sm text-slate-500">Customers who ask for a person on WhatsApp are told to call this number in these hours.</p>
     </div>
   );
 }

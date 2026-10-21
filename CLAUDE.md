@@ -1776,3 +1776,10 @@ Asked by the owner 2026-10-20 (some people don't mark IN / OUT). On Staff → pe
 days on the calendar (today or earlier, up to 31) and marks them all ON / OFF / Clear in one save (all or none; one
 row and one Recent changes line per day). Mock-up approved; notes in `apps/attendance-salary/NOTES.md`. No migration;
 SSO token unchanged. Tests: Attendance 443 (+2).
+
+### 2026-10-21 — Business details: customer support phone and hours (v0.28.1)
+Asked by the owner 2026-10-21 for the WhatsApp bot's "talk to a person" reply. Business details gains **Customer
+support phone** and **Support hours** (free text ≤ 60, days included as the owner types them), owner and super_admin,
+audited. Platform migration `0019_support_contact.sql` (approved by the owner): two columns on `tenant_profiles`, no
+grant change. Order Capture passes them to the bot from Step 2 (`support` in `docs/WHATSAPP_CONTRACT.md` 3.2); Step 1
+uses the bot's own `SUPPORT_PHONE` / `SUPPORT_HOURS`. SSO token unchanged. Tests: platform 369. **Not deployed.**

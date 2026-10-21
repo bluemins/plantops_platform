@@ -75,6 +75,8 @@ describe("owner edits business details", () => {
       state: "Odisha",
       pincode: "753010",
       phone: "+91 98765 43210",
+      support_phone: "7090443303",
+      support_hours: " 10 am – 6 pm, Mon–Sat ",
       logo: { data_base64: PNG },
     });
     expect(res.status).toBe(200);
@@ -84,12 +86,17 @@ describe("owner edits business details", () => {
       brand_color: "#1d4ed8",
       city: "Cuttack",
       pincode: "753010",
+      support_phone: "7090443303",
+      support_hours: "10 am – 6 pm, Mon–Sat",
     });
     expect(res.body.logo_url).toMatch(/^\/api\/business\/logo\?v=\d+$/);
 
     const cleared = await patchBusiness(A.adminCookie, { description: "  " });
     expect(cleared.body.description).toBeNull();
     expect(cleared.body.city).toBe("Cuttack"); // fields not sent stay as they were
+    expect(cleared.body.support_phone).toBe("7090443303");
+    const noSupport = await patchBusiness(A.adminCookie, { support_phone: "", support_hours: "" });
+    expect(noSupport.body).toMatchObject({ support_phone: null, support_hours: null });
     expect(cleared.body.logo_url).not.toBeNull();
   });
 
@@ -119,6 +126,8 @@ describe("owner edits business details", () => {
     ["brand color that isn't #RRGGBB", { brand_color: "blue" }],
     ["5-digit PIN code", { pincode: "75301" }],
     ["phone with letters", { phone: "call me" }],
+    ["support phone with letters", { support_phone: "call me" }],
+    ["support hours over 60 characters", { support_hours: "x".repeat(61) }],
     ["empty plant name", { name: "" }],
   ])("rejects %s", async (_name, body) => {
     expect((await patchBusiness(A.adminCookie, body)).status).toBe(400);

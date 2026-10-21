@@ -27,6 +27,8 @@ export const ProfileInput = z
     state: optional(z.string().trim().max(80)),
     pincode: optional(z.string().trim().regex(/^\d{6}$/, "PIN code: 6 digits")),
     phone: optional(z.string().trim().regex(/^\+?[0-9][0-9 -]{6,18}$/, "Phone: digits only, e.g. +91 98765 43210")),
+    support_phone: optional(z.string().trim().regex(/^\+?[0-9][0-9 -]{6,18}$/, "Support phone: digits only, e.g. +91 98765 43210")),
+    support_hours: optional(z.string().trim().max(60, "Support hours: max 60 characters")),
     logo: Logo.nullable(), // null removes the logo; leave out to keep it
   })
   .partial();
@@ -82,6 +84,8 @@ async function readBusiness(tx: PlatformTx, tenantId: string, logoPath: string) 
       state: tenantProfiles.state,
       pincode: tenantProfiles.pincode,
       phone: tenantProfiles.phone,
+      supportPhone: tenantProfiles.supportPhone,
+      supportHours: tenantProfiles.supportHours,
     })
     .from(tenants)
     .leftJoin(tenantProfiles, eq(tenantProfiles.tenantId, tenants.id))
@@ -99,6 +103,8 @@ async function readBusiness(tx: PlatformTx, tenantId: string, logoPath: string) 
     state: row.state,
     pincode: row.pincode,
     phone: row.phone,
+    support_phone: row.supportPhone,
+    support_hours: row.supportHours,
   };
 }
 
@@ -113,6 +119,8 @@ export async function writeProfile(tx: PlatformTx, tenantId: string, input: Prof
   if (fields.state !== undefined) changes.state = fields.state;
   if (fields.pincode !== undefined) changes.pincode = fields.pincode;
   if (fields.phone !== undefined) changes.phone = fields.phone;
+  if (fields.support_phone !== undefined) changes.supportPhone = fields.support_phone;
+  if (fields.support_hours !== undefined) changes.supportHours = fields.support_hours;
   if (logo === null) Object.assign(changes, { logo: null, logoType: null, logoUpdatedAt: null });
   if (logo) {
     const decoded = decodeLogo(logo.data_base64);

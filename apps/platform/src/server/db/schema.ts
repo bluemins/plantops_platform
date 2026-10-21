@@ -71,6 +71,8 @@ export const tenantProfiles = platform.table("tenant_profiles", {
   state: text("state"),
   pincode: text("pincode"),
   phone: text("phone"),
+  supportPhone: text("support_phone"),
+  supportHours: text("support_hours"),
   updatedAt: ts("updated_at").notNull().defaultNow(),
   updatedBy: text("updated_by").notNull(),
 });
