@@ -47,22 +47,21 @@ describe("rule 20: what a day mark does", () => {
     ]);
   });
 
-  it("monthly, full month: 4 Sundays OFF = no cut, and the 2 paid leave days stay free", () => {
-    // without the marks: 27 present, 4 absent, 2 covered by leave, 2 cut at ₹300
+  it("rule 22, monthly, full month: OFF days are not paid; paid leave covers them first, like absent days", () => {
+    // the same as 4 absent days: 2 covered by leave, 2 cut at ₹300
     expect(monthPay({ ...base, present: 27, absent: 4 }).earnedPaise).toBe(R(8400));
-    const marked = monthPay({ ...base, present: 27, off: 4 });
-    expect(marked).toMatchObject({ earnedPaise: R(9000), leaveUsedHalves: 0, unpaidHalves: 0 });
-    // a real absence on top is still covered by the leave
-    expect(monthPay({ ...base, present: 26, off: 4, absent: 1 })).toMatchObject({ earnedPaise: R(9000), leaveUsedHalves: 2 });
+    expect(monthPay({ ...base, present: 27, off: 4 })).toMatchObject({ earnedPaise: R(8400), leaveUsedHalves: 4, unpaidHalves: 4 });
+    // a real absence on top: 5 days missing, 2 covered, 3 cut
+    expect(monthPay({ ...base, present: 26, off: 4, absent: 1 })).toMatchObject({ earnedPaise: R(8100), leaveUsedHalves: 4 });
   });
 
-  it("per day: an OFF day is paid at the day rate (owner, 2026-10-19)", () => {
-    expect(monthPay({ ...base, payBasis: "per_day", monthlyPaise: 0, dayRatePaise: R(450), paidLeaveHalfdays: 0, present: 27, off: 4 }).earnedPaise).toBe(R(31 * 450));
+  it("rule 22, per day: an OFF day earns nothing (owner, 2026-10-23; it was paid from 2026-10-19)", () => {
+    expect(monthPay({ ...base, payBasis: "per_day", monthlyPaise: 0, dayRatePaise: R(450), paidLeaveHalfdays: 0, present: 27, off: 4 }).earnedPaise).toBe(R(27 * 450));
   });
 
-  it("part month: OFF days are paid like present days", () => {
-    // joined 15 Oct: 17 days = 13 present + 2 off + 2 absent (both covered by leave) = 17 days at ₹300
-    expect(monthPay({ ...base, fullMonth: false, present: 13, off: 2, absent: 2 }).earnedPaise).toBe(R(17 * 300));
+  it("rule 22, part month: OFF days are not paid; leave covers them like absent days", () => {
+    // joined 15 Oct: 17 days = 13 present + 2 off + 2 absent; 2 days of leave cover 2 of the 4 missing = 15 days at ₹300
+    expect(monthPay({ ...base, fullMonth: false, present: 13, off: 2, absent: 2 }).earnedPaise).toBe(R(15 * 300));
   });
 
   it("figures frozen before v0.26.0 have no `off`: read as 0", () => {
@@ -108,7 +107,7 @@ describe("the owner marks a day", () => {
     // every change is a row (append-only); Recent changes says it in words
     const { rows } = await asOwner<{ action: string; details: Record<string, unknown> }>(`select action, details from attendance_salary.audit_log where tenant_id = $1 and action = 'day.mark' order by id`, [p.tenantId]);
     expect(rows.map((r) => describeChange(r.action, r.details))).toEqual([
-      "Marked Tue, 20 Oct OFF (paid day off) for Ramu",
+      "Marked Tue, 20 Oct OFF (day off, not paid) for Ramu",
       "Cleared the day mark on Tue, 20 Oct for Ramu (back to the IN / OUT marks)",
     ]);
   });
@@ -154,7 +153,7 @@ describe("the owner marks a day", () => {
 });
 
 describe("in the salary, the calendar and the Today board", () => {
-  it("Sundays OFF and a forgotten day ON: full salary, counts on the Salary tab", async () => {
+  it("Sundays OFF (not paid, rule 22) and a forgotten day ON: counts on the Salary tab", async () => {
     const p = await plantWithWorker();
     // works 08:00-16:00 every day except the Sundays, and forgets to mark on 7 Oct
     for (let d = 1; d <= 31; d++) {
@@ -168,7 +167,7 @@ describe("in the salary, the calendar and the Today board", () => {
     await mark(p.owner, p.worker, day(7), "on");
     const row = await rowOf(p.owner);
     expect(row.counts).toMatchObject({ present: 27, absent: 0, off: 4 });
-    expect(row.result).toMatchObject({ earnedPaise: R(9000), leaveUsedHalves: 0 });
+    expect(row.result).toMatchObject({ earnedPaise: R(8400), leaveUsedHalves: 4 }); // 4 OFF: 2 covered by leave, 2 cut
   });
 
   it("the calendar gets the day's mark; Clear takes it away", async () => {

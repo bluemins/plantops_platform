@@ -5,7 +5,14 @@ import { useState } from "react";
 import { ErrorText } from "@plantops/ui";
 import { api } from "@/lib/api";
 import { fmtDayLong, fmtMonth, istDay } from "@/lib/days";
-import { SALARY_BAND, halvesText, hoursText, paiseText, toPaise, type PayBasis } from "@/lib/salary";
+import { SALARY_TYPES, halvesText, hoursText, paiseText, toPaise, type PayBasis } from "@/lib/salary";
+
+/** The salary types in the order the owner picks them, with what each does (lib/salary.ts SALARY_TYPES). */
+const TYPE_CHOICES: [PayBasis, string][] = [
+  ["per_day", "Day rate · short days count their hours · overtime per hour · OFF and absent days not paid · no paid leave"],
+  ["monthly", "Monthly salary ÷ 30 a day · short days count their hours · overtime per hour · OFF and absent days: paid leave first, then cut"],
+  ["fixed", "Full monthly salary whatever the attendance · no cuts · no overtime · only advances are taken off"],
+];
 import { settingText } from "@/lib/changes";
 import type { HistoryRow } from "@/server/salary-edit";
 
@@ -55,6 +62,7 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
   const lunch = Number(f.lunch) || 0;
   const past = f.from < thisMonth;
   const perDay = f.basis === "per_day";
+  const fixed = f.basis === "fixed";
   const rate = toPaise(f.dayRate);
 
   async function save() {
@@ -66,7 +74,7 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
         user_id: personId,
         pay_basis: f.basis,
         // only the fields of the chosen basis are sent; the server ignores the other one anyway
-        ...(perDay ? { day_rate: f.dayRate } : { monthly: f.monthly, leave_days: Number(f.leave) }),
+        ...(perDay ? { day_rate: f.dayRate } : fixed ? { monthly: f.monthly } : { monthly: f.monthly, leave_days: Number(f.leave) }),
         field_staff: f.field,
         staff_type: f.staffType,
         // rates only with the Field staff tick (the server refuses them otherwise)
@@ -74,8 +82,9 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
         da_rate: f.field ? f.da || null : null,
         shift_hours: Number(f.shift),
         lunch_hours: Number(f.lunch) || 0,
-        gets_overtime: f.ot,
-        ot_rate: f.ot ? f.rate : null,
+        // a fixed salary has no overtime (the server refuses it)
+        gets_overtime: f.ot && !fixed,
+        ot_rate: f.ot && !fixed ? f.rate : null,
         from_month: f.from,
         joined_on: f.joined || null,
         left_on: f.left || null,
@@ -102,22 +111,16 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
         </h2>
         <span className="text-sm text-slate-600">Only the owner sees this box.</span>
       </div>
-      <p className="rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-700">
-        Salary band: <strong>{SALARY_BAND}</strong> · work = time at plant − lunch · short days count their hours ÷ the work hours · overtime per hour
-      </p>
-
       <fieldset className="space-y-1.5">
-        <legend className="mb-1.5 text-sm font-semibold text-slate-800">Pay</legend>
-        <div className="grid max-w-md grid-cols-2 overflow-hidden rounded-xl border border-slate-300">
-          {(
-            [
-              ["monthly", "Monthly"],
-              ["per_day", "Per day"],
-            ] as const
-          ).map(([value, text]) => (
-            <label key={value} className={`flex min-h-12 cursor-pointer items-center justify-center gap-2 font-semibold ${f.basis === value ? "bg-(--brand) text-(--brand-contrast)" : "bg-white text-slate-800"}`}>
-              <input type="radio" name="pay-basis" value={value} checked={f.basis === value} onChange={() => setF((x) => ({ ...x, basis: value }))} className="h-4 w-4" />
-              {text}
+        <legend className="mb-1.5 text-sm font-semibold text-slate-800">Salary type</legend>
+        <div className="space-y-2">
+          {TYPE_CHOICES.map(([value, text]) => (
+            <label key={value} className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 ${f.basis === value ? "border-(--brand) bg-(--brand-soft)" : "border-slate-300 bg-white"}`}>
+              <input type="radio" name="pay-basis" value={value} checked={f.basis === value} onChange={() => setF((x) => ({ ...x, basis: value }))} className="mt-1 h-4 w-4 shrink-0" />
+              <span className="min-w-0">
+                <span className="block font-bold break-words">{SALARY_TYPES[value]}</span>
+                <span className="block text-sm text-slate-600">{text}</span>
+              </span>
             </label>
           ))}
         </div>
@@ -172,8 +175,8 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
             </span>
           )}
         </label>
-        {perDay ? (
-          <p className="self-start rounded-xl bg-slate-100 px-3 py-2.5 text-sm text-slate-700 sm:mt-6">Paid leave doesn&apos;t apply to per-day pay.</p>
+        {perDay || fixed ? (
+          <p className="self-start rounded-xl bg-slate-100 px-3 py-2.5 text-sm text-slate-700 sm:mt-6">Paid leave doesn&apos;t apply to {fixed ? "a fixed salary (nothing is cut)" : "per-day pay"}.</p>
         ) : (
           <label className={label}>
             <span>Paid leave per month (days)</span>
@@ -183,6 +186,9 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
         )}
       </div>
 
+      {fixed ? (
+        <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">No overtime with a fixed salary. Attendance is still recorded and shown.</p>
+      ) : (
       <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
         <label className="flex min-h-11 items-center gap-3 font-semibold">
           <input type="checkbox" className="h-5 w-5 accent-(--brand)" checked={f.ot} onChange={(e) => setF((x) => ({ ...x, ot: e.target.checked }))} />
@@ -200,6 +206,7 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
           <p className="text-sm text-slate-600">No overtime counted or paid. Extra hours still count towards a full day.</p>
         )}
       </div>
+      )}
 
       <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
         <label className="flex min-h-11 items-center gap-3 font-semibold">
@@ -283,7 +290,7 @@ export function History({ history }: { history: HistoryRow[] }) {
             <div className="flex flex-wrap justify-between gap-x-3">
               <span>
                 <strong>From {fmtMonth(h.fromMonth)}:</strong>{" "}
-                {settingText({ monthly: h.monthlyPaise, day_rate: h.dayRatePaise, km_rate: h.kmRatePaise, da_day: h.daDayPaise, field: h.fieldStaff, temporary: h.staffType === "temporary", shift: h.shiftMinutes, lunch: h.lunchMinutes, leave: h.paidLeaveHalfdays, ot_rate: h.getsOvertime ? h.otRatePaise : null, joined: h.joinedOn, left: h.leftOn })}
+                {settingText({ basis: h.payBasis, monthly: h.monthlyPaise, day_rate: h.dayRatePaise, km_rate: h.kmRatePaise, da_day: h.daDayPaise, field: h.fieldStaff, temporary: h.staffType === "temporary", shift: h.shiftMinutes, lunch: h.lunchMinutes, leave: h.paidLeaveHalfdays, ot_rate: h.getsOvertime ? h.otRatePaise : null, joined: h.joinedOn, left: h.leftOn })}
               </span>
               <span className="text-slate-600">
                 {h.byName}, {dayShort(istDay(new Date(h.at)))}
@@ -335,7 +342,7 @@ export function SalaryReadOnly({ applies, history, canSee, name }: { applies: Hi
     <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
       <h2 className="text-lg font-bold">Salary</h2>
       {applies ? (
-        <p>{settingText({ monthly: applies.monthlyPaise, day_rate: applies.dayRatePaise, km_rate: applies.kmRatePaise, da_day: applies.daDayPaise, field: applies.fieldStaff, temporary: applies.staffType === "temporary", shift: applies.shiftMinutes, lunch: applies.lunchMinutes, leave: applies.paidLeaveHalfdays, ot_rate: applies.getsOvertime ? applies.otRatePaise : null, joined: applies.joinedOn, left: applies.leftOn })}</p>
+        <p>{settingText({ basis: applies.payBasis, monthly: applies.monthlyPaise, day_rate: applies.dayRatePaise, km_rate: applies.kmRatePaise, da_day: applies.daDayPaise, field: applies.fieldStaff, temporary: applies.staffType === "temporary", shift: applies.shiftMinutes, lunch: applies.lunchMinutes, leave: applies.paidLeaveHalfdays, ot_rate: applies.getsOvertime ? applies.otRatePaise : null, joined: applies.joinedOn, left: applies.leftOn })}</p>
       ) : (
         <p className="text-slate-600">No salary set.</p>
       )}

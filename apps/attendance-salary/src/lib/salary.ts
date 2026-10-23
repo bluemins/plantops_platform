@@ -11,13 +11,23 @@
 import { monthDays } from "./days";
 
 /** Saved with every payment's frozen figures; raise it whenever a rule here changes. */
-export const RULES_VERSION = 6;
+export const RULES_VERSION = 7;
 /**
- * The salary band: the name of this calculation pattern (owner, 2026-10-23): work = time at plant − lunch, full day =
- * the work hours, short days ÷ the work hours, overtime per hour. Shown on the Salary box, tab, slip and CSV, and saved
- * with a paid month's figures. Everyone is on it; another band comes only when the owner asks for another pattern.
+ * The salary types (owner, 2026-10-23): each pay basis is one named calculation, picked first in the Salary box, shown
+ * on the Salary tab, slip and CSV, and saved with a paid month's figures.
+ * - per_day  PV_SALARY_DAY_STAFF: day rate; work = time at plant − lunch; short days ÷ the work hours; overtime per
+ *   hour; OFF and absent days not paid; no paid leave.
+ * - monthly  PV_SALARY_MONTHLY_STAFF: salary ÷ 30 a day; the same work, short-day and overtime rules; OFF and absent
+ *   days covered by the person's paid leave first, the rest cut.
+ * - fixed    PV_SALARY_FIXED_MONTHLY: the full monthly salary whatever the attendance; no overtime, no paid leave;
+ *   only a part month (joined / last day) is paid for its days.
  */
-export const SALARY_BAND = "PV_SALARY_DAY_STAFF";
+export const SALARY_TYPES = {
+  per_day: "PV_SALARY_DAY_STAFF",
+  monthly: "PV_SALARY_MONTHLY_STAFF",
+  fixed: "PV_SALARY_FIXED_MONTHLY",
+} as const;
+export const salaryType = (basis: PayBasis) => SALARY_TYPES[basis];
 /** Rule 7: a day's pay is always the monthly salary ÷ 30, whatever the month's length. */
 export const DAYS_FOR_PAY = 30;
 
@@ -55,7 +65,7 @@ export const halvesText = (halves: number) => String(Math.round(halves * 50) / 1
 // ---------- which setting applies ----------
 
 /** Monthly salary (rules 4-8) or a day rate (rule 15). */
-export type PayBasis = "monthly" | "per_day";
+export type PayBasis = "monthly" | "per_day" | "fixed";
 
 export interface SalarySetting {
   id: string;
@@ -133,7 +143,7 @@ export function countedDates(month: string, today: string, joinedOn: string | nu
 // ---------- day statuses (rules 2, 3, 9) ----------
 
 /**
- * "off" = the owner marked a paid day off (rule 20); never from the IN / OUT marks. "short" = worked, but less than the
+ * "off" = the owner marked a day off WITHOUT pay (rule 20, unpaid since rule 22); never from the IN / OUT marks. "short" = worked, but less than the
  * work hours (rule 21). "half" only in months frozen before rule 21.
  */
 export type DayStatus = "present" | "short" | "half" | "absent" | "off";
@@ -170,7 +180,8 @@ export function workMinutes(atPlant: number, lunchMinutes: number, gapMinutes = 
  * below that, otherwise absent (also with no marks at all). Overtime = work − work hours when positive, exact minutes,
  * only with "Gets overtime". `days` is sessions.ts's workDays() (a night shift is already on the day it started).
  * Rule 20 (v0.26.0, docs/DAY_MARKS_PLAN.md): the owner's day mark decides the day instead: "on" = present, "off" =
- * a paid day off. Overtime still comes only from the real IN / OUT times.
+ * a day off without pay (rule 22, owner 2026-10-23: paid leave covers it like an absent day). Overtime still comes
+ * only from the real IN / OUT times.
  */
 export function dayStatuses(days: ReadonlyMap<string, { minutes: number; gapMinutes?: number }>, shiftMinutes: number, counted: readonly string[], getsOvertime: boolean, marks?: ReadonlyMap<string, DayMark>, lunchMinutes = 0): DayResult[] {
   return counted.map((date) => {
@@ -189,7 +200,7 @@ export interface DayCounts {
   /** months frozen before rule 21 only; 0 since */
   half: number;
   absent: number;
-  /** rule 20: paid days off marked by the owner; missing in figures frozen before v0.26.0 (= 0) */
+  /** rule 20: days off marked by the owner (unpaid since rule 22); missing in figures frozen before v0.26.0 (= 0) */
   off?: number;
   /** rule 21: days with work under the work hours, and their work added up; missing before rule 21 (= 0) */
   short?: number;
@@ -274,21 +285,28 @@ export interface PayResult {
 
 export function monthPay(i: PayInput): PayResult {
   const perDay = i.payBasis === "per_day";
+  const fixed = i.payBasis === "fixed";
   // Worked in minutes of a full day (rule 21); without short days this is exactly the half-day arithmetic of before.
   const day = i.shiftMinutes || 480;
   const short = i.short ?? 0;
   const shortWork = Math.min(i.shortMinutes ?? 0, short * day);
-  const paidMinutes = (i.present + (i.off ?? 0)) * day + (i.half * day) / 2 + shortWork; // rule 20: a day off is paid
-  const missingMinutes = i.absent * day + (i.half * day) / 2 + (short * day - shortWork); // rule 4 (+ rule 21)
-  const leaveMinutes = perDay ? 0 : Math.min(missingMinutes, (i.paidLeaveHalfdays * day) / 2); // rule 5 (rule 15: none)
-  const unpaidMinutes = missingMinutes - leaveMinutes; // rule 6
+  const paidMinutes = i.present * day + (i.half * day) / 2 + shortWork;
+  // rule 4 (+ rule 21: the time short days are short; rule 22: the owner's days off are not paid, like absent days)
+  const missingMinutes = (i.absent + (i.off ?? 0)) * day + (i.half * day) / 2 + (short * day - shortWork);
+  const leaveMinutes = perDay || fixed ? 0 : Math.min(missingMinutes, (i.paidLeaveHalfdays * day) / 2); // rule 5 (rule 15: none)
+  const unpaidMinutes = fixed ? 0 : missingMinutes - leaveMinutes; // rule 6 (fixed: nothing is ever unpaid)
   const halves = (minutes: number) => (2 * minutes) / day;
   const dayPayPaise = perDay ? (i.dayRatePaise ?? 0) : Math.round(i.monthlyPaise / DAYS_FOR_PAY); // rule 7 / 15
   // rule 8: the day's pay as shown is used, so "unpaid days × day's pay" on the screen adds up exactly
   let deductionPaise = 0;
   let paidHalves = 0;
   let earnedPaise: number;
-  if (perDay) {
+  if (fixed) {
+    // PV_SALARY_FIXED_MONTHLY: the full salary in a full month; a part month pays its counted days at salary ÷ 30
+    const countedDays = i.present + i.half + short + i.absent + (i.off ?? 0);
+    paidHalves = i.fullMonth ? 0 : 2 * countedDays;
+    earnedPaise = i.fullMonth ? i.monthlyPaise : Math.min(i.monthlyPaise, countedDays * dayPayPaise);
+  } else if (perDay) {
     // rule 15: day rate × (present + ½ × half days + short-day work ÷ work hours), rounded once; absent days earn
     // nothing; no full / part month difference (the counted days already keep the month inside the employment)
     paidHalves = halves(paidMinutes);
@@ -304,7 +322,7 @@ export function monthPay(i: PayInput): PayResult {
   const leaveUsedHalves = halves(leaveMinutes);
   const unpaidHalves = halves(unpaidMinutes);
   // rule 9: overtime only with "Gets overtime" and a rate; exact minutes
-  const otMinutes = i.getsOvertime && i.otRatePaise ? i.otMinutes : 0;
+  const otMinutes = i.getsOvertime && i.otRatePaise && !fixed ? i.otMinutes : 0;
   const otPayPaise = otMinutes ? Math.round((otMinutes * i.otRatePaise!) / 60) : 0;
   // rule 12, extended by rule 19: approved TA, DA and expenses are added
   const remainingPaise = earnedPaise + otPayPaise + i.taPaise + i.daPaise + i.expensesPaise - i.advancesPaise - i.carriedInPaise + i.adjustmentPaise;
@@ -518,7 +536,7 @@ export interface FrozenAdvance {
 /** Everything a paid month's slip shows, exactly as it stood when the month was ticked Paid. */
 export interface FrozenMonth {
   rules: number;
-  /** the salary band the month was worked out with (rules 6+; missing before = no band name) */
+  /** the salary type the month was worked out with (rules 6+; missing before = no name) */
   band?: string;
   month: string;
   setting: { payBasis: PayBasis; monthlyPaise: number | null; dayRatePaise: number | null; kmRatePaise: number | null; daDayPaise: number | null; shiftMinutes: number; lunchMinutes?: number; paidLeaveHalfdays: number; getsOvertime: boolean; otRatePaise: number | null; joinedOn: string | null; leftOn: string | null };

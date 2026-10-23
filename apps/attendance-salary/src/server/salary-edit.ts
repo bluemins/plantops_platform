@@ -89,8 +89,9 @@ const byName = (u: AtUser) => u.name.slice(0, 100);
 
 export const SettingInput = z.object({
   user_id: z.uuid(),
-  /** "monthly" (salary ÷ 30, paid leave) or "per_day" (a day rate, no paid leave; rule 15) */
-  pay_basis: z.enum(["monthly", "per_day"]).default("monthly"),
+  /** the salary type (lib/salary.ts SALARY_TYPES): "monthly" (salary ÷ 30, paid leave), "per_day" (a day rate, no
+   *  paid leave; rule 15) or "fixed" (the full monthly salary whatever the attendance; no leave, no overtime) */
+  pay_basis: z.enum(["monthly", "per_day", "fixed"]).default("monthly"),
   /** rupees as typed; monthly only */
   monthly: z.string().max(20).nullish(),
   /** rupees as typed; per day only */
@@ -122,6 +123,7 @@ export const SettingInput = z.object({
 export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInput>) {
   const person = await editablePerson(user, input.user_id);
   const perDay = input.pay_basis === "per_day";
+  const fixed = input.pay_basis === "fixed";
   // only the fields of the chosen basis count; the other one is saved empty whatever the browser sent
   const monthlyPaise = perDay ? null : rupees(input.monthly ?? "", "Monthly salary");
   const dayRatePaise = perDay ? rupees(input.day_rate ?? "", "Day rate", MAX_DAY_RATE_PAISE) : null;
@@ -139,9 +141,10 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
     throw badRequest("Lunch break: 0 to 3 hours, in steps of 15 minutes (1 or 0.5)");
   }
   if (shiftMinutes + lunchMinutes > 16 * 60) throw badRequest("Work hours + lunch break can be at most 16 hours");
-  const leaveDays = perDay ? 0 : (input.leave_days ?? 2); // rule 15: no paid leave for per-day pay
+  const leaveDays = perDay || fixed ? 0 : (input.leave_days ?? 2); // rule 15: no paid leave for per-day pay; fixed: none needed
   const halves = leaveDays * 2;
   if (!(leaveDays >= 0 && leaveDays <= 10) || !Number.isInteger(halves)) throw badRequest("Paid leave: 0 to 10 days, in steps of half a day");
+  if (fixed && input.gets_overtime) throw badRequest("A fixed monthly salary has no overtime: untick Gets overtime");
   const otRatePaise = input.gets_overtime ? rupees(input.ot_rate ?? "", "Overtime rate", MAX_OT_RATE_PAISE) : null;
   if (input.joined_on && input.left_on && input.left_on < input.joined_on) throw badRequest("The last day can't be before the joining day");
   const reason = input.reason?.trim() || null;

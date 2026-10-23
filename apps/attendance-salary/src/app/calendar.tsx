@@ -50,7 +50,7 @@ export function MonthCalendar({ view, dayHref, monthHref, statuses }: { view: Mo
           const tone = future
             ? "text-slate-300"
             : st?.status === "off"
-              ? "border border-emerald-300 bg-emerald-50 text-emerald-900" // rule 20: the owner's paid day off
+              ? "border border-emerald-300 bg-emerald-50 text-emerald-900" // rule 20: the owner's day off (unpaid, rule 22)
               : d.noExit
               ? "border border-amber-500 bg-amber-100 text-amber-950"
               : st?.mark === "on"
@@ -125,7 +125,7 @@ export function CalendarKey({ statuses }: { statuses?: MonthStatuses | null } = 
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-3 w-3 rounded border border-emerald-300 bg-emerald-50" />
-            OFF: paid day off (owner)
+            OFF: day off, not paid (owner)
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-3 w-3 rounded border border-(--brand) bg-(--brand-soft)" />

@@ -4,6 +4,26 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.29.3 — 2026-10-23 — Attendance: three salary types; OFF days are not paid
+
+**What's in it** (owner, 2026-10-23)
+- The Salary box starts with **Salary type**, one of three (it replaces the Monthly / Per day switch):
+  - **PV_SALARY_DAY_STAFF**: day rate; short days count their hours; overtime per hour; OFF and absent days not paid;
+    no paid leave (e.g. Reeta, Damayanti, Joshobanti).
+  - **PV_SALARY_MONTHLY_STAFF**: monthly salary ÷ 30 a day; the same short-day and overtime rules; OFF and absent days
+    covered by paid leave first (days per person, e.g. Ramu 0, Bindu / Gaja / Anmol 2), the rest cut.
+  - **PV_SALARY_FIXED_MONTHLY**: the full monthly salary whatever the attendance; no cuts, no overtime; only advances
+    taken off; a joining / leaving month is paid for its days (e.g. Kedar, Dillip, Prakash).
+  Existing settings keep their type: per day → DAY_STAFF, monthly → MONTHLY_STAFF. The owner switches the fixed people.
+  Shown in the Salary box, on the Salary tab ("fixed" tag + key), the slip and the CSV ("Salary type", "fixed monthly").
+- A day the owner marks **OFF** is now a day off **without pay** (it was a paid day off since v0.28.0). Per-day staff
+  earn nothing for it; for monthly staff it counts like an absent day: their paid leave covers it first, the rest is
+  cut at salary ÷ 30. The calendar still shows it as "day off", separate from "absent". ON is unchanged.
+- Every screen says so ("OFF: day off, not paid"). No month had been paid yet, so no frozen figures change.
+
+**Migrations:** Attendance `0010_fixed_monthly.sql` (the pay basis check allows 'fixed': a monthly salary, no day
+rate, no leave, no overtime). Attendance only; platform and SSO token unchanged.
+
 ## v0.29.2 — 2026-10-23 — Attendance: the salary band has a name
 
 **What's in it** (owner, 2026-10-23)

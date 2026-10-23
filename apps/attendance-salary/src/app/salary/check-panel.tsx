@@ -20,6 +20,7 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
   const yin = panelInput(row.input, typed);
 
   const perDay = row.input.payBasis === "per_day";
+  const fixed = row.input.payBasis === "fixed";
   // per-day people (rule 15): a day rate instead of the salary, and no paid leave
   const fields: [PanelField, string, number][] = [
     perDay ? ["dayRate", "Day rate (₹)", (row.input.dayRatePaise ?? 0) / 100] : ["monthly", "Monthly salary (₹)", row.input.monthlyPaise / 100],
@@ -31,9 +32,9 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
   ];
   // months paid before rule 21 had half days
   if (row.input.half) fields.splice(2, 0, ["half", "Half days", row.input.half]);
-  // rule 20: the owner's paid days off, when there are any
-  if (row.input.off) fields.push(["off", "Days off (paid)", row.input.off]);
-  if (!perDay) fields.push(["leave", "Paid leave allowed (days)", row.input.paidLeaveHalfdays / 2]);
+  // rule 20: the owner's days off (unpaid, rule 22), when there are any
+  if (row.input.off) fields.push(["off", "Days off (not paid)", row.input.off]);
+  if (row.input.payBasis === "monthly") fields.push(["leave", "Paid leave allowed (days)", row.input.paidLeaveHalfdays / 2]);
   if (row.getsOvertime) {
     fields.push(["otHours", "Overtime hours", Math.round((row.input.otMinutes / 60) * 100) / 100]);
     fields.push(["otRate", "Overtime ₹ / hour", (row.input.otRatePaise ?? 0) / 100]);
@@ -108,7 +109,9 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
         {perDay
           ? line("Day rate", paiseText(yours.dayPayPaise))
           : line(`Day's pay (${rupeesText(yin.monthlyPaise)} ÷ ${DAYS_FOR_PAY})`, paiseText(yours.dayPayPaise))}
-        {perDay
+        {fixed
+          ? line(yin.fullMonth ? "Fixed monthly salary (attendance doesn't cut it)" : `Part month: ${halvesText(yours.paidHalves)} days × day's pay`, paiseText(yours.earnedPaise))
+          : perDay
           ? line(`Paid days ${halvesText(yours.paidHalves)} × ${paiseText(yours.dayPayPaise)}`, paiseText(yours.earnedPaise))
           : yin.fullMonth
           ? line(`Unpaid days ${halvesText(yours.unpaidHalves)} × day's pay`, yours.deductionPaise ? `−${paiseText(yours.deductionPaise)}` : "₹0")

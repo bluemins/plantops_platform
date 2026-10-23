@@ -4,7 +4,7 @@
 // audited). Nothing is stored.
 import { csv } from "@plantops/module-kit/csv";
 import { addMonths, monthDays } from "@/lib/days";
-import { SALARY_BAND, halvesText, hoursText, kmText, shortDaysText, type DayCounts, type PayBasis, type PayInput, type PayResult } from "@/lib/salary";
+import { halvesText, salaryType, hoursText, kmText, shortDaysText, type DayCounts, type PayBasis, type PayInput, type PayResult } from "@/lib/salary";
 import { requireAccess } from "./access";
 import { audit } from "./audit";
 import { withTenant } from "./db";
@@ -23,7 +23,7 @@ export interface TabRow {
   fullMonth: boolean;
   /** days counted so far (rule 1) */
   countedDays: number;
-  /** the salary band (a paid month: the one saved with it; null = paid before bands had a name) */
+  /** the salary type (a paid month: the one saved with it; null = paid before types had a name) */
   band: string | null;
   /** monthly or per day (rule 15); from the frozen figures for a paid month */
   payBasis: PayBasis;
@@ -118,7 +118,7 @@ export async function salaryTab(user: AtUser, month: string, now: Date = new Dat
       former: !staff.platformDown && !active.has(p.userId),
       fullMonth: c.counted.fullMonth,
       countedDays: c.counted.dates.length,
-      band: frozen ? (frozen.band ?? null) : SALARY_BAND,
+      band: frozen ? (frozen.band ?? null) : salaryType(c.setting.payBasis),
       payBasis: input.payBasis,
       staffType: c.setting.staffType ?? "permanent",
       dayRatePaise: input.dayRatePaise,
@@ -190,7 +190,7 @@ export async function salaryTab(user: AtUser, month: string, now: Date = new Dat
 
 export const SALARY_CSV_HEADER = [
   "Name", "Month", "Full or part month", "Counted days",
-  "Salary band", "Monthly salary", "Pay basis", "Staff type", "Day rate", "Work hours", "Lunch hours", "Paid leave allowed (days)",
+  "Salary type", "Monthly salary", "Pay basis", "Staff type", "Day rate", "Work hours", "Lunch hours", "Paid leave allowed (days)",
   "Full days", "Short days", "Short-day hours", "Short days as days", "Half days", "Absent", "Days off", "Paid leave used (days)", "Unpaid days", "Day's pay", "Earned",
   "Overtime", "Overtime hours", "Overtime rate", "Overtime pay",
   "Field duty days", "Km", "TA rate", "TA", "DA days", "DA rate", "DA", "Expenses", "Claims waiting",
@@ -209,6 +209,7 @@ export async function salaryCsv(user: AtUser, month: string, now: Date = new Dat
     const x = r.result;
     // per-day people (rule 15): no monthly salary and no paid leave, so those cells stay blank
     const perDay = r.payBasis === "per_day";
+    const noLeave = perDay || r.payBasis === "fixed"; // no paid leave on these types
     rows.push([
       r.name,
       month,
@@ -216,12 +217,12 @@ export async function salaryCsv(user: AtUser, month: string, now: Date = new Dat
       r.countedDays,
       r.band ?? "",
       perDay ? "" : rupees(r.input.monthlyPaise),
-      perDay ? "per day" : "monthly",
+      perDay ? "per day" : r.payBasis === "fixed" ? "fixed monthly" : "monthly",
       r.staffType,
       perDay && r.dayRatePaise ? rupees(r.dayRatePaise) : "",
       hoursText(r.input.shiftMinutes ?? r.shiftMinutes),
       hoursText(r.lunchMinutes),
-      perDay ? "" : halvesText(r.paidLeaveHalfdays),
+      noLeave ? "" : halvesText(r.paidLeaveHalfdays),
       r.counts.present,
       // rule 21: short days, their work and what it counts as; half days only in months paid before rule 21
       r.counts.short ?? 0,
@@ -229,9 +230,9 @@ export async function salaryCsv(user: AtUser, month: string, now: Date = new Dat
       shortDaysText(r.counts.shortMinutes ?? 0, r.input.shiftMinutes ?? r.shiftMinutes),
       r.counts.half,
       r.counts.absent,
-      r.counts.off ?? 0, // rule 20: paid days off marked by the owner
-      perDay ? "" : halvesText(x.leaveUsedHalves),
-      perDay ? "" : halvesText(x.unpaidHalves),
+      r.counts.off ?? 0, // rule 20: days off marked by the owner (unpaid, rule 22)
+      noLeave ? "" : halvesText(x.leaveUsedHalves),
+      noLeave ? "" : halvesText(x.unpaidHalves),
       rupees(x.dayPayPaise),
       rupees(x.earnedPaise),
       r.getsOvertime ? "yes" : "no",

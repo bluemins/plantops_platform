@@ -14,8 +14,8 @@ export function SalaryStrip({ month, figures }: { month: string; figures: Salary
     // rule 21: short days, their work and what it counts as
     ["Short days", counts.short ? `${counts.short} · ${fmtMinutes(counts.shortMinutes ?? 0)} = ${shortDaysText(counts.shortMinutes ?? 0, setting.shiftMinutes)} d` : "0"],
     ["Absent", String(counts.absent)],
-    ...(counts.off ? ([["Days off (paid)", String(counts.off)]] as [string, string][]) : []),
-    ["Paid leave used", setting.payBasis === "per_day" ? "—" : `${halvesText(live.leaveUsedHalves)} of ${halvesText(setting.paidLeaveHalfdays)}`],
+    ...(counts.off ? ([["Days off (not paid)", String(counts.off)]] as [string, string][]) : []),
+    ["Paid leave used", setting.payBasis !== "monthly" ? "—" : `${halvesText(live.leaveUsedHalves)} of ${halvesText(setting.paidLeaveHalfdays)}`],
     ...(setting.payBasis === "per_day" ? ([["Days paid", halvesText(live.paidHalves)]] as [string, string][]) : []),
     ["Overtime", setting.getsOvertime ? fmtMinutes(live.otMinutes) : "—"],
     ["Remaining to pay", rupeesText(live.remainingPaise), live.remainingPaise < 0 ? "text-red-700" : "text-(--brand)"],

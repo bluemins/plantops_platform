@@ -147,7 +147,7 @@ export function MarkDays({ personId, name, children }: { personId: string; name:
                   Cancel
                 </button>
               </div>
-              <p className="text-xs text-slate-500">ON = present · OFF = paid day off · Clear = back to the IN / OUT marks</p>
+              <p className="text-xs text-slate-500">ON = present · OFF = day off, not paid · Clear = back to the IN / OUT marks</p>
               <ErrorText>{error}</ErrorText>
             </div>
           </div>

@@ -53,7 +53,7 @@ export const punchCancels = at.table("punch_cancels", {
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 
-/** The owner's whole-day mark (migration 0008): on = present, off = paid day off, clear = back to the IN / OUT marks */
+/** The owner's whole-day mark (migration 0008): on = present, off = day off without pay (rule 22), clear = back to the IN / OUT marks */
 export type DayMarkKind = "on" | "off" | "clear";
 
 export const dayMarks = at.table("day_marks", {

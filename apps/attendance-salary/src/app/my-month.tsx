@@ -43,7 +43,7 @@ export function MonthTiles({ statuses }: { statuses: MonthStatuses }) {
     ["Short days", String(counts.short ?? 0)],
     ["Absent", String(counts.absent)],
   ];
-  // rule 20: paid days off the owner marked, only when there are any
+  // rule 20: days off the owner marked (unpaid), only when there are any
   if (statuses.counts.off) tiles.push(["Days off", String(statuses.counts.off)]);
   if (statuses.getsOvertime) tiles.push(["Overtime", fmtMinutes(statuses.counts.otMinutes)]);
   return (

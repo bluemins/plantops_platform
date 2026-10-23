@@ -752,3 +752,28 @@ calculation.
   before rule 21). A second band only when the owner asks for another pattern.
 - Tests: `short-days.test.ts` (+9: lunch, monotonic, OUT / IN break, statuses, Reeta ₹5,156.77, Damayanti ₹2,824.16,
   monthly with leave, unchanged without short days, panel); older tests that expected half days updated.
+
+## 2026-10-23: three salary types; OFF days are not paid, rule 22 (v0.29.3)
+**Salary types** (owner, same day: "4 types" → 3 after his answers: Ramu and Bindu / Gaja / Anmol differ only in leave;
+fixed = never cut, no overtime; picked in the Attendance Salary box, not on the platform's Add user form, which holds no
+salary data). `SALARY_TYPES` / `salaryType()` in `src/lib/salary.ts`, one per pay basis: `per_day` DAY_STAFF, `monthly`
+MONTHLY_STAFF, `fixed` FIXED_MONTHLY. `fixed` in `monthPay`: full month = the salary, no leave, nothing unpaid, no
+overtime even if handed in; *made while building:* a part month (Joined on / Last day) pays its counted days × salary
+÷ 30, at most the salary (like the monthly part month, but no day is ever cut). Migration `0010_fixed_monthly.sql`
+(approved with "build"): the two pay-basis checks widened; fixed = monthly salary, no day rate, 0 leave, no overtime.
+Salary box: "Salary type" radio cards (name + what it does) replace Monthly / Per day; fixed hides leave and overtime;
+the server refuses overtime for fixed and saves 0 leave. Salary tab "fixed" tag and a key of the types above the
+table; checking panel / slip "Fixed monthly salary"; CSV "Salary type" (was "Salary band", v0.29.2) and Pay basis
+"fixed monthly"; frozen `band` = the person's type. Tests: `salary-types.test.ts`.
+
+**OFF days not paid:**
+The owner on 2026-10-23, seeing Damayanti's 9 OFF days paid: "days off means no payment". Asked for monthly staff:
+"unpaid, leave covers it" (recommended).
+- `monthPay`: OFF days moved from paid time to missing time (`RULES_VERSION` 7). Per day: an OFF day earns nothing;
+  monthly: OFF counts like an absent day, paid leave covers it first, the rest is cut at salary ÷ 30; part month the
+  same. Status `off` stays (the calendar says "day off", not "absent"); ON unchanged; overtime from real times as before.
+- Texts: calendar key, Mark days bar, day-mark panel, day pages, salary strip, checking panel, Recent changes
+  ("OFF (day off, not paid)"); the slip lists OFF days under "Days missed" (and, for months paid before rule 22, as paid).
+- Live at the time (read-only): OFF days this month for Anmol 5, Damayanti 9, Ramu 4, Dillip / dirju / Gaja / joshobanti
+  / reeta / sushil 1 each; none paid yet. Reeta to 22 Oct ₹4,906.77, Damayanti ₹1,024.16 (tests).
+- Tests: day-marks rule 20 tests rewritten for rule 22, `short-days.test.ts` +1.

@@ -1812,3 +1812,13 @@ only, everyone on it; Salary box, tab, slip, CSV, saved with a paid month). Atte
 to a temporary person, headless Chromium at 390 / 1280 px, all removed): ₹5,157 remaining, 19.74 days, 8h 50m OT.
 **Live 2026-10-23** (`production` = `3f45acc`, v0.29.2 with the band name; migration 0009 applied). Owner to do: set 8 h work + 1 h lunch from October for Reeta, Damayanti and the
 others (Reeta's setting says 9 h since 20 Oct), and decides Damayanti's 9 paid OFF days (1-5 Oct before joining?).
+
+### 2026-10-23 — Attendance: three salary types; OFF days are not paid (v0.29.3)
+Salary types (owner): picked first in the Attendance Salary box (not on the platform's Add user: salary stays in the
+module) — **PV_SALARY_DAY_STAFF** (per day; Reeta, Damayanti, Joshobanti), **PV_SALARY_MONTHLY_STAFF** (monthly, leave
+per person; Ramu 0, Bindu / Gaja / Anmol 2), **PV_SALARY_FIXED_MONTHLY** (full salary whatever the attendance, no
+overtime; Kedar, Dillip, Prakash). Attendance migration `0010_fixed_monthly.sql` (pay basis 'fixed').
+The owner: "days off means no payment"; for monthly staff "unpaid, leave covers it". Rule 22 in
+`apps/attendance-salary/src/lib/salary.ts`: an OFF day mark is a day off without pay (per day: ₹0; monthly: like an
+absent day, paid leave first, then salary ÷ 30). Was a paid day off since v0.28.0. No migration; texts say "not paid".
+Notes: `apps/attendance-salary/NOTES.md`.

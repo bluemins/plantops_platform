@@ -52,7 +52,7 @@ export default async function MySlipPage({ params }: { params: Promise<{ month: 
           <h1 className="text-xl font-bold">{fmtMonth(month)}</h1>
           <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800">Paid {shortDay(slip.paidOn)}</span>
         </div>
-        {f.band && <p className="text-xs text-slate-600">Salary band: {f.band}</p>}
+        {f.band && <p className="text-xs text-slate-600">Salary type: {f.band}</p>}
         <div className={`grid gap-1.5 text-center ${tiles.length >= 4 ? "grid-cols-4" : "grid-cols-3"}`}>
           {tiles.map(([label, value]) => (
             <div key={label} className="rounded-lg bg-slate-100 p-1.5">
@@ -62,12 +62,14 @@ export default async function MySlipPage({ params }: { params: Promise<{ month: 
           ))}
         </div>
         <div className="space-y-1.5 text-sm">
-          {perDay ? (
-            line(`${f.counts.present} full${f.counts.off ? ` + ${f.counts.off} off` : ""}${halfText}${shortText} = ${halvesText(r.paidHalves)} days × ${paiseText(r.dayPayPaise)}`, paiseText(r.earnedPaise))
+          {f.input.payBasis === "fixed" ? (
+            line(f.input.fullMonth ? "Fixed monthly salary" : `Part month: ${halvesText(r.paidHalves)} days × ${paiseText(r.dayPayPaise)}`, paiseText(r.earnedPaise))
+          ) : perDay ? (
+            line(`${f.counts.present} full${f.counts.off && f.rules < 7 ? ` + ${f.counts.off} off` : ""}${halfText}${shortText} = ${halvesText(r.paidHalves)} days × ${paiseText(r.dayPayPaise)}`, paiseText(r.earnedPaise))
           ) : (
             <>
               {line("Monthly salary", paiseText(f.input.monthlyPaise))}
-              {line(`Days missed (${f.counts.absent} absent${f.counts.half ? ` + ${f.counts.half} half` : ""}${short ? ` + time short on ${short} short days` : ""})`, halvesText(r.absentHalves))}
+              {line(`Days missed (${f.counts.absent} absent${f.counts.off && f.rules >= 7 ? ` + ${f.counts.off} off` : ""}${f.counts.half ? ` + ${f.counts.half} half` : ""}${short ? ` + time short on ${short} short days` : ""})`, halvesText(r.absentHalves))}
               {line("Paid leave used", `${halvesText(r.leaveUsedHalves)} of ${halvesText(f.input.paidLeaveHalfdays)}`)}
               {f.input.fullMonth
                 ? line(`Unpaid days ${halvesText(r.unpaidHalves)} × ${paiseText(r.dayPayPaise)}`, r.deductionPaise ? `−${paiseText(r.deductionPaise)}` : "₹0")

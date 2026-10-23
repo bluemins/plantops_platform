@@ -175,7 +175,7 @@ describe("per-day pay from the database (Salary extras rule 15)", () => {
     expect(nov!.chain.live).toMatchObject({ dayPayPaise: R(450), leaveUsedHalves: 0, earnedPaise: R(21 * 450), remainingPaise: R(9450) });
     // a per-day month frozen now carries the rules version and the pay basis
     const f = freezeMonth(nov!);
-    expect(f).toMatchObject({ rules: 6, setting: { payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450) }, input: { payBasis: "per_day", monthlyPaise: 0, dayRatePaise: R(450) } });
+    expect(f).toMatchObject({ rules: 7, setting: { payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450) }, input: { payBasis: "per_day", monthlyPaise: 0, dayRatePaise: R(450) } });
   });
 
   it("28. a slip frozen before per-day pay (rules 1) still opens, as monthly", async () => {
@@ -248,7 +248,7 @@ describe("claims from the database (Salary extras rules 16-19)", () => {
     expect(oct.chain.live).toMatchObject({ earnedPaise: R(11200), otPayPaise: R(840), advancesPaise: R(3000), remainingPaise: R(12136) });
     // frozen now: rules 3, the eight counted claims and the rates
     const f = freezeMonth(oct);
-    expect(f).toMatchObject({ rules: 6, fieldDutyDays: 6, kmTenths: 1820, setting: { kmRatePaise: R(3), daDayPaise: R(150) } });
+    expect(f).toMatchObject({ rules: 7, fieldDutyDays: 6, kmTenths: 1820, setting: { kmRatePaise: R(3), daDayPaise: R(150) } });
     expect(f.claims).toHaveLength(8);
   });
 

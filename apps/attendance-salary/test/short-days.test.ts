@@ -90,20 +90,20 @@ describe("full / short / absent days", () => {
 });
 
 describe("pay with short days", () => {
-  it("Reeta, 1-22 Oct: 11 full + 1 off + 9 short days (61h 57m ÷ 8 = 7.74) × ₹250 + 8h 50m overtime = ₹5,156.77", () => {
+  it("Reeta, 1-22 Oct: 11 full + 9 short days (61h 57m ÷ 8 = 7.74) × ₹250 + 8h 50m overtime = ₹4,906.77; her OFF day is not paid", () => {
     const counts = countDays(dayStatuses(daysOf(REETA), 8 * H, dates, true, offOn(19), H));
     expect(counts).toMatchObject({ present: 11, off: 1, short: 9, shortMinutes: hm(61, 57), absent: 1, otMinutes: hm(8, 50) });
     const pay = monthPay(perDayInput(counts, R(250), 0));
-    expect(pay.earnedPaise).toBe(493_594); // 9,477 min × ₹250 ÷ 480, rounded once
+    expect(pay.earnedPaise).toBe(468_594); // 8,997 min × ₹250 ÷ 480, rounded once
     expect(pay.otPayPaise).toBe(22_083);
-    expect(pay.remainingPaise).toBe(515_677);
-    expect(Math.round(pay.paidHalves * 50) / 100).toBe(19.74);
+    expect(pay.remainingPaise).toBe(490_677);
+    expect(Math.round(pay.paidHalves * 50) / 100).toBe(18.74);
   });
 
-  it("Damayanti, 1-22 Oct: 6 full + 9 off + 7 short days (46h 44m) × ₹200 + 6h 14m overtime − ₹1,500 advance = ₹2,824.16", () => {
+  it("Damayanti, 1-22 Oct: 6 full + 7 short days (46h 44m) × ₹200 + 6h 14m overtime − ₹1,500 advance = ₹1,024.16; 9 OFF days not paid", () => {
     const counts = countDays(dayStatuses(daysOf(DAMAYANTI), 8 * H, dates, true, offOn(1, 2, 3, 4, 5, 18, 19, 21, 22), H));
     expect(counts).toMatchObject({ present: 6, off: 9, short: 7, shortMinutes: hm(46, 44), absent: 0, otMinutes: hm(6, 14) });
-    expect(monthPay(perDayInput(counts, R(200), R(1500))).remainingPaise).toBe(282_416);
+    expect(monthPay(perDayInput(counts, R(200), R(1500))).remainingPaise).toBe(102_416);
   });
 
   it("monthly: the time short days are short is missing time; paid leave covers it first", () => {
@@ -116,11 +116,11 @@ describe("pay with short days", () => {
     expect(monthPay({ ...base, fullMonth: false, paidLeaveHalfdays: 0 }).earnedPaise).toBe(R(400) * 28 + R(400) * 1.5);
   });
 
-  it("without short days the pay is exactly what the half-day rules gave", () => {
+  it("without short days the pay is exactly what the half-day rules gave (OFF days unpaid, rule 22)", () => {
     const old: PayInput = { ...perDayInput({ present: 20, half: 3, absent: 2, off: 1, otMinutes: 90 }, R(450), R(1000)), shiftMinutes: undefined };
-    expect(monthPay(old)).toMatchObject({ paidHalves: 45, earnedPaise: R(450) * 22.5, otPayPaise: R(25) * 1.5 });
+    expect(monthPay(old)).toMatchObject({ paidHalves: 43, earnedPaise: R(450) * 21.5, otPayPaise: R(25) * 1.5 });
     const monthly: PayInput = { ...old, payBasis: "monthly", monthlyPaise: R(12000), dayRatePaise: null, paidLeaveHalfdays: 4 };
-    expect(monthPay(monthly)).toMatchObject({ absentHalves: 7, leaveUsedHalves: 4, unpaidHalves: 3, deductionPaise: R(600), earnedPaise: R(11400) });
+    expect(monthPay(monthly)).toMatchObject({ absentHalves: 9, leaveUsedHalves: 4, unpaidHalves: 5, deductionPaise: R(1000), earnedPaise: R(11000) });
   });
 
   it("the checking panel takes short days and short-day hours", () => {
@@ -128,6 +128,16 @@ describe("pay with short days", () => {
     const auto = perDayInput(counts, R(250), 0);
     const typed = panelInput(auto, { shortHours: "64" }); // 64 h ÷ 8 = 8 days instead of 7.74
     expect(typed.shortMinutes).toBe(64 * H);
-    expect(monthPay(typed).earnedPaise).toBe(R(250) * 20);
+    expect(monthPay(typed).earnedPaise).toBe(R(250) * 19); // 11 full + 8; her OFF day is not paid (rule 22)
+  });
+});
+
+describe("OFF days are not paid (rule 22, owner 2026-10-23)", () => {
+  it("per day: an OFF day earns nothing; monthly: paid leave covers OFF days first, the rest is cut at salary ÷ 30", () => {
+    const counts = { present: 20, half: 0, absent: 0, off: 4, short: 0, shortMinutes: 0, otMinutes: 0 };
+    expect(monthPay(perDayInput(counts, R(450), 0)).earnedPaise).toBe(R(450) * 20);
+    // Ramu: ₹26,000, 2 days of paid leave, 4 OFF days in a full month: 2 unpaid × ₹866.67
+    const ramu: PayInput = { ...perDayInput({ ...counts, present: 27 }, 0, 0), payBasis: "monthly", monthlyPaise: R(26000), dayRatePaise: null, paidLeaveHalfdays: 4 };
+    expect(monthPay(ramu)).toMatchObject({ dayPayPaise: 86_667, leaveUsedHalves: 4, unpaidHalves: 4, deductionPaise: 173_334, earnedPaise: R(26000) - 173_334 });
   });
 });

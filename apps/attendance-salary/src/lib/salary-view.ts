@@ -19,7 +19,7 @@ export const takenPaise = (r: Money) => r.advancesPaise + r.carriedInPaise;
  */
 export function daysText(c: Pick<DayCounts, "present" | "half" | "absent" | "off" | "short" | "shortMinutes">, leaveHalves: number | null, shiftMinutes: number): { main: string; sub: string } {
   const sub: string[] = [];
-  if (c.off) sub.push(`${c.off} off`); // rule 20: the owner's paid days off
+  if (c.off) sub.push(`${c.off} off`); // rule 20: the owner's days off (unpaid, rule 22)
   if (c.short) sub.push(`${c.short} short ${fmtMinutes(c.shortMinutes ?? 0)} = ${shortDaysText(c.shortMinutes ?? 0, shiftMinutes)} d`);
   if (c.half) sub.push(`${c.half} half`);
   sub.push(`${c.absent} absent`);

@@ -133,7 +133,7 @@ export function WorkBox({ atPlant, day, shiftMinutes, lunchMinutes, getsOvertime
   );
   const verdict = day.mark
     ? day.mark === "off"
-      ? "OFF (owner): a paid day off"
+      ? "OFF (owner): a day off, not paid"
       : "ON (owner): counted as a full day"
     : day.status === "present"
       ? `Full day (${fmtHours(shiftMinutes)} work)`

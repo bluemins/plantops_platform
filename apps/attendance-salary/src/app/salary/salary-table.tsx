@@ -44,6 +44,7 @@ function PerDayTag({ r }: { r: TabRow }) {
   return (
     <>
       {r.payBasis === "per_day" && <span className={`ml-1.5 ${perDayTag}`}>per day</span>}
+      {r.payBasis === "fixed" && <span className={`ml-1.5 ${perDayTag}`}>fixed</span>}
       {/* Permanent / Temporary (docs/ATTENDANCE_ROLES_PHASE_PLAN.md mock-up 9) */}
       {r.staffType === "temporary" && <span className={`ml-1.5 ${tempTag}`}>temp</span>}
     </>
@@ -52,10 +53,11 @@ function PerDayTag({ r }: { r: TabRow }) {
 
 /** The same tags under the name (PC table), so the Person column stays narrow (owner, 2026-10-19). */
 function TagsUnder({ r }: { r: TabRow }) {
-  if (r.payBasis !== "per_day" && r.staffType !== "temporary" && !r.former) return null;
+  if (r.payBasis === "monthly" && r.staffType !== "temporary" && !r.former) return null;
   return (
     <span className="mt-0.5 flex gap-1">
       {r.payBasis === "per_day" && <span className={perDayTag}>per day</span>}
+      {r.payBasis === "fixed" && <span className={perDayTag}>fixed</span>}
       {r.staffType === "temporary" && <span className={tempTag}>temp</span>}
       {r.former && <span className="text-xs font-normal text-slate-500">(left)</span>}
     </span>
@@ -64,7 +66,8 @@ function TagsUnder({ r }: { r: TabRow }) {
 
 /** "₹12,000" for a monthly person, "₹450 / day" for a per-day one. */
 const payText = (r: TabRow) => (r.payBasis === "per_day" ? `${rupeesText(r.dayRatePaise ?? 0)} / day` : rupeesText(r.input.monthlyPaise));
-const leaveOf = (r: TabRow) => (r.payBasis === "per_day" ? null : r.result.leaveUsedHalves);
+/** no paid leave on the day-rate and fixed types */
+const leaveOf = (r: TabRow) => (r.payBasis === "monthly" ? r.result.leaveUsedHalves : null);
 /** the work hours the row's days were counted with (the frozen ones for a paid month) */
 const shiftOf = (r: TabRow) => r.input.shiftMinutes ?? r.shiftMinutes;
 
@@ -105,7 +108,9 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-slate-600">
-          {[...new Set(tab.rows.map((r) => r.band).filter(Boolean))].map((b) => `Salary band: ${b} · `).join("")}Tap a name to check how their salary was worked out.
+          {/* the salary types on this tab, keyed to the row tags ("per day", "fixed"; monthly has no tag) */}
+          {[...new Set(tab.rows.map((r) => (r.band ? `${r.band}${r.payBasis === "per_day" ? " (per day)" : r.payBasis === "fixed" ? " (fixed)" : ""}` : null)).filter(Boolean))].join(" · ")}
+          {tab.rows.some((r) => r.band) ? ". " : ""}Tap a name to check how their salary was worked out.
         </p>
         <label htmlFor="salary-show-all" className="hidden cursor-pointer items-center gap-2 text-sm font-medium lg:flex">
           <input id="salary-show-all" type="checkbox" checked={all} onChange={(e) => toggleAll(e.target.checked)} className="size-4 accent-(--brand)" />
@@ -173,7 +178,7 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
                         <td className={td}>{r.counts.short ? `${r.counts.short} · ${fmtMinutes(r.counts.shortMinutes ?? 0)}` : r.counts.half ? `${r.counts.half} half` : 0}</td>
                         <td className={td}>{r.counts.absent}</td>
                         <td className={td}>{r.counts.off ?? 0}</td>
-                        <td className={td}>{r.payBasis === "per_day" ? "—" : halvesText(r.result.leaveUsedHalves)}</td>
+                        <td className={td}>{r.payBasis === "monthly" ? halvesText(r.result.leaveUsedHalves) : "—"}</td>
                         <td className={td}>{r.getsOvertime ? fmtMinutes(r.result.otMinutes) : "—"}</td>
                         <td className={td}>{rupeesText(r.result.earnedPaise)}</td>
                         <td className={td}>{r.getsOvertime ? rupeesText(r.result.otPayPaise) : "—"}</td>
@@ -207,7 +212,7 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
                 <td />
                 <td className="px-2 py-3">Total</td>
                 {/* monthly salaries only; "—" when everyone is paid per day (₹0 would read as no pay) */}
-                <td className={td}>{tab.rows.some((r) => r.payBasis === "monthly") ? rupeesText(t.salaryPaise) : "—"}</td>
+                <td className={td}>{tab.rows.some((r) => r.payBasis !== "per_day") ? rupeesText(t.salaryPaise) : "—"}</td>
                 {all ? (
                   <>
                     <td colSpan={6} />

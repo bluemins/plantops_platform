@@ -6,11 +6,12 @@ import { ErrorText } from "@plantops/ui";
 import { api } from "@/lib/api";
 import type { DayMark } from "@/lib/salary";
 
-const LABEL: Record<DayMark, string> = { on: "ON · present", off: "OFF · paid day off" };
+const LABEL: Record<DayMark, string> = { on: "ON · present", off: "OFF · day off, not paid" };
 
 /**
- * The owner's whole-day mark (docs/DAY_MARKS_PLAN.md): ON = a full present day, OFF = a paid day off (not absent, no
- * paid leave used), Clear = back to the IN / OUT marks. No times, no reason; saved at once and listed in Recent
+ * The owner's whole-day mark (docs/DAY_MARKS_PLAN.md): ON = a full present day, OFF = a day off without pay (rule 22,
+ * owner 2026-10-23; paid leave covers it like an absent day; it was a paid day off before v0.29.3), Clear = back to
+ * the IN / OUT marks. No times, no reason; saved at once and listed in Recent
  * changes. Others (Office staff, PlantOps support) only see the current mark.
  */
 export function DayMarkPanel({ personId, name, day, mark, canMark }: { personId: string; name: string; day: string; mark: DayMark | null; canMark: boolean }) {
@@ -57,7 +58,7 @@ export function DayMarkPanel({ personId, name, day, mark, canMark }: { personId:
           Mark the whole day
         </h2>
         <p className="text-sm text-slate-600">
-          {mark ? `${name}: ${LABEL[mark]}. ` : ""}ON counts as present, OFF as a paid day off (not absent). No times needed. Clear goes back to the IN / OUT marks.
+          {mark ? `${name}: ${LABEL[mark]}. ` : ""}ON counts as present, OFF as a day off without pay (paid leave covers it for monthly staff). No times needed. Clear goes back to the IN / OUT marks.
         </p>
       </div>
       <div className="flex gap-2">
