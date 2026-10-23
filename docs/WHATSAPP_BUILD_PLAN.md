@@ -43,6 +43,10 @@ it answered normally again afterwards.
 v0.28.1 (deployment `d5b20e3f`). Item 5 done too (plant 001: 7090443303, "10 am to 6 pm (MON - SAT )"). Continue
 from item 3.
 
+**Update 2026-10-23 (later):** items 3 and 4 done. The owner checked the phone flow and the logs (`"signature":"valid"`), set
+`TWILIO_SIGNATURE_MODE=enforce`; unsigned and fake-signed messages get 403, the owner's "hi" still answers. **Step 1
+done.** Next: item 6, build Step 2.
+
 **Next session, in this order:**
 1. Railway banner gone? If the new deployments did not start by themselves, open each service, **Ctrl+K → "Deploy
    latest commit"** (not "Redeploy", which rebuilds the old commit): `whatsappbot` must show `e9e52a2`, `platform`
@@ -84,8 +88,8 @@ Railway variables exist (enforce mode with no `PUBLIC_BASE_URL` refuses every me
 |---|---|---|---|---|
 | R | Finish the repo move (old keys off, local copies removed) | both | deleting local folders | **done** (2026-10-20) |
 | 0 | Confirm rules and the integration contract | read-only | the contract, wording, templates | **done** (2026-10-21, contract signed off) |
-| 1 | Harden the bot (signature, help / cancel / STOP, handoff, tests) | bot | the plan; any new dependency; production push | **built**, pushed to `production` (`e9e52a2`, tag `3.1.0`); **not live** (Railway outage, see section 0) |
-| 2 | Read-only Order Capture adapter + bot reads it | both | the API design; credential setup; production pushes | **plan approved** (2026-10-21); build after Step 1 is live |
+| 1 | Harden the bot (signature, help / cancel / STOP, handoff, tests) | bot | the plan; any new dependency; production push | **done** (2026-10-23; `e9e52a2`, tag `3.1.0`, signature `enforce`) |
+| 2 | Read-only Order Capture adapter + bot reads it | both | the API design; credential setup; production pushes | **plan approved** (2026-10-21); **building** (from 2026-10-23) |
 | 3 | Confirmed-order write; Sheets stops being an order ledger | both | endpoint + transaction design; any schema / grant change; go-live | open |
 | 4 | Delivered event, opt-in, 15-day pilot | both | schema / consent design; templates; pilot start | open |
 | 5 | Learn from the pilot | analysis first | any live change | open |
@@ -373,4 +377,5 @@ design.
 | 2026-10-21 | 2 (plan) | Approved: context endpoint (no rates, contract wins over this prompt), REPEAT last delivered order ("Your last order (12 Oct): … Reply REPEAT to order the same again, or tap a size below."), handoff + "Not great" alerts via Order Capture (owners + ticked + last order's taker), support from Business details via branding, bot key in `ORDER_BOT_KEYS` (credential approved), area list moved to Step 3. Build waits for Step 1 live. |
 | 2026-10-21 | 1 (go-live) | Owner set the bot's Railway variables; Twilio webhook checked. Pushed `e9e52a2` (tag `3.1.0`) and PlantOps v0.28.1 (`3fd9a0c`, migration `0019` applied live) to `production`; a Railway outage paused builds, both still on old code after an hour. Handover in section 0. |
 | 2026-10-23 | 1 (go-live) | Railway back. Bot runs Step 1 (unsigned HELP from `+910000000001` answers "How to use…", report mode). PlantOps v0.28.1 built after "Deploy latest commit" (deployment `d5b20e3f`); checks OK. Left: section 0 items 3–5 (owner's phone checks, `signature: valid` in the logs → `enforce`, support fields in Business details). |
+| 2026-10-23 | 1 | Owner's phone checks and Deploy Logs (`"signature":"valid"`) OK; `TWILIO_SIGNATURE_MODE=enforce`: unsigned and fake-signed POSTs 403, `/health` OK, the owner's "hi" answers. Plant 001's support phone + hours saved in Business details. **Step 1 done.** Next: build Step 2. |
 | 2026-10-20 | — | This plan written. |
