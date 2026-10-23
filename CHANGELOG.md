@@ -4,6 +4,21 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.29.0 — 2026-10-23 — WhatsApp bot reads from Order Capture (WhatsApp Step 2)
+
+**What's in it** (owner-approved plan 2026-10-21; docs/WHATSAPP_CONTRACT.md 3.2, 3.6, 3.11)
+- Order Capture has a small **bot API** for the plant's WhatsApp bot, server to server with one key
+  (`ORDER_BOT_KEYS` on `order-capture` holds only its SHA-256; the key fixes the plant). Read-only: a customer's
+  name / place, the products the bot may offer (label + unit from Rates), the support phone / hours, and the last
+  delivered order's quantities. No rates, amounts, notes or staff names. An unknown number gets "not found" only.
+- Two new alerts (phone + bell): **"Wants to talk"** when a WhatsApp customer asks for a person, and **"Unhappy
+  customer"** for a "Not great" rating. To the owners and whoever entered the customer's last order.
+- The platform's branding answer to modules now includes the support phone / hours.
+- Without `ORDER_BOT_KEYS` the bot API refuses everything; nothing else changes for staff.
+
+**Migrations:** none. Platform + Order Capture; SSO token unchanged. New variable on `order-capture`:
+`ORDER_BOT_KEYS` (docs/DEPLOY.md).
+
 ## v0.28.1 — 2026-10-21 — Customer support phone and hours on Business details
 
 **What's in it** (owner, 2026-10-21; docs/WHATSAPP_CONTRACT.md 3.2)

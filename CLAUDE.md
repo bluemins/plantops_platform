@@ -1785,3 +1785,16 @@ grant change. Order Capture passes them to the bot from Step 2 (`support` in `do
 uses the bot's own `SUPPORT_PHONE` / `SUPPORT_HOURS`. SSO token unchanged. Tests: platform 369. **Live (2026-10-23):**
 migration `0019` (applied 2026-10-21), `v0.28.1:production` (`3fd9a0c`); the build waited for the Railway outage of
 2026-10-21 to end. Checks OK (`docs/deployments/shared.md`). Plant 001's support phone and hours saved by the owner the same day.
+
+### 2026-10-23 — WhatsApp Step 2: the bot reads from Order Capture (v0.29.0)
+Plan approved by the owner 2026-10-21 (`docs/WHATSAPP_BUILD_PLAN.md` section 7); notes in `apps/order-capture/NOTES.md`.
+- **Order Capture bot API** (`src/server/bot.ts`): `POST /api/bot/v1/context` and `/alerts`, outside the session proxy.
+  Key `ocb_…` checked by SHA-256 against `ORDER_BOT_KEYS` (plant from the entry only; `pnpm --filter order-capture
+  bot:key`); plan must have Order Capture; limits per key / phone / address; audit rows `bot.*` kept out of Recent
+  changes; errors `{ error: { code, message } }`.
+- **Platform:** branding answer carries `support_phone` / `support_hours`; kinds `order_capture.handoff` and
+  `order_capture.feedback_low`. No migration; SSO token unchanged.
+- **Bot** (`order_handoff` 3.2.0): last delivered order + REPEAT, Order Capture labels / units, support contact for
+  known customers, staff alerts; today's flow when Order Capture can't answer. Orders still go to the Sheet.
+- **Tests:** Order Capture 306 (+22), platform 369, bot 49 (+16).
+
