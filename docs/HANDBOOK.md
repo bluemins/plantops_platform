@@ -241,10 +241,13 @@ A reset is always temporary: the person picks their own at the next login. More 
 
 | Secret | Railway (live) | Your computer | Password manager |
 |---|---|---|---|
-| Database passwords (5 logins) | in the services' `DATABASE_URL_*` | `.env.railway.shared` (owner login) | ✔ |
+| Database passwords (`postgres` superuser + 11 logins: owner, platform app / super, one per module, backup) | Postgres service (`PGPASSWORD`), the services' `DATABASE_URL_*` | `.env.railway.shared` (owner + backup login) | ✔ |
 | SSO signing key `SSO_PRIVATE_JWK_B64` | platform | (pasted, then file deleted) | ✔ |
-| Module secrets `MODULE_SECRET_*` | lab-records, document-store | `.env.railway.shared` | ✔ |
-| Session secrets `LAB_/DOC_SESSION_SECRET` | lab-records, document-store | (pasted, then file deleted) | ✔ |
+| Module secrets `MODULE_SECRET_*` | each module service (7) | `.env.railway.shared` | ✔ |
+| Session secrets `*_SESSION_SECRET` | each module service (7) | (pasted, then file deleted) | ✔ |
+| Twilio `TWILIO_AUTH_TOKEN` | order-capture **and** the WhatsApp bot (separate Railway project) | not stored | ✔ |
+| Turnstile `TURNSTILE_SECRET` | job-applications | not stored | ✔ |
+| Bot: Google service account, Redis | WhatsApp bot project (`GOOGLE_SERVICE_ACCOUNT_JSON`, `REDIS_URL`) | not stored | ✔ |
 | `CRON_SECRET` | platform, lab-records, document-store, floor-stock, complaint-box, order-capture, attendance-salary, job-applications, GitHub environment `shared` **and** the 11 cron-job.org jobs (header `x-cron-secret`) | (pasted, then file deleted) | ✔ |
 | `ATTEND_SESSION_SECRET` | attendance-salary. **Also makes the QR key:** changing it stops every printed Attendance QR (print new ones) | (pasted, then file deleted) | ✔ |
 | super_admin password | (stored as a hash in the database) | not stored | ✔ |
@@ -272,6 +275,33 @@ A reset is always temporary: the person picks their own at the next login. More 
 | Private backup key | Lost or leaked: `pnpm backup:keygen`, put the new public key in GitHub and document-store (`BACKUP_RECIPIENT`). Old backups still need the **old** private key, so keep it until they are gone (30 days for dumps; files stay, so keep it). |
 | Phone notification keys | `pnpm --filter @plantops/platform push:keys`, put all three lines in platform's Variables. Every phone stops getting notifications until its owner taps **Turn on** again, so change them only if the private key leaked. |
 | Database password | Run `ALTER ROLE ... PASSWORD` as the `postgres` user, then update the matching `DATABASE_URL_*` (and `.env.railway.shared` for the owner). |
+
+**If the host leaks our secrets** (Railway, 2026-10-21: "rotate all environment variables"). Treat every value in
+Railway as known to an attacker. First check the email is real: type railway.com yourself and read
+status.railway.com, never the email's links. Then, in one evening window (23:05-06:55 IST):
+
+1. **Everything PlantOps makes itself, in one go:** `./scripts/rotate-railway-secrets.sh shared`. It writes the
+   new values to `.env.railway.shared.rotate` (nothing on screen). Stage each block in Railway **without
+   deploying**, type `ROTATE` (it changes every database password, including `postgres` and the backup login, and
+   every module secret hash, in one transaction), then deploy the staged changes. Delete
+   `SSO_PREVIOUS_PUBLIC_JWK_B64` (the old key is the leaked one). Update GitHub (`CRON_SECRET`,
+   `DATABASE_URL_BACKUP`) and the 11 cron-job.org headers, save the new `.env.railway.shared` in the password
+   manager, delete the `.rotate` and `.before-rotate` files.
+2. **Check:** `/login` and all seven `/health` answer with `"database":"ok"`; log in and open each module; the
+   next backup run is green.
+3. **After it:** everyone logs in again; **print the Attendance QR again** (Location & QR); phones turn
+   notifications on again if the VAPID keys were changed.
+4. **Keys made at a provider** (new key there, put it in Railway, then delete the old one): R2 (table above),
+   Twilio auth token (order-capture + bot), Turnstile secret, WhatsApp token if set, Brevo key (delete it: unused),
+   VAPID keys (row above), the bot's Google service account key and Redis password.
+5. **The account:** change the Railway password, 2-factor login on, delete Railway API tokens, check team members
+   and the Railway GitHub app's access.
+6. **Look for misuse since the leak date:** Railway activity feed and Postgres logs; `platform.audit_log`
+   (logins, super_admin actions, new users, module secrets) and `/super/errors`; Twilio message log; R2 usage;
+   Google Cloud key activity. Record what was done in `docs/deployments/shared.md`.
+
+Keep the table above complete: a new secret added anywhere gets a row here, and `rotate-railway-secrets.sh` when
+PlantOps makes it itself.
 
 ## 9. Domains and DNS
 

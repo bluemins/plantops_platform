@@ -105,7 +105,7 @@ Railway variables exist (enforce mode with no `PUBLIC_BASE_URL` refuses every me
 | R | Finish the repo move (old keys off, local copies removed) | both | deleting local folders | **done** (2026-10-20) |
 | 0 | Confirm rules and the integration contract | read-only | the contract, wording, templates | **done** (2026-10-21, contract signed off) |
 | 1 | Harden the bot (signature, help / cancel / STOP, handoff, tests) | bot | the plan; any new dependency; production push | **done** (2026-10-23; `e9e52a2`, tag `3.1.0`, signature `enforce`) |
-| 2 | Read-only Order Capture adapter + bot reads it | both | the API design; credential setup; production pushes | **built** on `main` in both repos (2026-10-23), **not live**: release steps in section 0 |
+| 2 | Read-only Order Capture adapter + bot reads it | both | the API design; credential setup; production pushes | **done** (2026-10-23; v0.29.0 + bot 3.2.0 live) |
 | 3 | Confirmed-order write; Sheets stops being an order ledger | both | endpoint + transaction design; any schema / grant change; go-live | **design proposed** (2026-10-23), waits for "build" |
 | 4 | Delivered event, opt-in, 15-day pilot | both | schema / consent design; templates; pilot start | open |
 | 5 | Learn from the pilot | analysis first | any live change | open |
