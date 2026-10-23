@@ -39,6 +39,9 @@ it answered normally again afterwards.
 | Step 2 | **Plan approved** (done log, 2026-10-21); build only after Step 1 passes its live checks (owner). |
 | Test rows | About 20 `Message_Logs` rows from the made-up number `whatsapp:+910000000001` (deploy checks): safe to delete. |
 
+**Update 2026-10-23:** items 1 and 2 done. Both are live: the bot runs `e9e52a2` (report mode) and the platform
+v0.28.1 (deployment `d5b20e3f`). Continue from item 3.
+
 **Next session, in this order:**
 1. Railway banner gone? If the new deployments did not start by themselves, open each service, **Ctrl+K → "Deploy
    latest commit"** (not "Redeploy", which rebuilds the old commit): `whatsappbot` must show `e9e52a2`, `platform`
@@ -368,4 +371,5 @@ design.
 | 2026-10-21 | 1 | Plan approved (BACK = CANCEL; today's yes words until Step 3; signature report mode for go-live). Built on bot `main` `e9e52a2`: signature check, order lock, customer row on yes, HELP / MENU / CANCEL / STOP / START / PERSON, two misses → handoff, logs, 33 tests, no new dependency. Next: Railway variables, push `production`, live checks, then `enforce`. |
 | 2026-10-21 | 2 (plan) | Approved: context endpoint (no rates, contract wins over this prompt), REPEAT last delivered order ("Your last order (12 Oct): … Reply REPEAT to order the same again, or tap a size below."), handoff + "Not great" alerts via Order Capture (owners + ticked + last order's taker), support from Business details via branding, bot key in `ORDER_BOT_KEYS` (credential approved), area list moved to Step 3. Build waits for Step 1 live. |
 | 2026-10-21 | 1 (go-live) | Owner set the bot's Railway variables; Twilio webhook checked. Pushed `e9e52a2` (tag `3.1.0`) and PlantOps v0.28.1 (`3fd9a0c`, migration `0019` applied live) to `production`; a Railway outage paused builds, both still on old code after an hour. Handover in section 0. |
+| 2026-10-23 | 1 (go-live) | Railway back. Bot runs Step 1 (unsigned HELP from `+910000000001` answers "How to use…", report mode). PlantOps v0.28.1 built after "Deploy latest commit" (deployment `d5b20e3f`); checks OK. Left: section 0 items 3–5 (owner's phone checks, `signature: valid` in the logs → `enforce`, support fields in Business details). |
 | 2026-10-20 | — | This plan written. |
