@@ -40,7 +40,8 @@ it answered normally again afterwards.
 | Test rows | About 20 `Message_Logs` rows from the made-up number `whatsapp:+910000000001` (deploy checks): safe to delete. |
 
 **Update 2026-10-23:** items 1 and 2 done. Both are live: the bot runs `e9e52a2` (report mode) and the platform
-v0.28.1 (deployment `d5b20e3f`). Continue from item 3.
+v0.28.1 (deployment `d5b20e3f`). Item 5 done too (plant 001: 7090443303, "10 am to 6 pm (MON - SAT )"). Continue
+from item 3.
 
 **Next session, in this order:**
 1. Railway banner gone? If the new deployments did not start by themselves, open each service, **Ctrl+K → "Deploy

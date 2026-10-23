@@ -1784,4 +1784,4 @@ audited. Platform migration `0019_support_contact.sql` (approved by the owner): 
 grant change. Order Capture passes them to the bot from Step 2 (`support` in `docs/WHATSAPP_CONTRACT.md` 3.2); Step 1
 uses the bot's own `SUPPORT_PHONE` / `SUPPORT_HOURS`. SSO token unchanged. Tests: platform 369. **Live (2026-10-23):**
 migration `0019` (applied 2026-10-21), `v0.28.1:production` (`3fd9a0c`); the build waited for the Railway outage of
-2026-10-21 to end. Checks OK (`docs/deployments/shared.md`). **Not yet done:** the owner filling in the two fields.
+2026-10-21 to end. Checks OK (`docs/deployments/shared.md`). Plant 001's support phone and hours saved by the owner the same day.
