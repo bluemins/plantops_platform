@@ -345,7 +345,7 @@ describe("branding for modules", () => {
     const res = await call(brandingRoute.GET as Handler, { headers: LAB, params: { tid: A.tenantId } });
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ tenant_id: A.tenantId, name: "Aqua Pure Odisha", brand_color: "#1d4ed8", code: A.code });
-    expect(Object.keys(res.body).sort()).toEqual(["brand_color", "code", "logo_url", "name", "tenant_id"]);
+    expect(Object.keys(res.body).sort()).toEqual(["brand_color", "code", "logo_url", "name", "support_hours", "support_phone", "tenant_id"]);
     expect(res.body.logo_url).toMatch(new RegExp(`^/api/m/tenants/${A.tenantId}/logo\\?v=\\d+$`));
     expect((await getRaw(moduleLogoRoute.GET, { headers: LAB, params: { tid: A.tenantId } })).type).toBe("image/png");
   });

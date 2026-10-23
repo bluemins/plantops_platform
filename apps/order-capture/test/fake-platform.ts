@@ -43,6 +43,10 @@ export interface FakePlatform {
   enabled: Map<string, string[]>;
   /** module limits per plant for GET /api/tenants/:id/plan */
   limits: Map<string, Record<string, Record<string, number>>>;
+  /** extra fields of the branding answer per plant (support_phone / support_hours) */
+  branding: Map<string, Record<string, unknown>>;
+  /** plants whose plan the platform can't answer (503) */
+  planDown: Set<string>;
   sign(claims: Record<string, unknown>, aud?: ModuleId, ttl?: string): Promise<string>;
   loginToken(roles?: RoleId[]): Promise<string>;
   summaryToken(aud?: ModuleId, tenantId?: string): Promise<string>;
@@ -63,6 +67,8 @@ export async function startFakePlatform(): Promise<FakePlatform> {
     notifyStatus: 201,
     enabled: new Map<string, string[]>(),
     limits: new Map<string, Record<string, Record<string, number>>>(),
+    branding: new Map<string, Record<string, unknown>>(),
+    planDown: new Set<string>(),
   };
   const send = (res: import("node:http").ServerResponse, code: number, body: unknown) => {
     res.writeHead(code, { "content-type": "application/json" });
@@ -80,6 +86,7 @@ export async function startFakePlatform(): Promise<FakePlatform> {
     const plan = /^\/api\/tenants\/([^/]+)\/plan$/.exec(url);
     if (plan) {
       const tenantId = plan[1]!;
+      if (fake.planDown.has(tenantId)) return send(res, 503, {});
       return send(res, 200, { tenant_id: tenantId, plan_name: "Growth", enabled_modules: fake.enabled.get(tenantId) ?? ["order_capture"], limits: { platform: {}, modules: fake.limits.get(tenantId) ?? {} }, renews_on: null });
     }
     if (url === "/.well-known/jwks.json") return send(res, 200, jwks);
@@ -88,7 +95,8 @@ export async function startFakePlatform(): Promise<FakePlatform> {
     if (/^\/api\/m\/tenants\/[^/]+\/users\/[^/]+\/status$/.test(url)) return typeof fake.status === "number" ? send(res, fake.status, {}) : send(res, 200, fake.status);
     if (/^\/api\/m\/tenants\/[^/]+\/skus$/.test(url)) return fake.skus ? send(res, 200, fake.skus) : send(res, 503, {});
     if (/^\/api\/m\/tenants\/[^/]+\/alert-contacts$/.test(url)) return fake.contacts ? send(res, 200, fake.contacts) : send(res, 503, {});
-    if (/^\/api\/m\/tenants\/[^/]+\/branding$/.test(url)) return send(res, 200, { tenant_id: TENANT, name: "Sample Aqua", brand_color: "#0e7490", logo_url: null });
+    const brand = /^\/api\/m\/tenants\/([^/]+)\/branding$/.exec(url);
+    if (brand) return send(res, 200, { tenant_id: TENANT, name: "Sample Aqua", brand_color: "#0e7490", logo_url: null, ...fake.branding.get(brand[1]!) });
     send(res, 404, {});
   });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));

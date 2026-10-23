@@ -230,6 +230,9 @@ export const TenantBranding = z.object({
   logo_url: z.string().nullable(),
   /** the plant code (Job applications builds the plant's public link from it); optional for an older platform */
   code: z.string().optional(),
+  /** Business details → customer support phone / hours (v0.28.1); null until filled, absent from an older platform */
+  support_phone: z.string().nullable().optional(),
+  support_hours: z.string().nullable().optional(),
 });
 export type TenantBranding = z.infer<typeof TenantBranding>;
 
@@ -343,6 +346,8 @@ export const NOTIFICATION_KINDS: Record<
   "order_capture.delivered": { module: "order_capture", label: "Your order delivered", bellOnly: true },
   "order_capture.cancelled": { module: "order_capture", label: "Order cancelled", bellOnly: true },
   "order_capture.note": { module: "order_capture", label: "Note added to an order", bellOnly: true },
+  "order_capture.feedback_low": { module: "order_capture", label: "Unhappy customer on WhatsApp" },
+  "order_capture.handoff": { module: "order_capture", label: "WhatsApp customer asks for a person" },
   "attendance_salary.corrected": { module: "attendance_salary", label: "Your attendance was changed", aboutYou: true },
   "attendance_salary.outside": { module: "attendance_salary", label: "Mark refused: outside the plant", bellOnly: true },
   "attendance_salary.no_exit": { module: "attendance_salary", label: "People who didn't mark OUT (morning)", bellOnly: true },

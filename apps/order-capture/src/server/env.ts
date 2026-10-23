@@ -38,6 +38,13 @@ export const env = {
   get twilioWhatsappSenders() {
     return process.env.TWILIO_WHATSAPP_SENDERS ?? "";
   },
+  /**
+   * WhatsApp bot keys (src/server/bot.ts, docs/WHATSAPP_CONTRACT.md 3.6): JSON
+   * [{"id","tenant_id","sha256","label","products":["PV_BM_1",…]}]. Only the key's SHA-256 is here; empty = bot API off.
+   */
+  get botKeys() {
+    return process.env.ORDER_BOT_KEYS ?? "";
+  },
   /** only tests change it (a fake Twilio) */
   get twilioApiUrl() {
     return process.env.TWILIO_API_URL ?? "https://api.twilio.com";

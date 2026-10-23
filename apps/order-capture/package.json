@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:migrate": "tsx db/migrate.ts",
-    "daily": "tsx db/run-daily.ts"
+    "daily": "tsx db/run-daily.ts",
+    "bot:key": "tsx db/new-bot-key.ts"
   },
   "dependencies": {
     "@plantops/auth": "workspace:*",

@@ -231,6 +231,12 @@ Migrations stay; the older code works with them because they are backward-compat
   and `TWILIO_WHATSAPP_SENDERS` (JSON keyed by the plant's id: `select id, code, name from platform.tenants;`, see
   `.env.example`). Without them, or for a plant not listed, the "Delivered" panel has no tick box.
   Test: deliver an order whose customer phone is your own; the order's History says "WhatsApp thank-you sent".
+- **WhatsApp bot key (Order Capture bot API, `docs/WHATSAPP_CONTRACT.md` 3.6).** `pnpm --filter order-capture bot:key
+  <plant id>` prints the key once and an entry. The entry goes into `ORDER_BOT_KEYS` (a JSON list) on `order-capture`;
+  the key goes into `ORDER_CAPTURE_BOT_KEY` on the bot's `whatsappbot` service, with `ORDER_CAPTURE_URL`
+  (`https://orders.bluemins.life`). `products` lists the PlantOps product codes the bot may offer (exact codes).
+  **Rotate:** add the new entry next to the old one → set the new key on the bot → check → remove the old entry.
+  **Leak:** remove its entry; refused at once. Without `ORDER_BOT_KEYS` the bot API answers 401 to everything.
 - **Changing a secret.**
   - Module client secret: super_admin → Modules → new secret, then update `MODULE_SECRET_*` on that
     service and in `.env.railway.<copy>`.

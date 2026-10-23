@@ -266,11 +266,14 @@ export const superUpdateSku = (admin: CurrentSuperAdmin, tenantId: string, skuId
 
 // ---------- modules (server-to-server; read through RLS on the app login) ----------
 
-/** Name, brand color and logo link a module uses to brand its screens. The SSO token never carries these. */
+/**
+ * Name, brand color and logo link a module uses to brand its screens, plus the customer support phone / hours (Order
+ * Capture passes them to the WhatsApp bot). The SSO token never carries these.
+ */
 export const getBranding = (tenantId: string) =>
   withTenant(tenantId, async (tx) => {
     const b = await readBusiness(tx, tenantId, `/api/m/tenants/${tenantId}/logo`);
-    return { tenant_id: tenantId, name: b.name, brand_color: b.brand_color, logo_url: b.logo_url, code: b.code };
+    return { tenant_id: tenantId, name: b.name, brand_color: b.brand_color, logo_url: b.logo_url, code: b.code, support_phone: b.support_phone, support_hours: b.support_hours };
   });
 
 export const getLogoForModule = (tenantId: string) => withTenant(tenantId, (tx) => readLogo(tx, tenantId));

@@ -431,3 +431,30 @@ Plan: `docs/VIEW_ROLES_PHASE_PLAN.md`. The platform role **Order viewer** is `vi
 already makes it a "viewer": the same view as Plant staff (orders, no amounts, no writes). It can never be ticked for
 Order Capture alerts (the new-order alert has the amount). No code change; tests: Order Capture 284 (+1 per access
 row).
+
+### 2026-10-23 — WhatsApp bot API, read-only (WhatsApp Step 2)
+Plan approved by the owner 2026-10-21 (`docs/WHATSAPP_BUILD_PLAN.md` section 7 + done log); contract
+`docs/WHATSAPP_CONTRACT.md` 3.2, 3.6, 3.7, 3.11. `src/server/bot.ts`, routes under `/api/bot/v1/` (outside the
+session proxy). **No schema, grant or SSO change.**
+- **Key:** `ORDER_BOT_KEYS` (JSON list: id, plant, SHA-256 of the key, label, product codes). `Authorization: Bearer
+  ocb_…`; compared by hash, timing-safe. The plant comes only from the entry; a broken variable switches the API off.
+  `pnpm bot:key <plant id>` makes a key (`db/new-bot-key.ts`). Each call also checks the plan has Order Capture.
+- **`POST /api/bot/v1/context` `{ phone }`:** customer (id, name, place), the plant's active products whose code is on
+  the key's list (label from PlantOps, unit from Rates), support phone / hours from Business details (through the
+  platform's branding answer, which now carries them), the newest delivered order's current lines (quantities only,
+  products the bot can offer), `has_pending_order`, `areas: null`. Unknown / switched-off phone: `{ customer: null,
+  reason }` only. No rates, amounts, notes or staff names.
+- **`POST /api/bot/v1/alerts`:** `handoff` (one per customer per hour) and `feedback_not_great` (per feedback id) →
+  new kinds `order_capture.handoff` / `order_capture.feedback_low` (phone + bell), owners + whoever entered the
+  customer's newest non-cancelled order (unless the bot did). A known customer is named; an unknown number shows its
+  last 4 digits only. Answer 202, sent after the answer.
+- **Limits** (in memory): context 60 / min per key and 10 / min per phone; alerts 10 / min per key; 10 failed keys /
+  min per address. Body ≤ 8 KB, strict JSON. Errors `{ error: { code, message } }`; anything unexpected = 503
+  `unavailable`.
+- **Audit:** `bot.context` / `bot.alert` rows (actor `whatsapp-bot:<key id>`, no phone, text or key); left out of
+  Recent changes.
+- **Made while building:** for "Not great" from a known customer whose last order came from the bot, the title still
+  names the customer (owners only); a handoff from an unknown number points to the bot's Sessions_Log for the full
+  number; no products to offer (platform down or none of the codes active) answers 503 so the bot falls back.
+- **Tests:** Order Capture 306 (+22, `test/bot.test.ts`); platform 369 (branding fields, two kinds).
+

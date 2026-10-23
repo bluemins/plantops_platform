@@ -47,6 +47,22 @@ from item 3.
 `TWILIO_SIGNATURE_MODE=enforce`; unsigned and fake-signed messages get 403, the owner's "hi" still answers. **Step 1
 done.** Next: item 6, build Step 2.
 
+**Update 2026-10-23 (evening): Step 2 built, not live.** Order Capture: `src/server/bot.ts`, `POST /api/bot/v1/context`
+and `/alerts`, key in `ORDER_BOT_KEYS`, `pnpm --filter order-capture bot:key`; platform: support phone / hours in the
+branding answer, kinds `order_capture.handoff` / `feedback_low` (release **v0.29.0**, no migration). Bot:
+`src/order-capture.js` (last delivered order + REPEAT, labels / units, support contact, staff alerts; today's flow
+when Order Capture can't answer). Notes: `apps/order-capture/NOTES.md`. **Release steps (owner says "deploy"):**
+1. Make the key: `pnpm --filter order-capture bot:key <plant 001 id>` (prints the key once + the entry).
+2. Railway `order-capture`: add `ORDER_BOT_KEYS` = `[<entry>]`. Push PlantOps `v0.29.0` to `production`; `platform`
+   and `order-capture` deploy (no migration). Check: `/health`, `POST /api/bot/v1/context` without a key → 401, with
+   the key and a real customer's phone → their products and last order.
+3. Railway `whatsappbot`: add `ORDER_CAPTURE_URL=https://orders.bluemins.life` and `ORDER_CAPTURE_BOT_KEY`. Push the
+   bot's `main` to `production` (tag `3.2.0`).
+4. Live checks (owner's phone, a number that is an Order Capture customer with a delivered order): "Order" → "Your
+   last order (…)" then the size buttons; REPEAT → summary with the same boxes; PERSON → staff bell + phone alert
+   "Wants to talk: …"; "feedback" → "not great" → "Unhappy customer: …". Compare with the customer's page in Order
+   Capture (exit check). Nothing appears in Order Capture's order list.
+
 **Next session, in this order:**
 1. Railway banner gone? If the new deployments did not start by themselves, open each service, **Ctrl+K → "Deploy
    latest commit"** (not "Redeploy", which rebuilds the old commit): `whatsappbot` must show `e9e52a2`, `platform`
@@ -89,7 +105,7 @@ Railway variables exist (enforce mode with no `PUBLIC_BASE_URL` refuses every me
 | R | Finish the repo move (old keys off, local copies removed) | both | deleting local folders | **done** (2026-10-20) |
 | 0 | Confirm rules and the integration contract | read-only | the contract, wording, templates | **done** (2026-10-21, contract signed off) |
 | 1 | Harden the bot (signature, help / cancel / STOP, handoff, tests) | bot | the plan; any new dependency; production push | **done** (2026-10-23; `e9e52a2`, tag `3.1.0`, signature `enforce`) |
-| 2 | Read-only Order Capture adapter + bot reads it | both | the API design; credential setup; production pushes | **plan approved** (2026-10-21); **building** (from 2026-10-23) |
+| 2 | Read-only Order Capture adapter + bot reads it | both | the API design; credential setup; production pushes | **built** on `main` in both repos (2026-10-23), **not live**: release steps in section 0 |
 | 3 | Confirmed-order write; Sheets stops being an order ledger | both | endpoint + transaction design; any schema / grant change; go-live | open |
 | 4 | Delivered event, opt-in, 15-day pilot | both | schema / consent design; templates; pilot start | open |
 | 5 | Learn from the pilot | analysis first | any live change | open |
@@ -378,4 +394,5 @@ design.
 | 2026-10-21 | 1 (go-live) | Owner set the bot's Railway variables; Twilio webhook checked. Pushed `e9e52a2` (tag `3.1.0`) and PlantOps v0.28.1 (`3fd9a0c`, migration `0019` applied live) to `production`; a Railway outage paused builds, both still on old code after an hour. Handover in section 0. |
 | 2026-10-23 | 1 (go-live) | Railway back. Bot runs Step 1 (unsigned HELP from `+910000000001` answers "How to use…", report mode). PlantOps v0.28.1 built after "Deploy latest commit" (deployment `d5b20e3f`); checks OK. Left: section 0 items 3–5 (owner's phone checks, `signature: valid` in the logs → `enforce`, support fields in Business details). |
 | 2026-10-23 | 1 | Owner's phone checks and Deploy Logs (`"signature":"valid"`) OK; `TWILIO_SIGNATURE_MODE=enforce`: unsigned and fake-signed POSTs 403, `/health` OK, the owner's "hi" answers. Plant 001's support phone + hours saved in Business details. **Step 1 done.** Next: build Step 2. |
+| 2026-10-23 | 2 | Built on `main` in both repos: Order Capture bot API (context + alerts, key by hash, plant from the key, limits, audit, 22 tests), platform branding + two kinds, bot client + REPEAT + alerts (16 tests). Not deployed; release steps in section 0. |
 | 2026-10-20 | — | This plan written. |
