@@ -265,13 +265,13 @@ describe("the person page", () => {
     );
     for (let d = 1; d <= 28; d++) {
       const date = `2026-10-${String(d).padStart(2, "0")}`;
-      const hours = d <= 14 ? 9 : d <= 26 ? 8 : 5;
+      const hours = d <= 14 ? 9 : d <= 26 ? 8 : 4; // 27-28: short days, 4 h ÷ 8 = ½ day each (rule 21)
       await markAt(q.worker, "in", `${date} 08:00`);
       await markAt(q.worker, "out", `${date} ${String(8 + hours).padStart(2, "0")}:00`);
     }
     await asOwner(`insert into attendance_salary.salary_advances (tenant_id, user_id, user_name, on_date, amount_paise, created_by, created_by_name) values ($1, $2, 'Ramu', '2026-10-10', 300000, gen_random_uuid(), 'Sujata')`, [q.tenantId, q.worker.userId]);
     const figures = (await salaryMonths(q.owner, "2026-10", { now: ist("2026-11-05 12:00") })).people[0]!.current;
-    expect(textOf(SalaryStrip({ month: "2026-10", figures }))).toMatch(/Present 26 .*Half days 2 .*Absent 3 .*Paid leave used 2 of 2 .*Overtime 14 h .*Remaining to pay ₹9,040/);
+    expect(textOf(SalaryStrip({ month: "2026-10", figures }))).toMatch(/Full days 26 .*Short days 2 · 8h 00m = 1 d .*Absent 3 .*Paid leave used 2 of 2 .*Overtime 14h 00m .*Remaining to pay ₹9,040/);
     expect(textOf(SalaryStrip({ month: "2026-10", figures: null }))).toMatch(/^No salary set for\s+October 2026/);
   });
 });

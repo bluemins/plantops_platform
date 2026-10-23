@@ -60,7 +60,7 @@ async function mixedPlant() {
   await setting(anmol, 12000, { ot: 60 });
   await work(anmol, range(1, 14), 9);
   await work(anmol, range(15, 26), 8);
-  await work(anmol, [27, 28], 5);
+  await work(anmol, [27, 28], 4); // short days: 4 h ÷ 8 = ½ day each (rule 21)
   await advance(anmol, 3000);
 
   await setting(pooja, 12000, { joined: "2026-10-15" });
@@ -135,7 +135,7 @@ describe("the salary CSV", () => {
     const anmol = lines.find((l) => l.startsWith("Anmol,"))!.split(",");
     const col = (name: string) => anmol[SALARY_CSV_HEADER.indexOf(name)];
     expect([col("Earned"), col("Overtime pay"), col("Advances"), col("Remaining"), col("Overtime hours"), col("Overtime rate"), col("Day's pay")]).toEqual(["11200.00", "840.00", "3000.00", "9040.00", "14", "60.00", "400.00"]);
-    expect([col("Present"), col("Half days"), col("Absent"), col("Paid leave used (days)"), col("Unpaid days"), col("Full or part month")]).toEqual(["26", "2", "3", "2", "2", "full"]);
+    expect([col("Full days"), col("Short days"), col("Absent"), col("Paid leave used (days)"), col("Unpaid days"), col("Full or part month")]).toEqual(["26", "2", "3", "2", "2", "full"]);
     const bindu = lines.find((l) => l.includes("cmd Bindu"))!;
     expect(bindu.startsWith("'=cmd Bindu,")).toBe(true);
     const b = bindu.split(",");
@@ -207,7 +207,7 @@ describe("a per-day person on the Salary tab", () => {
     await setting(anmol, 12000, { ot: 60 });
     await work(anmol, range(1, 14), 9);
     await work(anmol, range(15, 26), 8);
-    await work(anmol, [27, 28], 5);
+    await work(anmol, [27, 28], 4); // short days: 4 h ÷ 8 = ½ day each (rule 21)
     await advance(anmol, 3000);
     await asApp(
       t,
@@ -216,7 +216,7 @@ describe("a per-day person on the Salary tab", () => {
     );
     await work(ramu, range(1, 10), 9); // present, +1 h overtime each = 10 h
     await work(ramu, range(11, 24), 8); // present
-    await work(ramu, [25, 26], 5); // half days; 27-31 absent
+    await work(ramu, [25, 26], 4); // short days (½ day each); 27-31 absent
     await advance(ramu, 2000);
     return { p };
   }
@@ -228,7 +228,7 @@ describe("a per-day person on the Salary tab", () => {
     const [anmol, ramu] = tab.rows;
     expect(anmol).toMatchObject({ name: "Anmol", payBasis: "monthly", dayRatePaise: null });
     expect(anmol!.result.remainingPaise).toBe(R(9040));
-    expect(ramu).toMatchObject({ name: "Ramu", payBasis: "per_day", dayRatePaise: R(450), counts: { present: 24, half: 2, absent: 5, otMinutes: 600 } });
+    expect(ramu).toMatchObject({ name: "Ramu", payBasis: "per_day", dayRatePaise: R(450), counts: { present: 24, half: 0, short: 2, shortMinutes: 480, absent: 5, otMinutes: 600 } });
     expect(ramu!.result).toMatchObject({ dayPayPaise: R(450), leaveUsedHalves: 0, earnedPaise: R(11250), otPayPaise: R(600), remainingPaise: R(9850) });
     expect(tab.totals).toMatchObject({ salaryPaise: R(12000), earnedPaise: R(11200 + 11250), otPayPaise: R(840 + 600), remainingPaise: R(9040 + 9850) });
 

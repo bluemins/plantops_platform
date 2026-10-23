@@ -95,7 +95,10 @@ export const SettingInput = z.object({
   monthly: z.string().max(20).nullish(),
   /** rupees as typed; per day only */
   day_rate: z.string().max(20).nullish(),
+  /** a full day's WORK, without the lunch break (rule 21) */
   shift_hours: z.number(),
+  /** rule 21: the lunch break in hours (0-3, in quarter hours); missing = none */
+  lunch_hours: z.number().default(0),
   /** monthly only; per day always saves 0 */
   leave_days: z.number().nullish(),
   /** TA ₹ per km and DA ₹ per field-duty day as typed; blank = none (docs/SALARY_EXTRAS_PHASE_PLAN.md) */
@@ -128,8 +131,14 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
   if ((kmRatePaise !== null || daDayPaise !== null) && !input.field_staff) throw badRequest("Tick Field staff first");
   const shiftMinutes = Math.round(input.shift_hours * 60);
   if (!(input.shift_hours >= 1 && input.shift_hours <= 16) || shiftMinutes % 30 !== 0 || shiftMinutes !== input.shift_hours * 60) {
-    throw badRequest("Shift hours: 1 to 16, in steps of half an hour (8 or 8.5)");
+    throw badRequest("Work hours: 1 to 16, in steps of half an hour (8 or 8.5)");
   }
+  const lunchHours = input.lunch_hours ?? 0; // missing = no break
+  const lunchMinutes = Math.round(lunchHours * 60);
+  if (!(lunchHours >= 0 && lunchHours <= 3) || lunchMinutes % 15 !== 0 || lunchMinutes !== lunchHours * 60) {
+    throw badRequest("Lunch break: 0 to 3 hours, in steps of 15 minutes (1 or 0.5)");
+  }
+  if (shiftMinutes + lunchMinutes > 16 * 60) throw badRequest("Work hours + lunch break can be at most 16 hours");
   const leaveDays = perDay ? 0 : (input.leave_days ?? 2); // rule 15: no paid leave for per-day pay
   const halves = leaveDays * 2;
   if (!(leaveDays >= 0 && leaveDays <= 10) || !Number.isInteger(halves)) throw badRequest("Paid leave: 0 to 10 days, in steps of half a day");
@@ -159,6 +168,7 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
         fieldStaff: input.field_staff,
         staffType: input.staff_type,
         shiftMinutes,
+        lunchMinutes,
         paidLeaveHalfdays: halves,
         getsOvertime: input.gets_overtime,
         otRatePaise,
@@ -180,6 +190,7 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
       field: input.field_staff,
       staff_type: input.staff_type,
       shift: shiftMinutes,
+      lunch: lunchMinutes,
       leave: halves,
       ot_rate: otRatePaise,
       joined: input.joined_on,
@@ -358,6 +369,8 @@ export interface HistoryRow {
   fieldStaff: boolean;
   staffType: "permanent" | "temporary";
   shiftMinutes: number;
+  /** rule 21 */
+  lunchMinutes: number;
   paidLeaveHalfdays: number;
   getsOvertime: boolean;
   otRatePaise: number | null;
@@ -421,6 +434,7 @@ export async function salaryPanel(user: AtUser, personId: string, month: string)
       fieldStaff: s.fieldStaff,
       staffType: s.staffType,
       shiftMinutes: s.shiftMinutes,
+      lunchMinutes: s.lunchMinutes,
       paidLeaveHalfdays: s.paidLeaveHalfdays,
       getsOvertime: s.getsOvertime,
       otRatePaise: s.otRatePaise,

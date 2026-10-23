@@ -255,7 +255,7 @@ describe("audit", () => {
 // ---------- per-day pay (docs/SALARY_EXTRAS_PHASE_PLAN.md Phase A2) ----------
 
 describe("a per-day month on the worker's slip", () => {
-  it("A2-9. paid and opened by the worker: '29 present + 0 half days (29 days) × ₹450'; no '÷ 30'", async () => {
+  it("A2-9. paid and opened by the worker: '29 full = 29 days × ₹450'; no '÷ 30'", async () => {
     const p = plant();
     platform.contacts = [...contactsFor(p.owner, p.worker)];
     await asApp(
@@ -270,10 +270,10 @@ describe("a per-day month on the worker's slip", () => {
     await saveVisibility(p.owner, { user_id: p.worker.userId, can_see: true, expect: null });
     await payMonth(p.owner, { user_id: p.worker.userId, month: SEP, paid_on: "2026-09-30", note: "Cash", expect_remaining: R(29 * 450) } as never);
     const slip = await mySlip(p.worker, SEP);
-    expect(slip.figures).toMatchObject({ rules: 5, setting: { payBasis: "per_day", dayRatePaise: R(450) } });
+    expect(slip.figures).toMatchObject({ rules: 6, setting: { payBasis: "per_day", dayRatePaise: R(450) } });
     signInAs(p.worker);
     const text = textOf(await MySlipPage({ params: Promise.resolve({ month: SEP }) })).replace(/\s+/g, " ");
-    expect(text).toContain("29 present + 0 half days (29 days) × ₹450");
+    expect(text).toContain("29 full = 29 days × ₹450");
     expect(text).toContain("₹13,050");
     expect(text).toContain("Day rate ₹450");
     expect(text).not.toMatch(/÷ 30|Paid leave used|Monthly salary/);

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { addMonths, fmtDayLong, fmtMonth } from "@/lib/days";
-import { halvesText, hoursText, paiseText, rupeesText } from "@/lib/salary";
+import { addMonths, fmtDayLong, fmtMinutes, fmtMonth } from "@/lib/days";
+import { halvesText, paiseText, rupeesText } from "@/lib/salary";
 import { daysText, extrasPaise, takenPaise } from "@/lib/salary-view";
 import type { SalaryTab, TabRow } from "@/server/salary-tab";
 import { CheckPanel } from "./check-panel";
@@ -65,6 +65,8 @@ function TagsUnder({ r }: { r: TabRow }) {
 /** "₹12,000" for a monthly person, "₹450 / day" for a per-day one. */
 const payText = (r: TabRow) => (r.payBasis === "per_day" ? `${rupeesText(r.dayRatePaise ?? 0)} / day` : rupeesText(r.input.monthlyPaise));
 const leaveOf = (r: TabRow) => (r.payBasis === "per_day" ? null : r.result.leaveUsedHalves);
+/** the work hours the row's days were counted with (the frozen ones for a paid month) */
+const shiftOf = (r: TabRow) => r.input.shiftMinutes ?? r.shiftMinutes;
 
 const thBase = "px-2 py-2.5 text-xs font-semibold tracking-wide whitespace-nowrap text-slate-600 uppercase";
 const th = `${thBase} text-right`;
@@ -120,8 +122,8 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
                 <th className={th}>Salary</th>
                 {all ? (
                   <>
-                    <th className={th}>Present</th>
-                    <th className={th}>Half</th>
+                    <th className={th}>Full</th>
+                    <th className={th}>Short</th>
                     <th className={th}>Absent</th>
                     <th className={th}>Days off</th>
                     <th className={th}>Paid leave</th>
@@ -148,7 +150,7 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
             </thead>
             <tbody>
               {tab.rows.map((r, i) => {
-                const days = daysText(r.counts, leaveOf(r));
+                const days = daysText(r.counts, leaveOf(r), shiftOf(r));
                 return (
                   <tr key={r.userId} className={`border-t border-slate-100 ${open === r.userId ? "bg-(--brand-soft)" : ""}`}>
                     <td className={`${td} w-px pr-1 pl-4 text-slate-500`}>{i + 1}</td>
@@ -166,11 +168,11 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
                     {all ? (
                       <>
                         <td className={td}>{r.counts.present}</td>
-                        <td className={td}>{r.counts.half}</td>
+                        <td className={td}>{r.counts.short ? `${r.counts.short} · ${fmtMinutes(r.counts.shortMinutes ?? 0)}` : r.counts.half ? `${r.counts.half} half` : 0}</td>
                         <td className={td}>{r.counts.absent}</td>
                         <td className={td}>{r.counts.off ?? 0}</td>
                         <td className={td}>{r.payBasis === "per_day" ? "—" : halvesText(r.result.leaveUsedHalves)}</td>
-                        <td className={td}>{r.getsOvertime ? hoursText(r.result.otMinutes) : "—"}</td>
+                        <td className={td}>{r.getsOvertime ? fmtMinutes(r.result.otMinutes) : "—"}</td>
                         <td className={td}>{rupeesText(r.result.earnedPaise)}</td>
                         <td className={td}>{r.getsOvertime ? rupeesText(r.result.otPayPaise) : "—"}</td>
                         <td className={td}>{r.kmRatePaise || r.result.taPaise ? rupeesText(r.result.taPaise) : "—"}</td>
@@ -235,7 +237,7 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
         {/* phone: the list */}
         <ul className="divide-y divide-slate-100 lg:hidden">
           {tab.rows.map((r, i) => {
-            const days = daysText(r.counts, leaveOf(r));
+            const days = daysText(r.counts, leaveOf(r), shiftOf(r));
             const extras = extrasPaise(r.result);
             const taken = takenPaise(r.result);
             const money = [`${rupeesText(r.result.earnedPaise)} earned`];
@@ -243,7 +245,7 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
             if (taken) money.push(`− ${rupeesText(taken)} taken`);
             const dayLine = [days.main, days.sub];
             if (r.payBasis === "per_day") dayLine.push(payText(r));
-            if (r.getsOvertime && r.result.otMinutes) dayLine.push(`OT ${hoursText(r.result.otMinutes)} h`);
+            if (r.getsOvertime && r.result.otMinutes) dayLine.push(`OT ${fmtMinutes(r.result.otMinutes)}`);
             return (
               <li key={r.userId}>
                 <button type="button" onClick={() => setOpen(r.userId)} className="flex min-h-14 w-full items-center justify-between gap-3 px-4 py-2.5 text-left">

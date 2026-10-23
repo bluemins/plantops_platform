@@ -4,7 +4,7 @@
 // audited). Nothing is stored.
 import { csv } from "@plantops/module-kit/csv";
 import { addMonths, monthDays } from "@/lib/days";
-import { halvesText, hoursText, kmText, type DayCounts, type PayBasis, type PayInput, type PayResult } from "@/lib/salary";
+import { halvesText, hoursText, kmText, shortDaysText, type DayCounts, type PayBasis, type PayInput, type PayResult } from "@/lib/salary";
 import { requireAccess } from "./access";
 import { audit } from "./audit";
 import { withTenant } from "./db";
@@ -30,6 +30,8 @@ export interface TabRow {
   /** per-day people's day rate (null for monthly people) */
   dayRatePaise: number | null;
   shiftMinutes: number;
+  /** rule 21 */
+  lunchMinutes: number;
   paidLeaveHalfdays: number;
   getsOvertime: boolean;
   otRatePaise: number | null;
@@ -118,6 +120,7 @@ export async function salaryTab(user: AtUser, month: string, now: Date = new Dat
       staffType: c.setting.staffType ?? "permanent",
       dayRatePaise: input.dayRatePaise,
       shiftMinutes: c.setting.shiftMinutes,
+      lunchMinutes: frozen ? (frozen.setting.lunchMinutes ?? 0) : c.setting.lunchMinutes,
       paidLeaveHalfdays: c.setting.paidLeaveHalfdays,
       getsOvertime: c.setting.getsOvertime,
       otRatePaise: c.setting.otRatePaise,
@@ -184,8 +187,8 @@ export async function salaryTab(user: AtUser, month: string, now: Date = new Dat
 
 export const SALARY_CSV_HEADER = [
   "Name", "Month", "Full or part month", "Counted days",
-  "Monthly salary", "Pay basis", "Staff type", "Day rate", "Shift hours", "Paid leave allowed (days)",
-  "Present", "Half days", "Absent", "Days off", "Paid leave used (days)", "Unpaid days", "Day's pay", "Earned",
+  "Monthly salary", "Pay basis", "Staff type", "Day rate", "Work hours", "Lunch hours", "Paid leave allowed (days)",
+  "Full days", "Short days", "Short-day hours", "Short days as days", "Half days", "Absent", "Days off", "Paid leave used (days)", "Unpaid days", "Day's pay", "Earned",
   "Overtime", "Overtime hours", "Overtime rate", "Overtime pay",
   "Field duty days", "Km", "TA rate", "TA", "DA days", "DA rate", "DA", "Expenses", "Claims waiting",
   "Advances", "Carried in", "Adjustment", "Remaining",
@@ -212,9 +215,14 @@ export async function salaryCsv(user: AtUser, month: string, now: Date = new Dat
       perDay ? "per day" : "monthly",
       r.staffType,
       perDay && r.dayRatePaise ? rupees(r.dayRatePaise) : "",
-      hoursText(r.shiftMinutes),
+      hoursText(r.input.shiftMinutes ?? r.shiftMinutes),
+      hoursText(r.lunchMinutes),
       perDay ? "" : halvesText(r.paidLeaveHalfdays),
       r.counts.present,
+      // rule 21: short days, their work and what it counts as; half days only in months paid before rule 21
+      r.counts.short ?? 0,
+      hoursText(r.counts.shortMinutes ?? 0),
+      shortDaysText(r.counts.shortMinutes ?? 0, r.input.shiftMinutes ?? r.shiftMinutes),
       r.counts.half,
       r.counts.absent,
       r.counts.off ?? 0, // rule 20: paid days off marked by the owner

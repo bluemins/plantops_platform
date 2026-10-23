@@ -133,7 +133,7 @@ export interface PersonSalary {
 }
 
 /** Works out one person's months up to `month` from already-loaded rows (also used for the whole plant). */
-function personMonths(userId: string, data: SalaryData, days: ReadonlyMap<string, { minutes: number }>, marks: ReadonlyMap<string, DayMark>, month: string, today: string): PersonSalary {
+function personMonths(userId: string, data: SalaryData, days: ReadonlyMap<string, { minutes: number; gapMinutes?: number }>, marks: ReadonlyMap<string, DayMark>, month: string, today: string): PersonSalary {
   const settings = data.settings.filter((s) => s.userId === userId);
   const first = firstSalaryMonth(settings)!;
   const months: Omit<SalaryMonth, "chain">[] = [];
@@ -142,7 +142,7 @@ function personMonths(userId: string, data: SalaryData, days: ReadonlyMap<string
     // rule 1: Joined on blank = the first day of the first salary month
     const counted = countedDates(m, today, setting.joinedOn ?? `${first}-01`, setting.leftOn);
     if (!counted) continue; // not employed on any day of this month
-    const dayResults = dayStatuses(days, setting.shiftMinutes, counted.dates, setting.getsOvertime, marks); // rule 20: the owner's day marks
+    const dayResults = dayStatuses(days, setting.shiftMinutes, counted.dates, setting.getsOvertime, marks, setting.lunchMinutes); // rules 20, 21
     const claims = data.claims.filter((c) => c.userId === userId && ym(c.onDate) === m);
     months.push({
       month: m,
@@ -165,6 +165,7 @@ function personMonths(userId: string, data: SalaryData, days: ReadonlyMap<string
         payBasis: x.setting.payBasis,
         monthlyPaise: x.setting.monthlyPaise ?? 0,
         dayRatePaise: x.setting.dayRatePaise,
+        shiftMinutes: x.setting.shiftMinutes,
         fullMonth: x.counted.fullMonth,
         paidLeaveHalfdays: x.setting.paidLeaveHalfdays,
         getsOvertime: x.setting.getsOvertime,
@@ -228,6 +229,7 @@ export function payInputOf(c: SalaryMonth): PayInput {
     payBasis: c.setting.payBasis,
     monthlyPaise: c.setting.monthlyPaise ?? 0,
     dayRatePaise: c.setting.dayRatePaise,
+    shiftMinutes: c.setting.shiftMinutes,
     fullMonth: c.counted.fullMonth,
     paidLeaveHalfdays: c.setting.paidLeaveHalfdays,
     getsOvertime: c.setting.getsOvertime,
@@ -247,7 +249,7 @@ export function freezeMonth(c: SalaryMonth): FrozenMonth {
   return {
     rules: RULES_VERSION,
     month: c.month,
-    setting: { payBasis: s.payBasis, monthlyPaise: s.monthlyPaise, dayRatePaise: s.dayRatePaise, kmRatePaise: s.kmRatePaise, daDayPaise: s.daDayPaise, shiftMinutes: s.shiftMinutes, paidLeaveHalfdays: s.paidLeaveHalfdays, getsOvertime: s.getsOvertime, otRatePaise: s.otRatePaise, joinedOn: s.joinedOn, leftOn: s.leftOn },
+    setting: { payBasis: s.payBasis, monthlyPaise: s.monthlyPaise, dayRatePaise: s.dayRatePaise, kmRatePaise: s.kmRatePaise, daDayPaise: s.daDayPaise, shiftMinutes: s.shiftMinutes, lunchMinutes: s.lunchMinutes, paidLeaveHalfdays: s.paidLeaveHalfdays, getsOvertime: s.getsOvertime, otRatePaise: s.otRatePaise, joinedOn: s.joinedOn, leftOn: s.leftOn },
     counted: c.counted,
     counts: c.counts,
     advances: c.advances.map((a) => ({ onDate: a.onDate, amountPaise: a.amountPaise, note: a.amountPaise < 0 ? `Correction: ${a.reason ?? ""}` : a.note })),
@@ -267,10 +269,16 @@ export function freezeMonth(c: SalaryMonth): FrozenMonth {
 export const frozenOf = (figures: Record<string, unknown>): FrozenMonth | null =>
   figures && typeof figures === "object" && "input" in figures && "result" in figures ? readFrozen(figures as unknown as FrozenMonth) : null;
 
-/** What a calendar may show about a month's days: statuses and counts only, never an amount, rate or shift. */
+/**
+ * What a calendar may show about a month's days: statuses, work hours and counts only, never an amount or rate. The
+ * work hours and lunch break are shown (rule 21: "Work = time at plant − 1 h lunch · full day = 8 h").
+ */
 export interface MonthStatuses {
-  /** `mark`: the owner's whole-day ON / OFF (rule 20), so the calendar can say so */
-  days: Record<string, { status: DayStatus; otMinutes: number; mark?: DayMark }>;
+  /** `mark`: the owner's whole-day ON / OFF (rule 20), so the calendar can say so; `workMinutes`: rule 21 */
+  days: Record<string, { status: DayStatus; workMinutes: number; otMinutes: number; mark?: DayMark }>;
+  /** the month's setting: a full day's work and the lunch break (rule 21) */
+  shiftMinutes: number;
+  lunchMinutes: number;
   counts: DayCounts;
   /** the person gets overtime this month (otherwise no overtime is shown anywhere) */
   getsOvertime: boolean;
@@ -281,13 +289,13 @@ export interface MonthStatuses {
 }
 
 /**
- * Present / half / absent and overtime for the calendar (docs/SALARY_PHASE_PLAN.md "Worker: My attendance"): the same
- * rules as the salary (shift hours, Gets overtime, Joined on / Last day from the month's setting), but only days come
+ * Full / short / absent, work hours and overtime for the calendar (docs/SALARY_PHASE_PLAN.md "Worker: My attendance"):
+ * the same rules as the salary (work hours, lunch break, Gets overtime, Joined on / Last day from the month's setting), but only days come
  * back, never money. Your own month needs `see_own`, anyone else's `see_everyone` (a Supervisor: an Office staff
  * person) (otherwise 404). null = no salary
  * setting that month (the calendar then stays plain).
  */
-export async function monthStatuses(user: AtUser, personId: string, month: string, days: ReadonlyMap<string, { minutes: number }>, now: Date = new Date()): Promise<MonthStatuses | null> {
+export async function monthStatuses(user: AtUser, personId: string, month: string, days: ReadonlyMap<string, { minutes: number; gapMinutes?: number }>, now: Date = new Date()): Promise<MonthStatuses | null> {
   const own = personId === user.userId;
   if (!(own ? can(user, "see_own") || can(user, "see_everyone") : can(user, "see_everyone") || can(user, "see_office_staff"))) throw notFound("Not found");
   if (!own) await requireReach(user, personId); // a Supervisor: Office staff only
@@ -300,13 +308,15 @@ export async function monthStatuses(user: AtUser, personId: string, month: strin
   if (!setting) return null;
   const counted = countedDates(month, istDay(now), setting.joinedOn ?? `${firstSalaryMonth(settings)}-01`, setting.leftOn);
   if (!counted) return null;
-  const results = dayStatuses(days, setting.shiftMinutes, counted.dates, setting.getsOvertime, marked.get(personId)); // rule 20
+  const results = dayStatuses(days, setting.shiftMinutes, counted.dates, setting.getsOvertime, marked.get(personId), setting.lunchMinutes); // rules 20, 21
   return {
     days: Object.fromEntries(results.map((d) => {
       const mark = marked.get(personId)?.get(d.date);
-      return [d.date, { status: d.status, otMinutes: d.otMinutes, ...(mark ? { mark } : {}) }];
+      return [d.date, { status: d.status, workMinutes: d.workMinutes, otMinutes: d.otMinutes, ...(mark ? { mark } : {}) }];
     })),
     counts: countDays(results),
+    shiftMinutes: setting.shiftMinutes,
+    lunchMinutes: setting.lunchMinutes,
     getsOvertime: setting.getsOvertime,
     complete: counted.complete,
     countedDays: counted.dates.length,

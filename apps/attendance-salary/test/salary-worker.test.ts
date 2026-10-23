@@ -61,27 +61,28 @@ const octDays = async (viewer: AtUser, u: AtUser) => {
   return new Map(v.days.map((d) => [d.date, d]));
 };
 
-/** The worked example: 14 days 9 h, 12 days 8 h, 2 half days, 3 absent; salary with overtime ₹60/h. */
+/** The worked example: 14 days 9 h, 12 days 8 h, 2 short days of 4 h, 3 absent; salary with overtime ₹60/h. */
 async function workedExample() {
   const p = plant();
   platform.contacts = [...contactsFor(p.owner, p.worker)];
   await setting(p.worker, 60);
   await work(p.worker, range(1, 14), 9);
   await work(p.worker, range(15, 26), 8);
-  await work(p.worker, [27, 28], 5);
+  await work(p.worker, [27, 28], 4); // short days: 4 h ÷ 8 = ½ day each (rule 21)
   return p;
 }
 
 describe("day statuses for the calendars", () => {
-  it("1. the worked example: 26 / 2 / 3 and 14 h; nothing about money in the answer", async () => {
+  it("1. the worked example: 26 full / 2 short / 3 absent and 14 h; nothing about money in the answer", async () => {
     const p = await workedExample();
     const st = (await monthStatuses(p.worker, p.worker.userId, "2026-10", await octDays(p.worker, p.worker), NOV5))!;
-    expect(st.counts).toEqual({ present: 26, half: 2, absent: 3, off: 0, otMinutes: 14 * 60 });
+    expect(st.counts).toEqual({ present: 26, half: 0, short: 2, shortMinutes: 8 * 60, absent: 3, off: 0, otMinutes: 14 * 60 });
     expect(st).toMatchObject({ getsOvertime: true, complete: true, countedDays: 31 });
-    expect(st.days[day(1)]).toEqual({ status: "present", otMinutes: 60 });
-    expect(st.days[day(27)]).toEqual({ status: "half", otMinutes: 0 });
-    expect(st.days[day(30)]).toEqual({ status: "absent", otMinutes: 0 });
-    expect(JSON.stringify(st)).not.toMatch(/paise|monthly|rate|shift|₹/i);
+    expect(st.days[day(1)]).toEqual({ status: "present", workMinutes: 9 * 60, otMinutes: 60 });
+    expect(st.days[day(27)]).toEqual({ status: "short", workMinutes: 4 * 60, otMinutes: 0 });
+    expect(st.days[day(30)]).toEqual({ status: "absent", workMinutes: 0, otMinutes: 0 });
+    expect(JSON.stringify(st)).not.toMatch(/paise|monthly|rate|₹/i); // the work hours and lunch are shown (rule 21)
+    expect(st).toMatchObject({ shiftMinutes: 8 * 60, lunchMinutes: 0 });
   });
 
   it("1b. without Gets overtime: 0 overtime even on 12 h days; without a setting: nothing", async () => {
@@ -115,10 +116,12 @@ describe("a worker never sees money", () => {
     const tiles = textOf(MonthTiles({ statuses: st }));
     const key = textOf(CalendarKey({ statuses: st }));
     for (const t of [cal, tiles, key]) expect(t).not.toMatch(/₹|salary|advance/i);
-    expect(tiles).toMatch(/26 Present .*2 Half days .*3 Absent .*14 h Overtime/);
-    expect(cal).toMatch(/\+\s*1\s+h/); // "+1 h" (the text helper spaces out JSX pieces)
+    expect(tiles).toMatch(/26 Full days .*2 Short days .*3 Absent .*14h 00m Overtime/);
+    expect(tiles).toMatch(/Short-day work\s+8h 00m\s+÷\s+8\s+h =\s+1\s+days/);
+    expect(cal).toMatch(/\+\s*1h(?! \d)/); // "+1h" (the text helper spaces out JSX pieces)
+    expect(cal).toContain("short");
     expect(cal).toContain("absent");
-    expect(key).toMatch(/Half day.*Absent.*overtime/);
+    expect(key).toMatch(/full day =\s+8\s+h work.*Short day.*Absent.*overtime/);
   });
 
   it("3b. every salary route a worker can call answers 403 / 404 without a single amount", async () => {

@@ -5,8 +5,9 @@ import { personDayMarks } from "@/server/day-marks";
 import { dayStamp } from "@/server/fixes";
 import { kit } from "@/server/kit";
 import { orNotFound } from "@/server/pages";
+import { monthStatuses } from "@/server/salary";
 import { requirePageUser } from "@/server/session";
-import { DayView } from "../../../day-view";
+import { DayView, WorkBox } from "../../../day-view";
 import { Header } from "../../../header";
 import { DayMarkPanel } from "./day-mark-panel";
 import { FixPanel, type FixMark } from "./fix-panel";
@@ -23,6 +24,9 @@ export default async function PersonDayPage({ params }: { params: Promise<{ user
   if (!(can(user, "see_everyone") || can(user, "see_office_staff")) || !UUID.test(personId)) notFound();
   const [plant, view, stamp, dayMarksMap] = await Promise.all([kit.branding(user.tenantId), orNotFound(dayFor(user, personId, date)), dayStamp(user, personId, date), personDayMarks(user, personId, date, date)]);
   const dayMark = dayMarksMap.get(date) ?? null;
+  // rule 21: what the day counts as for the salary (counted days only)
+  const statuses = await monthStatuses(user, personId, date.slice(0, 7), new Map([[date, view.day]]));
+  const counted = statuses?.days[date];
   // the marks the owner may cancel: every valid mark shown on this day
   const marks: FixMark[] = view.day.entries.flatMap((e) => {
     if (e.type === "cancelled") return [];
@@ -37,6 +41,7 @@ export default async function PersonDayPage({ params }: { params: Promise<{ user
         ‹ {view.name ?? "Person"} · month
       </a>
       <DayView day={view.day} />
+      {statuses && counted && <WorkBox atPlant={view.day.minutes} day={counted} shiftMinutes={statuses.shiftMinutes} lunchMinutes={statuses.lunchMinutes} getsOvertime={statuses.getsOvertime} />}
       {/* the owner's whole-day ON / OFF (docs/DAY_MARKS_PLAN.md); others see the mark only */}
       <DayMarkPanel personId={personId} name={view.name ?? "This person"} day={date} mark={dayMark} canMark={can(user, "day_mark")} />
       {can(user, "fix") && (user.isOwner || personId !== user.userId) && <FixPanel personId={personId} name={view.name ?? "This person"} day={date} today={view.today} stamp={stamp} marks={marks} />}

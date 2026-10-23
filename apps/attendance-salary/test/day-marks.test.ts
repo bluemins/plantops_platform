@@ -178,9 +178,9 @@ describe("in the salary, the calendar and the Today board", () => {
     await mark(p.owner, p.worker, day(6), "off");
     await mark(p.owner, p.worker, day(6), "clear");
     const s = (await monthStatuses(p.owner, p.worker.userId, "2026-10", new Map(), NOW))!;
-    expect(s.days[day(4)]).toEqual({ status: "off", otMinutes: 0, mark: "off" });
-    expect(s.days[day(5)]).toEqual({ status: "present", otMinutes: 0, mark: "on" });
-    expect(s.days[day(6)]).toEqual({ status: "absent", otMinutes: 0 });
+    expect(s.days[day(4)]).toEqual({ status: "off", workMinutes: 0, otMinutes: 0, mark: "off" });
+    expect(s.days[day(5)]).toEqual({ status: "present", workMinutes: 0, otMinutes: 0, mark: "on" });
+    expect(s.days[day(6)]).toEqual({ status: "absent", workMinutes: 0, otMinutes: 0 });
     expect(s.counts).toMatchObject({ off: 1, present: 1 });
   });
 

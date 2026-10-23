@@ -55,6 +55,13 @@ export function weekdayMon0(ymd: string) {
 }
 
 /** "8h 40m", "0h 05m", "0h" */
+/** Overtime and other short spans: 57 -> "57m", 70 -> "1h 10m", 120 -> "2h". */
+export function fmtSpan(min: number) {
+  const h = Math.floor(min / 60);
+  const m = Math.round(min % 60);
+  return h === 0 ? `${m}m` : m === 0 ? `${h}h` : `${h}h ${String(m).padStart(2, "0")}m`;
+}
+
 export function fmtMinutes(min: number) {
   const h = Math.floor(min / 60);
   const m = Math.round(min % 60);

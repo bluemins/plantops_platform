@@ -1798,3 +1798,16 @@ Plan approved by the owner 2026-10-21 (`docs/WHATSAPP_BUILD_PLAN.md` section 7);
   known customers, staff alerts; today's flow when Order Capture can't answer. Orders still go to the Sheet.
 - **Tests:** Order Capture 306 (+22), platform 369, bot 49 (+16).
 
+
+### 2026-10-23 — Attendance: lunch break and short days (v0.29.1)
+Asked by the owner 2026-10-23 after checking Reeta's and Damayanti's October ("8 h + 1 h lunch; under 8 h must not be a
+half day; add the short hours ÷ 8"); "build as recommended". **Rule 21** in `apps/attendance-salary/src/lib/salary.ts`:
+work = time at plant − lunch (full break from 5 h at the plant; an OUT / IN break counts towards it); ≥ work hours =
+full day + overtime; less = short day, the month's short-day work ÷ work hours = days paid (exact); no half days; same
+for monthly staff (paid leave covers short time first). Attendance migration `0009_lunch_break.sql` (approved:
+`salary_settings.lunch_minutes`, default 0). Screens: Salary box lunch field, calendar work hours / "short", day page
+"Work for salary", Salary tab / panel / slip / CSV. Notes: `apps/attendance-salary/NOTES.md`. Tests: Attendance 453
+(+9 `short-days.test.ts`, half-day tests updated). **Verified locally** (plant 002, Reeta's real October marks copied
+to a temporary person, headless Chromium at 390 / 1280 px, all removed): ₹5,157 remaining, 19.74 days, 8h 50m OT.
+**Not deployed.** After deploying: the owner sets 8 h work + 1 h lunch from October for Reeta, Damayanti and the
+others (Reeta's setting says 9 h since 20 Oct), and decides Damayanti's 9 paid OFF days (1-5 Oct before joining?).

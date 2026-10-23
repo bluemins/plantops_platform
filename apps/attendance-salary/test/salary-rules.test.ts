@@ -96,7 +96,7 @@ describe("one month's pay", () => {
     const c = countedDates("2026-10", "2026-11-01", null, null)!;
     const days = dayStatuses(everyDay("2026-10", 12 * H), 8 * H, c.dates, false);
     const counts = countDays(days);
-    expect(counts).toEqual({ present: 31, half: 0, absent: 0, off: 0, otMinutes: 0 });
+    expect(counts).toEqual({ present: 31, half: 0, absent: 0, off: 0, short: 0, shortMinutes: 0, otMinutes: 0 });
     expect(monthPay({ ...base, ...counts, getsOvertime: false, otRatePaise: null, advancesPaise: 0 })).toMatchObject({ otMinutes: 0, otPayPaise: 0, earnedPaise: R(12000) });
     // even if minutes were handed in, no overtime without "Gets overtime"
     expect(monthPay({ ...base, getsOvertime: false, otRatePaise: null }).otPayPaise).toBe(0);
@@ -154,7 +154,7 @@ describe("one month's pay", () => {
 });
 
 describe("day statuses", () => {
-  it("2. on an 8 h shift: 480 present, 479 half, 240 half, 239 absent, nothing absent", () => {
+  it("2. on an 8 h shift (rule 21): 480 present, 479 / 240 / 239 short (no half days), nothing absent", () => {
     const days = new Map([
       ["2026-10-01", { minutes: 480 }],
       ["2026-10-02", { minutes: 479 }],
@@ -162,7 +162,7 @@ describe("day statuses", () => {
       ["2026-10-04", { minutes: 239 }],
     ]);
     const r = dayStatuses(days, 480, ["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05"], true);
-    expect(r.map((d) => d.status)).toEqual(["present", "half", "half", "absent", "absent"]);
+    expect(r.map((d) => d.status)).toEqual(["present", "short", "short", "short", "absent"]);
   });
 
   const mark = (id: string, kind: "in" | "out", at: string, source: "scan" | "owner" = "scan"): Mark => ({ id, kind, at: ist(at), source, reason: source === "owner" ? "forgot" : null, byName: "x", distanceM: null });
@@ -179,8 +179,8 @@ describe("day statuses", () => {
     const days = workDays([mark("a", "in", "2026-10-09 22:00"), mark("b", "out", "2026-10-10 06:00")], [], ist("2026-10-20 12:00"));
     const r = dayStatuses(days, 480, ["2026-10-09", "2026-10-10"], true);
     expect(r).toEqual([
-      { date: "2026-10-09", minutes: 480, status: "present", otMinutes: 0 },
-      { date: "2026-10-10", minutes: 0, status: "absent", otMinutes: 0 },
+      { date: "2026-10-09", minutes: 480, workMinutes: 480, status: "present", otMinutes: 0 },
+      { date: "2026-10-10", minutes: 0, workMinutes: 0, status: "absent", otMinutes: 0 },
     ]);
   });
 
@@ -201,7 +201,7 @@ describe("day statuses", () => {
 
 describe("which setting applies", () => {
   const s = (fromMonth: string, monthlyRupees: number, createdAt: string): SalarySetting => ({
-    id: `${fromMonth}-${createdAt}`, fromMonth, payBasis: "monthly", monthlyPaise: R(monthlyRupees), dayRatePaise: null, kmRatePaise: null, daDayPaise: null, shiftMinutes: 480, paidLeaveHalfdays: 4, getsOvertime: false, otRatePaise: null, joinedOn: null, leftOn: null, createdAt,
+    id: `${fromMonth}-${createdAt}`, fromMonth, payBasis: "monthly", monthlyPaise: R(monthlyRupees), dayRatePaise: null, kmRatePaise: null, daDayPaise: null, shiftMinutes: 480, lunchMinutes: 0, paidLeaveHalfdays: 4, getsOvertime: false, otRatePaise: null, joinedOn: null, leftOn: null, createdAt,
   });
 
   it("14. a setting from November leaves October unchanged; the newest of the same month wins", () => {
@@ -338,12 +338,12 @@ describe("per-day pay (rule 15)", () => {
     expect(monthPay(base).remainingPaise).toBe(R(9040));
   });
 
-  it("A2. shift edges: exactly 8 h earns a full day, 1 minute less half, under 4 h nothing", () => {
+  it("A2. shift edges (rule 21): exactly 8 h earns a full day; less is a short day paid for its minutes", () => {
     const days = new Map([["2026-10-01", { minutes: 480 }], ["2026-10-02", { minutes: 479 }], ["2026-10-03", { minutes: 240 }], ["2026-10-04", { minutes: 239 }]]);
     const counts = countDays(dayStatuses(days, 480, [...days.keys()], false));
-    expect(counts).toMatchObject({ present: 1, half: 2, absent: 1 });
-    // 1 + ½ + ½ days = 2 days
-    expect(monthPay({ ...perDay, ...counts, advancesPaise: 0 }).earnedPaise).toBe(R(900));
+    expect(counts).toMatchObject({ present: 1, half: 0, short: 3, shortMinutes: 958, absent: 0 });
+    // 1 day + 958 min ÷ 480 = 2.996 days × ₹450 = ₹1,348.125, rounded once
+    expect(monthPay({ ...perDay, ...counts, advancesPaise: 0 }).earnedPaise).toBe(134_813);
   });
 
   it("A3. no paid leave, even when a row says so: absent days earn nothing", () => {
@@ -376,7 +376,7 @@ describe("per-day pay (rule 15)", () => {
 
   it("A7. monthly in October, per day from November: October is unchanged (₹9,040)", () => {
     const row = (fromMonth: string, over: Partial<SalarySetting>): SalarySetting => ({
-      id: fromMonth, fromMonth, payBasis: "monthly", monthlyPaise: R(12000), dayRatePaise: null, kmRatePaise: null, daDayPaise: null, shiftMinutes: 480, paidLeaveHalfdays: 4, getsOvertime: true, otRatePaise: R(60), joinedOn: null, leftOn: null, createdAt: `${fromMonth}-01T10:00:00Z`, ...over,
+      id: fromMonth, fromMonth, payBasis: "monthly", monthlyPaise: R(12000), dayRatePaise: null, kmRatePaise: null, daDayPaise: null, shiftMinutes: 480, lunchMinutes: 0, paidLeaveHalfdays: 4, getsOvertime: true, otRatePaise: R(60), joinedOn: null, leftOn: null, createdAt: `${fromMonth}-01T10:00:00Z`, ...over,
     });
     const rows = [row("2026-10", {}), row("2026-11", { payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450), paidLeaveHalfdays: 0 })];
     const inputFor = (month: string, counts: Partial<PayInput>): ChainInput => {
@@ -400,7 +400,7 @@ describe("per-day pay (rule 15)", () => {
     const v1 = {
       rules: 1,
       month: "2026-10",
-      setting: { monthlyPaise: R(12000), shiftMinutes: 480, paidLeaveHalfdays: 4, getsOvertime: true, otRatePaise: R(60), joinedOn: null, leftOn: null },
+      setting: { monthlyPaise: R(12000), shiftMinutes: 480, lunchMinutes: 0, paidLeaveHalfdays: 4, getsOvertime: true, otRatePaise: R(60), joinedOn: null, leftOn: null },
       counted: countedDates("2026-10", "2026-11-01", null, null)!,
       counts: { present: 26, half: 2, absent: 3, otMinutes: 14 * H },
       advances: [],

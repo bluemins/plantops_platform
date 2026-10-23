@@ -27,6 +27,7 @@ function initial(applies: HistoryRow | null, thisMonth: string) {
     field: applies?.fieldStaff ?? false,
     staffType: (applies?.staffType ?? "permanent") as "permanent" | "temporary",
     shift: applies ? hoursText(applies.shiftMinutes) : "8",
+    lunch: applies ? hoursText(applies.lunchMinutes) : "0",
     leave: applies ? halvesText(applies.paidLeaveHalfdays) : "2",
     ot: applies?.getsOvertime ?? false,
     rate: typed(applies?.otRatePaise),
@@ -39,7 +40,7 @@ function initial(applies: HistoryRow | null, thisMonth: string) {
 
 /**
  * The owner's Salary box (mock-up 2; Pay choice from docs/SALARY_EXTRAS_PHASE_PLAN.md mock-up 1): Monthly (salary +
- * paid leave) or Per day (a day rate, no paid leave), shift hours, Gets overtime + rate, from month,
+ * paid leave) or Per day (a day rate, no paid leave), work hours + lunch break (rule 21), Gets overtime + rate, from month,
  * Joined on / Last day, and the history. Saving makes a new setting from the chosen month; earlier months keep their
  * figures unless the from month is in the past (then a reason is required).
  */
@@ -51,6 +52,7 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
   const [done, setDone] = useState<string>();
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((x) => ({ ...x, [k]: e.target.value }));
   const shift = Number(f.shift);
+  const lunch = Number(f.lunch) || 0;
   const past = f.from < thisMonth;
   const perDay = f.basis === "per_day";
   const rate = toPaise(f.dayRate);
@@ -71,6 +73,7 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
         ta_rate: f.field ? f.ta || null : null,
         da_rate: f.field ? f.da || null : null,
         shift_hours: Number(f.shift),
+        lunch_hours: Number(f.lunch) || 0,
         gets_overtime: f.ot,
         ot_rate: f.ot ? f.rate : null,
         from_month: f.from,
@@ -135,14 +138,14 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
         <p className="text-xs text-slate-600">Only for the cost split on the Salary tab; the pay rules are the same.</p>
       </fieldset>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         {perDay ? (
           <label className={label}>
             <span>Day rate (₹)</span>
             <input className={field} inputMode="decimal" value={f.dayRate} onChange={set("dayRate")} placeholder="e.g. 450" />
             {rate !== null && rate > 0 && (
               <span className={hint}>
-                Present day = {paiseText(rate)} · half day = {paiseText(Math.round(rate / 2))} · absent = nothing
+                Full day = {paiseText(rate)} · short day = its hours ÷ {shift >= 1 ? hoursText(shift * 60) : "8"} × {paiseText(rate)} · absent = nothing
               </span>
             )}
           </label>
@@ -153,9 +156,18 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
           </label>
         )}
         <label className={label}>
-          <span>Shift hours a day</span>
+          <span>Work hours a day</span>
           <input className={field} type="number" inputMode="decimal" min={1} max={16} step={0.5} value={f.shift} onChange={set("shift")} />
-          {shift >= 1 && <span className={hint}>Full day ≥ {hoursText(shift * 60)} h · half day ≥ {hoursText(shift * 30)} h</span>}
+          {shift >= 1 && <span className={hint}>Full day = {hoursText(shift * 60)} h work · less = short day, its hours count ÷ {hoursText(shift * 60)}</span>}
+        </label>
+        <label className={label}>
+          <span>Lunch break (hours)</span>
+          <input className={field} type="number" inputMode="decimal" min={0} max={3} step={0.25} value={f.lunch} onChange={set("lunch")} />
+          {shift >= 1 && (
+            <span className={hint}>
+              {lunch > 0 ? `${hoursText((shift + lunch) * 60)} h at plant = ${hoursText(shift * 60)} h work + ${hoursText(lunch * 60)} h lunch (taken off from 5 h at the plant)` : "No break: all time at the plant is work"}
+            </span>
+          )}
         </label>
         {perDay ? (
           <p className="self-start rounded-xl bg-slate-100 px-3 py-2.5 text-sm text-slate-700 sm:mt-6">Paid leave doesn&apos;t apply to per-day pay.</p>
@@ -179,7 +191,7 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
               <span>Overtime rate (₹ / hour)</span>
               <input className={field} inputMode="decimal" value={f.rate} onChange={set("rate")} placeholder="e.g. 60" />
             </label>
-            <span className="pb-3 text-sm text-slate-600">Hours beyond {shift >= 1 ? hoursText(shift * 60) : "the shift"} h a day are paid at this rate.</span>
+            <span className="pb-3 text-sm text-slate-600">Work beyond {shift >= 1 ? hoursText(shift * 60) : "the work hours"} h a day{lunch > 0 ? " (after lunch)" : ""} is paid at this rate.</span>
           </div>
         ) : (
           <p className="text-sm text-slate-600">No overtime counted or paid. Extra hours still count towards a full day.</p>
@@ -268,7 +280,7 @@ export function History({ history }: { history: HistoryRow[] }) {
             <div className="flex flex-wrap justify-between gap-x-3">
               <span>
                 <strong>From {fmtMonth(h.fromMonth)}:</strong>{" "}
-                {settingText({ monthly: h.monthlyPaise, day_rate: h.dayRatePaise, km_rate: h.kmRatePaise, da_day: h.daDayPaise, field: h.fieldStaff, temporary: h.staffType === "temporary", shift: h.shiftMinutes, leave: h.paidLeaveHalfdays, ot_rate: h.getsOvertime ? h.otRatePaise : null, joined: h.joinedOn, left: h.leftOn })}
+                {settingText({ monthly: h.monthlyPaise, day_rate: h.dayRatePaise, km_rate: h.kmRatePaise, da_day: h.daDayPaise, field: h.fieldStaff, temporary: h.staffType === "temporary", shift: h.shiftMinutes, lunch: h.lunchMinutes, leave: h.paidLeaveHalfdays, ot_rate: h.getsOvertime ? h.otRatePaise : null, joined: h.joinedOn, left: h.leftOn })}
               </span>
               <span className="text-slate-600">
                 {h.byName}, {dayShort(istDay(new Date(h.at)))}
@@ -320,7 +332,7 @@ export function SalaryReadOnly({ applies, history, canSee, name }: { applies: Hi
     <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
       <h2 className="text-lg font-bold">Salary</h2>
       {applies ? (
-        <p>{settingText({ monthly: applies.monthlyPaise, day_rate: applies.dayRatePaise, km_rate: applies.kmRatePaise, da_day: applies.daDayPaise, field: applies.fieldStaff, temporary: applies.staffType === "temporary", shift: applies.shiftMinutes, leave: applies.paidLeaveHalfdays, ot_rate: applies.getsOvertime ? applies.otRatePaise : null, joined: applies.joinedOn, left: applies.leftOn })}</p>
+        <p>{settingText({ monthly: applies.monthlyPaise, day_rate: applies.dayRatePaise, km_rate: applies.kmRatePaise, da_day: applies.daDayPaise, field: applies.fieldStaff, temporary: applies.staffType === "temporary", shift: applies.shiftMinutes, lunch: applies.lunchMinutes, leave: applies.paidLeaveHalfdays, ot_rate: applies.getsOvertime ? applies.otRatePaise : null, joined: applies.joinedOn, left: applies.leftOn })}</p>
       ) : (
         <p className="text-slate-600">No salary set.</p>
       )}

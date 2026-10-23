@@ -117,7 +117,10 @@ export const salarySettings = at.table("salary_settings", {
   fieldStaff: boolean("field_staff").notNull().default(false),
   /** Permanent / Temporary, for the manpower-cost split; the salary rules never look at it (migration 0006) */
   staffType: text("staff_type").$type<StaffType>().notNull().default("permanent"),
+  /** a full day's work, without the lunch break (rule 21) */
   shiftMinutes: integer("shift_minutes").notNull(),
+  /** the lunch break taken off the time at the plant, 0-180 in 15-minute steps (migration 0009) */
+  lunchMinutes: integer("lunch_minutes").notNull().default(0),
   paidLeaveHalfdays: integer("paid_leave_halfdays").notNull().default(4),
   getsOvertime: boolean("gets_overtime").notNull(),
   otRatePaise: integer("ot_rate_paise"),

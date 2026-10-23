@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { fmtMonth } from "@/lib/days";
-import { DAYS_FOR_PAY, halvesText, hoursText, kmText, monthPay, paiseText, panelInput, rupeesText, type PanelField } from "@/lib/salary";
+import { fmtMinutes, fmtMonth } from "@/lib/days";
+import { DAYS_FOR_PAY, halvesText, hoursText, kmText, monthPay, paiseText, panelInput, rupeesText, shortDaysText, type PanelField } from "@/lib/salary";
 import type { TabRow } from "@/server/salary-tab";
 
 const box = "min-h-10 w-full min-w-0 rounded-lg border border-slate-300 px-2 text-right text-base tabular-nums focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)";
@@ -23,10 +23,14 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
   // per-day people (rule 15): a day rate instead of the salary, and no paid leave
   const fields: [PanelField, string, number][] = [
     perDay ? ["dayRate", "Day rate (₹)", (row.input.dayRatePaise ?? 0) / 100] : ["monthly", "Monthly salary (₹)", row.input.monthlyPaise / 100],
-    ["present", "Present days", row.input.present],
-    ["half", "Half days", row.input.half],
+    ["present", "Full days", row.input.present],
+    // rule 21: short days and their work in hours
+    ["short", "Short days", row.input.short ?? 0],
+    ["shortHours", "Short-day work (hours)", Math.round(((row.input.shortMinutes ?? 0) / 60) * 100) / 100],
     ["absent", "Absent days", row.input.absent],
   ];
+  // months paid before rule 21 had half days
+  if (row.input.half) fields.splice(2, 0, ["half", "Half days", row.input.half]);
   // rule 20: the owner's paid days off, when there are any
   if (row.input.off) fields.push(["off", "Days off (paid)", row.input.off]);
   if (!perDay) fields.push(["leave", "Paid leave allowed (days)", row.input.paidLeaveHalfdays / 2]);
@@ -43,10 +47,11 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
   fields.push(["advances", "Advances (₹)", row.input.advancesPaise / 100]);
   fields.push(["carried", "Carried in (₹)", row.input.carriedInPaise / 100]);
 
-  const total = yin.present + yin.half + yin.absent + (yin.off ?? 0);
+  const shift = yin.shiftMinutes ?? row.shiftMinutes;
+  const total = yin.present + yin.half + (yin.short ?? 0) + yin.absent + (yin.off ?? 0);
   const daysOk = total === row.countedDays;
   const target = complete && row.fullMonth ? `${fmtMonth(month).split(" ")[0]} has ${monthLength}` : complete ? `${row.countedDays} days worked here` : `${row.countedDays} days so far`;
-  const daysText = `${num(yin.present)} present + ${num(yin.half)} half + ${num(yin.absent)} absent${yin.off ? ` + ${num(yin.off)} off` : ""} = ${num(total)} days`;
+  const daysText = `${num(yin.present)} full + ${num(yin.short ?? 0)} short${yin.half ? ` + ${num(yin.half)} half` : ""} + ${num(yin.absent)} absent${yin.off ? ` + ${num(yin.off)} off` : ""} = ${num(total)} days`;
   const diff = yours.remainingPaise - auto.remainingPaise;
 
   const line = (label: string, value: string, strong = false) => (
@@ -87,7 +92,7 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
                 type="number"
                 inputMode="decimal"
                 min={0}
-                step={k === "present" || k === "half" || k === "absent" || k === "off" || k === "leave" ? 0.5 : "any"}
+                step={k === "present" || k === "half" || k === "short" || k === "absent" || k === "off" ? 1 : k === "leave" ? 0.5 : "any"}
                 value={typed[k] ?? String(a)}
                 onChange={(e) => setTyped((t) => ({ ...t, [k]: e.target.value }))}
               />
@@ -99,6 +104,7 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
       <p className={`rounded-lg px-3 py-2 text-sm ${daysOk ? "bg-slate-100 text-slate-700" : "bg-amber-100 text-amber-950"}`}>{daysOk ? `${daysText} ✓` : `${daysText}, but ${target}`}</p>
 
       <div className="space-y-1.5 border-t border-slate-100 pt-3 text-sm">
+        {(yin.short ?? 0) > 0 && line(`Short-day work ${fmtMinutes(yin.shortMinutes ?? 0)} ÷ ${hoursText(shift)} h`, `${shortDaysText(yin.shortMinutes ?? 0, shift)} days`)}
         {perDay
           ? line("Day rate", paiseText(yours.dayPayPaise))
           : line(`Day's pay (${rupeesText(yin.monthlyPaise)} ÷ ${DAYS_FOR_PAY})`, paiseText(yours.dayPayPaise))}
@@ -108,7 +114,7 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
           ? line(`Unpaid days ${halvesText(yours.unpaidHalves)} × day's pay`, yours.deductionPaise ? `−${paiseText(yours.deductionPaise)}` : "₹0")
           : line(`Paid days ${halvesText(yours.paidHalves)} × day's pay`, paiseText(yours.earnedPaise))}
         {line("Salary earned", paiseText(yours.earnedPaise), true)}
-        {row.getsOvertime && line(`Overtime ${hoursText(yours.otMinutes)} h × ${paiseText(yin.otRatePaise ?? 0)}`, `+${paiseText(yours.otPayPaise)}`)}
+        {row.getsOvertime && line(`Overtime ${fmtMinutes(yours.otMinutes)} × ${paiseText(yin.otRatePaise ?? 0)}/h`, `+${paiseText(yours.otPayPaise)}`)}
         {yours.taPaise !== 0 && line(`TA${row.kmTenths ? ` (${kmText(row.kmTenths)} km)` : ""}`, `+${paiseText(yours.taPaise)}`)}
         {yours.daPaise !== 0 && line(`DA${row.daDays ? ` (${row.daDays} ${row.daDays === 1 ? "day" : "days"})` : ""}`, `+${paiseText(yours.daPaise)}`)}
         {yours.expensesPaise !== 0 && line("Expenses", `+${paiseText(yours.expensesPaise)}`)}

@@ -2,7 +2,8 @@ import { orNotFound } from "@/server/pages";
 import { monthFor } from "@/server/calendar";
 import { kit } from "@/server/kit";
 import { myState } from "@/server/marks";
-import { hoursText } from "@/lib/salary";
+import { fmtMinutes } from "@/lib/days";
+import { hoursText, shortDaysText } from "@/lib/salary";
 import { monthStatuses, type MonthStatuses } from "@/server/salary";
 import type { AtUser } from "@/server/session";
 import { CalendarKey, MonthCalendar } from "./calendar";
@@ -34,26 +35,32 @@ export async function MyMonth({ user, month, base }: { user: AtUser; month: stri
   );
 }
 
-/** Present / half days / absent (and overtime, only with Gets overtime) for the month: days only, never money. */
+/** Full / short days / absent (and overtime, only with Gets overtime) for the month: days and hours only, never money. */
 export function MonthTiles({ statuses }: { statuses: MonthStatuses }) {
+  const { counts } = statuses;
   const tiles: [string, string][] = [
-    ["Present", String(statuses.counts.present)],
-    ["Half days", String(statuses.counts.half)],
-    ["Absent", String(statuses.counts.absent)],
+    ["Full days", String(counts.present)],
+    ["Short days", String(counts.short ?? 0)],
+    ["Absent", String(counts.absent)],
   ];
   // rule 20: paid days off the owner marked, only when there are any
   if (statuses.counts.off) tiles.push(["Days off", String(statuses.counts.off)]);
-  if (statuses.getsOvertime) tiles.push(["Overtime", `${hoursText(statuses.counts.otMinutes)} h`]);
+  if (statuses.getsOvertime) tiles.push(["Overtime", fmtMinutes(statuses.counts.otMinutes)]);
   return (
     <section aria-label="This month" className="space-y-1">
-      <div className={`grid gap-2 ${tiles.length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
+      <div className={`grid gap-2 ${tiles.length >= 4 ? "grid-cols-4" : "grid-cols-3"}`}>
         {tiles.map(([label, value]) => (
           <div key={label} className={`rounded-xl border p-2 text-center ${label === "Overtime" ? "border-(--brand) bg-(--brand-soft)" : "border-slate-200 bg-white"}`}>
-            <div className="text-xl font-bold tabular-nums">{value}</div>
+            <div className="text-xl font-bold whitespace-nowrap tabular-nums">{value}</div>
             <div className="text-xs text-slate-600">{label}</div>
           </div>
         ))}
       </div>
+      {counts.short ? (
+        <p className="text-xs text-slate-600">
+          Short-day work {fmtMinutes(counts.shortMinutes ?? 0)} ÷ {hoursText(statuses.shiftMinutes)} h = {shortDaysText(counts.shortMinutes ?? 0, statuses.shiftMinutes)} days
+        </p>
+      ) : null}
       {!statuses.complete && <p className="text-xs text-slate-600">So far: {statuses.countedDays} days counted (today is counted tomorrow)</p>}
     </section>
   );

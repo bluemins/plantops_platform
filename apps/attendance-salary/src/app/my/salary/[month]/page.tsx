@@ -1,5 +1,5 @@
-import { addMonths, fmtDayLong, fmtMonth } from "@/lib/days";
-import { DAYS_FOR_PAY, halvesText, hoursText, kmText, paiseText, rupeesText } from "@/lib/salary";
+import { addMonths, fmtDayLong, fmtMinutes, fmtMonth } from "@/lib/days";
+import { DAYS_FOR_PAY, halvesText, hoursText, kmText, paiseText, rupeesText, shortDaysText } from "@/lib/salary";
 import { kit } from "@/server/kit";
 import { orNotFound } from "@/server/pages";
 import { mySlip } from "@/server/salary-slip";
@@ -29,13 +29,19 @@ export default async function MySlipPage({ params }: { params: Promise<{ month: 
       <span className="tabular-nums">{value}</span>
     </div>
   );
+  // rule 21: short days and their work; slips paid before it had half days instead
+  const short = f.counts.short ?? 0;
+  const shortMinutes = f.counts.shortMinutes ?? 0;
+  const shift = f.input.shiftMinutes ?? f.setting.shiftMinutes;
   const tiles: [string, string][] = [
-    ["Present", String(f.counts.present)],
-    ["Half", String(f.counts.half)],
+    ["Full", String(f.counts.present)],
+    f.counts.half ? ["Half", String(f.counts.half)] : ["Short", String(short)],
     ["Absent", String(f.counts.absent)],
   ];
   if (f.counts.off) tiles.push(["Days off", String(f.counts.off)]); // rule 20
-  if (ot) tiles.push(["Overtime", `${hoursText(r.otMinutes)} h`]);
+  if (ot) tiles.push(["Overtime", fmtMinutes(r.otMinutes)]);
+  const shortText = short ? ` + ${short} short (${fmtMinutes(shortMinutes)} ÷ ${hoursText(shift)} h = ${shortDaysText(shortMinutes, shift)} days)` : "";
+  const halfText = f.counts.half ? ` + ${f.counts.half} half days` : "";
 
   return (
     <div className="space-y-4">
@@ -46,7 +52,7 @@ export default async function MySlipPage({ params }: { params: Promise<{ month: 
           <h1 className="text-xl font-bold">{fmtMonth(month)}</h1>
           <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800">Paid {shortDay(slip.paidOn)}</span>
         </div>
-        <div className={`grid gap-1.5 text-center ${tiles.length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
+        <div className={`grid gap-1.5 text-center ${tiles.length >= 4 ? "grid-cols-4" : "grid-cols-3"}`}>
           {tiles.map(([label, value]) => (
             <div key={label} className="rounded-lg bg-slate-100 p-1.5">
               <div className="font-bold">{value}</div>
@@ -56,11 +62,11 @@ export default async function MySlipPage({ params }: { params: Promise<{ month: 
         </div>
         <div className="space-y-1.5 text-sm">
           {perDay ? (
-            line(`${f.counts.present} present + ${f.counts.half} half days (${halvesText(r.paidHalves)} days) × ${paiseText(r.dayPayPaise)}`, paiseText(r.earnedPaise))
+            line(`${f.counts.present} full${f.counts.off ? ` + ${f.counts.off} off` : ""}${halfText}${shortText} = ${halvesText(r.paidHalves)} days × ${paiseText(r.dayPayPaise)}`, paiseText(r.earnedPaise))
           ) : (
             <>
               {line("Monthly salary", paiseText(f.input.monthlyPaise))}
-              {line(`Absent days (${f.counts.absent} + ${f.counts.half} half)`, halvesText(r.absentHalves))}
+              {line(`Days missed (${f.counts.absent} absent${f.counts.half ? ` + ${f.counts.half} half` : ""}${short ? ` + time short on ${short} short days` : ""})`, halvesText(r.absentHalves))}
               {line("Paid leave used", `${halvesText(r.leaveUsedHalves)} of ${halvesText(f.input.paidLeaveHalfdays)}`)}
               {f.input.fullMonth
                 ? line(`Unpaid days ${halvesText(r.unpaidHalves)} × ${paiseText(r.dayPayPaise)}`, r.deductionPaise ? `−${paiseText(r.deductionPaise)}` : "₹0")
@@ -68,7 +74,7 @@ export default async function MySlipPage({ params }: { params: Promise<{ month: 
             </>
           )}
           {line("Salary earned", paiseText(r.earnedPaise), true)}
-          {ot && line(`Overtime ${hoursText(r.otMinutes)} h × ${paiseText(f.input.otRatePaise ?? 0)}`, `+${paiseText(r.otPayPaise)}`)}
+          {ot && line(`Overtime ${fmtMinutes(r.otMinutes)} × ${paiseText(f.input.otRatePaise ?? 0)}/h`, `+${paiseText(r.otPayPaise)}`)}
         </div>
         {f.fieldDutyDays > 0 && (
           <div className="space-y-1 border-t border-slate-100 pt-2 text-sm">

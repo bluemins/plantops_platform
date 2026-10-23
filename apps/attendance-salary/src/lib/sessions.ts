@@ -49,6 +49,8 @@ export type Entry =
 export interface WorkDay {
   date: string;
   minutes: number;
+  /** time between the day's complete blocks (an OUT / IN for lunch): counts as lunch already taken (lib/salary.ts) */
+  gapMinutes: number;
   blocks: Block[];
   /** everything for the day page, in time order */
   entries: Entry[];
@@ -58,7 +60,7 @@ export interface WorkDay {
   changed: boolean;
 }
 
-export const emptyDay = (date: string): WorkDay => ({ date, minutes: 0, blocks: [], entries: [], noExit: false, noEntry: false, open: false, changed: false });
+export const emptyDay = (date: string): WorkDay => ({ date, minutes: 0, gapMinutes: 0, blocks: [], entries: [], noExit: false, noEntry: false, open: false, changed: false });
 
 /** All of a person's days that have something on them, keyed by India date. */
 export function workDays(marks: Mark[], cancels: Cancel[], now: Date = new Date()): Map<string, WorkDay> {
@@ -112,6 +114,11 @@ export function workDays(marks: Mark[], cancels: Cancel[], now: Date = new Date(
     d.entries.push({ type: "cancelled", at: m.at, mark: m, cancel: c });
     d.changed = true;
   }
-  for (const d of days.values()) d.entries.sort((a, b) => a.at.getTime() - b.at.getTime());
+  for (const d of days.values()) {
+    d.entries.sort((a, b) => a.at.getTime() - b.at.getTime());
+    // blocks are added in time order; the gaps between complete ones are breaks the person marked themselves
+    const done = d.blocks.filter((b) => b.status === "done");
+    for (let i = 1; i < done.length; i++) d.gapMinutes += Math.max(0, Math.round((done[i]!.start.at.getTime() - done[i - 1]!.end!.at.getTime()) / 60_000));
+  }
   return days;
 }

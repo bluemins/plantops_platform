@@ -717,3 +717,34 @@ calendar, several at once). Mock-up approved: https://claude.ai/artifact/GZKHK5o
   that mark is skipped. `setDayMark` (the day page) now goes through it.
 - Calendar day links carry `data-day`. No migration; platform and SSO token unchanged.
 - Tests: `day-marks.test.ts` +2 (Attendance 443).
+
+## 2026-10-23: Lunch break and short days, rule 21 (v0.29.1)
+Asked by the owner 2026-10-23 after checking Reeta's and Damayanti's October: the shift is 8 h work + 1 h lunch, and a
+day under 8 h must not be a half day. "Build as recommended" the same day. No IN / OUT time changes: only the
+calculation.
+- **Rule 21** (`src/lib/salary.ts`, `RULES_VERSION` 6): work = time at the plant − the lunch break (`workMinutes`).
+  Work ≥ the work hours = a full day, overtime = work over it (₹/h as before). Work below = a **short day**: the month's
+  short-day work ÷ the work hours = days paid (exact to the minute, e.g. 61h 57m ÷ 8 = 7.74). No marks = absent.
+  **No more half days** (status `half` stays only for months paid before). ON / OFF day marks unchanged.
+- **Lunch:** taken off in full from 5 h at the plant (recommended by me, owner OK). *Made while building:* from 4 h to
+  5 h the work stays 4 h (with a 1 h break), so staying a minute longer never gives less work than leaving earlier. A
+  break the person marked themselves (OUT / IN, `WorkDay.gapMinutes`) counts towards the lunch, never taken off twice.
+- **Monthly staff, same rule** (owner): the time short days are short is missing time; paid leave covers missing time
+  first (absent days and short time together), the rest is taken off at salary ÷ 30 per day, pro rata to the minute.
+  With no short days every figure is exactly the half-day arithmetic of before (test).
+- Pay is worked out in minutes and rounded once; `PayResult`'s `*Halves` fields stay for the screens and may be
+  fractions (`halvesText` shows 2 decimals). `PayInput.shiftMinutes` added; `DayCounts.short` / `shortMinutes`.
+- **Database:** migration `0009_lunch_break.sql` (approved by the owner): `salary_settings.lunch_minutes` 0-180 in
+  15-minute steps, default 0; grants unchanged (SELECT + INSERT). `shift_minutes` now means a full day's **work**.
+- **Screens:** Salary box "Work hours a day" + "Lunch break (hours)" ("9 h at plant = 8 h work + 1 h lunch");
+  calendar cells show work, amber "short", "+57m" overtime, and a rule line in the key; month tiles / salary strip
+  Full · Short · Absent with "Short-day work 61h 57m ÷ 8 h = 7.74 days"; day page "Work for salary" box (At plant −
+  Lunch = Work → Full / Short / Absent · overtime), hours only, never money, on the owner's and the worker's day page;
+  Salary tab Full / Short columns and Days text; checking panel boxes "Short days" + "Short-day work (hours)"; slip
+  "11 full + 1 off + 9 short (61h 57m ÷ 8 h = 7.74 days) = 19.74 days × ₹250"; CSV "Work hours", "Lunch hours",
+  "Full days", "Short days", "Short-day hours", "Short days as days" (Half days kept, 0 since).
+- **Live data at the time:** no month paid yet anywhere, so nothing frozen changes. Existing settings have no lunch:
+  their work = time at the plant until the owner sets it. Reeta's setting says 9 h (540) from 20 Oct: the owner sets
+  8 h work + 1 h lunch from October (reason required, a past month).
+- Tests: `short-days.test.ts` (+9: lunch, monotonic, OUT / IN break, statuses, Reeta ₹5,156.77, Damayanti ₹2,824.16,
+  monthly with leave, unchanged without short days, panel); older tests that expected half days updated.

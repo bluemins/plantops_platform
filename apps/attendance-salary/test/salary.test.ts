@@ -58,7 +58,7 @@ describe("salary from the database", () => {
     await setting(w, "2026-10", 12000, { otRate: 60 });
     for (let d = 1; d <= 14; d++) await workDay(w, day(d), 9); // present, +1 h overtime each = 14 h
     for (let d = 15; d <= 26; d++) await workDay(w, day(d), 8); // present
-    for (const d of [27, 28]) await workDay(w, day(d), 5); // half days
+    for (const d of [27, 28]) await workDay(w, day(d), 4); // short days: 4 h ÷ 8 = ½ day each (rule 21)
     // 29-31: absent
     await advance(w, "2026-10-10", 3000);
 
@@ -66,7 +66,7 @@ describe("salary from the database", () => {
     expect(view.people.map((x) => x.name)).toEqual(["Ramu"]);
     const oct = view.people[0]!.current!;
     expect(oct.counted).toMatchObject({ fullMonth: true, complete: true });
-    expect(oct.counts).toEqual({ present: 26, half: 2, absent: 3, off: 0, otMinutes: 14 * 60 });
+    expect(oct.counts).toEqual({ present: 26, half: 0, short: 2, shortMinutes: 8 * 60, absent: 3, off: 0, otMinutes: 14 * 60 });
     expect(oct.chain.live).toMatchObject({ earnedPaise: R(11200), otPayPaise: R(840), advancesPaise: R(3000), remainingPaise: R(9040) });
   });
 
@@ -165,17 +165,17 @@ describe("per-day pay from the database (Salary extras rule 15)", () => {
     await perDay(w, "2026-11", 450);
     for (let d = 1; d <= 31; d++) await workDay(w, day(d), 8); // October: all present
     for (let d = 1; d <= 20; d++) await workDay(w, `2026-11-${String(d).padStart(2, "0")}`, 8); // November: 20 present
-    for (const d of [21, 22]) await workDay(w, `2026-11-${d}`, 5); // 2 half days, the rest absent
+    for (const d of [21, 22]) await workDay(w, `2026-11-${d}`, 4); // 2 short days (½ day each), the rest absent
     const { people } = await salaryMonths(p.owner, "2026-11", { personId: w.userId, now: ist("2026-12-05 12:00") });
     const [oct, nov] = people[0]!.months;
     expect(oct!.setting).toMatchObject({ payBasis: "monthly", monthlyPaise: R(12000), dayRatePaise: null });
     expect(oct!.chain.live).toMatchObject({ earnedPaise: R(12000), remainingPaise: R(12000) });
     expect(nov!.setting).toMatchObject({ payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450) });
-    expect(nov!.counts).toMatchObject({ present: 20, half: 2, absent: 8 });
+    expect(nov!.counts).toMatchObject({ present: 20, half: 0, short: 2, shortMinutes: 8 * 60, absent: 8 });
     expect(nov!.chain.live).toMatchObject({ dayPayPaise: R(450), leaveUsedHalves: 0, earnedPaise: R(21 * 450), remainingPaise: R(9450) });
     // a per-day month frozen now carries the rules version and the pay basis
     const f = freezeMonth(nov!);
-    expect(f).toMatchObject({ rules: 5, setting: { payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450) }, input: { payBasis: "per_day", monthlyPaise: 0, dayRatePaise: R(450) } });
+    expect(f).toMatchObject({ rules: 6, setting: { payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450) }, input: { payBasis: "per_day", monthlyPaise: 0, dayRatePaise: R(450) } });
   });
 
   it("28. a slip frozen before per-day pay (rules 1) still opens, as monthly", async () => {
@@ -227,7 +227,7 @@ describe("claims from the database (Salary extras rules 16-19)", () => {
     await rates(w, 3, 150);
     for (let d = 1; d <= 14; d++) await workDay(w, day(d), 9);
     for (let d = 15; d <= 26; d++) await workDay(w, day(d), 8);
-    for (const d of [27, 28]) await workDay(w, day(d), 5);
+    for (const d of [27, 28]) await workDay(w, day(d), 4);
     await advance(w, "2026-10-10", 3000);
     for (const [d, km] of [[2, 30], [6, 28], [9, 35], [13, 31], [20, 26], [27, 32]] as const) await decide(w, await claim(w, "field_duty", day(d), km), "approved");
     await decide(w, await claim(w, "expense", day(9), 1200), "approved");
@@ -240,7 +240,7 @@ describe("claims from the database (Salary extras rules 16-19)", () => {
     await decide(w, await claim(w, "field_duty", day(30), 50), "withdrawn");
     // the field-duty day on the 30th had no marks: still absent
     const oct = (await salaryMonths(p.owner, "2026-10", { now: NOW })).people[0]!.current!;
-    expect(oct.counts).toEqual({ present: 26, half: 2, absent: 3, off: 0, otMinutes: 14 * 60 });
+    expect(oct.counts).toEqual({ present: 26, half: 0, short: 2, shortMinutes: 8 * 60, absent: 3, off: 0, otMinutes: 14 * 60 });
     expect(Object.fromEntries(oct.claims.map((c) => [`${c.onDate} ${c.kind}`, c.status]))).toMatchObject({
       "2026-10-22 expense": "waiting", "2026-10-24 expense": "rejected", "2026-10-25 expense": "cancelled", "2026-10-30 field_duty": "withdrawn", "2026-10-02 field_duty": "approved",
     });
@@ -248,7 +248,7 @@ describe("claims from the database (Salary extras rules 16-19)", () => {
     expect(oct.chain.live).toMatchObject({ earnedPaise: R(11200), otPayPaise: R(840), advancesPaise: R(3000), remainingPaise: R(12136) });
     // frozen now: rules 3, the eight counted claims and the rates
     const f = freezeMonth(oct);
-    expect(f).toMatchObject({ rules: 5, fieldDutyDays: 6, kmTenths: 1820, setting: { kmRatePaise: R(3), daDayPaise: R(150) } });
+    expect(f).toMatchObject({ rules: 6, fieldDutyDays: 6, kmTenths: 1820, setting: { kmRatePaise: R(3), daDayPaise: R(150) } });
     expect(f.claims).toHaveLength(8);
   });
 

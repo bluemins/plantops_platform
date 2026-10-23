@@ -4,6 +4,22 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.29.1 — 2026-10-23 — Attendance: lunch break and short days (no more half days)
+
+**What's in it** (owner, 2026-10-23, "build as recommended"; apps/attendance-salary/NOTES.md)
+- The Salary box has **Work hours a day** (e.g. 8) and a new **Lunch break** (e.g. 1 h): "9 h at plant = 8 h work +
+  1 h lunch". Work = time at the plant − lunch (the break is taken off in full from 5 h at the plant; a break marked
+  OUT / IN counts towards it).
+- A day with less work than the work hours is now a **short day**, not a half day: the month's short-day work ÷ the
+  work hours = days paid, exact to the minute (e.g. 61h 57m ÷ 8 = 7.74 days). Overtime unchanged (work over 8 h at the
+  person's ₹/h). Monthly staff the same: short time is missing time, paid leave covers it first.
+- Calendar shows work hours, amber "short", "+57m" overtime and the rule line; the day page has a **Work for salary**
+  box (At plant − Lunch = Work → Full / Short / Absent); Salary tab, checking panel, slip and CSV show short days.
+- No IN / OUT time changes. Paid months keep their figures (none paid yet on the shared copy).
+
+**Migrations:** Attendance `0009_lunch_break.sql` (one column, default 0 = no break). Attendance only; platform and
+SSO token unchanged. After deploying, the owner sets "8 h work + 1 h lunch" from October in each person's Salary box.
+
 ## v0.29.0 — 2026-10-23 — WhatsApp bot reads from Order Capture (WhatsApp Step 2)
 
 **What's in it** (owner-approved plan 2026-10-21; docs/WHATSAPP_CONTRACT.md 3.2, 3.6, 3.11)

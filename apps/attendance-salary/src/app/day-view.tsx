@@ -1,4 +1,5 @@
-import { dayStart, fmtDayLong, fmtMinutes } from "@/lib/days";
+import { dayStart, fmtDayLong, fmtMinutes, fmtSpan } from "@/lib/days";
+import { shortDaysText } from "@/lib/salary";
 import { fmtTime } from "@/lib/punch";
 import type { Block, Mark, WorkDay } from "@/lib/sessions";
 
@@ -117,3 +118,41 @@ export function DayView({ day }: { day: WorkDay }) {
     </div>
   );
 }
+
+/**
+ * "Work for salary" under a counted day (rule 21): time at the plant − lunch = work, and what the day counts as. Hours
+ * only, never money. Nothing for today (counted tomorrow) or without a salary setting.
+ */
+export function WorkBox({ atPlant, day, shiftMinutes, lunchMinutes, getsOvertime }: { atPlant: number; day: { status: string; workMinutes: number; otMinutes: number; mark?: string }; shiftMinutes: number; lunchMinutes: number; getsOvertime: boolean }) {
+  const lunch = atPlant - day.workMinutes;
+  const row = (label: string, value: string, strong = false) => (
+    <div className={`flex justify-between gap-3 ${strong ? "font-bold" : ""}`}>
+      <span className={strong ? "" : "text-slate-600"}>{label}</span>
+      <span className="tabular-nums">{value}</span>
+    </div>
+  );
+  const verdict = day.mark
+    ? day.mark === "off"
+      ? "OFF (owner): a paid day off"
+      : "ON (owner): counted as a full day"
+    : day.status === "present"
+      ? `Full day (${fmtHours(shiftMinutes)} work)`
+      : day.status === "short"
+        ? `Short day: ${fmtMinutes(day.workMinutes)} ÷ ${fmtHours(shiftMinutes)} = ${shortDaysText(day.workMinutes, shiftMinutes)} of a day`
+        : "Absent: no work counted";
+  return (
+    <section aria-label="Work for salary" className="space-y-1.5 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
+      <h2 className="text-base font-bold">Work for salary</h2>
+      {row("At plant", fmtMinutes(atPlant))}
+      {lunchMinutes > 0 && row(`Lunch break (${fmtHours(lunchMinutes)})`, lunch > 0 ? `− ${fmtMinutes(lunch)}` : "not taken off")}
+      {row("Work", fmtMinutes(day.workMinutes), true)}
+      <p className={`rounded-lg px-3 py-2 font-semibold ${day.status === "short" && !day.mark ? "bg-amber-50 text-amber-900" : "bg-slate-100 text-slate-800"}`}>
+        {verdict}
+        {getsOvertime && day.otMinutes > 0 ? ` · overtime ${fmtSpan(day.otMinutes)}` : ""}
+      </p>
+    </section>
+  );
+}
+
+/** 480 -> "8 h", 90 -> "1.5 h" */
+const fmtHours = (minutes: number) => `${Math.round((minutes / 60) * 100) / 100} h`;

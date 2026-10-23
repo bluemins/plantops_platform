@@ -84,7 +84,7 @@ async function claimsPlant() {
   await setting(anmol, "2026-10", 12000, { ot: 60, km: 3, da: 150 });
   await work(anmol, range(1, 14, oct), 9);
   await work(anmol, range(15, 26, oct), 8);
-  await work(anmol, [oct(27), oct(28)], 5);
+  await work(anmol, [oct(27), oct(28)], 4); // short days: ½ day each (rule 21)
   await asApp(t, `insert into attendance_salary.salary_advances (tenant_id, user_id, user_name, on_date, amount_paise, created_by, created_by_name) values ('${t}', '${anmol.userId}', 'Anmol', '2026-10-10', ${R(3000)}, gen_random_uuid(), 'Sujata')`);
   for (const [d, km] of [[2, 30], [6, 28], [9, 35], [13, 31], [20, 26], [27, 32]] as const) await claim(anmol, "field_duty", oct(d), km);
   await claim(anmol, "expense", oct(9), 1200, "approved", "Pump repair parts");
@@ -161,7 +161,7 @@ describe("paid months and the slip", () => {
     // 12,000 + TA 60 km × ₹3 = ₹180 + DA 2 × ₹150 = ₹300 + ₹450 = ₹12,930
     await payMonth(p.owner, { user_id: w.userId, month: "2026-09", paid_on: "2026-09-30", note: "UPI", expect_remaining: R(12930) } as never);
     const slip = await mySlip(w, "2026-09");
-    expect(slip.figures).toMatchObject({ rules: 5, fieldDutyDays: 2, kmTenths: 600 });
+    expect(slip.figures).toMatchObject({ rules: 6, fieldDutyDays: 2, kmTenths: 600 });
     expect(slip.figures.claims.map((c) => [c.kind, c.onDate])).toEqual([["field_duty", sep(3)], ["expense", sep(12)], ["field_duty", sep(17)]]);
     signInAs(w);
     const text = textOf(await MySlipPage({ params: Promise.resolve({ month: "2026-09" }) })).replace(/\s+/g, " ");

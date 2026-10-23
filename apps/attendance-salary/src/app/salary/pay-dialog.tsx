@@ -5,8 +5,8 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { ErrorText } from "@plantops/ui";
 import { api } from "@/lib/api";
-import { fmtDayLong, fmtMonth } from "@/lib/days";
-import { hoursText, paiseText, rupeesText } from "@/lib/salary";
+import { fmtDayLong, fmtMinutes, fmtMonth } from "@/lib/days";
+import { paiseText, rupeesText } from "@/lib/salary";
 import type { TabRow } from "@/server/salary-tab";
 
 const field = "min-h-11 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-base focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)";
@@ -57,7 +57,7 @@ export function PayDialog({ row, month, today, onClose }: { row: TabRow; month: 
         </h2>
         <div className="space-y-1 rounded-xl bg-slate-100 p-3 text-sm">
           {line("Salary earned", paiseText(r.earnedPaise))}
-          {row.getsOvertime && line(`Overtime ${hoursText(r.otMinutes)} h × ${paiseText(row.otRatePaise ?? 0)}`, `+${paiseText(r.otPayPaise)}`)}
+          {row.getsOvertime && line(`Overtime ${fmtMinutes(r.otMinutes)} × ${paiseText(row.otRatePaise ?? 0)}/h`, `+${paiseText(r.otPayPaise)}`)}
           {r.taPaise !== 0 && line("TA", `+${paiseText(r.taPaise)}`)}
           {r.daPaise !== 0 && line("DA", `+${paiseText(r.daPaise)}`)}
           {r.expensesPaise !== 0 && line("Expenses", `+${paiseText(r.expensesPaise)}`)}
