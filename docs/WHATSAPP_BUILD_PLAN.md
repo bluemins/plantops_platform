@@ -24,67 +24,33 @@ Both repos open together in VS Code with `~/projects/bluemins.code-workspace`.
 
 ---
 
-## 0. Handover: start the next session here (2026-10-21, end of day)
+## 0. Handover: start the next session here (2026-10-23, end of day)
 
-**Where it stopped:** Step 1 is built and pushed to the bot's `production` branch, but **not live**. A Railway outage
-("Dashboard and API unavailable, builds paused", 2026-10-21 ~17:40 IST) stopped every build. After an hour of checks
-both services still ran their old code. During the outage the bot's Redis refused connections for a while (17:40);
-it answered normally again afterwards.
+**Where it stopped:** Steps R, 0, 1 and 2 are **done and live**. Step 3's design is written (section 8) with the
+owner's two answers; **building it waits for the owner's "build"**.
 
-| Item | State on 2026-10-21 |
+| Item | State on 2026-10-23 |
 |---|---|
-| Bot `production` branch | `e9e52a2` (tag `3.1.0`, Step 1) — **pushed, not built**. Live service still runs deployment `eb94237f` (2026-10-20 13:20, old code). |
-| Bot Railway variables (`whatsappbot`) | **Set by the owner:** `PUBLIC_BASE_URL=https://whatsappbot-production-70de.up.railway.app`, `TWILIO_SIGNATURE_MODE=report`, `SUPPORT_PHONE=7090443303`, `SUPPORT_HOURS`. Twilio webhook checked: exactly `…/whatsapp/inbound`, HTTP POST. |
-| PlantOps v0.28.1 (support phone + hours on Business details) | Migration `0019` **applied on the shared copy** (columns checked); `production` = `3fd9a0c` (tag `v0.28.1`) — **pushed, not built**. Old code works with the new columns. |
-| Step 2 | **Plan approved** (done log, 2026-10-21); build only after Step 1 passes its live checks (owner). |
-| Test rows | About 20 `Message_Logs` rows from the made-up number `whatsapp:+910000000001` (deploy checks): safe to delete. |
-
-**Update 2026-10-23:** items 1 and 2 done. Both are live: the bot runs `e9e52a2` (report mode) and the platform
-v0.28.1 (deployment `d5b20e3f`). Item 5 done too (plant 001: 7090443303, "10 am to 6 pm (MON - SAT )"). Continue
-from item 3.
-
-**Update 2026-10-23 (later):** items 3 and 4 done. The owner checked the phone flow and the logs (`"signature":"valid"`), set
-`TWILIO_SIGNATURE_MODE=enforce`; unsigned and fake-signed messages get 403, the owner's "hi" still answers. **Step 1
-done.** Next: item 6, build Step 2.
-
-**Update 2026-10-23 (evening): Step 2 built, not live.** Order Capture: `src/server/bot.ts`, `POST /api/bot/v1/context`
-and `/alerts`, key in `ORDER_BOT_KEYS`, `pnpm --filter order-capture bot:key`; platform: support phone / hours in the
-branding answer, kinds `order_capture.handoff` / `feedback_low` (release **v0.29.0**, no migration). Bot:
-`src/order-capture.js` (last delivered order + REPEAT, labels / units, support contact, staff alerts; today's flow
-when Order Capture can't answer). Notes: `apps/order-capture/NOTES.md`. **Release steps (owner says "deploy"):**
-1. Make the key: `pnpm --filter order-capture bot:key <plant 001 id>` (prints the key once + the entry).
-2. Railway `order-capture`: add `ORDER_BOT_KEYS` = `[<entry>]`. Push PlantOps `v0.29.0` to `production`; `platform`
-   and `order-capture` deploy (no migration). Check: `/health`, `POST /api/bot/v1/context` without a key → 401, with
-   the key and a real customer's phone → their products and last order.
-3. Railway `whatsappbot`: add `ORDER_CAPTURE_URL=https://orders.bluemins.life` and `ORDER_CAPTURE_BOT_KEY`. Push the
-   bot's `main` to `production` (tag `3.2.0`).
-4. Live checks (owner's phone, a number that is an Order Capture customer with a delivered order): "Order" → "Your
-   last order (…)" then the size buttons; REPEAT → summary with the same boxes; PERSON → staff bell + phone alert
-   "Wants to talk: …"; "feedback" → "not great" → "Unhappy customer: …". Compare with the customer's page in Order
-   Capture (exit check). Nothing appears in Order Capture's order list.
+| Bot (`whatsappbot`, project `bluemins-whatsapp-bot`) | `production` = `4b0de3e` (tag `3.2.0`, Step 2). `TWILIO_SIGNATURE_MODE=enforce` (unsigned / fake-signed → 403; owner's "hi" answers). Variables added: `ORDER_CAPTURE_URL`, `ORDER_CAPTURE_BOT_KEY`. Orders still go to the Sheet only. |
+| PlantOps (shared copy) | `production` = `0293b1f` (tag `v0.29.0`, Step 2: bot API context + alerts; v0.28.1 support phone / hours also live). `ORDER_BOT_KEYS` on `order-capture` (hash only; key id `53e237f6-…`, plant 001 `950ea907-…`). |
+| Bot key | Only in Railway (`whatsappbot`) and the owner's password manager; scratch copies deleted. Rotation: `docs/DEPLOY.md` "WhatsApp bot key". |
+| Live checks | No / wrong key 401; unknown number "not found"; Basanta cafe (…8874) matched the database (O-0061, 10 box 1L). Owner: "Step 2 works". |
+| Plant 001 Business details | Support phone 7090443303, hours "10 am to 6 pm (MON - SAT )" (stray space before ")": owner may tidy). |
+| Open check | Order Capture logged 3 `bot.context` calls and **no `bot.alert`** yet: PERSON and "feedback" → "not great" not yet seen to raise the bell / phone alert. Try both once (read-only check: `audit_log` action `bot.alert`). |
+| Repo note | Commit `c7be459` on PlantOps `main` also took the owner's uncommitted `docs/HANDBOOK.md` change (secrets table + "If the host leaks our secrets"; no secret values). Owner to decide: keep, or undo that part on `main`. `scripts/rotate-railway-secrets.sh` is still uncommitted (owner's). |
 
 **Next session, in this order:**
-1. Railway banner gone? If the new deployments did not start by themselves, open each service, **Ctrl+K → "Deploy
-   latest commit"** (not "Redeploy", which rebuilds the old commit): `whatsappbot` must show `e9e52a2`, `platform`
-   (project `plantops-shared`) `3fd9a0c`. Source branch must be `production`.
-2. Quick check from the terminal: an unsigned `POST /whatsapp/inbound` with `Body=help` from `+910000000001` answers
-   "How to use…" (new code, report mode) instead of "Say 'Hi'…" (old code). Platform: the page build id is no longer
-   `f6Xv-By4unn9reuc3CjmQ`.
-3. **Step 1 live checks (owner's phone):** HELP → "How to use…"; a full order tapping every Odia button (sizes,
-   "ଆଉ ଲାଗବା", "ଆଉ ନାହିଁ ଲାଗେ କିଛି"), `yes` → exactly one `Orders` row and, for a new number, one `Customers` row;
-   PERSON → 7090443303 + hours; STOP then START; MENU → welcome template.
-4. Owner sends the new deployment's Deploy Logs: every inbound line must show `"signature":"valid"`. Then the owner
-   sets `TWILIO_SIGNATURE_MODE=enforce`, and an unsigned test message must get 403. Tick Step 1 done (status + done log).
-5. PlantOps: owner fills **Customer support phone** (7090443303) and **Support hours** (with days) in Business details;
-   update `docs/deployments/shared.md` and the v0.28.1 status note in CLAUDE.md ("live").
-6. Then build **Step 2** from the approved plan (done log 2026-10-21; section 7 prompt with the corrections noted
-   there).
+1. Owner: try PERSON and "feedback" → "not great" from a customer's number; check the bell / phone alert ("Wants to
+   talk: …", "Unhappy customer: …"). If none arrives, read the bot's Deploy Logs for `"call":"alert"` lines.
+2. Owner: the HANDBOOK commit question above.
+3. Owner says **"build"** → build **Step 3** from section 8's "Design proposed 2026-10-23" (no schema change; Order
+   Capture first as v0.30.0, then bot 3.3.0; commit on `main` in both repos, do not deploy).
+4. After building: release steps + **pilot with staff phone numbers only** (section 8 exit), then customers.
+5. After the pilot: the area list (schema change: table + Areas screen in Order Capture, ask first), then Step 4.
 
-**Known gap until Step 2:** the handoff text says "We have passed your message to our team", but in Step 1 nothing
-reaches staff; handoffs are only `handoff_…` rows in `Sessions_Log`. Step 2's alerts fix this.
-
-**Rules learnt this session:** give a recommendation with every question (owner); never push a bot release before its
-Railway variables exist (enforce mode with no `PUBLIC_BASE_URL` refuses every message).
+**Rules learnt:** give a recommendation with every question (owner); never push a bot release before its Railway
+variables exist; keys are written to private scratch files, never printed into the chat; stage only named files when
+committing (the owner keeps uncommitted work in the tree).
 
 ## 1. Where things stood (2026-10-20)
 
