@@ -1817,7 +1817,7 @@ others (Reeta's setting says 9 h since 20 Oct), and decides Damayanti's 9 paid O
 Salary types (owner): picked first in the Attendance Salary box (not on the platform's Add user: salary stays in the
 module) — **PV_SALARY_DAY_STAFF** (per day; Reeta, Damayanti, Joshobanti), **PV_SALARY_MONTHLY_STAFF** (monthly, leave
 per person; Ramu 0, Bindu / Gaja / Anmol 2), **PV_SALARY_FIXED_MONTHLY** (full salary whatever the attendance, no
-overtime; Kedar, Dillip, Prakash). Attendance migration `0010_fixed_monthly.sql` (pay basis 'fixed').
+overtime; Kedar, Dillip, Prakash). Attendance migration `0010_fixed_monthly.sql` (pay basis 'fixed'). **Live 2026-10-23** (`production` = `5f0501b`).
 The owner: "days off means no payment"; for monthly staff "unpaid, leave covers it". Rule 22 in
 `apps/attendance-salary/src/lib/salary.ts`: an OFF day mark is a day off without pay (per day: ₹0; monthly: like an
 absent day, paid leave first, then salary ÷ 30). Was a paid day off since v0.28.0. No migration; texts say "not paid".
