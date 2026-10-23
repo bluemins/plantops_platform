@@ -27,7 +27,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | WhatsApp | not set up (waiting for Meta approval) |
 | File storage | Railway volume (move to S3-compatible storage + backups before real plant documents) |
 | Backups | nightly 02:00 IST, encrypted (`age`), to Cloudflare R2 bucket `plantops-backup` (`backup.yml`): database dump (30 days, read-only login `plantops_backup`) + Document Store files. Private key in the password manager. Practice restore done 2026-10-11 |
-| Runs release | v0.28.0 (`production` = commit `919f990`, 2026-10-20) |
+| Runs release | v0.29.2 (`production` = commit `3f45acc`, 2026-10-23) |
 
 ## History
 | Date | What |
@@ -126,3 +126,4 @@ From `docs/SALARY_EXTRAS_PHASE_PLAN.md` Phase B6; how-to in `docs/HANDBOOK.md` (
      the proxy may be giving one shared address.
 | 2026-10-20 | v0.28.0 live (Attendance "Mark days": several days ON / OFF / Clear at once on a person's month). No migration. `attendance.bluemins.life/health` OK; `POST /api/day-marks` answers 401 without a login. Not yet tried on screen by the owner. |
 | 2026-10-23 | v0.28.1 live (Business details: customer support phone and hours). Migration `0019` was applied 2026-10-21; the Railway outage that day paused the build, so the owner ran "Deploy latest commit" on `platform` (`production` = `3fd9a0c`, Railway deployment `d5b20e3f`, 18:11 IST). Checks: page build id changed (`f6Xv-…` → `OAfC6T-…`), `/login` and JWKS 200, `/api/launcher` 401 without a login, all seven module `/health` OK with the database. Same day the owner saved plant 001's Customer support phone (7090443303) and Support hours ("10 am to 6 pm (MON - SAT )") on Business details. |
+| 2026-10-23 | v0.29.1 + v0.29.2 live together (Attendance: lunch break and short days, rule 21; salary band PV_SALARY_DAY_STAFF). Attendance migration `0009_lunch_break.sql` applied first (`railway-migrate.sh shared`; nothing else pending), then `production` = `3f45acc`. Checks: the new client chunk with "PV_SALARY_DAY_STAFF" is served (a made-up chunk name 404s), all seven module `/health` OK with the database, JWKS 200; live `salary_settings` has `lunch_minutes` (40 rows, none set yet). **Owner to do:** set 8 h work + 1 h lunch from October in each person's Salary box (reason required; Reeta's says 9 h), and decide Damayanti's 9 paid OFF days (1-5 Oct before joining?). |

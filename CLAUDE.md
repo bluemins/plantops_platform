@@ -1810,5 +1810,5 @@ only, everyone on it; Salary box, tab, slip, CSV, saved with a paid month). Atte
 "Work for salary", Salary tab / panel / slip / CSV. Notes: `apps/attendance-salary/NOTES.md`. Tests: Attendance 453
 (+9 `short-days.test.ts`, half-day tests updated). **Verified locally** (plant 002, Reeta's real October marks copied
 to a temporary person, headless Chromium at 390 / 1280 px, all removed): ₹5,157 remaining, 19.74 days, 8h 50m OT.
-**Not deployed.** After deploying: the owner sets 8 h work + 1 h lunch from October for Reeta, Damayanti and the
+**Live 2026-10-23** (`production` = `3f45acc`, v0.29.2 with the band name; migration 0009 applied). Owner to do: set 8 h work + 1 h lunch from October for Reeta, Damayanti and the
 others (Reeta's setting says 9 h since 20 Oct), and decides Damayanti's 9 paid OFF days (1-5 Oct before joining?).
