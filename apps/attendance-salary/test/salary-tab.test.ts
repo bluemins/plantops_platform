@@ -135,6 +135,7 @@ describe("the salary CSV", () => {
     const anmol = lines.find((l) => l.startsWith("Anmol,"))!.split(",");
     const col = (name: string) => anmol[SALARY_CSV_HEADER.indexOf(name)];
     expect([col("Earned"), col("Overtime pay"), col("Advances"), col("Remaining"), col("Overtime hours"), col("Overtime rate"), col("Day's pay")]).toEqual(["11200.00", "840.00", "3000.00", "9040.00", "14", "60.00", "400.00"]);
+    expect(col("Salary band")).toBe("PV_SALARY_DAY_STAFF");
     expect([col("Full days"), col("Short days"), col("Absent"), col("Paid leave used (days)"), col("Unpaid days"), col("Full or part month")]).toEqual(["26", "2", "3", "2", "2", "full"]);
     const bindu = lines.find((l) => l.includes("cmd Bindu"))!;
     expect(bindu.startsWith("'=cmd Bindu,")).toBe(true);

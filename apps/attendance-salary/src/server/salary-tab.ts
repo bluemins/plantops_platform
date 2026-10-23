@@ -4,7 +4,7 @@
 // audited). Nothing is stored.
 import { csv } from "@plantops/module-kit/csv";
 import { addMonths, monthDays } from "@/lib/days";
-import { halvesText, hoursText, kmText, shortDaysText, type DayCounts, type PayBasis, type PayInput, type PayResult } from "@/lib/salary";
+import { SALARY_BAND, halvesText, hoursText, kmText, shortDaysText, type DayCounts, type PayBasis, type PayInput, type PayResult } from "@/lib/salary";
 import { requireAccess } from "./access";
 import { audit } from "./audit";
 import { withTenant } from "./db";
@@ -23,6 +23,8 @@ export interface TabRow {
   fullMonth: boolean;
   /** days counted so far (rule 1) */
   countedDays: number;
+  /** the salary band (a paid month: the one saved with it; null = paid before bands had a name) */
+  band: string | null;
   /** monthly or per day (rule 15); from the frozen figures for a paid month */
   payBasis: PayBasis;
   /** Permanent / Temporary from the month's setting (docs/ATTENDANCE_ROLES_PHASE_PLAN.md R4); never in the rules */
@@ -116,6 +118,7 @@ export async function salaryTab(user: AtUser, month: string, now: Date = new Dat
       former: !staff.platformDown && !active.has(p.userId),
       fullMonth: c.counted.fullMonth,
       countedDays: c.counted.dates.length,
+      band: frozen ? (frozen.band ?? null) : SALARY_BAND,
       payBasis: input.payBasis,
       staffType: c.setting.staffType ?? "permanent",
       dayRatePaise: input.dayRatePaise,
@@ -187,7 +190,7 @@ export async function salaryTab(user: AtUser, month: string, now: Date = new Dat
 
 export const SALARY_CSV_HEADER = [
   "Name", "Month", "Full or part month", "Counted days",
-  "Monthly salary", "Pay basis", "Staff type", "Day rate", "Work hours", "Lunch hours", "Paid leave allowed (days)",
+  "Salary band", "Monthly salary", "Pay basis", "Staff type", "Day rate", "Work hours", "Lunch hours", "Paid leave allowed (days)",
   "Full days", "Short days", "Short-day hours", "Short days as days", "Half days", "Absent", "Days off", "Paid leave used (days)", "Unpaid days", "Day's pay", "Earned",
   "Overtime", "Overtime hours", "Overtime rate", "Overtime pay",
   "Field duty days", "Km", "TA rate", "TA", "DA days", "DA rate", "DA", "Expenses", "Claims waiting",
@@ -211,6 +214,7 @@ export async function salaryCsv(user: AtUser, month: string, now: Date = new Dat
       month,
       r.fullMonth ? "full" : "part",
       r.countedDays,
+      r.band ?? "",
       perDay ? "" : rupees(r.input.monthlyPaise),
       perDay ? "per day" : "monthly",
       r.staffType,

@@ -104,7 +104,9 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-slate-600">Tap a name to check how their salary was worked out.</p>
+        <p className="text-sm text-slate-600">
+          {[...new Set(tab.rows.map((r) => r.band).filter(Boolean))].map((b) => `Salary band: ${b} · `).join("")}Tap a name to check how their salary was worked out.
+        </p>
         <label htmlFor="salary-show-all" className="hidden cursor-pointer items-center gap-2 text-sm font-medium lg:flex">
           <input id="salary-show-all" type="checkbox" checked={all} onChange={(e) => toggleAll(e.target.checked)} className="size-4 accent-(--brand)" />
           Show all columns

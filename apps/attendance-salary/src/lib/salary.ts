@@ -12,6 +12,12 @@ import { monthDays } from "./days";
 
 /** Saved with every payment's frozen figures; raise it whenever a rule here changes. */
 export const RULES_VERSION = 6;
+/**
+ * The salary band: the name of this calculation pattern (owner, 2026-10-23): work = time at plant − lunch, full day =
+ * the work hours, short days ÷ the work hours, overtime per hour. Shown on the Salary box, tab, slip and CSV, and saved
+ * with a paid month's figures. Everyone is on it; another band comes only when the owner asks for another pattern.
+ */
+export const SALARY_BAND = "PV_SALARY_DAY_STAFF";
 /** Rule 7: a day's pay is always the monthly salary ÷ 30, whatever the month's length. */
 export const DAYS_FOR_PAY = 30;
 
@@ -512,6 +518,8 @@ export interface FrozenAdvance {
 /** Everything a paid month's slip shows, exactly as it stood when the month was ticked Paid. */
 export interface FrozenMonth {
   rules: number;
+  /** the salary band the month was worked out with (rules 6+; missing before = no band name) */
+  band?: string;
   month: string;
   setting: { payBasis: PayBasis; monthlyPaise: number | null; dayRatePaise: number | null; kmRatePaise: number | null; daDayPaise: number | null; shiftMinutes: number; lunchMinutes?: number; paidLeaveHalfdays: number; getsOvertime: boolean; otRatePaise: number | null; joinedOn: string | null; leftOn: string | null };
   counted: Counted;

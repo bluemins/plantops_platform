@@ -1804,7 +1804,8 @@ Asked by the owner 2026-10-23 after checking Reeta's and Damayanti's October ("8
 half day; add the short hours ÷ 8"); "build as recommended". **Rule 21** in `apps/attendance-salary/src/lib/salary.ts`:
 work = time at plant − lunch (full break from 5 h at the plant; an OUT / IN break counts towards it); ≥ work hours =
 full day + overtime; less = short day, the month's short-day work ÷ work hours = days paid (exact); no half days; same
-for monthly staff (paid leave covers short time first). Attendance migration `0009_lunch_break.sql` (approved:
+for monthly staff (paid leave covers short time first). Named **salary band `PV_SALARY_DAY_STAFF`** (owner; a name
+only, everyone on it; Salary box, tab, slip, CSV, saved with a paid month). Attendance migration `0009_lunch_break.sql` (approved:
 `salary_settings.lunch_minutes`, default 0). Screens: Salary box lunch field, calendar work hours / "short", day page
 "Work for salary", Salary tab / panel / slip / CSV. Notes: `apps/attendance-salary/NOTES.md`. Tests: Attendance 453
 (+9 `short-days.test.ts`, half-day tests updated). **Verified locally** (plant 002, Reeta's real October marks copied

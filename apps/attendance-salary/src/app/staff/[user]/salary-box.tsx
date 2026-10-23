@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ErrorText } from "@plantops/ui";
 import { api } from "@/lib/api";
 import { fmtDayLong, fmtMonth, istDay } from "@/lib/days";
-import { halvesText, hoursText, paiseText, toPaise, type PayBasis } from "@/lib/salary";
+import { SALARY_BAND, halvesText, hoursText, paiseText, toPaise, type PayBasis } from "@/lib/salary";
 import { settingText } from "@/lib/changes";
 import type { HistoryRow } from "@/server/salary-edit";
 
@@ -102,6 +102,9 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
         </h2>
         <span className="text-sm text-slate-600">Only the owner sees this box.</span>
       </div>
+      <p className="rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-700">
+        Salary band: <strong>{SALARY_BAND}</strong> · work = time at plant − lunch · short days count their hours ÷ the work hours · overtime per hour
+      </p>
 
       <fieldset className="space-y-1.5">
         <legend className="mb-1.5 text-sm font-semibold text-slate-800">Pay</legend>

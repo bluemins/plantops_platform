@@ -746,5 +746,9 @@ calculation.
 - **Live data at the time:** no month paid yet anywhere, so nothing frozen changes. Existing settings have no lunch:
   their work = time at the plant until the owner sets it. Reeta's setting says 9 h (540) from 20 Oct: the owner sets
   8 h work + 1 h lunch from October (reason required, a past month).
+- **Salary band** (owner, same day): this pattern is named `PV_SALARY_DAY_STAFF` (`SALARY_BAND` in
+  `src/lib/salary.ts`), a name only: everyone is on it, no database change. Shown in the Salary box, above the Salary
+  tab table, on the slip and as the CSV's "Salary band" column; saved as `band` in a paid month's frozen figures (none
+  before rule 21). A second band only when the owner asks for another pattern.
 - Tests: `short-days.test.ts` (+9: lunch, monotonic, OUT / IN break, statuses, Reeta ₹5,156.77, Damayanti ₹2,824.16,
   monthly with leave, unchanged without short days, panel); older tests that expected half days updated.

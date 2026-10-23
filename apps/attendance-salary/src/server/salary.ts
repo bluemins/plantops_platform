@@ -7,6 +7,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { addMonths, istDay, istMonth, monthDays, validMonth } from "@/lib/days";
 import {
   RULES_VERSION,
+  SALARY_BAND,
   carryChain,
   claimTotals,
   countDays,
@@ -248,6 +249,7 @@ export function freezeMonth(c: SalaryMonth): FrozenMonth {
   const s = c.setting;
   return {
     rules: RULES_VERSION,
+    band: SALARY_BAND,
     month: c.month,
     setting: { payBasis: s.payBasis, monthlyPaise: s.monthlyPaise, dayRatePaise: s.dayRatePaise, kmRatePaise: s.kmRatePaise, daDayPaise: s.daDayPaise, shiftMinutes: s.shiftMinutes, lunchMinutes: s.lunchMinutes, paidLeaveHalfdays: s.paidLeaveHalfdays, getsOvertime: s.getsOvertime, otRatePaise: s.otRatePaise, joinedOn: s.joinedOn, leftOn: s.leftOn },
     counted: c.counted,

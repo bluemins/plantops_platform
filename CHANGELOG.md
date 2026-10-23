@@ -4,6 +4,15 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.29.2 — 2026-10-23 — Attendance: the salary band has a name
+
+**What's in it** (owner, 2026-10-23)
+- The v0.29.1 calculation is named **salary band PV_SALARY_DAY_STAFF**: shown in the Salary box, above the Salary tab
+  table, on the slip and in the CSV (new column "Salary band" after "Counted days"), and saved with a paid month. A name
+  only: everyone is on it; nothing is worked out differently.
+
+**Migrations:** none (v0.29.1's Attendance `0009` still needed if not yet applied). Attendance only.
+
 ## v0.29.1 — 2026-10-23 — Attendance: lunch break and short days (no more half days)
 
 **What's in it** (owner, 2026-10-23, "build as recommended"; apps/attendance-salary/NOTES.md)
