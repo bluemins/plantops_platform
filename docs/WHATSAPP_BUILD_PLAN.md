@@ -106,7 +106,7 @@ Railway variables exist (enforce mode with no `PUBLIC_BASE_URL` refuses every me
 | 0 | Confirm rules and the integration contract | read-only | the contract, wording, templates | **done** (2026-10-21, contract signed off) |
 | 1 | Harden the bot (signature, help / cancel / STOP, handoff, tests) | bot | the plan; any new dependency; production push | **done** (2026-10-23; `e9e52a2`, tag `3.1.0`, signature `enforce`) |
 | 2 | Read-only Order Capture adapter + bot reads it | both | the API design; credential setup; production pushes | **built** on `main` in both repos (2026-10-23), **not live**: release steps in section 0 |
-| 3 | Confirmed-order write; Sheets stops being an order ledger | both | endpoint + transaction design; any schema / grant change; go-live | open |
+| 3 | Confirmed-order write; Sheets stops being an order ledger | both | endpoint + transaction design; any schema / grant change; go-live | **design proposed** (2026-10-23), waits for "build" |
 | 4 | Delivered event, opt-in, 15-day pilot | both | schema / consent design; templates; pilot start | open |
 | 5 | Learn from the pilot | analysis first | any live change | open |
 
@@ -277,6 +277,27 @@ tests pass; nothing is written to Order Capture.
 **Goal:** an explicitly confirmed bot order becomes an Order Capture order exactly once; the Sheet stops being an
 order ledger.
 
+**Design proposed 2026-10-23** (decisions: owner checklist 12–15 of 2026-10-20 + two answers of 2026-10-23; the
+design itself waits for the owner's "build"). **No schema, grant or SSO change; the same bot key.**
+- **Order Capture** `POST /api/bot/v1/orders` (contract 3.3) through the **same save code as staff orders**
+  (`createOrder` split into the access check + one shared save): existing switched-on customers only (phone and id
+  must match), products on the key's list and active, 1–200 boxes per product, rate = Rates default else ₹0, note
+  "WhatsApp order. Price to agree by phone. Deliver to: …", `entered_by` = key id, "Entered by: WhatsApp". Idempotency
+  via the existing `request_key` + per-plant lock; reference only after commit. `GET /api/bot/v1/orders/by-key/<key>`
+  (own orders only). Normal list, "New order" alert ("by WhatsApp"), CSV, tile; one "WhatsApp order O-00xx" line in
+  Recent changes. Off switch `ORDER_BOT_ORDERS=off` (403 `ordering_off`, reads keep working).
+- **Bot:** Order Capture customers: Order → sizes / REPEAT → boxes → done → **landmark question once ("Where should we
+  deliver? Type a landmark, or SKIP")** → summary 4.6 → exact YES → create. One attempt within the webhook (8 s); if
+  it doesn't answer, reply "Saving your order…" and finish in the background (by-key 2 / 5 / 15 s, at most 2 creates
+  with the same key), result sent as a message; "placed" only after Order Capture confirmed, else 4.7's failure text +
+  staff alert. No Sheet `Orders` row for them. Unknown / switched-off numbers, and either off switch: today's flow,
+  Sheet row marked `lead`, reply "Our team will call you to confirm". Over 200 boxes → a person + alert. A waiting
+  order is mentioned, ordering still allowed. Bot off switch `BOT_ORDERS=off`.
+- **Area list: after the pilot** (owner, 2026-10-23): staff confirm the village when they call about the price; the
+  list (table + Areas screen, schema change) is a small step after the pilot.
+- **Release:** Order Capture v0.30.0 first (no migration), then bot 3.3.0; pilot with staff numbers only, then
+  customers.
+
 **Prompt 3:**
 > Step 3 of `docs/WHATSAPP_BUILD_PLAN.md` (commerce plan Phase 3), only after step 2's exit check. Read the contract
 > and Order Capture's order creation (`src/server/orders.ts`) and its tests. Propose the endpoint and transaction design
@@ -395,4 +416,6 @@ design.
 | 2026-10-23 | 1 (go-live) | Railway back. Bot runs Step 1 (unsigned HELP from `+910000000001` answers "How to use…", report mode). PlantOps v0.28.1 built after "Deploy latest commit" (deployment `d5b20e3f`); checks OK. Left: section 0 items 3–5 (owner's phone checks, `signature: valid` in the logs → `enforce`, support fields in Business details). |
 | 2026-10-23 | 1 | Owner's phone checks and Deploy Logs (`"signature":"valid"`) OK; `TWILIO_SIGNATURE_MODE=enforce`: unsigned and fake-signed POSTs 403, `/health` OK, the owner's "hi" answers. Plant 001's support phone + hours saved in Business details. **Step 1 done.** Next: build Step 2. |
 | 2026-10-23 | 2 | Built on `main` in both repos: Order Capture bot API (context + alerts, key by hash, plant from the key, limits, audit, 22 tests), platform branding + two kinds, bot client + REPEAT + alerts (16 tests). Not deployed; release steps in section 0. |
+| 2026-10-23 | 2 (go-live) | v0.29.0 (`0293b1f`) and bot 3.2.0 (`4b0de3e`) live; bot key made (only its hash on `order-capture`, the key on `whatsappbot`; scratch copies deleted). Live API checks: no / wrong key 401, unknown number "not found", Basanta cafe's answer matched the database. Owner: "Step 2 works". Order Capture logged 3 context calls, no alerts yet (PERSON / "not great" not confirmed). **Step 2 done.** |
+| 2026-10-23 | 3 (plan) | Design proposed (section 8). Owner: area list after the pilot; ask the landmark once with SKIP. |
 | 2026-10-20 | — | This plan written. |
