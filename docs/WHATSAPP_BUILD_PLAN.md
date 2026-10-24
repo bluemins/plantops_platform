@@ -24,29 +24,26 @@ Both repos open together in VS Code with `~/projects/bluemins.code-workspace`.
 
 ---
 
-## 0. Handover: start the next session here (2026-10-23, end of day)
+## 0. Handover: start the next session here (2026-10-24)
 
-**Where it stopped:** Steps R, 0, 1 and 2 are **done and live**. Step 3's design is written (section 8) with the
-owner's two answers; **building it waits for the owner's "build"**.
+**Where it stopped:** Steps R, 0, 1 and 2 are **done and live**. **Step 3 is built** on `main` in both repos (Order
+Capture v0.30.0, bot 3.3.0), **not deployed**. Next: the release and the staff-number pilot (section 8, "Release and
+pilot").
 
-| Item | State on 2026-10-23 |
+| Item | State on 2026-10-24 |
 |---|---|
-| Bot (`whatsappbot`, project `bluemins-whatsapp-bot`) | `production` = `4b0de3e` (tag `3.2.0`, Step 2). `TWILIO_SIGNATURE_MODE=enforce` (unsigned / fake-signed → 403; owner's "hi" answers). Variables added: `ORDER_CAPTURE_URL`, `ORDER_CAPTURE_BOT_KEY`. Orders still go to the Sheet only. |
-| PlantOps (shared copy) | `production` = `0293b1f` (tag `v0.29.0`, Step 2: bot API context + alerts; v0.28.1 support phone / hours also live). `ORDER_BOT_KEYS` on `order-capture` (hash only; key id `53e237f6-…`, plant 001 `950ea907-…`). |
-| Bot key | Only in Railway (`whatsappbot`) and the owner's password manager; scratch copies deleted. Rotation: `docs/DEPLOY.md` "WhatsApp bot key". |
-| Live checks | No / wrong key 401; unknown number "not found"; Basanta cafe (…8874) matched the database (O-0061, 10 box 1L). Owner: "Step 2 works". |
+| Bot (`whatsappbot`, project `bluemins-whatsapp-bot`) | Live: `production` = `4b0de3e` (tag `3.2.0`, Step 2), signature `enforce`. Built, not live: Step 3 on `main` (release 3.3.0). New variables `BOT_ORDERS` (off / pilot / on; **not set = off**, so deploying changes nothing until it is set) and `BOT_ORDERS_PILOT_PHONES`. |
+| PlantOps (shared copy) | Live: `production` = `0293b1f` (v0.29.0 Step 2) and later releases (v0.29.3 now). Built, not live: v0.30.0 on `main` (bot create + by-key; no migration). New optional variable `ORDER_BOT_ORDERS=off` on `order-capture`. |
+| Bot key | Only in Railway (`whatsappbot`) and the owner's password manager. The same key works for Step 3. Rotation: `docs/DEPLOY.md` "WhatsApp bot key". |
+| Alerts | Both live and confirmed (2026-10-24): "Unhappy customer: …", "Wants to talk: …". |
 | Plant 001 Business details | Support phone 7090443303, hours "10 am to 6 pm (MON - SAT )" (stray space before ")": owner may tidy). |
-| Alerts | **Both work live** (2026-10-24): "not great" → owner's bell "Unhappy customer: Rocky, Unknown" (5:50 pm); PERSON → "Wants to talk: Rocky, Unknown" (5:51 pm). PERSON outside an order replies with the bot's own `SUPPORT_HOURS` (same number), because Order Capture is only asked during an order: fix inside Step 3. |
-| Repo note | Commit `c7be459` also took the owner's `docs/HANDBOOK.md` change (secrets table + "If the host leaks our secrets"; no secret values): **kept** (owner, 2026-10-24). `scripts/rotate-railway-secrets.sh` is still uncommitted (owner's). |
+| Repo note | `docs/HANDBOOK.md` change in `c7be459` kept (owner, 2026-10-24). `scripts/rotate-railway-secrets.sh` is still uncommitted (owner's). |
 
 **Next session, in this order:**
-1. ~~Owner: try PERSON and "not great"~~ done 2026-10-24, both alerts arrive.
-2. ~~HANDBOOK commit question~~ kept (owner, 2026-10-24).
-3. Owner says **"build"** → build **Step 3** from section 8's "Design proposed 2026-10-23" (no schema change; Order
-   Capture first as v0.30.0, then bot 3.3.0; commit on `main` in both repos, do not deploy). Include: PERSON looks up
-   the customer so known customers get the Business details support hours.
-4. After building: release steps + **pilot with staff phone numbers only** (section 8 exit), then customers.
-5. After the pilot: the area list (schema change: table + Areas screen in Order Capture, ask first), then Step 4.
+1. Owner says **"release"** → section 8 "Release and pilot" steps 1–3: Order Capture v0.30.0 live first, then bot 3.3.0
+   with `BOT_ORDERS=pilot` and the staff numbers.
+2. Owner: the pilot checklist (step 4) from staff phones; then `BOT_ORDERS=on` (step 5).
+3. After the pilot: the area list (schema change: table + Areas screen in Order Capture, ask first), then Step 4.
 
 **Rules learnt:** give a recommendation with every question (owner); never push a bot release before its Railway
 variables exist; keys are written to private scratch files, never printed into the chat; stage only named files when
@@ -72,7 +69,7 @@ committing (the owner keeps uncommitted work in the tree).
 | 0 | Confirm rules and the integration contract | read-only | the contract, wording, templates | **done** (2026-10-21, contract signed off) |
 | 1 | Harden the bot (signature, help / cancel / STOP, handoff, tests) | bot | the plan; any new dependency; production push | **done** (2026-10-23; `e9e52a2`, tag `3.1.0`, signature `enforce`) |
 | 2 | Read-only Order Capture adapter + bot reads it | both | the API design; credential setup; production pushes | **done** (2026-10-23; v0.29.0 + bot 3.2.0 live) |
-| 3 | Confirmed-order write; Sheets stops being an order ledger | both | endpoint + transaction design; any schema / grant change; go-live | **design proposed** (2026-10-23), waits for "build" |
+| 3 | Confirmed-order write; Sheets stops being an order ledger | both | endpoint + transaction design; any schema / grant change; go-live | **built** (2026-10-24; v0.30.0 + bot 3.3.0 on `main`, not live) |
 | 4 | Delivered event, opt-in, 15-day pilot | both | schema / consent design; templates; pilot start | open |
 | 5 | Learn from the pilot | analysis first | any live change | open |
 
@@ -264,6 +261,36 @@ design itself waits for the owner's "build"). **No schema, grant or SSO change; 
 - **Release:** Order Capture v0.30.0 first (no migration), then bot 3.3.0; pilot with staff numbers only, then
   customers.
 
+**Built 2026-10-24** (no schema, grant or SSO change; details `apps/order-capture/NOTES.md` and the bot's
+`CLAUDE.md` Step 3). Differences from the design above: the bot's switch has **three values** (`BOT_ORDERS` = `off` by
+default, `pilot` with `BOT_ORDERS_PILOT_PHONES`, `on`) so the pilot can be limited to staff numbers; a product switched
+off between "Order" and YES hands off (no second summary); Sheet orders from unknown numbers are marked `lead` and get
+"Thank you. We have noted your order. Our team will call you to confirm it." instead of the old Odia "order written"
+text. Tests: Order Capture 320 (+14), bot 68 (+19).
+
+**Release and pilot** (owner says "release"; Order Capture first, it works with the old bot):
+1. **Order Capture v0.30.0:** tag, `production` (no migration), the usual checks; then `POST
+   https://orders.bluemins.life/api/bot/v1/orders` without a key → 401, and `GET …/by-key/wa_000…` without a key →
+   401. Deploy record + CLAUDE.md "Live".
+2. **Pilot customers:** each staff phone used for the pilot must be an Order Capture customer, switched on (Customers →
+   add, e.g. "Rocky (test)", place "Test"). Their test orders are cancelled afterwards (reason "WhatsApp pilot test").
+3. **Bot 3.3.0:** on `whatsappbot` set `BOT_ORDERS=pilot` and `BOT_ORDERS_PILOT_PHONES=<staff numbers, comma-separated>`
+   **first**, then `git push origin main:production` and tag `3.3.0`. Deploy Logs show "Orders into Order Capture: pilot
+   (N numbers)"; `/health` OK; "hi" answers.
+4. **Pilot checklist** (from a pilot phone):
+   - Order → REPEAT (or sizes) → done → landmark asked → type one → summary (name, place, lines, landmark, "Our team will
+     call you about the price") → YES → "Your order O-00xx is placed".
+   - Order Capture: the order in Pending, "by WhatsApp", the note "WhatsApp order. Price to agree by phone. Deliver to:
+     …", rates = the Rates default; owner's bell "New order O-00xx … (by WhatsApp)"; Recent changes "WhatsApp order
+     O-00xx: …"; the CSV row.
+   - Again with SKIP; EDIT on the summary; CANCEL on the summary (nothing saved); "ok" instead of YES (asked again);
+     201 boxes (a person + "Wants to talk" alert); PERSON (Business details hours).
+   - A phone not on the pilot list: today's flow, a `lead` row in the Sheet, "Our team will call you to confirm it".
+   - Mark one test order Delivered with the thank-you ticked: one thank-you arrives (from Order Capture only).
+   - Cancel the test orders.
+5. **Customers:** owner OK → `BOT_ORDERS=on` (Railway restarts the bot). Watch the first real orders; undo = `BOT_ORDERS=off`
+   (or `ORDER_BOT_ORDERS=off` on `order-capture`), orders become Sheet leads again.
+
 **Prompt 3:**
 > Step 3 of `docs/WHATSAPP_BUILD_PLAN.md` (commerce plan Phase 3), only after step 2's exit check. Read the contract
 > and Order Capture's order creation (`src/server/orders.ts`) and its tests. Propose the endpoint and transaction design
@@ -384,4 +411,6 @@ design.
 | 2026-10-23 | 2 | Built on `main` in both repos: Order Capture bot API (context + alerts, key by hash, plant from the key, limits, audit, 22 tests), platform branding + two kinds, bot client + REPEAT + alerts (16 tests). Not deployed; release steps in section 0. |
 | 2026-10-23 | 2 (go-live) | v0.29.0 (`0293b1f`) and bot 3.2.0 (`4b0de3e`) live; bot key made (only its hash on `order-capture`, the key on `whatsappbot`; scratch copies deleted). Live API checks: no / wrong key 401, unknown number "not found", Basanta cafe's answer matched the database. Owner: "Step 2 works". Order Capture logged 3 context calls, no alerts yet (PERSON / "not great" not confirmed). **Step 2 done.** |
 | 2026-10-23 | 3 (plan) | Design proposed (section 8). Owner: area list after the pilot; ask the landmark once with SKIP. |
+| 2026-10-24 | 2 | Owner's live checks: "not great" and PERSON both raise the bell alert. HANDBOOK change in `c7be459` kept. |
+| 2026-10-24 | 3 | Built on `main` in both repos (owner "build"): Order Capture v0.30.0 (create through the staff save, by key, off switch, 14 tests) and bot 3.3.0 (landmark → summary → YES → Order Capture, background finish by key, leads, 200-box limit, `BOT_ORDERS` off / pilot / on, PERSON support hours, 19 tests). Not deployed; release and pilot steps in section 8. |
 | 2026-10-20 | — | This plan written. |

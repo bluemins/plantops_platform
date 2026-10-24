@@ -458,3 +458,31 @@ session proxy). **No schema, grant or SSO change.**
   number; no products to offer (platform down or none of the codes active) answers 503 so the bot falls back.
 - **Tests:** Order Capture 306 (+22, `test/bot.test.ts`); platform 369 (branding fields, two kinds).
 
+### 2026-10-24 — WhatsApp orders into Order Capture (WhatsApp Step 3, v0.30.0)
+Design `docs/WHATSAPP_BUILD_PLAN.md` section 8 (owner "build" 2026-10-24); contract `docs/WHATSAPP_CONTRACT.md` 3.3,
+3.4, 3.7. **No schema, grant or SSO change.**
+- **One save for both:** `createOrder` (staff form) is now the access check + `saveOrder` (`src/server/orders.ts`): the
+  per-plant lock, a repeated request key, the next reference, lines version 1, the "created" event. The bot's create
+  (`botCreateOrder` in `src/server/bot.ts`) calls the same `saveOrder` with its own checks in front.
+- **`POST /api/bot/v1/orders`:** `idempotency_key` (`wa_` + 32 hex, stored as the order's `request_key`), `phone`,
+  `customer_id`, `lines` (`sku_id`, `quantity` 1–200, each product once), `delivery_note` (≤ 200, optional), `area_id`
+  (null only until the area list), `confirmation` (MessageSid + word, kept in the audit row). Strict body.
+  - customer: found by phone in this plant, same id, switched on (else 409 `customer_mismatch` / `customer_off`);
+    products: on the key's list and active (else 409 `product_unavailable`); bad lines 400 `bad_lines`. These checks run
+    only for a new order, inside the save, so a replay still finds an order whose customer was switched off since.
+  - rate per line = Rates default, else ₹0; note `WhatsApp order. Price to agree by phone. Deliver to: …`;
+    `entered_by` = the key id, name `WhatsApp`.
+  - answer 201 (new) / 200 (`created: false`): ref, status, lines (label, unit, quantity). **No rates or totals.**
+  - a key used by a staff order: 400. `ORDER_BOT_ORDERS=off` → 403 `ordering_off`. Limits 20 / min per key, 3 / min per
+    phone.
+- **`GET /api/bot/v1/orders/by-key/<key>`:** only orders this bot key made (else 404 `not_found`); 60 / min.
+- **Everywhere else unchanged:** list, order page, CSV, tile, delivered / cancelled alerts (the key id is no person, so
+  nobody extra), WhatsApp thank-you. "New order" alert from `newOrderNotification` with "by WhatsApp".
+- **Audit:** `bot.order` (shown in Recent changes as "WhatsApp order O-0057: Sri Ram Hotel, Bijepur (2 products)"),
+  `bot.order_repeat` and `bot.by_key` (hidden).
+- **Made while building:** the summary for the bot carries `sku_id` and `status` (added to `SavedOrder`; the staff form
+  ignores them); a product switched off between the context call and YES is refused with 409 (the bot hands off rather
+  than re-showing the summary).
+- **Tests:** Order Capture 320 (+14 in `test/bot.test.ts`: created through the staff save, Rates default / ₹0, no
+  amounts in the answer, list / CSV / Recent changes, replay, two calls at once, replay after switch-off, customer and
+  product checks, bad lines, off switch, module off, isolation, a staff key, limits, database error, by key).

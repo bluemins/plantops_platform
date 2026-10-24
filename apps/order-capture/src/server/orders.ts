@@ -7,10 +7,12 @@
 //     new customer is created with the order, the reference is the plant's next number (O-0001…), lines version 1
 //     and the "created" event are written together
 //   * the order keeps copies of the customer and of each product's name / unit, so later edits never change it
+//   * the WhatsApp bot's orders (bot.ts) go through the same `saveOrder`, with their own checks in front
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { normalisePhone } from "@plantops/module-kit/phone";
 import { productLabel } from "@plantops/module-kit";
+import type { TenantSku } from "@plantops/types";
 import { fromPaise, lineTotal } from "@/lib/money";
 import { cleanNote, NOTE_MAX } from "@/lib/note";
 import { RATE_RE } from "@/lib/rates";
@@ -57,8 +59,9 @@ export interface SavedOrder {
   id: string;
   ref: string;
   created: boolean;
+  status: string;
   customer: { name: string; place: string; phone: string };
-  lines: { product: string; unit: string; quantity: number; rate: string; total: string }[];
+  lines: { sku_id: string; product: string; unit: string; quantity: number; rate: string; total: string }[];
   total: string;
   note: string | null;
 }
@@ -115,7 +118,7 @@ export async function lookupCustomer(user: OcUser, typedPhone: string) {
 }
 
 // ---------- saving ----------
-async function savedView(tx: OcTx, tenantId: string, orderId: string, created: boolean): Promise<SavedOrder> {
+export async function savedView(tx: OcTx, tenantId: string, orderId: string, created: boolean): Promise<SavedOrder> {
   const [o] = await tx.select().from(orders).where(and(eq(orders.tenantId, tenantId), eq(orders.id, orderId)));
   const lines = await tx
     .select()
@@ -126,8 +129,9 @@ async function savedView(tx: OcTx, tenantId: string, orderId: string, created: b
     id: o!.id,
     ref: formatRef(o!.refNo),
     created,
+    status: o!.status,
     customer: { name: o!.customerName, place: o!.customerPlace, phone: o!.customerPhone },
-    lines: lines.map((l) => ({ product: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, total: l.lineTotal })),
+    lines: lines.map((l) => ({ sku_id: l.skuId, product: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, total: l.lineTotal })),
     total: o!.total,
     note: o!.orderNote,
   };
@@ -143,21 +147,21 @@ export async function createOrder(user: OcUser, input: z.infer<typeof OrderInput
 
   const products = await activeProducts(user.tenantId);
   if (!products.length) throw new HttpError(503, "Products can't be loaded right now, try again");
-  const bySku = new Map(products.map((p) => [p.id, p]));
-  for (const l of input.lines) if (!bySku.has(l.sku_id)) throw badRequest("One of the products is not an active product of this plant. Reload the page and try again.");
+  const known = new Set(products.map((p) => p.id));
+  for (const l of input.lines) if (!known.has(l.sku_id)) throw badRequest("One of the products is not an active product of this plant. Reload the page and try again.");
 
-  return withTenant(user.tenantId, async (tx) => {
-    // one save at a time per plant: references stay unique and a repeated key can't slip in twice
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('order_capture.order'), hashtext(${user.tenantId}))`);
-    const [again] = await tx.select({ id: orders.id }).from(orders).where(and(eq(orders.tenantId, user.tenantId), eq(orders.requestKey, input.request_key)));
-    if (again) return savedView(tx, user.tenantId, again.id, false);
-
-    const [{ next }] = (await tx.select({ next: sql<number>`coalesce(max(${orders.refNo}), 0)::int + 1` }).from(orders).where(eq(orders.tenantId, user.tenantId))) as [{ next: number }];
-
+  return saveOrder({
+    tenantId: user.tenantId,
+    by: { userId: user.userId, name: user.name },
+    requestKey: input.request_key,
+    products,
+    lines: input.lines,
+    note: input.note,
     // the customer: found by phone (used as is), or new with this order
-    let customer = await findByPhone(tx, user.tenantId, phone);
-    if (customer && !customer.active) throw conflict(`${customer.name} is switched off. Switch them back on first.`);
-    if (!customer) {
+    customer: async (tx, next) => {
+      const found = await findByPhone(tx, user.tenantId, phone);
+      if (found && !found.active) throw conflict(`${found.name} is switched off. Switch them back on first.`);
+      if (found) return found;
       const name = NewName.safeParse(input.customer.name ?? "");
       if (!name.success) throw badRequest(name.error.issues[0]!.message);
       const place = NewPlace.safeParse(input.customer.place ?? "");
@@ -166,38 +170,80 @@ export async function createOrder(user: OcUser, input: z.infer<typeof OrderInput
         .insert(customers)
         .values({ tenantId: user.tenantId, name: name.data, phoneTyped: input.customer.phone, phone, place: place.data, createdBy: user.userId, createdByName: user.name })
         .returning();
-      customer = added!;
-      await audit(tx, user, "customer.add", customer!.id, { name: customer!.name, place: customer!.place, phone, via: formatRef(next) });
+      await audit(tx, user, "customer.add", added!.id, { name: added!.name, place: added!.place, phone, via: formatRef(next) });
+      return added!;
+    },
+  });
+}
+
+/** Who saves an order: a staff member, or a WhatsApp bot key (its id, name "WhatsApp"). */
+export interface OrderBy {
+  userId: string;
+  name: string;
+}
+type CustomerRow = typeof customers.$inferSelect;
+
+/**
+ * The one save behind every new order (staff form and WhatsApp bot), so both follow the same rules. The caller has
+ * checked who may save and that every line's product is in `products` (the plant's active ones).
+ *   * one transaction under a per-plant lock: a repeated request key returns that order (`repeat` may refuse it),
+ *     the reference is the plant's next number, lines version 1 and the "created" event are written together
+ *   * `customer` picks (or adds) the order's customer inside the transaction; `saved` adds rows of its own (audit)
+ */
+export async function saveOrder(o: {
+  tenantId: string;
+  by: OrderBy;
+  requestKey: string;
+  products: TenantSku[];
+  lines: { sku_id: string; quantity: number; rate: string }[];
+  note: string | null;
+  customer: (tx: OcTx, nextRef: number) => Promise<CustomerRow>;
+  repeat?: (tx: OcTx, enteredBy: string) => Promise<void>;
+  saved?: (tx: OcTx, order: SavedOrder) => Promise<void>;
+}): Promise<SavedOrder> {
+  const bySku = new Map(o.products.map((p) => [p.id, p]));
+  return withTenant(o.tenantId, async (tx) => {
+    // one save at a time per plant: references stay unique and a repeated key can't slip in twice
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('order_capture.order'), hashtext(${o.tenantId}))`);
+    const [again] = await tx.select({ id: orders.id, enteredBy: orders.enteredBy }).from(orders).where(and(eq(orders.tenantId, o.tenantId), eq(orders.requestKey, o.requestKey)));
+    if (again) {
+      await o.repeat?.(tx, again.enteredBy);
+      return savedView(tx, o.tenantId, again.id, false);
     }
 
-    const units = new Map((await effectiveRates(tx, user.tenantId, products)).map((r) => [r.sku_id, r.unit]));
-    const lines = input.lines.map((l, i) => {
+    const [{ next }] = (await tx.select({ next: sql<number>`coalesce(max(${orders.refNo}), 0)::int + 1` }).from(orders).where(eq(orders.tenantId, o.tenantId))) as [{ next: number }];
+    const customer = await o.customer(tx, next);
+
+    const units = new Map((await effectiveRates(tx, o.tenantId, o.products)).map((r) => [r.sku_id, r.unit]));
+    const lines = o.lines.map((l, i) => {
       const p = bySku.get(l.sku_id)!;
       return { lineNo: i + 1, skuId: l.sku_id, productName: productLabel(p), unit: units.get(l.sku_id)!, quantity: l.quantity, rate: fromPaise(lineTotal(1, l.rate)), paise: lineTotal(l.quantity, l.rate) };
     });
     const total = lines.reduce((s, l) => s + l.paise, 0n);
 
-    const [o] = await tx
+    const [row] = await tx
       .insert(orders)
       .values({
-        tenantId: user.tenantId,
+        tenantId: o.tenantId,
         refNo: next,
-        requestKey: input.request_key,
-        customerId: customer!.id,
-        customerName: customer!.name,
-        customerPhone: customer!.phone,
-        customerPlace: customer!.place,
-        orderNote: input.note,
+        requestKey: o.requestKey,
+        customerId: customer.id,
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        customerPlace: customer.place,
+        orderNote: o.note,
         total: fromPaise(total),
-        enteredBy: user.userId,
-        enteredByName: user.name,
+        enteredBy: o.by.userId,
+        enteredByName: o.by.name,
       })
       .returning({ id: orders.id });
     await tx.insert(orderLines).values(
-      lines.map((l) => ({ tenantId: user.tenantId, orderId: o!.id, version: 1, lineNo: l.lineNo, skuId: l.skuId, productName: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, lineTotal: fromPaise(l.paise) })),
+      lines.map((l) => ({ tenantId: o.tenantId, orderId: row!.id, version: 1, lineNo: l.lineNo, skuId: l.skuId, productName: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, lineTotal: fromPaise(l.paise) })),
     );
-    await tx.insert(orderEvents).values({ tenantId: user.tenantId, orderId: o!.id, kind: "created", version: 1, createdBy: user.userId, createdByName: user.name });
-    return savedView(tx, user.tenantId, o!.id, true);
+    await tx.insert(orderEvents).values({ tenantId: o.tenantId, orderId: row!.id, kind: "created", version: 1, createdBy: o.by.userId, createdByName: o.by.name });
+    const saved = await savedView(tx, o.tenantId, row!.id, true);
+    await o.saved?.(tx, saved);
+    return saved;
   });
 }
 

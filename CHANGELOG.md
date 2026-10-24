@@ -4,6 +4,22 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.30.0 — 2026-10-24 — WhatsApp orders go into Order Capture (WhatsApp Step 3)
+
+**What's in it** (design `docs/WHATSAPP_BUILD_PLAN.md` section 8, owner "build" 2026-10-24)
+- `POST /api/bot/v1/orders`: the WhatsApp bot saves a customer's confirmed order through the **same save as the staff
+  form**. Existing switched-on customers only (phone and id must match), the key's products only (active), 1–200 boxes
+  each. The rate of each line = Order Capture → Rates default, else ₹0 (staff agree the price by phone and Change the
+  order). Note: "WhatsApp order. Price to agree by phone. Deliver to: <landmark>". Entered by **WhatsApp**.
+- The same idempotency key = the same order (also two calls at once); `GET /api/bot/v1/orders/by-key/<key>` finds an
+  order this key made after a timeout.
+- A bot order is like any other: list, order page, "New order" alert ("by WhatsApp"), CSV, tile; one Recent changes
+  line "WhatsApp order O-00xx: …".
+- Off switch `ORDER_BOT_ORDERS=off` on `order-capture` (new orders refused, reads keep working).
+- Goes with the bot's release 3.3.0 (deploy Order Capture first).
+
+**Migrations:** none. No grant, permission or SSO change; the same bot key.
+
 ## v0.29.3 — 2026-10-23 — Attendance: three salary types; OFF days are not paid
 
 **What's in it** (owner, 2026-10-23)

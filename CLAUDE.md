@@ -1822,3 +1822,15 @@ The owner: "days off means no payment"; for monthly staff "unpaid, leave covers 
 `apps/attendance-salary/src/lib/salary.ts`: an OFF day mark is a day off without pay (per day: ₹0; monthly: like an
 absent day, paid leave first, then salary ÷ 30). Was a paid day off since v0.28.0. No migration; texts say "not paid".
 Notes: `apps/attendance-salary/NOTES.md`.
+
+### 2026-10-24 — WhatsApp Step 3: bot orders into Order Capture — built (v0.30.0, bot 3.3.0)
+Design `docs/WHATSAPP_BUILD_PLAN.md` section 8; owner "build" 2026-10-24 (after both bot alerts were confirmed live).
+- **Order Capture:** `POST /api/bot/v1/orders` through the staff form's own save (`saveOrder` in
+  `src/server/orders.ts`): existing switched-on customers only, the key's products, 1–200 boxes, Rates default rate
+  (else ₹0), note "WhatsApp order. Price to agree by phone. Deliver to: …", entered by "WhatsApp"; the idempotency key is
+  the order's request key (same key = same order); `GET /api/bot/v1/orders/by-key/<key>`; `ORDER_BOT_ORDERS=off`. The
+  order shows in the list, alerts, CSV, tile and Recent changes like any other. **No schema, grant or SSO change.**
+- **Bot 3.3.0:** landmark once (SKIP) → summary → exact YES → Order Capture; reference only after its answer; unknown
+  answers finished by key in the background; others and the off switch → Sheet `lead`. `BOT_ORDERS` off (default) /
+  pilot (staff numbers) / on.
+- **Tests:** Order Capture 320 (+14), bot 68 (+19). Not deployed; release and pilot steps in the build plan section 8.

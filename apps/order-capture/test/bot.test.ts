@@ -1,7 +1,9 @@
 // WhatsApp bot API, Step 2 (docs/WHATSAPP_CONTRACT.md 3.2, 3.6, 3.7, 3.11): the bot key (missing / wrong / rotated /
 // removed), the plant from the key only (plant B's customer never visible), unknown / switched-off phones, products
 // limited to the key's codes and active ones, only the agreed fields (no rates or amounts), errors, limits, audit rows
-// kept out of Recent changes, the two alerts and their recipients, and nothing written to orders.
+// kept out of Recent changes, the two alerts and their recipients, and nothing written to orders by them.
+// Step 3 (contract 3.3, 3.4): confirmed orders through the staff save, replays, two calls at once, the checks, the off
+// switch, the order by key, and the bot order in the list, CSV, notification and Recent changes.
 import { randomBytes, randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRateLimits } from "@plantops/module-kit/http";
@@ -20,6 +22,8 @@ const settle = async () => {
 
 const { POST: contextRoute } = await import("@/app/api/bot/v1/context/route");
 const { POST: alertsRoute } = await import("@/app/api/bot/v1/alerts/route");
+const { POST: ordersRoute } = await import("@/app/api/bot/v1/orders/route");
+const { GET: byKeyRoute } = await import("@/app/api/bot/v1/orders/by-key/[key]/route");
 
 // the bot's own products (codes as in plant 001) + one switched off + one without a code
 const PV1 = { id: randomUUID(), name: "Bluemins 1L", sku_code: "PV_BM_1", volume_ml: 1000, units_per_pack: 12, pack_type: "case", status: "active" };
@@ -373,5 +377,242 @@ describe("alerts (contract 3.11)", () => {
     await alert(b.key, { kind: "handoff", phone: "9876543210" });
     await settle();
     expect(platform.notifications.map((n) => [n.tenantId, n.body.title])).toEqual([[b.tenantId, "WhatsApp customer asks for a person"]]);
+  });
+});
+
+describe("confirmed orders (contract 3.3, 3.4)", () => {
+  const orderCall = (key: string | undefined, body: unknown) => call(ordersRoute, "/api/bot/v1/orders", body, key);
+  const byKey = (key: string | undefined, k: string) =>
+    byKeyRoute(new Request(`http://localhost:3005/api/bot/v1/orders/by-key/${k}`, { headers: key ? { authorization: `Bearer ${key}` } : {} }), { params: Promise.resolve({ key: k }) });
+  const waKey = () => `wa_${randomBytes(16).toString("hex")}`;
+  const body = (customerId: string, extra: Record<string, unknown> = {}) => ({
+    idempotency_key: waKey(),
+    phone: "9876543210",
+    customer_id: customerId,
+    lines: [
+      { sku_id: PV1.id, quantity: 5 },
+      { sku_id: PV500.id, quantity: 2 },
+    ],
+    delivery_note: "Near the Shiv temple,\nback gate",
+    area_id: null,
+    confirmed_at: "2026-10-24T10:42:13+05:30",
+    confirmation: { message_sid: "SM0123456789abcdef", word: "YES" },
+    ...extra,
+  });
+  const code = async (res: Response) => [res.status, ((await res.json()) as { error: { code: string } }).error.code];
+  const ordersOf = async (tenantId: string) =>
+    (await asOwner<{ ref_no: number; entered_by: string; entered_by_name: string; order_note: string; total: string; status: string }>("select ref_no, entered_by, entered_by_name, order_note, total::text, status from order_capture.orders where tenant_id = $1 order by ref_no", [tenantId])).rows;
+
+  it("creates the order through the staff save: lines, Rates default (else ₹0), note, entered by WhatsApp; 201 without amounts", async () => {
+    const b = botPlant();
+    const c = await customer(b.tenantId);
+    await saveRates(b.owner, { rates: [{ sku_id: PV1.id, unit: "box", default_rate: "120" }] });
+    const res = await orderCall(b.key, body(c));
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json).toEqual({
+      created: true,
+      order: {
+        ref: "O-0001",
+        status: "pending",
+        lines: [
+          { sku_id: PV1.id, label: "Bluemins 1L (1 L × 12)", unit: "box", quantity: 5 },
+          { sku_id: PV500.id, label: "Bluemins 500ml (500 ml × 24)", unit: "box", quantity: 2 },
+        ],
+      },
+    });
+    expect(JSON.stringify(json)).not.toMatch(/rate|total|₹|600/);
+    const [o] = await ordersOf(b.tenantId);
+    expect(o).toMatchObject({ entered_by: b.entry.id, entered_by_name: "WhatsApp", total: "600.00", status: "pending", order_note: "WhatsApp order. Price to agree by phone. Deliver to: Near the Shiv temple, back gate" });
+    const lines = (await asOwner("select sku_id, quantity, rate::text from order_capture.order_lines where tenant_id = $1 order by line_no", [b.tenantId])).rows;
+    expect(lines).toEqual([
+      { sku_id: PV1.id, quantity: 5, rate: "120.00" },
+      { sku_id: PV500.id, quantity: 2, rate: "0.00" },
+    ]);
+    await settle();
+    expect(platform.notifications.map((n) => n.body)).toEqual([
+      expect.objectContaining({ kind: "order_capture.new", title: "New order O-0001: ₹600", level: "push", exclude_user_id: b.entry.id }),
+    ]);
+    expect(String(platform.notifications[0]!.body.body)).toContain("(by WhatsApp)");
+  });
+
+  it("the bot order is like any other: in the list, the CSV, the order page; one Recent changes line; no phone in the audit", async () => {
+    const b = botPlant();
+    const c = await customer(b.tenantId);
+    const { listOrders } = await import("@/server/list");
+    const { exportCsv } = await import("@/server/list");
+    await orderCall(b.key, body(c, { delivery_note: null }));
+    const list = await listOrders(b.owner, {});
+    expect(JSON.stringify(list)).toContain("WhatsApp");
+    const csv = await exportCsv(b.owner);
+    const text = typeof csv === "string" ? csv : JSON.stringify(csv);
+    expect(text).toContain("O-0001");
+    expect(text).toContain("WhatsApp order. Price to agree by phone.");
+    const changes = await recentChanges(b.owner);
+    expect(changes.map((ch) => [ch.by, ch.text])).toEqual([
+      ["Sujata", "Exported the orders (CSV, 1 order, 2 lines)"],
+      ["WhatsApp", "WhatsApp order O-0001: Sri Ram Hotel, Bijepur (2 products)"],
+    ]);
+    const rows = await botAudit(b.tenantId);
+    expect(rows.map((r) => r.action)).toEqual(["bot.order"]);
+    expect(rows[0]!.details).toMatchObject({ message_sid: "SM0123456789abcdef", word: "YES" });
+    expect(JSON.stringify(rows)).not.toContain("9876543210");
+    await settle();
+  });
+
+  it("replay: the same key again = the same order (200, created false), no second order or alert", async () => {
+    const b = botPlant();
+    const c = await customer(b.tenantId);
+    const req = body(c);
+    expect((await orderCall(b.key, req)).status).toBe(201);
+    const again = await orderCall(b.key, req);
+    expect(again.status).toBe(200);
+    expect(await again.json()).toMatchObject({ created: false, order: { ref: "O-0001" } });
+    expect(await countOrders(b.tenantId)).toBe(1);
+    await settle();
+    expect(platform.notifications).toHaveLength(1);
+    expect((await recentChanges(b.owner)).length).toBe(1);
+  });
+
+  it("two calls with one key at the same moment: one order", async () => {
+    const b = botPlant();
+    const c = await customer(b.tenantId);
+    const req = body(c);
+    const [r1, r2] = await Promise.all([orderCall(b.key, req), orderCall(b.key, req)]);
+    expect([r1.status, r2.status].sort()).toEqual([200, 201]);
+    expect(await countOrders(b.tenantId)).toBe(1);
+    await settle();
+  });
+
+  it("a replay still answers after the customer was switched off (the order exists)", async () => {
+    const b = botPlant();
+    const c = await customer(b.tenantId);
+    const req = body(c);
+    await orderCall(b.key, req);
+    await asOwner("update order_capture.customers set active = false where id = $1", [c]);
+    expect((await orderCall(b.key, req)).status).toBe(200);
+    await settle();
+  });
+
+  it("existing switched-on customers only: unknown phone, other customer's id, switched off → 409; nothing saved", async () => {
+    const b = botPlant();
+    const c = await customer(b.tenantId);
+    const other = await customer(b.tenantId, "9123456789", "Other Shop");
+    const off = await customer(b.tenantId, "9000000001", "Closed Shop", false);
+    expect(await code(await orderCall(b.key, body(c, { phone: "9555555555" })))).toEqual([409, "customer_mismatch"]);
+    expect(await code(await orderCall(b.key, body(other)))).toEqual([409, "customer_mismatch"]);
+    expect(await code(await orderCall(b.key, body(off, { phone: "9000000001" })))).toEqual([409, "customer_off"]);
+    expect(await countOrders(b.tenantId)).toBe(0);
+  });
+
+  it("products: one not on the key's list, switched off or unknown → 409 product_unavailable", async () => {
+    const b = botPlant();
+    const c = await customer(b.tenantId);
+    for (const sku of [DM1.id, PV250.id, randomUUID()]) {
+      resetRateLimits();
+      expect(await code(await orderCall(b.key, body(c, { lines: [{ sku_id: sku, quantity: 1 }] })))).toEqual([409, "product_unavailable"]);
+    }
+    expect(await countOrders(b.tenantId)).toBe(0);
+  });
+
+  it("bad lines: 0, 201 boxes, decimals, a product twice, none → 400 bad_lines; a rate or tenant in the body → 400", async () => {
+    const b = botPlant();
+    const c = await customer(b.tenantId);
+    const bad = [
+      [{ sku_id: PV1.id, quantity: 0 }],
+      [{ sku_id: PV1.id, quantity: 201 }],
+      [{ sku_id: PV1.id, quantity: 1.5 }],
+      [{ sku_id: PV1.id, quantity: 1 }, { sku_id: PV1.id, quantity: 2 }],
+      [],
+    ];
+    for (const lines of bad) {
+      resetRateLimits();
+      expect(await code(await orderCall(b.key, body(c, { lines })))).toEqual([400, "bad_lines"]);
+    }
+    resetRateLimits();
+    expect(await code(await orderCall(b.key, body(c, { lines: [{ sku_id: PV1.id, quantity: 1, rate: "1" }] })))).toEqual([400, "bad_lines"]);
+    expect(await code(await orderCall(b.key, body(c, { tenant_id: randomUUID() })))).toEqual([400, "bad_request"]);
+    expect(await code(await orderCall(b.key, body(c, { idempotency_key: "abc12345" })))).toEqual([400, "bad_request"]);
+    expect(await code(await orderCall(b.key, body(c, { delivery_note: "x".repeat(201) })))).toEqual([400, "bad_request"]);
+    expect(await code(await orderCall(b.key, body(c, { area_id: randomUUID() })))).toEqual([400, "bad_request"]);
+    expect((await orderCall(b.key, body(c, { lines: [{ sku_id: PV1.id, quantity: 200 }] }))).status).toBe(201);
+    await settle();
+  });
+
+  it("no key → 401; ORDER_BOT_ORDERS=off → 403 ordering_off while context still answers; module off → 403", async () => {
+    const b = botPlant();
+    const c = await customer(b.tenantId);
+    expect(await code(await orderCall(undefined, body(c)))).toEqual([401, "unauthorized"]);
+    process.env.ORDER_BOT_ORDERS = "off";
+    try {
+      expect(await code(await orderCall(b.key, body(c)))).toEqual([403, "ordering_off"]);
+      expect((await context(b.key, { phone: "9876543210" })).status).toBe(200);
+    } finally {
+      delete process.env.ORDER_BOT_ORDERS;
+    }
+    expect(await countOrders(b.tenantId)).toBe(0);
+    const d = botPlant();
+    const dc = await customer(d.tenantId);
+    platform.enabled.set(d.tenantId, ["floor_stock"]);
+    expect(await code(await orderCall(d.key, body(dc)))).toEqual([403, "module_off"]);
+    expect(await countOrders(d.tenantId)).toBe(0);
+  });
+
+  it("tenant isolation: plant A's key never orders for plant B's customer (same phone)", async () => {
+    const b = botPlant();
+    const other = plant();
+    const theirs = await customer(other.tenantId);
+    expect(await code(await orderCall(b.key, body(theirs)))).toEqual([409, "customer_mismatch"]);
+    expect(await countOrders(other.tenantId)).toBe(0);
+  });
+
+  it("a staff order's request key can't be reused by the bot (400), and the bot's key can't read it", async () => {
+    const b = botPlant();
+    const c = await customer(b.tenantId);
+    const k = waKey();
+    await asApp(
+      b.tenantId,
+      `insert into order_capture.orders (tenant_id, ref_no, request_key, customer_id, customer_name, customer_phone, customer_place, total, entered_by, entered_by_name)
+       values ('${b.tenantId}', 1, '${k}', '${c}', 'Sri Ram Hotel', '9876543210', 'Bijepur', 0, '${STAFF}', 'Atharv')`,
+    );
+    expect(await code(await orderCall(b.key, body(c, { idempotency_key: k })))).toEqual([400, "bad_request"]);
+    expect(await code(await byKey(b.key, k))).toEqual([404, "not_found"]);
+  });
+
+  it("limits: 3 creates a minute per phone, then 429", async () => {
+    const b = botPlant();
+    const c = await customer(b.tenantId);
+    for (let i = 0; i < 3; i++) expect((await orderCall(b.key, body(c))).status).toBe(201);
+    expect(await code(await orderCall(b.key, body(c)))).toEqual([429, "rate_limited"]);
+    await settle();
+  });
+
+  it("the database refuses mid-save: 503 unavailable and nothing half-saved", async () => {
+    const b = botPlant();
+    const c = await customer(b.tenantId);
+    const db = await import("@/server/db");
+    const spy = vi.spyOn(db, "withTenant").mockRejectedValueOnce(new Error("connection lost"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await code(await orderCall(b.key, body(c)))).toEqual([503, "unavailable"]);
+    spy.mockRestore();
+    expect(await countOrders(b.tenantId)).toBe(0);
+  });
+
+  it("by key: this key's order with its current status and lines; unknown key 404; another bot key 404; bad format 400", async () => {
+    const b = botPlant();
+    const c = await customer(b.tenantId);
+    const req = body(c);
+    await orderCall(b.key, req);
+    const found = await byKey(b.key, req.idempotency_key);
+    expect(found.status).toBe(200);
+    expect(await found.json()).toMatchObject({ created: false, order: { ref: "O-0001", status: "pending", lines: [{ quantity: 5 }, { quantity: 2 }] } });
+    expect(await code(await byKey(b.key, waKey()))).toEqual([404, "not_found"]);
+    expect(await code(await byKey(b.key, "nope"))).toEqual([400, "bad_request"]);
+    expect(await code(await byKey(undefined, req.idempotency_key))).toEqual([401, "unauthorized"]);
+
+    const second = newKey();
+    process.env.ORDER_BOT_KEYS = JSON.stringify([b.entry, { ...b.entry, id: randomUUID(), sha256: hashBotKey(second) }]);
+    expect(await code(await byKey(second, req.idempotency_key))).toEqual([404, "not_found"]);
+    await settle();
   });
 });

@@ -45,6 +45,10 @@ export const env = {
   get botKeys() {
     return process.env.ORDER_BOT_KEYS ?? "";
   },
+  /** "off" = the bot may not create orders (403 ordering_off); its reads and alerts keep working */
+  get botOrdersOff() {
+    return (process.env.ORDER_BOT_ORDERS ?? "").trim().toLowerCase() === "off";
+  },
   /** only tests change it (a fake Twilio) */
   get twilioApiUrl() {
     return process.env.TWILIO_API_URL ?? "https://api.twilio.com";

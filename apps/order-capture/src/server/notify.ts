@@ -9,7 +9,7 @@ import { productsText } from "@/lib/history";
 import { money } from "@/lib/money";
 import type { OrderEvent } from "./handling";
 import { kit } from "./kit";
-import type { SavedOrder } from "./orders";
+import type { OrderBy, SavedOrder } from "./orders";
 import type { OcUser } from "./session";
 import { retryThanks } from "./thanks";
 
@@ -20,9 +20,9 @@ const title = (s: string) => clip(s, TITLE_MAX);
 const body = (s: string) => clip(s.replace(/\s+/g, " ").trim(), BODY_MAX);
 const link = (orderId: string) => `/o/${orderId}`;
 
-/** 1. A new order: owners + ticked people, not whoever saved it. */
-export function newOrderNotification(user: OcUser, o: SavedOrder): NotificationInput {
-  const lines = productsText(o.lines.map((l) => ({ sku_id: "", product: l.product, unit: l.unit, quantity: l.quantity, rate: l.rate, total: l.total })));
+/** 1. A new order: owners + ticked people, not whoever saved it ("by WhatsApp" for the bot's orders). */
+export function newOrderNotification(user: OrderBy, o: SavedOrder): NotificationInput {
+  const lines = productsText(o.lines.map((l) => ({ sku_id: l.sku_id, product: l.product, unit: l.unit, quantity: l.quantity, rate: l.rate, total: l.total })));
   return {
     kind: "order_capture.new",
     title: title(`New order ${o.ref}: ${money(o.total)}`),

@@ -31,6 +31,8 @@ export function describeChange(action: string, details: Record<string, unknown>)
     }
     case "customers.upload":
       return `Uploaded customers${details.file ? ` from ${show(details.file)}` : ""}: ${show(details.added)} new, ${show(details.updated)} updated, ${show(details.unchanged)} unchanged, ${plural(details.rejected, "row")} rejected`;
+    case "bot.order":
+      return `WhatsApp order ${show(details.ref)}: ${show(details.customer)}, ${show(details.place)} (${plural(details.lines, "product")})`;
     case "export.csv":
       return `Exported the orders (CSV, ${plural(details.orders, "order")}, ${plural(details.lines, "line")})`;
     default:
