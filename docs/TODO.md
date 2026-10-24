@@ -19,6 +19,9 @@ Filled on 2026-10-24 from CLAUDE.md, every `apps/*/NOTES.md`, the plan docs ("No
 
 ## Before the October salary month end (31 Oct) — owner, Attendance at plant 001
 
+Owner, 2026-10-24: steps understood. Open rows: OFF days (Anmol), unmarked days (Gaja 21–23 …), Plant staff on the 3
+accounts, then 31 Oct ("See as worker" for each person before marking paid).
+
 | Task | Status | Notes |
 |---|---|---|
 | Salary type per person from October | done (checked 2026-10-24) | Fixed: Kedar, Dillip, Prakash, dirju, maheswar. Per day: reeta, Damayanti, joshobanti, Mohan, sushil. Monthly: Ramu (0 leave), bindu / Gaja / Anmol (2) |
@@ -36,7 +39,7 @@ Filled on 2026-10-24 from CLAUDE.md, every `apps/*/NOTES.md`, the plan docs ("No
 
 | Task | Status | Notes |
 |---|---|---|
-| Sheet **Leads** tab: customer orders 19:34–22:21 on 2026-10-24 → enter in Order Capture by hand | open | bot was still in pilot mode then (B-20) |
+| Sheet **Leads** tab: customer orders 19:34–22:21 on 2026-10-24 → enter in Order Capture by hand | done (owner, 2026-10-24) | bot was still in pilot mode then (B-20) |
 | Staff ask customers about reminders and tick "Agreed to WhatsApp reminders" | open | first reminders 2026-11-09 |
 | Cancel test orders O-0069 and O-0072 | open | |
 | Twilio Debugger: click a 93101 entry, note the webhook URL | open | bug B-21 |
