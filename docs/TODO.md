@@ -114,12 +114,14 @@ Add new ideas here (one line each, with the date). They move up to "Next" or "La
 | Date | Idea | Notes |
 |---|---|---|
 | 2026-10-24 | **Mid-month payment for per-day staff:** clear a per-day person's pay in the middle of the month and mark it as a payment (paid up to a date), not only at month end | Today "Mark paid" works per whole month; a mid-month amount can only be entered as an advance (`SALARY_PHASE_PLAN.md` "Not in this version": partial payments). Needs a design: "paid up to <date>" vs an amount, the slip, the month-end balance |
+| 2026-10-24 | **Job applications: public page off for a while, owner enters applicants by hand:** switch `jobs.bluemins.life` off temporarily (no public form), and the owner (tenant_admin) adds an applicant's details from their own login (e.g. someone who phoned or walked in) | Today each opening can be switched off, but there is no "whole page off" switch and no owner "Add applicant" form. Check the wording: "customer details" read as applicant details |
 | 2026-10-24 | **Leave policy attached to each employee:** the owner defines policies, e.g. (a) 2 paid leave a month, (b) a yearly allowance + choice (optional) leaves, and picks one per person | Today: one "paid leave per month" number per person (lapses each month). Joins the "weekly-off rules, holiday lists, leave requests" item under Later. Likely a schema change: ask first |
 
 ## Done
 
 | Date | Work |
 |---|---|
+| 2026-10-24 | Attendance "See as worker" slip preview for the owner (v0.31.1) |
 | 2026-10-24 | WhatsApp Steps 3–4 live; reminder pilot on from 2026-10-25; `BOT_ORDERS=on` deployed; owner's test order O-0072 + consent |
 | 2026-10-23 | Attendance lunch break, short days, three salary types (v0.29.1–v0.29.3); WhatsApp Step 2 (v0.29.0) |
 | 2026-10-20 | Attendance "Mark days" (v0.28.0) |
