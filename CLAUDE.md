@@ -1851,3 +1851,10 @@ area list deferred until the bot takes new customers).
 - **Live 2026-10-24:** migration applied, `production` = `e15c585`, bot `7e308ae`; checks OK. **Not sending yet:** the
   owner sets `REMINDER_COST_PAISE`, the template SID in `TWILIO_WHATSAPP_SENDERS`, the cron-job.org job,
   `REMINDER_PILOT_START`, then `ORDER_REMINDERS=on` (build plan section 0).
+
+### 2026-10-24 — Attendance: "See as worker" slip preview (v0.31.1)
+Asked by the owner 2026-10-24 (see what staff will see before ticking "Can see own salary"). Staff → person → "See as
+worker: <month> slip" opens the person's slip exactly as My salary draws it (shared `slipCard()`), with a note on the
+tick and paid state; an unpaid month shows what Mark paid would save now. Owner + support only (`salary_view`). No
+migration; SSO token unchanged. Notes: `apps/attendance-salary/NOTES.md`. Tests: Attendance 464 (+3). Tagged on `main`,
+not deployed.
