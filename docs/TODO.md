@@ -21,12 +21,13 @@ Filled on 2026-10-24 from CLAUDE.md, every `apps/*/NOTES.md`, the plan docs ("No
 
 | Task | Status | Notes |
 |---|---|---|
-| Salary type per person from October: FIXED_MONTHLY for Kedar, Dillip, Prakash (and dirju / maheswar if fixed); DAY_STAFF / MONTHLY_STAFF for the others | open | Staff → person → Salary box (v0.29.3) |
-| 8 h work + 1 h lunch from October for Reeta, Damayanti and the monthly staff (Reeta's setting says 9 h) | open | v0.29.1 lunch rule |
-| Review OFF days, now unpaid (Damayanti 9, Anmol 5, Ramu 4, others 1); Damayanti 1–5 Oct before joining? | open | rule 22 |
-| Tick **Field staff** on Dillip and Kedar; TA / DA rates if wanted | open | since v0.22.1 |
-| Permanent / Temporary on the temporary workers | open | Manpower cost card |
-| This month's advances entered | open | |
+| Salary type per person from October | done (checked 2026-10-24) | Fixed: Kedar, Dillip, Prakash, dirju, maheswar. Per day: reeta, Damayanti, joshobanti, Mohan, sushil. Monthly: Ramu (0 leave), bindu / Gaja / Anmol (2) |
+| 8 h work + 1 h lunch from October | done (checked 2026-10-24) | reeta, Damayanti, joshobanti, Ramu, bindu, Gaja, Anmol. **Owner to confirm:** Mohan and sushil (per day) are still 9 h with no lunch: intended? |
+| Tick **Field staff** on Dillip and Kedar | done (checked 2026-10-24) | both with TA ₹2 / km, DA ₹100 / day |
+| Permanent / Temporary | done (checked 2026-10-24) | Temporary: Damayanti, Mohan, sushil, joshobanti; reeta is Permanent (per day) |
+| Review October OFF days, now unpaid | open | Only **Anmol** (6 OFF: 7–9, 21–23; 2 covered by leave, 4 cut at salary ÷ 30) and **Ramu** (4 OFF: 4, 5, 11, 18; 0 leave, all 4 cut) change pay. Per-day people get ₹0 for an OFF day either way (same as absent); fixed people are paid in full; Gaja's 1 is covered by leave. Damayanti's 1–5 Oct makes no pay difference (per day) |
+| This month's advances entered | open | On record (checked 2026-10-24): Anmol ₹5,000 (6th ₹2,000 + 20th ₹3,000), dirju ₹5,000, maheswar ₹3,000, Damayanti ₹1,500 (₹1,000 on the 20th corrected once), Ramu ₹1,000. Add any others before 31 Oct |
+| Plant staff without a salary: `bluemins` (owner), `bluemins_lab_lead`, `bluemins_lab` (disabled) | open | They count as employees with "No salary set". Remove Plant staff from them unless they are paid staff |
 | 31 Oct 07:00: "salary review" notification arrives → fix no-exit days → check two people with the checking panel → mark paid → one slip with "Can see own salary" | open | `docs/deployments/shared.md` v0.20.0 checklist |
 | Plant 001 attendance circle to 300 m standing outside (still 2,000 m) | deferred | bug B-04 |
 
