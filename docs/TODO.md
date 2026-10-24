@@ -113,6 +113,8 @@ Add new ideas here (one line each, with the date). They move up to "Next" or "La
 
 | Date | Idea | Notes |
 |---|---|---|
+| 2026-10-24 | **Mid-month payment for per-day staff:** clear a per-day person's pay in the middle of the month and mark it as a payment (paid up to a date), not only at month end | Today "Mark paid" works per whole month; a mid-month amount can only be entered as an advance (`SALARY_PHASE_PLAN.md` "Not in this version": partial payments). Needs a design: "paid up to <date>" vs an amount, the slip, the month-end balance |
+| 2026-10-24 | **Leave policy attached to each employee:** the owner defines policies, e.g. (a) 2 paid leave a month, (b) a yearly allowance + choice (optional) leaves, and picks one per person | Today: one "paid leave per month" number per person (lapses each month). Joins the "weekly-off rules, holiday lists, leave requests" item under Later. Likely a schema change: ask first |
 
 ## Done
 
