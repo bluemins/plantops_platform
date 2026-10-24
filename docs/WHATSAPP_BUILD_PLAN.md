@@ -320,6 +320,55 @@ staff numbers passes before customers.
 **Goal:** one opted-in reorder reminder 15 days after delivery, with a no-message holdout, and nothing sent to anyone
 without consent.
 
+**Design proposed 2026-10-24** (owner chose Step 4 before the area list, which waits until the bot takes new
+customers). Waits for the owner's answers below and "build". Pilot rules as approved in contract checklist 6.
+
+**Main change from the contract (3.5): Order Capture sends the reminder itself; no delivered event to the bot.**
+Order Capture already sends a WhatsApp template through Twilio on delivery (`src/server/thanks.ts`, table
+`customer_messages`, retries, daily job), and consent will live in Order Capture (checklist 4). So the reminder is one
+more message of the same kind, chosen by Order Capture's own job, with every eligibility fact in one database. This
+drops three pieces of the old design: the event outbox table, the event secret on both services, and the 15-minute
+cron job; and a Redis loss on the bot can never lose or duplicate a reminder. The bot only handles the conversation:
+the opt-in question, the reminder's buttons, STOP / START.
+
+**Order Capture (v0.31.0)** — migration `0005_reminders.sql` (**schema + grant change: shown before it is written**):
+- `customer_consents` (append-only, SELECT + INSERT): customer, scope `reorder_reminder`, status `granted` / `declined` /
+  `withdrawn`, wording `optin-v1`, source `bot_after_order` / `staff_phone` / `whatsapp_stop` / `whatsapp_start` /
+  `reminder_button`, by (key id or user id) + name, time. A customer's consent = their newest row. Kept forever.
+- `customer_messages.kind` also allows `reorder_reminder`; one per delivered order (the existing unique key).
+- `reminder_groups` (append-only): customer → `remind` (70 %) / `holdout` (30 %), drawn once at random when the
+  customer first becomes eligible; a holdout's due reminder is recorded as `skipped` (`holdout`), never sent.
+- **Bot API:** `POST /api/bot/v1/consent` `{ phone, status, source, message_sid }` (granted / declined after the
+  question, withdrawn on STOP / "Stop reminders", granted on START); the context answer gains `reminders: "granted" |
+  "declined" | "withdrawn" | null` + `asked_on` (so the bot asks at most once, and not again for 90 days after a no).
+- **Staff tick** on Customers → edit: "Agreed to WhatsApp reminders (read out: <optin-v1 text>)" (owner + Order desk),
+  a consent row with source `staff_phone`; unticking = `withdrawn`.
+- **Reminder job** `POST /api/cron/reminders` (one new cron-job.org call, daily 10:30 IST; no Railway service). For each
+  order delivered on the India day 15 days ago and still delivered, re-checked at send time: customer switched on;
+  newest consent `granted`; no newer non-cancelled order since that delivery; no reminder to that customer in the last
+  14 days; pilot switch `ORDER_REMINDERS=on` and under the caps (100 customers in the pilot, budget
+  `REMINDER_BUDGET_PAISE` at `REMINDER_COST_PAISE` each, 8 weeks from the start date). Sent with the approved template
+  (`{{1}}` name, `{{2}}` last order's lines "5 box Bluemins 1L, 2 box Bluemins 500ml"), from the plant's sender; the
+  template SID in the plant's `TWILIO_WHATSAPP_SENDERS` entry (`reminder_content_sid`). Twilio refusal = `failed`,
+  not retried; unreachable = retried once by the same job the next day only if still eligible.
+- **Owner page "Reminder pilot"**: counts per group (due, sent, skipped by reason, failed), reorders within 7 / 14 days
+  of the due day per group, opt-outs, estimated cost; the stop / pause rules shown as plain checks. Group-level only.
+- **Stop at once:** `ORDER_REMINDERS=off`. Notifications: a refused template (Twilio 4xx) → owner alert (phone + bell).
+
+**Bot (3.4.0):**
+- After "Your order O-00xx is placed": if `reminders` is null (or declined over 90 days ago), ask 4.8 once; `1` →
+  granted, `2` → declined, anything else = no answer (nothing recorded, the reply is handled as usual).
+- Reminder buttons: `reorder_repeat` → the Order flow with the last delivered basket (landmark → summary → YES);
+  `reorder_edit` → the size picker; `optout_stop` → STOP. Nothing is ordered by a tap alone.
+- STOP / "Stop reminders" → withdrawn in Order Capture (and Redis as today); START → granted (`whatsapp_start`).
+
+**Not in the pilot:** the "no open complaint" check (Complaint Box is another module and module-to-module lookups
+don't exist yet); the area check (no area list); Odia texts.
+
+**Owner answers (2026-10-24):** Order Capture sends the reminder (the design above); the template
+`bluemins_reorder_reminder_v1` is **approved by Meta** (its `HX…` SID still to be recorded); send at **10:30 IST**.
+Open: the migration `0005_reminders.sql` (draft shown to the owner), then "build".
+
 **Prompt 4:**
 > Step 4 of `docs/WHATSAPP_BUILD_PLAN.md` (commerce plan Phase 4), only after step 3 is proven. Propose, and wait for
 > approval of: the delivered-event design (Order Capture outbox → signed call to the bot, retries, dedupe by event id),
