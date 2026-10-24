@@ -36,7 +36,7 @@ cron-job.org job "Reminders" (#12, daily 10:30 IST; test run 200 `{"on":true,"st
 | Item | State on 2026-10-24 |
 |---|---|
 | Bot (`whatsappbot`, project `bluemins-whatsapp-bot`) | 3.4.0 live (`7e308ae`, tag `3.4.0`), `BOT_ORDERS=on`: every switched-on Order Capture customer orders into Order Capture and is asked about reminders once; unknown numbers = Sheet leads. Not yet seen in Deploy Logs by the owner (check "Orders into Order Capture: on"). |
-| PlantOps (shared copy) | v0.31.0 live (`e15c585`), migration `0005` applied, checks OK (`docs/deployments/shared.md`). Step 4 settings on `order-capture` **not set yet** (see next steps). |
+| PlantOps (shared copy) | v0.31.0 live (`e15c585`), migration `0005` applied, checks OK (`docs/deployments/shared.md`). Step 4 settings on `order-capture` set (2026-10-24): reminders on, pilot from 2026-10-25. |
 | Reminder template | `bluemins_reorder_reminder_v1` = `HXfd4deefc3196d6fa0e468484f6b3a49c`, **approved by Meta** (2026-10-24). |
 | Step 3 pilot leftovers | "ok" instead of YES, 201 boxes, a non-listed number → `lead`, cancel test order O-0069 (owner, later). |
 | Bot key | Only in Railway (`whatsappbot`) and the owner's password manager. Rotation: `docs/DEPLOY.md` "WhatsApp bot key". |
@@ -72,8 +72,8 @@ committing (the owner keeps uncommitted work in the tree).
 | 0 | Confirm rules and the integration contract | read-only | the contract, wording, templates | **done** (2026-10-21, contract signed off) |
 | 1 | Harden the bot (signature, help / cancel / STOP, handoff, tests) | bot | the plan; any new dependency; production push | **done** (2026-10-23; `e9e52a2`, tag `3.1.0`, signature `enforce`) |
 | 2 | Read-only Order Capture adapter + bot reads it | both | the API design; credential setup; production pushes | **done** (2026-10-23; v0.29.0 + bot 3.2.0 live) |
-| 3 | Confirmed-order write; Sheets stops being an order ledger | both | endpoint + transaction design; any schema / grant change; go-live | **built** (2026-10-24; v0.30.0 + bot 3.3.0 on `main`, not live) |
-| 4 | Opt-in and 15-day reminder pilot (Order Capture sends) | both | schema / consent design; templates; pilot start | **built** (2026-10-24; v0.31.0 + bot 3.4.0 on `main`, not live; template approved) |
+| 3 | Confirmed-order write; Sheets stops being an order ledger | both | endpoint + transaction design; any schema / grant change; go-live | **done** (2026-10-24; v0.30.0 + bot 3.3.0 live, `BOT_ORDERS=on`) |
+| 4 | Opt-in and 15-day reminder pilot (Order Capture sends) | both | schema / consent design; templates; pilot start | **live, pilot running** (2026-10-24; v0.31.0 + bot 3.4.0 live; pilot 2026-10-25 → 2026-12-19, first reminders 2026-11-09) |
 | 5 | Learn from the pilot | analysis first | any live change | open |
 
 One step at a time; a step starts only when the one before has passed its exit check.
