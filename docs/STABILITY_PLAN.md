@@ -471,10 +471,8 @@ services, not with plant use.
 
 ## 10. New features, after the "Fix now" bugs
 
-Order chosen from section 2's usage (most used modules first) and dates that can't move.
-
-**Owner's next work, in this order (2026-10-24):** 1. **F8** Customer insights → 2. **F9** chatbot engagement and
-customer-interaction fixes → 3. **F1b** field day log. The rest below stays as listed.
+**Moved (2026-10-24): future work and ideas now live in `docs/TODO.md`** (the owner's one list). The table below is
+kept as history only; don't update it.
 
 | # | Feature | Module | Why now |
 |---|---|---|---|
