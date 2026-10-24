@@ -64,7 +64,7 @@ Filled on 2026-10-24 from CLAUDE.md, every `apps/*/NOTES.md`, the plan docs ("No
 |---|---|---|
 | **Rotate Railway secrets** (after Railway's 2026-10-21 incident): `scripts/rotate-railway-secrets.sh shared` makes new database passwords (incl. postgres and the backup login), SSO signing key, module session and client secrets and `CRON_SECRET`; step 1 writes `.env.railway.shared.rotate` to stage in Railway without deploying, step 2 (type ROTATE) changes the database, then deploy. Steps: HANDBOOK section 8 "Changing a secret" | deferred | Afterwards everyone logs in again and the Attendance QR is printed again. Not covered by the script: R2 keys (4 services; pasted into a chat on 2026-10-17), `CRON_SECRET` in GitHub + the 12 cron-job.org jobs, Twilio, bot key. Do at night (23:05–06:55 IST). Script not yet committed |
 | Change demo plant 999's owner password (typed into a chat once) | open | `.env.demo` |
-| Delete `.env.railway.shared.complaint_box.paste` and `.env.railway.shared.job_applications.paste`; update the password-manager copy of `.env.railway.shared` | open (check) | they hold database passwords |
+| Update the password-manager copy of `.env.railway.shared` (gained the Job applications module URL / secret) | open (check) | the `.paste` files are already deleted (checked 2026-10-24) |
 | Railway cost: Serverless (sleep when idle) for `lab-records`, then `document-store` and `complaint-box`; Healthcheck Path `/health` on `job-applications`; send Railway per-service memory | open | `STABILITY_PLAN.md` section 9 |
 | UptimeRobot account (once a day per address) | open | bug B-09 |
 | Lab Records off for plant 001 (or "no tests today" Off); resolve the open complaints | open | bug B-07 |
