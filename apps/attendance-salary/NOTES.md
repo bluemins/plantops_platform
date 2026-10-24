@@ -789,3 +789,6 @@ Asked by the owner 2026-10-24: "before enabling the salary to employees, as owne
   frozen figures and real payment, an unpaid one `freezeMonth()` as it stands = what Mark paid would save now (paid
   amount = remaining, never below 0). No salary that month / future month: 404; Office staff 404, others 403.
 - No migration, no API, no change to what a worker can open. Tests: `slip-preview.test.ts` (3), Attendance 464.
+- **v0.31.2 (same day):** the owner, testing the preview on Ramu: the slip must not show "Salary type: PV_SALARY_…".
+  Removed from `slipCard()`, so neither the worker's slip nor the preview shows it (the frozen `band` stays saved;
+  the owner still sees the type in the Salary box, tab and CSV). Test added.

@@ -48,7 +48,7 @@ export function slipCard({ month, figures: f, payment }: { month: string; figure
           <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800">Paid {shortDay(payment.paidOn)}</span>
         )}
       </div>
-      {f.band && <p className="text-xs text-slate-600">Salary type: {f.band}</p>}
+      {/* no salary type name: it is the owner's label, not for the worker (owner 2026-10-24) */}
       <div className={`grid gap-1.5 text-center ${tiles.length >= 4 ? "grid-cols-4" : "grid-cols-3"}`}>
         {tiles.map(([label, value]) => (
           <div key={label} className="rounded-lg bg-slate-100 p-1.5">

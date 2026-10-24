@@ -71,6 +71,8 @@ describe("See as worker", () => {
     expect(text).toContain("10 Sept · Festival");
     expect(text).toMatch(/Paid to you ₹10,600/);
     expect(text).toContain("Paid on … by …");
+    // the salary type is the owner's label: never on the worker's slip (owner 2026-10-24)
+    expect(text).not.toMatch(/Salary type|PV_SALARY/);
   });
 
   it("2. after payment with the tick: exactly the card the worker's own slip page shows", async () => {
