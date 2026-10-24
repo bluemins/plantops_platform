@@ -133,6 +133,9 @@ complaint new 26 + still open 25, Lab "no tests today" 16 for an unused module (
 
 ## 4. Bugs, in priority order
 
+**Moved (2026-10-24): the live bug list with priorities is now `docs/BUGS.md`** (one list for all apps, the bot and
+hosting). This section stays as the detailed history of B-01 … B-17; update status in `docs/BUGS.md`.
+
 Severity: **S1** wrong data, data leak, money wrong or an alert never arrives — fix at once; **S2** a feature broken
 or unreliable — this week; **S3** confusing, slow or cosmetic — a later patch.
 
