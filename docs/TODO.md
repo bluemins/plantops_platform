@@ -26,7 +26,7 @@ with priority). WhatsApp step details: `docs/WHATSAPP_BUILD_PLAN.md`.
 | A user with **only** Plant staff tried on screen | open | |
 | Floor Stock day page + "Copy as WhatsApp message"; 5 decisions to confirm (`apps/floor-stock/NOTES.md`) | deferred (2026-10-13) | |
 | Job applications pending list (`docs/deployments/shared.md`) | open | Turnstile, plant 001 checklist |
-| Rotate R2 keys and `CRON_SECRET` (HANDBOOK section 8) | deferred | |
+| **Rotate Railway secrets** (after Railway's 2026-10-21 incident): `scripts/rotate-railway-secrets.sh shared` makes new database passwords (incl. postgres and the backup login), SSO signing key, module session and client secrets and `CRON_SECRET`; step 1 writes `.env.railway.shared.rotate` to stage in Railway without deploying, step 2 (type ROTATE) changes the database, then deploy. Steps: HANDBOOK section 8 "Changing a secret" | deferred | Afterwards everyone logs in again and the Attendance QR is printed again. Not covered by the script: R2 keys (4 services), `CRON_SECRET` in GitHub + the 12 cron-job.org jobs, Twilio, bot key. Do at night (23:05–06:55 IST). Script not yet committed |
 
 ## Waiting
 
