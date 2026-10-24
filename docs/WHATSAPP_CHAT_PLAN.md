@@ -81,7 +81,7 @@ Even with REPEAT, a known customer needs four replies (Order → REPEAT → land
 ### C4 — Never a dead end
 | Customer sends | Today | Planned reply |
 |---|---|---|
-| Taps **Okay / Great** on the thank-you | "Say 'Hi' to start…" → second time a staff alert | "Thank you! Send ORDER whenever you need water again." No alert |
+| Taps **Okay / Great / Not great** on the thank-you | "Say 'Hi' to start…" → second time a staff alert | Saved as that delivery's rating (Feedback tab, like the feedback questions; the buttons already send the same ids `okay` / `great` / `not_great`), then "Thank you! Send ORDER whenever you need water again." *Not great* → the existing "Not great" staff alert |
 | "Repeat" / "order" right after placing | *unrecognised* | "Your order O-00xx is placed. Send ORDER for another one." |
 | **Rate / price / ଦାମ / dam** | *unrecognised* | "Prices depend on the order: our team will call you with today's price. Send ORDER to place one, or PERSON to talk to us." (no prices in the bot, as decided) |
 | **Hindi / English / ଓଡ଼ିଆ** | *unrecognised* | Switches the language (Hindi: see decision 2) |
@@ -122,3 +122,167 @@ changing them is a Twilio setting (decision 5). Replies inside a chat don't need
    *(recommended: yes; I prepare the new text and steps, you click save in Twilio, the old ones stay as backup)*
 6. **Odia text:** who writes it? *(recommended: you or a staff member who writes to customers today; I send the list of
    lines in English with today's Odia next to each, ~25 short lines)*
+
+---
+
+## 8. The conversation, message by message
+
+`[buttons]` = tap buttons (a Twilio template, section 9); everything else is plain text. Each line exists in Odia and
+English (C1); English shown here. **T-codes** are the Twilio templates of section 9; **M-codes** are plain texts the
+bot sends itself (no Twilio work, only the Odia wording, section 10).
+
+### A. Known customer, same as last time (the common case — 3 replies)
+| Who | Message |
+|---|---|
+| Customer | Hi *(or Order, Johar, Namaskar…)* |
+| Bot **T1** | "Johar Rocky! What would you like?" `[Same as last time] [New order] [Talk to us]` |
+| Customer | taps **Same as last time** |
+| Bot **M1** | the summary: "Please check your order: Rocky, Bijepur · Bluemins 1L (1 L × 12): 5 box · Deliver near: Shiva temple · Our team will call you about the price." |
+| Bot **T7** | "Place this order?" `[YES] [EDIT] [CANCEL]` |
+| Customer | taps **YES** *(or types yes / ok / haan / ହଁ)* |
+| Bot **M2** | "Thank you. Your order O-0073 is placed. Our team will call you about the price and delivery." |
+| Bot **T8** | *(only the first time, as today)* "Would you like a WhatsApp reminder when it may be time to order again? You can send STOP at any time." `[Yes, remind me] [No thanks]` |
+| Customer | taps one → **M3** "Thank you. We will remind you…" / **M4** "Okay, no reminders. Thank you." |
+
+*No landmark question:* the last landmark is reused and shown on the summary (decision 3). EDIT → path B.
+
+### B. Known customer, new basket (or EDIT)
+| Who | Message |
+|---|---|
+| Customer | taps **New order** (or EDIT, or the reminder's "Change order") |
+| Bot **T4** | "Which size?" `[1L box (12)] [500ml box (24)] [250ml box (35)]` |
+| Customer | taps **500ml** *(or types "500ml", "2", or "500ml 10" = size + quantity at once, C3)* |
+| Bot **M5** | "How many boxes of 500 ml? (1, 2, 5 …)" |
+| Customer | 10 *(or "10 box", ୧୦)* |
+| Bot **T5** | "Added 10 box 500 ml. Anything more?" `[Add another size] [That's all]` |
+| Customer | taps **That's all** *(typing "1L 5" here adds 1 L × 5 instead, C3)* |
+| Bot **T6** | "Deliver near Shiva temple again? Or type a new landmark." `[Yes, same place] [Skip]` *(no last landmark: **M6** "Where should we deliver? Type a landmark, or SKIP.")* |
+| Customer | taps **Yes, same place** or types a new landmark |
+| Bot | **M1** summary + **T7** `[YES] [EDIT] [CANCEL]` → as in A |
+
+### C. Number not in Order Capture (new customer) or ordering switched off
+| Who | Message |
+|---|---|
+| Customer | Hi |
+| Bot **T2** | "Johar! Bluemins packaged drinking water. What would you like?" `[Order water] [Talk to us] [Feedback]` |
+| Customer | **Order water** → sizes and quantities as in B (T4 → M5 → T5) |
+| Bot **M7** | "What name should we write for this order?" → **M8** "Where should we deliver? Village / landmark." |
+| Bot **M9** | summary + "Reply YES …" → YES → **M10** "Thank you. We have noted your order. Our team will call you to confirm it." *(Sheet `lead`, unchanged)* |
+
+### D. Delivery thank-you buttons (sent by Order Capture, unchanged)
+| Customer taps | Bot |
+|---|---|
+| **Great** / **Okay** | **M11** "Thank you! Send ORDER whenever you need water again." (rating saved) |
+| **Not great** | **M12** "Sorry about that. Our team will call you." (rating saved + staff alert, as the feedback flow does) |
+
+### E. Reorder reminder buttons (Order Capture's reminder, unchanged)
+| Customer taps | Bot |
+|---|---|
+| **Order again** (`reorder_repeat`) | summary of the last order + T7 (path A) |
+| **Change order** (`reorder_edit`) | T4 sizes (path B) |
+| **Stop reminders** (`optout_stop`) | **M13** today's "You will not get reminder messages…" |
+
+### F. Questions and other messages
+| Customer sends | Bot |
+|---|---|
+| Rate / price / ଦାମ / dam | **M14** "Prices depend on the order: our team will call you with today's price. Send ORDER to place one, or PERSON to talk to us." |
+| English / ଓଡ଼ିଆ / Odia | **M15** "Okay, English from now on." / the Odia line, then the welcome (T1 / T2) in that language |
+| Hindi | **M16** (decision 2 a) "Sorry, we can chat in Odia or English. Our team will call you if you need Hindi." + staff alert |
+| Repeat / Order right after placing | **M17** "Your order O-0073 is placed. Send ORDER for another one." |
+| Anything not understood | 1st time: the welcome (T1 / T2) · 2nd time: **M18** today's "We have passed your message to our team…" + staff alert |
+| HELP · MENU · CANCEL · PERSON · STOP · START · FEEDBACK | as today (M19–M24, today's texts in both languages) |
+
+## 9. What to create in Twilio (guide)
+
+**Where:** Twilio Console → **Messaging → Content Template Builder → Create new**. All of these are *in-chat* messages
+(the bot only sends them as a reply within 24 hours of the customer's message), so they **don't need WhatsApp / Meta
+approval**: create, **Save**, and **don't** press "Submit for WhatsApp approval". Each saved template gets an id
+starting with **HX…**: copy it into the list at the end.
+
+**Rules for every template:**
+- **Content type: Quick reply.** WhatsApp allows **at most 3 buttons** in a chat message, and **20 characters** per
+  button title (Odia letters count too: keep titles short).
+- Each button has a **title** (what the customer sees) and an **ID** (what the bot receives). **Type the IDs exactly as
+  below** (small letters, underscores). Same IDs in the Odia and the English template.
+- `{{1}}`, `{{2}}` are filled in by the bot. Twilio asks for a **sample value** for each: use the samples below.
+  A filled-in value is always one line (no line breaks), so the summary stays a plain text message (M1).
+- **Language field:** pick **English** for both versions if Odia isn't in Twilio's list (for in-chat messages it is only
+  a label; what the customer sees is the text you type).
+- **Names:** `bm_<what>_od` and `bm_<what>_en`, e.g. `bm_welcome_known_od`.
+- **Don't delete or edit the six templates in use today** (welcome, size picker, anything more, estimator, two feedback):
+  they are the way back if we have to undo. They can be deleted a month after go-live.
+
+| Code | Template name (×2: `_od`, `_en`) | Body (English; Odia in section 10) | Buttons: title → **ID** | Variables (sample) |
+|---|---|---|---|---|
+| **T1** | `bm_welcome_known` | Johar {{1}}! What would you like? | Same as last time → **menu_same** · New order → **menu_order** · Talk to us → **menu_person** | {{1}} name (Rocky) |
+| **T2** | `bm_welcome_new` | Johar! Bluemins packaged drinking water. What would you like? Type ENGLISH or ଓଡ଼ିଆ to change the language. | Order water → **menu_order** · Talk to us → **menu_person** · Feedback → **menu_feedback** | — |
+| **T4** | `bm_sizes` | Which size? | 1L box (12) → **PV_BM_1** · 500ml box (24) → **PV_BM_500** · 250ml box (35) → **PV_BM_250** | — |
+| **T5** | `bm_more` | Added {{1}}. Anything more? | Add another size → **add_more** · That's all → **order_done** | {{1}} what was added (10 box 500 ml) |
+| **T6** | `bm_landmark_again` | Deliver near {{1}} again? Or type a new landmark. | Yes, same place → **landmark_same** · Skip → **landmark_skip** | {{1}} last landmark (Shiva temple) |
+| **T7** | `bm_confirm` | Place this order? | YES → **confirm_yes** · EDIT → **confirm_edit** · CANCEL → **confirm_cancel** | — |
+| **T8** | `bm_optin` | Would you like a WhatsApp reminder when it may be time to order again? You can send STOP at any time. | Yes, remind me → **optin_yes** · No thanks → **optin_no** | — |
+
+*T3 (the old "repeat offer" text) is no longer needed: "Same as last time" on T1 replaces it.*
+
+**Total: 7 templates × 2 languages = 14.** The size buttons keep today's IDs (`PV_BM_1` …) and "anything more?" keeps
+`add_more` / `order_done`, so the bot reads old and new templates the same way.
+
+**T8 is the consent question.** Its English text is today's approved wording *(optin-v1)*, only with buttons added.
+The Odia version is a new wording and is saved with each answer as **optin-v1-od** (consent records keep the wording
+shown). This is a consent change: **your OK is needed** (decision 7).
+
+**Nothing changes in Twilio for:** the delivery thank-you and the reorder reminder (Order Capture's approved
+templates), the WhatsApp number, the webhook address, or the estimator / feedback templates.
+
+**When done, send me the 14 HX ids** in this form (or a screenshot of the list). At go-live they go into **one** Railway
+variable on `whatsappbot`, `CONTENT_SIDS` (I prepare the exact value, you paste it):
+
+```
+T1 od HX…   T1 en HX…
+T2 od HX…   T2 en HX…
+T4 od HX…   T4 en HX…
+T5 od HX…   T5 en HX…
+T6 od HX…   T6 en HX…
+T7 od HX…   T7 en HX…
+T8 od HX…   T8 en HX…
+```
+
+## 10. Odia wording to write (owner / staff)
+
+One column to fill: the Odia for every line. Today's Odia is kept where it exists; change it if you like.
+Button titles: at most 20 characters.
+
+| Code | English | Odia (today's, or *to write*) |
+|---|---|---|
+| T1 body | Johar {{1}}! What would you like? | *to write* |
+| T1 buttons | Same as last time · New order · Talk to us | *to write* |
+| T2 body | Johar! Bluemins packaged drinking water. What would you like? Type ENGLISH or ଓଡ଼ିଆ to change the language. | today's welcome: "ଅଜ୍ଞ୍ୟା ଜୁହାର... ଆପଣକୁ କେନ ଟା ଦରକାର ଅଛେ ଯେ ବାଛି ଦଉନ…" (adapt) |
+| T2 buttons | Order water · Talk to us · Feedback | *to write* |
+| T4 body / buttons | Which size? · 1L box (12) · 500ml box (24) · 250ml box (35) | today: "1L - ବକ୍ସ୍ (12) ଟା" · "500ml ବକ୍ସ୍ ( 24 ଟା)" · *250 ml to write* |
+| M5 | How many boxes of {size}? (1, 2, 5 …) | today: "{size} ବାଛ୍ ଲେ ଆପଣ .. କେତେଟା ବକ୍ସ୍ ଦରକାର ଯେ ଲେଖି ଦଉନ \| ( 1 / 2 କି 5 ...)" |
+| T5 body / buttons | Added {{1}}. Anything more? · Add another size · That's all | today: "ଆଉ କିଛି ଲାଗବା ଭାଏଲ.....? କି ଅପଣଂକର ସବୁ ହେଇଗଲା!" · *add another: to write* · "ଆଉ ନାଇଁ ଲାଗେ କିଛି" (17 letters: fits) |
+| T6 body / buttons | Deliver near {{1}} again? Or type a new landmark. · Yes, same place · Skip | *to write* |
+| M6 | Where should we deliver? Type a landmark (for example: near the Shiv temple), or SKIP. | *to write* |
+| M1 | Please check your order: … Our team will call you about the price. | today's new-customer confirm is close: "{name} ଆଜ୍ଞ୍ୟା , ଅପଣଂକର ଅଡର …" (adapt; no "YES" line, the buttons follow) |
+| T7 body / buttons | Place this order? · YES · EDIT · CANCEL | *to write* (button IDs stay English; titles may be Odia, e.g. ହଁ) |
+| M2 | Thank you. Your order {ref} is placed. Our team will call you about the price and delivery. | *to write* |
+| T8 body / buttons | (consent question above) · Yes, remind me · No thanks | *to write* (decision 7) |
+| M3 / M4 | Thank you. We will remind you… · Okay, no reminders. Thank you. | *to write* |
+| M7 / M8 | What name should we write for this order? · Where should we deliver? Village / landmark. | today: "ଆମକୁ ଲାଗୁଛେ ଯେ ଇଟା ଅପଣଂକର ପହେଲା ଅଡର ଆଏ…" · "ଧନ୍ୟବାଦ ଆଜ୍ଞ୍ୟା ! କେନ ଜାଗା କେ ସମାନ୍ ଯିବା…" |
+| M10 | Thank you. We have noted your order. Our team will call you to confirm it. | *to write* |
+| M11 / M12 | Thank you! Send ORDER whenever you need water again. · Sorry about that. Our team will call you. | *to write* |
+| M14 | Prices depend on the order: our team will call you with today's price. Send ORDER to place one, or PERSON to talk to us. | *to write* |
+| M15 / M16 / M17 | language switched · Hindi reply · order already placed | *to write* |
+| M13, M18–M24 | today's STOP / handoff / HELP / MENU / CANCEL / PERSON / START texts (`texts.js`) | *to write* (11 short lines; I send them as a list) |
+
+## 11. Order of work
+1. Owner: decisions 1–7 (section 7, plus 7 below) — **by 27 Oct**.
+2. Owner / staff: Odia column of section 10 — **by 28 Oct** (a photo of handwritten text is fine).
+3. Owner: create the 14 templates in Twilio (section 9, about 45 minutes) and send me the HX ids — **by 29 Oct**.
+4. Claude: build + tests in the bot repo (3.5.0 on `main`) — **29–31 Oct**.
+5. Owner: "go live" → `CONTENT_SIDS` on Railway, Deploy, phone test (section 6) — **~1 Nov**, a week before the first
+   reminders.
+
+**Decision 7 (consent wording in Odia):** (a) **yes: the Odia consent question is used for Odia chats and saved as
+optin-v1-od** *(recommended: a customer must understand what they agree to)* · (b) keep the consent question in English
+only.
