@@ -24,34 +24,40 @@ Both repos open together in VS Code with `~/projects/bluemins.code-workspace`.
 
 ---
 
-## 0. Handover: start the next session here (2026-10-24, evening)
+## 0. Handover: start the next session here (2026-10-25, 00:30 IST)
 
-**Where it stopped:** Steps R, 0–3 **done and live**. **Step 4 code is live** (2026-10-24): migration
-`0005_reminders.sql` applied, Order Capture v0.31.0 (`e15c585`), bot 3.4.0 (`7e308ae`). Customers are now asked about
-reminders after a WhatsApp order and STOP / START are recorded. **The reminder pilot is switched on** (owner,
-2026-10-24): `ORDER_REMINDERS=on`, `REMINDER_PILOT_START=2026-10-25` (pilot to 2026-12-19), cost, template SID and the
-cron-job.org job "Reminders" (#12, daily 10:30 IST; test run 200 `{"on":true,"start":"2026-10-25","plants":[]}`).
-**First reminders can go on 2026-11-09**, only to customers who agreed by then.
+**Where it stopped:** Steps R, 0–4 **done and live**. The reminder pilot runs 2026-10-25 → 2026-12-19; first reminders
+can go on **2026-11-09**, only to customers who agreed by then. **Next work: the chat plan
+`docs/WHATSAPP_CHAT_PLAN.md`** (owner's TODO #1, bot + Twilio only, no Order Capture change), to be live before 9 Nov.
 
-| Item | State on 2026-10-24 |
+| Item | State on 2026-10-25 00:30 IST |
 |---|---|
-| Bot (`whatsappbot`, project `bluemins-whatsapp-bot`) | 3.4.0 live (`7e308ae`, tag `3.4.0`), `BOT_ORDERS=on`: every switched-on Order Capture customer orders into Order Capture and is asked about reminders once; unknown numbers = Sheet leads. `on` only since deployment `605e3992` (22:21 IST): until then the variable was saved but not deployed and the bot ran `pilot (2 numbers)`. Deploy Logs now "Orders into Order Capture: on", no Redis errors. |
-| PlantOps (shared copy) | v0.31.0 live (`e15c585`), migration `0005` applied, checks OK (`docs/deployments/shared.md`). Step 4 settings on `order-capture` set (2026-10-24): reminders on, pilot from 2026-10-25. |
-| Reminder template | `bluemins_reorder_reminder_v1` = `HXfd4deefc3196d6fa0e468484f6b3a49c`, **approved by Meta** (2026-10-24). |
-| Step 3 pilot leftovers | "ok" instead of YES, 201 boxes, a non-listed number → `lead`, cancel test order O-0069 (owner, later). |
+| Bot (`whatsappbot`, project `bluemins-whatsapp-bot`) | 3.4.0 live (`7e308ae`), `BOT_ORDERS=on` since deployment `605e3992` (2026-10-24 22:21 IST; before that the variable was saved but not deployed, bug B-20). Owner's live test O-0072 + reminder consent OK (22:39). `main` = `eaf2191` (docs link only). |
+| PlantOps (shared copy) | **v0.31.2 live** (`0b8e961`): v0.31.0 Step 4 + v0.31.1 / v0.31.2 Attendance "See as worker" slip preview. Checks OK (`docs/deployments/shared.md`). |
+| Reminder template | `bluemins_reorder_reminder_v1` = `HXfd4deefc3196d6fa0e468484f6b3a49c`, approved by Meta. |
+| Chat plan | `docs/WHATSAPP_CHAT_PLAN.md` written 2026-10-24 (plan only): problems P1–P7 from the Sheet logs, changes C1–C5, script (section 8), **14 Twilio templates** (section 9), Odia wording list (section 10), timeline (section 11). |
+| Bugs to know | B-21 Twilio Debugger 93101 "webhook 404" (a console setting; owner to note the URL); B-18 empty "Redis error" log lines (fix with the next bot release). `docs/BUGS.md`. |
 | Bot key | Only in Railway (`whatsappbot`) and the owner's password manager. Rotation: `docs/DEPLOY.md` "WhatsApp bot key". |
 
 **Next session, in this order:**
-1. Owner: ~~Deploy Logs "on"~~ done 2026-10-24 22:21. ~~Test order + reminder question~~ done 22:39 (O-0072, reply 1 →
-   "Reminders" tag; cancel O-0072 with O-0069 as test orders). Twilio Monitor → Errors: any 11200 between 20:11 and 21:59 IST
-   (container stopped at 20:11, started again 21:59)?
-2. ~~Owner's settings (section 9 steps 4–8)~~ done 2026-10-24.
-3. Staff start ticking "Agreed to WhatsApp reminders" (Customers → Edit) after asking on the phone.
-4. Step 5 (learn from the pilot) after the 8 weeks.
+1. **Owner: the 7 decisions** in `WHATSAPP_CHAT_PLAN.md` section 7 + decision 7 in section 11 (my recommendations:
+   1a Odia first, 2a no Hindi now, 3a remember the landmark, 4a "team will call with today's price", 5 new templates by
+   the owner / old ones kept, 6 owner or staff writes the Odia, 7a Odia consent saved as `optin-v1-od`). Target 27 Oct.
+2. **Owner / staff: the Odia column** (section 10, ~25 lines; a photo is fine). Target 28 Oct.
+3. **Owner: create the 14 templates in Twilio** (section 9) and send the HX ids. Target 29 Oct.
+4. **Claude: plan → build in the bot repo** (release 3.5.0 on `main`, tests replaying the 20 Sep lost order and the
+   9 Oct chat; include B-18). Plan first and wait for "build", as for every step. 29–31 Oct.
+5. **Go live ~1 Nov** on the owner's word: `CONTENT_SIDS` on Railway → **Deploy** (never Restart) → read the startup
+   line → owner's phone test (section 6 of the chat plan).
+6. Meanwhile: staff tick "Agreed to WhatsApp reminders" (Customers → Edit); cancel test orders O-0069 and O-0072;
+   Twilio 93101 URL (B-21).
+7. Step 5 (learn from the pilot) after 2026-12-19.
 
 **Rules learnt:** give a recommendation with every question (owner); never push a bot release before its Railway
-variables exist; keys are written to private scratch files, never printed into the chat; stage only named files when
-committing (the owner keeps uncommitted work in the tree).
+variables exist; after changing a Railway variable click **Deploy** / Redeploy, never Restart, and read the startup line
+(B-20); keys are written to private scratch files, never printed into the chat; stage only named files when
+committing (the owner keeps uncommitted work in the tree, e.g. `scripts/rotate-railway-secrets.sh`); if a doc on
+disk suddenly loses recent changes, an old editor copy was saved over it: say so, don't commit it.
 
 ## 1. Where things stood (2026-10-20)
 
@@ -494,4 +500,5 @@ design.
 | 2026-10-24 | 4 (pilot on) | Owner set `REMINDER_COST_PAISE`, the template SID in `TWILIO_WHATSAPP_SENDERS`, `REMINDER_PILOT_START=2026-10-25` and `ORDER_REMINDERS=on`; cron-job.org job #12 "Reminders" (`POST /api/cron/reminders`, daily 10:30 Asia/Kolkata; first saved with `/reminder` → 404, corrected). Test run 200 `{"on":true,"start":"2026-10-25","plants":[]}`. Pilot 2026-10-25 → 2026-12-19; first reminders due 2026-11-09. |
 | 2026-10-24 | 3 (correction) | Deploy Logs of 3.4.0 (`25042e60`, also after its 21:59 restart) still said `pilot (2 numbers)`: `BOT_ORDERS=on` had been saved in Railway but never deployed (a Restart keeps the old values). Owner deployed it: `605e3992` (22:21 IST) "Orders into Order Capture: on". Before that, only the 2 pilot numbers ordered into Order Capture; other customers' orders went to the Sheet as leads. **Rule:** after changing a Railway variable, click Deploy on the banner (or Redeploy), never Restart, and read the startup line. |
 | 2026-10-24 | 4 | Owner's live test from 78488 65680 (22:38): REPEAT offer, Odia menu, landmark, YES → O-0072 in Order Capture, reminder question, reply 1 → "Reminders" tag on Customers. Step 4's bot side works live. |
+| 2026-10-24 | chat | Owner moved the chatbot to TODO #1 (before 9 Nov) and gave the Sheet logs; `docs/WHATSAPP_CHAT_PLAN.md` written (bot + Twilio only): problems, changes, script, 14 Twilio templates, Odia list. Waits for the owner's decisions. |
 | 2026-10-20 | — | This plan written. |
