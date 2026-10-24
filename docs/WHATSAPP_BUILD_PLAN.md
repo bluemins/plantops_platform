@@ -42,8 +42,8 @@ cron-job.org job "Reminders" (#12, daily 10:30 IST; test run 200 `{"on":true,"st
 | Bot key | Only in Railway (`whatsappbot`) and the owner's password manager. Rotation: `docs/DEPLOY.md` "WhatsApp bot key". |
 
 **Next session, in this order:**
-1. Owner: ~~Deploy Logs "on"~~ done 2026-10-24 22:21. A test order from 78488 65680 ends with the reminder question
-   (reply 1 → Customers shows the "Reminders" tag). Twilio Monitor → Errors: any 11200 between 20:11 and 21:59 IST
+1. Owner: ~~Deploy Logs "on"~~ done 2026-10-24 22:21. ~~Test order + reminder question~~ done 22:39 (O-0072, reply 1 →
+   "Reminders" tag; cancel O-0072 with O-0069 as test orders). Twilio Monitor → Errors: any 11200 between 20:11 and 21:59 IST
    (container stopped at 20:11, started again 21:59)?
 2. ~~Owner's settings (section 9 steps 4–8)~~ done 2026-10-24.
 3. Staff start ticking "Agreed to WhatsApp reminders" (Customers → Edit) after asking on the phone.
@@ -493,4 +493,5 @@ design.
 | 2026-10-24 | 4 (go-live) | Owner "release": Order Capture migration `0005` applied, v0.31.0 live (`e15c585`; reminder job and consent endpoints 401 without secret / key; all `/health` OK); bot 3.4.0 pushed (`7e308ae`). Reminders stay off until the owner's settings (section 0). |
 | 2026-10-24 | 4 (pilot on) | Owner set `REMINDER_COST_PAISE`, the template SID in `TWILIO_WHATSAPP_SENDERS`, `REMINDER_PILOT_START=2026-10-25` and `ORDER_REMINDERS=on`; cron-job.org job #12 "Reminders" (`POST /api/cron/reminders`, daily 10:30 Asia/Kolkata; first saved with `/reminder` → 404, corrected). Test run 200 `{"on":true,"start":"2026-10-25","plants":[]}`. Pilot 2026-10-25 → 2026-12-19; first reminders due 2026-11-09. |
 | 2026-10-24 | 3 (correction) | Deploy Logs of 3.4.0 (`25042e60`, also after its 21:59 restart) still said `pilot (2 numbers)`: `BOT_ORDERS=on` had been saved in Railway but never deployed (a Restart keeps the old values). Owner deployed it: `605e3992` (22:21 IST) "Orders into Order Capture: on". Before that, only the 2 pilot numbers ordered into Order Capture; other customers' orders went to the Sheet as leads. **Rule:** after changing a Railway variable, click Deploy on the banner (or Redeploy), never Restart, and read the startup line. |
+| 2026-10-24 | 4 | Owner's live test from 78488 65680 (22:38): REPEAT offer, Odia menu, landmark, YES → O-0072 in Order Capture, reminder question, reply 1 → "Reminders" tag on Customers. Step 4's bot side works live. |
 | 2026-10-20 | — | This plan written. |
