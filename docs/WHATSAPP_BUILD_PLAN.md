@@ -35,15 +35,16 @@ cron-job.org job "Reminders" (#12, daily 10:30 IST; test run 200 `{"on":true,"st
 
 | Item | State on 2026-10-24 |
 |---|---|
-| Bot (`whatsappbot`, project `bluemins-whatsapp-bot`) | 3.4.0 live (`7e308ae`, tag `3.4.0`), `BOT_ORDERS=on`: every switched-on Order Capture customer orders into Order Capture and is asked about reminders once; unknown numbers = Sheet leads. Not yet seen in Deploy Logs by the owner (check "Orders into Order Capture: on"). |
+| Bot (`whatsappbot`, project `bluemins-whatsapp-bot`) | 3.4.0 live (`7e308ae`, tag `3.4.0`), `BOT_ORDERS=on`: every switched-on Order Capture customer orders into Order Capture and is asked about reminders once; unknown numbers = Sheet leads. `on` only since deployment `605e3992` (22:21 IST): until then the variable was saved but not deployed and the bot ran `pilot (2 numbers)`. Deploy Logs now "Orders into Order Capture: on", no Redis errors. |
 | PlantOps (shared copy) | v0.31.0 live (`e15c585`), migration `0005` applied, checks OK (`docs/deployments/shared.md`). Step 4 settings on `order-capture` set (2026-10-24): reminders on, pilot from 2026-10-25. |
 | Reminder template | `bluemins_reorder_reminder_v1` = `HXfd4deefc3196d6fa0e468484f6b3a49c`, **approved by Meta** (2026-10-24). |
 | Step 3 pilot leftovers | "ok" instead of YES, 201 boxes, a non-listed number → `lead`, cancel test order O-0069 (owner, later). |
 | Bot key | Only in Railway (`whatsappbot`) and the owner's password manager. Rotation: `docs/DEPLOY.md` "WhatsApp bot key". |
 
 **Next session, in this order:**
-1. Owner: bot Deploy Logs show "Orders into Order Capture: on" for 3.4.0; a test order from 78488 65680 ends with the
-   reminder question (reply 1 → Customers shows the "Reminders" tag).
+1. Owner: ~~Deploy Logs "on"~~ done 2026-10-24 22:21. A test order from 78488 65680 ends with the reminder question
+   (reply 1 → Customers shows the "Reminders" tag). Twilio Monitor → Errors: any 11200 between 20:11 and 21:59 IST
+   (container stopped at 20:11, started again 21:59)?
 2. ~~Owner's settings (section 9 steps 4–8)~~ done 2026-10-24.
 3. Staff start ticking "Agreed to WhatsApp reminders" (Customers → Edit) after asking on the phone.
 4. Step 5 (learn from the pilot) after the 8 weeks.
@@ -491,4 +492,5 @@ design.
 | 2026-10-24 | 4 | Owner: Step 4 before the area list (area list waits until the bot takes new customers); **Order Capture sends the reminder** (not the delivered event); 10:30 IST; migration `0005_reminders.sql` approved; template `HXfd4deefc3196d6fa0e468484f6b3a49c` approved by Meta. Built on `main` in both repos: Order Capture v0.31.0 (consent, staff tick, reminder job, pilot page, bot consent call), bot 3.4.0 (question after an order, STOP / START recorded, reminder buttons). Not deployed; release steps in section 9. |
 | 2026-10-24 | 4 (go-live) | Owner "release": Order Capture migration `0005` applied, v0.31.0 live (`e15c585`; reminder job and consent endpoints 401 without secret / key; all `/health` OK); bot 3.4.0 pushed (`7e308ae`). Reminders stay off until the owner's settings (section 0). |
 | 2026-10-24 | 4 (pilot on) | Owner set `REMINDER_COST_PAISE`, the template SID in `TWILIO_WHATSAPP_SENDERS`, `REMINDER_PILOT_START=2026-10-25` and `ORDER_REMINDERS=on`; cron-job.org job #12 "Reminders" (`POST /api/cron/reminders`, daily 10:30 Asia/Kolkata; first saved with `/reminder` → 404, corrected). Test run 200 `{"on":true,"start":"2026-10-25","plants":[]}`. Pilot 2026-10-25 → 2026-12-19; first reminders due 2026-11-09. |
+| 2026-10-24 | 3 (correction) | Deploy Logs of 3.4.0 (`25042e60`, also after its 21:59 restart) still said `pilot (2 numbers)`: `BOT_ORDERS=on` had been saved in Railway but never deployed (a Restart keeps the old values). Owner deployed it: `605e3992` (22:21 IST) "Orders into Order Capture: on". Before that, only the 2 pilot numbers ordered into Order Capture; other customers' orders went to the Sheet as leads. **Rule:** after changing a Railway variable, click Deploy on the banner (or Redeploy), never Restart, and read the startup line. |
 | 2026-10-20 | — | This plan written. |
