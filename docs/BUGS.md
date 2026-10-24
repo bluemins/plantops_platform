@@ -24,10 +24,14 @@ it; Claude adds to it when asked ("add this to the bugs") or when something is f
 | B-09 | P2 | All | No uptime check | Error log live (v0.25.5). **Owner:** make the UptimeRobot account (once a day per address) |
 | B-07 | P2 | Notifications | Too many alerts, most never read | **Owner:** switch Lab Records off for 001 (or set "no tests today" to Off); resolve the open complaints. A daily-summary option is in TODO |
 | B-06 | P2 | All | Trials done on the real plant | Demo plant 999 exists. **Claude, when the owner says:** finish the demo trials (list in STABILITY_PLAN B-06) |
+| B-22 | P2 | Job applications | Turnstile spam check not showing on the apply form although its keys were added (2026-10-17); only the trap field and send limits protect the public page | open. Owner: check the names are exactly `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET`, both filled, staged change deployed (not Restart); then re-check `/apply` |
+| B-24 | P2 | Platform (iPhone) | Unverified: on an iPhone, opening a notification may ask for the login again (the Home Screen app keeps its own cookies; `docs/notifications.md` finding 4). iPhone push never tested | open: test with an iPhone (TODO "Owner checks") |
 | B-11 | P3 | Job applications | Hourly send limit in memory; may count Railway's proxy address, not the phone | open: check, then fix |
 | B-13 | P3 | Floor Stock | History pages stop at 120 counts / 60 days | open: later |
 | B-14 | P3 | Lab Records | Form 3 "Record of Test Report" prints empty | open: ask a plant what it should show |
 | B-21 | P3 | Twilio console | 2026-10-24: Twilio Debugger error **93101** "Error delivering event to webhook: 404 Not Found" at 17:50, 18:35 and 22:38 IST. Neither the bot nor Order Capture sets a callback, so a console setting (Event Streams webhook or the sender's status callback URL) points at an address that doesn't exist. Messages still deliver (22:38 test order worked) | open. Owner: click one 93101 entry in the Debugger, note the webhook URL; recommended fix: remove that webhook / status callback if nothing uses it |
+| B-23 | P3 | Timed jobs | A GitHub "Daily jobs" run with a (!) icon next to #31 on 2026-10-17: cancelled duplicate or a failure? | open: Claude checks the run (GitHub is only a safety net since cron-job.org) |
+| B-25 | P3 | Floor Stock | Store keepers can correct only today / yesterday; an older wrong count can't be fixed by anyone (one of the 5 "Decisions to confirm") | open: owner decides with the other four (`apps/floor-stock/NOTES.md`) |
 | B-18 | P3 | Bot | "Redis error:" log lines are empty (the bot prints only the error text, which is blank for connection failures), so the cause can't be read | open: one-line fix to print the error code (bot `src/server.js`), with the next bot release |
 
 ## Closed / accepted
@@ -45,5 +49,5 @@ it; Claude adds to it when asked ("add this to the bugs") or when something is f
 
 ## How to add one
 
-Next free ID: **B-22**. Add a row under Open with the date in the issue text, where it happens, what goes wrong and
+Next free ID: **B-26**. Add a row under Open with the date in the issue text, where it happens, what goes wrong and
 what is known so far. Claude sets the priority with a reason; the owner can change it.
