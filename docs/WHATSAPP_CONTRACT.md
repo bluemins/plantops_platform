@@ -646,7 +646,8 @@ customer in Order Capture; recorded with source `staff_phone`, who ticked it and
 
 ### 4.9 Reorder reminder template (for Twilio / Meta approval; Step 4)
 
-**Submitted to Twilio by the owner on 2026-10-20** (Meta approval pending; record the template's `HX…` SID and the result here). The owner submitted it in Twilio Console → Content Template Builder. Approval does not allow sending: nothing is sent
+**Submitted to Twilio by the owner on 2026-10-20.** SID `HXfd4deefc3196d6fa0e468484f6b3a49c`; Meta approval still
+pending on 2026-10-24 (record the result here). The owner submitted it in Twilio Console → Content Template Builder. Approval does not allow sending: nothing is sent
 before the Step 4 build, the tests and the owner's go-live.
 
 | Field | Value |

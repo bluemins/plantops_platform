@@ -366,7 +366,8 @@ the opt-in question, the reminder's buttons, STOP / START.
 don't exist yet); the area check (no area list); Odia texts.
 
 **Owner answers (2026-10-24):** Order Capture sends the reminder (the design above); the template
-`bluemins_reorder_reminder_v1` is **approved by Meta** (its `HX…` SID still to be recorded); send at **10:30 IST**.
+`bluemins_reorder_reminder_v1` = `HXfd4deefc3196d6fa0e468484f6b3a49c`, **still waiting for Meta's approval** (owner,
+2026-10-24; nothing is sent before it is approved); send at **10:30 IST**.
 Open: the migration `0005_reminders.sql` (draft shown to the owner), then "build".
 
 **Prompt 4:**
