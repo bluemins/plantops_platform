@@ -26,9 +26,9 @@ Both repos open together in VS Code with `~/projects/bluemins.code-workspace`.
 
 ## 0. Handover: start the next session here (2026-10-24)
 
-**Where it stopped:** Steps R, 0, 1 and 2 are **done and live**. **Step 3 is built** on `main` in both repos (Order
-Capture v0.30.0, bot 3.3.0), **not deployed**. Next: the release and the staff-number pilot (section 8, "Release and
-pilot").
+**Where it stopped:** Steps R, 0, 1 and 2 are **done and live**. **Step 3 is live in pilot mode** (2026-10-24): Order
+Capture v0.30.0 (`a7bf54c`) and bot 3.3.0 (`94694b7`, `BOT_ORDERS=pilot`, 2 staff numbers). Next: the owner's pilot
+checklist (section 8 step 4), then `BOT_ORDERS=on` (step 5).
 
 | Item | State on 2026-10-24 |
 |---|---|
@@ -40,9 +40,8 @@ pilot").
 | Repo note | `docs/HANDBOOK.md` change in `c7be459` kept (owner, 2026-10-24). `scripts/rotate-railway-secrets.sh` is still uncommitted (owner's). |
 
 **Next session, in this order:**
-1. Owner says **"release"** → section 8 "Release and pilot" steps 1–3: Order Capture v0.30.0 live first, then bot 3.3.0
-   with `BOT_ORDERS=pilot` and the staff numbers.
-2. Owner: the pilot checklist (step 4) from staff phones; then `BOT_ORDERS=on` (step 5).
+1. ~~Release steps 1–3~~ done 2026-10-24 (pilot numbers 78488 65680, 79992 93831).
+2. Owner: the pilot checklist (step 4) from those phones; then `BOT_ORDERS=on` (step 5).
 3. After the pilot: the area list (schema change: table + Areas screen in Order Capture, ask first), then Step 4.
 
 **Rules learnt:** give a recommendation with every question (owner); never push a bot release before its Railway
@@ -413,4 +412,5 @@ design.
 | 2026-10-23 | 3 (plan) | Design proposed (section 8). Owner: area list after the pilot; ask the landmark once with SKIP. |
 | 2026-10-24 | 2 | Owner's live checks: "not great" and PERSON both raise the bell alert. HANDBOOK change in `c7be459` kept. |
 | 2026-10-24 | 3 | Built on `main` in both repos (owner "build"): Order Capture v0.30.0 (create through the staff save, by key, off switch, 14 tests) and bot 3.3.0 (landmark → summary → YES → Order Capture, background finish by key, leads, 200-box limit, `BOT_ORDERS` off / pilot / on, PERSON support hours, 19 tests). Not deployed; release and pilot steps in section 8. |
+| 2026-10-24 | 3 (go-live) | Order Capture v0.30.0 live (`a7bf54c`, no migration; new endpoints 401 without the key). Owner set `BOT_ORDERS=pilot`, `BOT_ORDERS_PILOT_PHONES` = 2 numbers (Rocky 78488 65680, "Test Order Customer" 79992 93831, both Order Capture customers). Bot 3.3.0 live (`production` = `94694b7`, Railway deployment `0b4df3a2`, 18:32 IST): Deploy Logs "Orders into Order Capture: pilot (2 numbers)", signatures enforced, `/health` 200. Next: the pilot checklist (section 8 step 4). |
 | 2026-10-20 | — | This plan written. |
