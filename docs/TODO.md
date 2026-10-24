@@ -121,7 +121,7 @@ Add new ideas here (one line each, with the date). They move up to "Next" or "La
 
 | Date | Work |
 |---|---|
-| 2026-10-24 | Attendance "See as worker" slip preview for the owner (v0.31.1) |
+| 2026-10-24 | Attendance "See as worker" slip preview for the owner (v0.31.1, tested by the owner on Ramu); salary type name removed from the worker's slip (v0.31.2). Overtime now counted to the minute (owner: "earlier not that precise, now precise") |
 | 2026-10-24 | WhatsApp Steps 3–4 live; reminder pilot on from 2026-10-25; `BOT_ORDERS=on` deployed; owner's test order O-0072 + consent |
 | 2026-10-23 | Attendance lunch break, short days, three salary types (v0.29.1–v0.29.3); WhatsApp Step 2 (v0.29.0) |
 | 2026-10-20 | Attendance "Mark days" (v0.28.0) |
