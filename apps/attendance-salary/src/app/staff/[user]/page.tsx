@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { fmtMonth } from "@/lib/days";
 import { can } from "@/server/access";
 import { personClaims } from "@/server/claims";
 import { monthFor } from "@/server/calendar";
@@ -56,6 +57,11 @@ export default async function PersonMonthPage({ params, searchParams }: { params
       {salary && (
         <>
           <SalaryStrip month={salary.month} figures={salary.figures} />
+          {salary.figures && (
+            <a href={`/staff/${personId}/slip/${salary.month}`} className="flex min-h-11 items-center font-semibold text-(--brand)">
+              See as worker: {fmtMonth(salary.month)} slip ›
+            </a>
+          )}
           {can(user, "salary_edit") ? (
             <>
               <SalaryBox personId={personId} applies={salary.applies} history={salary.history} thisMonth={salary.thisMonth} months={fromMonthChoices(salary.thisMonth)} expect={salary.expect.setting} />

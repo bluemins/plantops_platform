@@ -8,7 +8,7 @@ import type { FrozenMonth } from "@/lib/salary";
 import { can, requireAccess } from "./access";
 import { schema, withTenant, type AtTx } from "./db";
 import { notFound } from "./http";
-import { frozenOf } from "./salary";
+import { freezeMonth, frozenOf, salaryMonths } from "./salary";
 import type { AtUser } from "./session";
 
 const { salaryVisibility, salaryPayments, salaryPaymentUndos } = schema;
@@ -65,6 +65,44 @@ export async function myPayments(user: AtUser): Promise<MyPayment[]> {
     }
     return out;
   });
+}
+
+/** How a slip's month was (or would be) paid: a real payment, or the owner's preview before marking it paid. */
+export type SlipPayment = Pick<MyPayment, "paidOn" | "paidPaise" | "remainingPaise" | "byName" | "note"> | { preview: true; remainingPaise: number };
+
+export interface SlipPreview {
+  name: string;
+  /** the worker's "Can see own salary" tick: without it they see none of this */
+  canSee: boolean;
+  /** every day of the month is over (otherwise the figures are "so far") */
+  complete: boolean;
+  figures: FrozenMonth;
+  /** the real payment when the month is paid (the worker's slip shows exactly that), else what marking it paid now would save */
+  payment: SlipPayment;
+}
+
+/**
+ * Owner's "See as worker" (owner 2026-10-24): one person's slip for one month exactly as the worker sees it. A paid
+ * month shows its frozen figures; an unpaid one shows freezeMonth() as it stands, i.e. what "Mark paid" would save
+ * now. Owner and PlantOps support only (`salary_view`); no salary setting that month, or a future month: 404.
+ */
+export async function slipPreview(user: AtUser, personId: string, month: string, now?: Date): Promise<SlipPreview> {
+  requireAccess(user, "salary_view");
+  const person = (await salaryMonths(user, month, { personId, now })).people[0];
+  const c = person?.current;
+  if (!person || !c) throw notFound();
+  const canSee = await withTenant(user.tenantId, async (tx) => (await visibilityMap(tx, user.tenantId)).get(personId) ?? false);
+  const frozen = c.payment ? frozenOf(c.payment.figures) : null;
+  const paid = c.payment && frozen;
+  return {
+    name: person.name,
+    canSee,
+    complete: c.counted.complete,
+    figures: paid ? frozen : freezeMonth(c),
+    payment: paid
+      ? { paidOn: c.payment!.paidOn, paidPaise: c.payment!.paidPaise, remainingPaise: c.payment!.remainingPaise, byName: c.payment!.createdByName, note: c.payment!.note }
+      : { preview: true, remainingPaise: c.chain.live.remainingPaise },
+  };
 }
 
 /** One paid month's slip, from its frozen figures. 404 in every other case. */

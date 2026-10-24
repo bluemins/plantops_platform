@@ -777,3 +777,15 @@ The owner on 2026-10-23, seeing Damayanti's 9 OFF days paid: "days off means no 
 - Live at the time (read-only): OFF days this month for Anmol 5, Damayanti 9, Ramu 4, Dillip / dirju / Gaja / joshobanti
   / reeta / sushil 1 each; none paid yet. Reeta to 22 Oct ₹4,906.77, Damayanti ₹1,024.16 (tests).
 - Tests: day-marks rule 20 tests rewritten for rule 22, `short-days.test.ts` +1.
+
+## 2026-10-24: "See as worker" slip preview (v0.31.1)
+Asked by the owner 2026-10-24: "before enabling the salary to employees, as owner I want to see what staff will see".
+- Staff → person (salary month shown) → **"See as worker: <month> slip ›"** → `/staff/<id>/slip/<month>`: the person's
+  slip exactly as their My salary page draws it, under an amber note (ticked or not, paid or not, month over or not,
+  "advance and expense notes are shown as typed").
+- One slip drawing for both: `src/app/slip-card.tsx` (`slipCard()`, called as a function so tests read its text),
+  moved out of `my/salary/[month]/page.tsx` unchanged except the preview case ("Not paid yet", "Paid on … by …").
+- `slipPreview()` in `src/server/salary-slip.ts`: `salary_view` (owner + support read-only); a paid month shows its
+  frozen figures and real payment, an unpaid one `freezeMonth()` as it stands = what Mark paid would save now (paid
+  amount = remaining, never below 0). No salary that month / future month: 404; Office staff 404, others 403.
+- No migration, no API, no change to what a worker can open. Tests: `slip-preview.test.ts` (3), Attendance 464.
