@@ -36,15 +36,15 @@ owner's two answers; **building it waits for the owner's "build"**.
 | Bot key | Only in Railway (`whatsappbot`) and the owner's password manager; scratch copies deleted. Rotation: `docs/DEPLOY.md` "WhatsApp bot key". |
 | Live checks | No / wrong key 401; unknown number "not found"; Basanta cafe (…8874) matched the database (O-0061, 10 box 1L). Owner: "Step 2 works". |
 | Plant 001 Business details | Support phone 7090443303, hours "10 am to 6 pm (MON - SAT )" (stray space before ")": owner may tidy). |
-| Open check | Order Capture logged 3 `bot.context` calls and **no `bot.alert`** yet: PERSON and "feedback" → "not great" not yet seen to raise the bell / phone alert. Try both once (read-only check: `audit_log` action `bot.alert`). |
-| Repo note | Commit `c7be459` on PlantOps `main` also took the owner's uncommitted `docs/HANDBOOK.md` change (secrets table + "If the host leaks our secrets"; no secret values). Owner to decide: keep, or undo that part on `main`. `scripts/rotate-railway-secrets.sh` is still uncommitted (owner's). |
+| Alerts | **Both work live** (2026-10-24): "not great" → owner's bell "Unhappy customer: Rocky, Unknown" (5:50 pm); PERSON → "Wants to talk: Rocky, Unknown" (5:51 pm). PERSON outside an order replies with the bot's own `SUPPORT_HOURS` (same number), because Order Capture is only asked during an order: fix inside Step 3. |
+| Repo note | Commit `c7be459` also took the owner's `docs/HANDBOOK.md` change (secrets table + "If the host leaks our secrets"; no secret values): **kept** (owner, 2026-10-24). `scripts/rotate-railway-secrets.sh` is still uncommitted (owner's). |
 
 **Next session, in this order:**
-1. Owner: try PERSON and "feedback" → "not great" from a customer's number; check the bell / phone alert ("Wants to
-   talk: …", "Unhappy customer: …"). If none arrives, read the bot's Deploy Logs for `"call":"alert"` lines.
-2. Owner: the HANDBOOK commit question above.
+1. ~~Owner: try PERSON and "not great"~~ done 2026-10-24, both alerts arrive.
+2. ~~HANDBOOK commit question~~ kept (owner, 2026-10-24).
 3. Owner says **"build"** → build **Step 3** from section 8's "Design proposed 2026-10-23" (no schema change; Order
-   Capture first as v0.30.0, then bot 3.3.0; commit on `main` in both repos, do not deploy).
+   Capture first as v0.30.0, then bot 3.3.0; commit on `main` in both repos, do not deploy). Include: PERSON looks up
+   the customer so known customers get the Business details support hours.
 4. After building: release steps + **pilot with staff phone numbers only** (section 8 exit), then customers.
 5. After the pilot: the area list (schema change: table + Areas screen in Order Capture, ask first), then Step 4.
 
