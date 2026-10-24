@@ -1834,3 +1834,5 @@ Design `docs/WHATSAPP_BUILD_PLAN.md` section 8; owner "build" 2026-10-24 (after 
   answers finished by key in the background; others and the off switch → Sheet `lead`. `BOT_ORDERS` off (default) /
   pilot (staff numbers) / on.
 - **Tests:** Order Capture 320 (+14), bot 68 (+19). Not deployed; release and pilot steps in the build plan section 8.
+**Live (2026-10-24):** Order Capture v0.30.0 (`production` = `a7bf54c`, no migration), checks OK
+(`docs/deployments/shared.md`). Bot 3.3.0 waits for its Railway variables (`BOT_ORDERS=pilot`, pilot phones).
