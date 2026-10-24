@@ -473,10 +473,15 @@ services, not with plant use.
 
 Order chosen from section 2's usage (most used modules first) and dates that can't move.
 
+**Owner's next work, in this order (2026-10-24):** 1. **F8** Customer insights → 2. **F9** chatbot engagement and
+customer-interaction fixes → 3. **F1b** field day log. The rest below stays as listed.
+
 | # | Feature | Module | Why now |
 |---|---|---|---|
+| F8 | **Customer insights page** (owner only): delivery time by area, new vs repeat, reorder interval per product, orders per village (+ cancellations, pack mix, lapsed list); group-level only, no scores of individuals | Order Capture | **Next (owner #1, 2026-10-24).** Possible since WhatsApp Step 3 is live; design in `docs/WHATSAPP_BUILD_PLAN.md` section 11 (B3, B4, C1, C3, C5). Plan first; report only, no schema (a customer type field would be a separate ask) |
+| F9 | **Chatbot: more engaging, fix customer interaction** (wording, menus, Odia / English, drop-offs, misunderstood replies) | Bot (`~/projects/order_handoff`), maybe Order Capture | **Owner #2, 2026-10-24.** Start from real conversations (Sheet `Message_Logs`, `Sessions_Log`) to find where customers get stuck; Step 3 leftovers ("ok" for YES, 201 boxes, non-customer number). Rules-first, no AI; must not disturb the reminder pilot (to 2026-12-19) |
 | F1 | **Weekly off, holidays, leave requests** → built as **day marks** (owner marks a day ON / OFF, no times) | Attendance & Salary | **Live 2026-10-19 (v0.26.0)**, `docs/DAY_MARKS_PLAN.md`. Weekly-off rules, holiday lists and leave requests stay for later |
-| F1b | **Field day log** for Field staff (start / end km + photo, shop visits from Order Capture customers, GPS at each) | Attendance & Salary (+ lookup ticket: platform, Order Capture) | Asked by the owner 2026-10-19, after F1; plan `docs/FIELD_DAY_PHASE_PLAN.md`; claims untouched |
+| F1b | **Field day log** for Field staff (start / end km + photo, shop visits from Order Capture customers, GPS at each) | Attendance & Salary (+ lookup ticket: platform, Order Capture) | Asked by the owner 2026-10-19, after F1 (F1 live, so not blocked); plan `docs/FIELD_DAY_PHASE_PLAN.md`; claims untouched. **Owner #3 (2026-10-24)**; mock-ups still to approve |
 | F2 | **Demo plant set-up script** (fake users, products, sample data) | Platform | Makes B-06 easy and gives a plant demo for selling |
 | F3 | **Hindi / Odia screens**, staff modules first (Floor Stock count, Attendance scan, Order Capture) | All | Staff already type Hindi ("500ml ka stock check"); listed in CLAUDE.md UX |
 | F4 | **Fewer, better alerts:** daily summary option instead of every new order / still-open | Platform | 70–93 % unread (B-07) |
