@@ -29,6 +29,8 @@ export function describeChange(action: string, details: Record<string, unknown>)
       if (changes.active) parts.push(changes.active.to ? "switched on" : "switched off");
       return `Customer ${show(details.name)} (${phone(details.phone)}): ${parts.join(", ")}`;
     }
+    case "customer.reminders":
+      return `Customer ${show(details.name)} (${phone(details.phone)}): ${details.reminders ? "agreed to WhatsApp reminders (on the phone)" : "WhatsApp reminders stopped"}`;
     case "customers.upload":
       return `Uploaded customers${details.file ? ` from ${show(details.file)}` : ""}: ${show(details.added)} new, ${show(details.updated)} updated, ${show(details.unchanged)} unchanged, ${plural(details.rejected, "row")} rejected`;
     case "bot.order":

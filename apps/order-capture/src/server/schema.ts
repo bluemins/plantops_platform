@@ -114,14 +114,16 @@ export const notificationOutbox = oc.table("notification_outbox", {
   givenUpAt: ts("given_up_at"),
 });
 
-export type MessageStatus = "pending" | "sent" | "failed";
+export type MessageStatus = "pending" | "sent" | "failed" | "skipped";
+export type MessageKind = "delivery_thanks" | "reorder_reminder";
+export type SkipReason = "holdout" | "no_consent" | "newer_order" | "recent_reminder" | "customer_off" | "pilot_full" | "budget" | "pilot_ended";
 
 /** WhatsApp thank-you on "Delivered" (migration 0003): one per order, sent through Twilio. */
 export const customerMessages = oc.table("customer_messages", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull(),
   orderId: uuid("order_id").notNull(),
-  kind: text("kind").$type<"delivery_thanks">().notNull(),
+  kind: text("kind").$type<MessageKind>().notNull(),
   toPhone: text("to_phone").notNull(),
   status: text("status").$type<MessageStatus>().notNull().default("pending"),
   providerSid: text("provider_sid"),
@@ -131,4 +133,31 @@ export const customerMessages = oc.table("customer_messages", {
   requestedByName: text("requested_by_name").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
   sentAt: ts("sent_at"),
+  skipReason: text("skip_reason").$type<SkipReason>(),
+});
+
+export type ConsentStatus = "granted" | "declined" | "withdrawn";
+export type ConsentSource = "bot_after_order" | "staff_phone" | "whatsapp_stop" | "whatsapp_start" | "reminder_button";
+
+/** Consent to reorder reminders (migration 0005): append-only, a customer's consent = their newest row. */
+export const customerConsents = oc.table("customer_consents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  customerId: uuid("customer_id").notNull(),
+  scope: text("scope").$type<"reorder_reminder">().notNull(),
+  status: text("status").$type<ConsentStatus>().notNull(),
+  wording: text("wording").$type<"optin-v1">().notNull(),
+  source: text("source").$type<ConsentSource>().notNull(),
+  messageSid: text("message_sid"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+/** The reminder pilot's groups (migration 0005): drawn once per customer, never changed. */
+export const reminderGroups = oc.table("reminder_groups", {
+  tenantId: uuid("tenant_id").notNull(),
+  customerId: uuid("customer_id").notNull(),
+  grp: text("grp").$type<"remind" | "holdout">().notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
 });

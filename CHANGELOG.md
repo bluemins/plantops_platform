@@ -4,6 +4,26 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.31.0 — 2026-10-24 — WhatsApp reorder reminders: consent and the 15-day pilot (WhatsApp Step 4)
+
+**What's in it** (design `docs/WHATSAPP_BUILD_PLAN.md` section 9, owner "build" 2026-10-24)
+- **Consent:** a customer's answer about WhatsApp reorder reminders is kept for good (every Yes / No / Stop a new row).
+  It comes from the bot's question after an order, STOP / START on WhatsApp, the reminder's "Stop reminders" button, or
+  staff ticking **"Agreed to WhatsApp reminders"** on Customers → Edit after reading the question out. Customers with a
+  Yes show a "Reminders" tag.
+- **Reminder job** (`POST /api/cron/reminders`, cron-job.org daily 10:30 IST): one reminder 15 days after a delivery,
+  with the approved template, only to customers who said yes and haven't ordered again; 3 in 10 customers are held back
+  at random to compare; caps on customers (100), budget (₹500) and length (8 weeks). Anything due but not sent is kept
+  with its reason. A Twilio refusal stops the reminders and alerts the owners.
+- **Reminder pilot page** (owner, and PlantOps support read-only): who got reminders vs who was held back, who ordered
+  again within 7 / 14 days, opt-outs, cost estimate, the stop rules as checks.
+- Bot API: `POST /api/bot/v1/consent`; the context answer says the customer's newest answer.
+- **Off until set:** `ORDER_REMINDERS=on`, `REMINDER_PILOT_START`, and `reminder_content_sid` in the plant's
+  `TWILIO_WHATSAPP_SENDERS` entry. Goes with the bot's release 3.4.0 (deploy Order Capture first).
+
+**Migrations:** Order Capture `0005_reminders.sql` (two new append-only tables `customer_consents`,
+`reminder_groups`; `customer_messages` also holds reminders and a skip reason). Approved by the owner 2026-10-24.
+
 ## v0.30.0 — 2026-10-24 — WhatsApp orders go into Order Capture (WhatsApp Step 3)
 
 **What's in it** (design `docs/WHATSAPP_BUILD_PLAN.md` section 8, owner "build" 2026-10-24)

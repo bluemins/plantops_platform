@@ -21,6 +21,8 @@ export const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 export interface Sender {
   from: string;
   contentSid: string;
+  /** the plant's approved reorder-reminder template (WhatsApp Step 4); null = no reminders for this plant */
+  reminderContentSid?: string | null;
 }
 
 /** The plant's Twilio sender, or null (not set up, or the settings are broken: logged, never thrown). */
@@ -33,27 +35,28 @@ export function senderFor(tenantId: string): Sender | null {
     console.error("[order-capture] TWILIO_WHATSAPP_SENDERS is not valid JSON; WhatsApp thank-you is off");
     return null;
   }
-  const s = (all as Record<string, { from?: unknown; content_sid?: unknown }> | null)?.[tenantId];
+  const s = (all as Record<string, { from?: unknown; content_sid?: unknown; reminder_content_sid?: unknown }> | null)?.[tenantId];
   if (!s || typeof s.from !== "string" || typeof s.content_sid !== "string") return null;
   if (!/^(whatsapp:\+\d{8,15}|MG[0-9a-f]{32})$/i.test(s.from) || !/^HX[0-9a-f]{32}$/i.test(s.content_sid)) {
     console.error(`[order-capture] TWILIO_WHATSAPP_SENDERS entry for ${tenantId} is invalid; WhatsApp thank-you is off`);
     return null;
   }
-  return { from: s.from, contentSid: s.content_sid };
+  const reminder = typeof s.reminder_content_sid === "string" && /^HX[0-9a-f]{32}$/i.test(s.reminder_content_sid) ? s.reminder_content_sid : null;
+  return { from: s.from, contentSid: s.content_sid, reminderContentSid: reminder };
 }
 
 /** What the order page shows about this order's thank-you. */
 export interface ThanksView {
   /** the plant has a Twilio sender (the "Delivered" panel shows the tick box) */
   available: boolean;
-  message: { status: MessageStatus; error: string | null; at: string; sent_at: string | null; by: string } | null;
+  message: { status: Exclude<MessageStatus, "skipped">; error: string | null; at: string; sent_at: string | null; by: string } | null;
 }
 
 export async function thanksOf(tx: OcTx, tenantId: string, orderId: string): Promise<ThanksView> {
   const [m] = await tx.select().from(messages).where(and(eq(messages.tenantId, tenantId), eq(messages.orderId, orderId), eq(messages.kind, "delivery_thanks")));
   return {
     available: senderFor(tenantId) !== null,
-    message: m ? { status: m.status, error: m.error, at: m.createdAt.toISOString(), sent_at: m.sentAt?.toISOString() ?? null, by: m.requestedByName } : null,
+    message: m ? { status: m.status as Exclude<MessageStatus, "skipped">, error: m.error, at: m.createdAt.toISOString(), sent_at: m.sentAt?.toISOString() ?? null, by: m.requestedByName } : null,
   };
 }
 
@@ -70,9 +73,12 @@ export async function queueThanks(tx: OcTx, who: { tenantId: string; userId: str
 // ---------- sending ----------
 export type SendResult = { ok: true; sid: string } | { ok: false; retry: boolean; error: string };
 
-/** One template message through Twilio's Messages API. Never throws. */
-export async function twilioSend(sender: Sender, phone: string, name: string): Promise<SendResult> {
-  const body = new URLSearchParams({ To: `whatsapp:+91${phone}`, ContentSid: sender.contentSid, ContentVariables: JSON.stringify({ "1": name }) });
+/** The thank-you: the plant's template with {{1}} = the customer's name. Never throws. */
+export const twilioSend = (sender: Sender, phone: string, name: string) => twilioTemplate(sender, phone, { "1": name });
+
+/** One template message through Twilio's Messages API (`sender.contentSid` = the template). Never throws. */
+export async function twilioTemplate(sender: Sender, phone: string, variables: Record<string, string>): Promise<SendResult> {
+  const body = new URLSearchParams({ To: `whatsapp:+91${phone}`, ContentSid: sender.contentSid, ContentVariables: JSON.stringify(variables) });
   body.set(sender.from.startsWith("MG") ? "MessagingServiceSid" : "From", sender.from);
   try {
     const res = await fetch(`${env.twilioApiUrl}/2010-04-01/Accounts/${encodeURIComponent(env.twilioAccountSid)}/Messages.json`, {
@@ -97,7 +103,12 @@ export async function twilioSend(sender: Sender, phone: string, name: string): P
 export async function sendPending(tenantId: string, send = twilioSend, now = Date.now()) {
   const sender = senderFor(tenantId);
   const waiting = await withTenant(tenantId, (tx) =>
-    tx.select({ id: messages.id }).from(messages).where(and(eq(messages.tenantId, tenantId), eq(messages.status, "pending"))).orderBy(asc(messages.createdAt)).limit(50),
+    tx
+      .select({ id: messages.id })
+      .from(messages)
+      .where(and(eq(messages.tenantId, tenantId), eq(messages.kind, "delivery_thanks"), eq(messages.status, "pending")))
+      .orderBy(asc(messages.createdAt))
+      .limit(50),
   );
   let sent = 0;
   for (const { id } of waiting) {
@@ -105,7 +116,7 @@ export async function sendPending(tenantId: string, send = twilioSend, now = Dat
       const [m] = await tx
         .select()
         .from(messages)
-        .where(and(eq(messages.tenantId, tenantId), eq(messages.id, id), eq(messages.status, "pending")))
+        .where(and(eq(messages.tenantId, tenantId), eq(messages.id, id), eq(messages.kind, "delivery_thanks"), eq(messages.status, "pending")))
         .for("update", { skipLocked: true });
       if (!m) return;
       const [o] = await tx.select({ name: orders.customerName }).from(orders).where(and(eq(orders.tenantId, tenantId), eq(orders.id, m.orderId)));

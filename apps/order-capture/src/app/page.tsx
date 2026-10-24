@@ -111,6 +111,11 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
             Recent changes
           </LinkRow>
         )}
+        {can(user, "reminder_pilot") && (
+          <LinkRow href="/reminders" note="WhatsApp reminders 15 days after a delivery">
+            Reminder pilot
+          </LinkRow>
+        )}
         {can(user, "support_log") && (
           <LinkRow href="/support-access" note="When PlantOps support looked at your orders">
             Support access

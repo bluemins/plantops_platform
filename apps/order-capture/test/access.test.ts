@@ -26,6 +26,8 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["export", true, false, false, false, false],
   ["pending_summary", true, false, false, false, false],
   ["support_log", true, false, false, false, false],
+  ["consent", true, true, false, false, false],
+  ["reminder_pilot", true, false, false, false, true],
 ];
 
 describe("who is who", () => {

@@ -190,6 +190,8 @@ describe("customer context (contract 3.2)", () => {
       last_delivered: { ref: last.ref, delivered_on: "2026-10-13", lines: [{ sku_id: PV1.id, quantity: 5 }, { sku_id: PV500.id, quantity: 2 }] },
       has_pending_order: false,
       areas: null,
+      reminders: null,
+      reminders_on: null,
     });
   });
 

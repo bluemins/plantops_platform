@@ -24,6 +24,12 @@ describe("append-only for order_app", () => {
       // nothing is ever deleted
       ...TABLES.map((tbl) => `delete from order_capture.${tbl}`),
       ...TABLES.map((tbl) => `truncate order_capture.${tbl}`),
+      // consent answers and the pilot's groups are never changed (a new answer is a new row)
+      `update order_capture.customer_consents set status = 'withdrawn' where id = '${ids.consent}'`,
+      `update order_capture.customer_consents set created_at = now() where id = '${ids.consent}'`,
+      `update order_capture.reminder_groups set grp = 'holdout'`,
+      `update order_capture.customer_messages set kind = 'reorder_reminder' where id = '${ids.message}'`,
+      `update order_capture.customer_messages set skip_reason = 'holdout' where id = '${ids.message}'`,
       // an order's reference, customer copy and who entered it are fixed
       `update order_capture.orders set customer_name = 'Someone else' ${order}`,
       `update order_capture.orders set customer_phone = '9000000000' ${order}`,
@@ -88,7 +94,7 @@ describe("append-only for order_app", () => {
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(69);
+    expect(list.length).toBe(78);
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 

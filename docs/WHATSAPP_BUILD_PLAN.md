@@ -26,23 +26,17 @@ Both repos open together in VS Code with `~/projects/bluemins.code-workspace`.
 
 ## 0. Handover: start the next session here (2026-10-24)
 
-**Where it stopped:** Steps R, 0, 1 and 2 are **done and live**. **Step 3 is live in pilot mode** (2026-10-24): Order
-Capture v0.30.0 (`a7bf54c`) and bot 3.3.0 (`94694b7`, `BOT_ORDERS=pilot`, 2 staff numbers). Next: the owner's pilot
-checklist (section 8 step 4), then `BOT_ORDERS=on` (step 5).
-
-| Item | State on 2026-10-24 |
-|---|---|
-| Bot (`whatsappbot`, project `bluemins-whatsapp-bot`) | Live: `production` = `4b0de3e` (tag `3.2.0`, Step 2), signature `enforce`. Built, not live: Step 3 on `main` (release 3.3.0). New variables `BOT_ORDERS` (off / pilot / on; **not set = off**, so deploying changes nothing until it is set) and `BOT_ORDERS_PILOT_PHONES`. |
-| PlantOps (shared copy) | Live: `production` = `0293b1f` (v0.29.0 Step 2) and later releases (v0.29.3 now). Built, not live: v0.30.0 on `main` (bot create + by-key; no migration). New optional variable `ORDER_BOT_ORDERS=off` on `order-capture`. |
-| Bot key | Only in Railway (`whatsappbot`) and the owner's password manager. The same key works for Step 3. Rotation: `docs/DEPLOY.md` "WhatsApp bot key". |
-| Alerts | Both live and confirmed (2026-10-24): "Unhappy customer: …", "Wants to talk: …". |
-| Plant 001 Business details | Support phone 7090443303, hours "10 am to 6 pm (MON - SAT )" (stray space before ")": owner may tidy). |
-| Repo note | `docs/HANDBOOK.md` change in `c7be459` kept (owner, 2026-10-24). `scripts/rotate-railway-secrets.sh` is still uncommitted (owner's). |
+**Where it stopped (2026-10-24):** Steps R, 0–3 **done and live** (`BOT_ORDERS=on` since 2026-10-24: every switched-on
+Order Capture customer orders into Order Capture). **Step 4 is built** on `main` in both repos (Order Capture v0.31.0,
+bot 3.4.0), **not deployed**; the reminder template is approved by Meta. The area list waits until the bot takes new
+customers (owner, 2026-10-24).
 
 **Next session, in this order:**
-1. ~~Release steps 1–3~~ done 2026-10-24 (pilot numbers 78488 65680, 79992 93831).
-2. Owner: the pilot checklist (step 4) from those phones; then `BOT_ORDERS=on` (step 5).
-3. After the pilot: the area list (schema change: table + Areas screen in Order Capture, ask first), then Step 4.
+1. Owner says **"release"** → section 9 "Release and pilot start", steps 1–3 (migration, Order Capture v0.31.0, bot
+   3.4.0), then the owner's steps 4–8 (Twilio price, template SID in the sender entry, cron-job.org job, start date,
+   `ORDER_REMINDERS=on`).
+2. Left from Step 3's pilot (any time): "ok" instead of YES, 201 boxes, a non-listed number → `lead`, cancel O-0069.
+3. Step 5 (learn from the pilot) after the 8 weeks.
 
 **Rules learnt:** give a recommendation with every question (owner); never push a bot release before its Railway
 variables exist; keys are written to private scratch files, never printed into the chat; stage only named files when
@@ -69,7 +63,7 @@ committing (the owner keeps uncommitted work in the tree).
 | 1 | Harden the bot (signature, help / cancel / STOP, handoff, tests) | bot | the plan; any new dependency; production push | **done** (2026-10-23; `e9e52a2`, tag `3.1.0`, signature `enforce`) |
 | 2 | Read-only Order Capture adapter + bot reads it | both | the API design; credential setup; production pushes | **done** (2026-10-23; v0.29.0 + bot 3.2.0 live) |
 | 3 | Confirmed-order write; Sheets stops being an order ledger | both | endpoint + transaction design; any schema / grant change; go-live | **built** (2026-10-24; v0.30.0 + bot 3.3.0 on `main`, not live) |
-| 4 | Delivered event, opt-in, 15-day pilot | both | schema / consent design; templates; pilot start | open |
+| 4 | Opt-in and 15-day reminder pilot (Order Capture sends) | both | schema / consent design; templates; pilot start | **built** (2026-10-24; v0.31.0 + bot 3.4.0 on `main`, not live; template approved) |
 | 5 | Learn from the pilot | analysis first | any live change | open |
 
 One step at a time; a step starts only when the one before has passed its exit check.
@@ -366,9 +360,29 @@ the opt-in question, the reminder's buttons, STOP / START.
 don't exist yet); the area check (no area list); Odia texts.
 
 **Owner answers (2026-10-24):** Order Capture sends the reminder (the design above); the template
-`bluemins_reorder_reminder_v1` = `HXfd4deefc3196d6fa0e468484f6b3a49c`, **still waiting for Meta's approval** (owner,
-2026-10-24; nothing is sent before it is approved); send at **10:30 IST**.
+`bluemins_reorder_reminder_v1` = `HXfd4deefc3196d6fa0e468484f6b3a49c`, **approved by Meta** (owner, 2026-10-24); send
+at **10:30 IST**. Migration approved by the owner (2026-10-24).
 Open: the migration `0005_reminders.sql` (draft shown to the owner), then "build".
+
+**Built 2026-10-24** (details `apps/order-capture/NOTES.md`, the bot's `CLAUDE.md` Step 4). Tests: Order Capture 343
+(+23), bot 82 (+14), platform 369.
+
+**Release and pilot start** (owner says "release"; Order Capture first, it works with the old bot):
+1. **Migration:** `./scripts/railway-migrate.sh shared` (Order Capture `0005_reminders.sql`), before the code.
+2. **Order Capture v0.31.0:** tag, `production`, the usual checks; `POST /api/cron/reminders` without the secret → 401.
+3. **Bot 3.4.0:** `git push origin main:production` + tag `3.4.0` (no new variable). From then on, customers are asked
+   after each WhatsApp order and STOP / START are recorded.
+4. **Twilio price:** check the price of one marketing message to India in Twilio and set `REMINDER_COST_PAISE` on
+   `order-capture` (default 100 = ₹1); `REMINDER_BUDGET_PAISE` stays 50000 (₹500) unless the owner changes it.
+5. **Template:** in `TWILIO_WHATSAPP_SENDERS` on `order-capture`, add `"reminder_content_sid":
+   "HXfd4deefc3196d6fa0e468484f6b3a49c"` to plant 001's entry (next to `from` and `content_sid`).
+6. **Job:** cron-job.org, new job "Order Capture reminders": `POST https://orders.bluemins.life/api/cron/reminders`,
+   daily 10:30 IST, header `x-cron-secret` (as the other jobs); add it to HANDBOOK section 10.
+7. **Start:** `REMINDER_PILOT_START` = the start day (deliveries from that day count), then `ORDER_REMINDERS=on`. The
+   first reminders go 15 days after the start. Order Capture → Reminder pilot shows "Sending, daily at 10:30 am".
+8. **Staff:** when calling customers about an order, read the question and tick "Agreed to WhatsApp reminders" for those
+   who say yes (Customers → Edit).
+9. **Stop at once:** `ORDER_REMINDERS=off` (or the rules on the Reminder pilot page).
 
 **Prompt 4:**
 > Step 4 of `docs/WHATSAPP_BUILD_PLAN.md` (commerce plan Phase 4), only after step 3 is proven. Propose, and wait for
@@ -463,4 +477,6 @@ design.
 | 2026-10-24 | 2 | Owner's live checks: "not great" and PERSON both raise the bell alert. HANDBOOK change in `c7be459` kept. |
 | 2026-10-24 | 3 | Built on `main` in both repos (owner "build"): Order Capture v0.30.0 (create through the staff save, by key, off switch, 14 tests) and bot 3.3.0 (landmark → summary → YES → Order Capture, background finish by key, leads, 200-box limit, `BOT_ORDERS` off / pilot / on, PERSON support hours, 19 tests). Not deployed; release and pilot steps in section 8. |
 | 2026-10-24 | 3 (go-live) | Order Capture v0.30.0 live (`a7bf54c`, no migration; new endpoints 401 without the key). Owner set `BOT_ORDERS=pilot`, `BOT_ORDERS_PILOT_PHONES` = 2 numbers (Rocky 78488 65680, "Test Order Customer" 79992 93831, both Order Capture customers). Bot 3.3.0 live (`production` = `94694b7`, Railway deployment `0b4df3a2`, 18:32 IST): Deploy Logs "Orders into Order Capture: pilot (2 numbers)", signatures enforced, `/health` 200. Next: the pilot checklist (section 8 step 4). |
+| 2026-10-24 | 3 | `BOT_ORDERS=on` set by the owner after the pilot (SKIP / EDIT / CANCEL / delivery thank-you passed); "ok", 201 boxes, a non-listed number and cancelling O-0069 left for later. |
+| 2026-10-24 | 4 | Owner: Step 4 before the area list (area list waits until the bot takes new customers); **Order Capture sends the reminder** (not the delivered event); 10:30 IST; migration `0005_reminders.sql` approved; template `HXfd4deefc3196d6fa0e468484f6b3a49c` approved by Meta. Built on `main` in both repos: Order Capture v0.31.0 (consent, staff tick, reminder job, pilot page, bot consent call), bot 3.4.0 (question after an order, STOP / START recorded, reminder buttons). Not deployed; release steps in section 9. |
 | 2026-10-20 | — | This plan written. |

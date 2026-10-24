@@ -348,6 +348,7 @@ export const NOTIFICATION_KINDS: Record<
   "order_capture.note": { module: "order_capture", label: "Note added to an order", bellOnly: true },
   "order_capture.feedback_low": { module: "order_capture", label: "Unhappy customer on WhatsApp" },
   "order_capture.handoff": { module: "order_capture", label: "WhatsApp customer asks for a person" },
+  "order_capture.reminder_failed": { module: "order_capture", label: "WhatsApp reminders stopped (Twilio refused)" },
   "attendance_salary.corrected": { module: "attendance_salary", label: "Your attendance was changed", aboutYou: true },
   "attendance_salary.outside": { module: "attendance_salary", label: "Mark refused: outside the plant", bellOnly: true },
   "attendance_salary.no_exit": { module: "attendance_salary", label: "People who didn't mark OUT (morning)", bellOnly: true },

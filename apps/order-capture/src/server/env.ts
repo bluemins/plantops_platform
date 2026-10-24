@@ -5,6 +5,12 @@ function required(name: string): string {
   return value;
 }
 
+/** A whole number above 0 from a setting, else the default. */
+function positive(v: string | undefined, fallback: number) {
+  const n = Number((v ?? "").trim());
+  return Number.isInteger(n) && n > 0 ? n : fallback;
+}
+
 export const env = {
   get platformUrl() {
     return required("PLATFORM_URL");
@@ -48,6 +54,30 @@ export const env = {
   /** "off" = the bot may not create orders (403 ordering_off); its reads and alerts keep working */
   get botOrdersOff() {
     return (process.env.ORDER_BOT_ORDERS ?? "").trim().toLowerCase() === "off";
+  },
+  /**
+   * WhatsApp reorder reminders (src/server/reminders.ts, WhatsApp Step 4). Nothing is sent unless ORDER_REMINDERS=on,
+   * REMINDER_PILOT_START is a date and the plant's TWILIO_WHATSAPP_SENDERS entry has a reminder_content_sid.
+   */
+  get remindersOn() {
+    return (process.env.ORDER_REMINDERS ?? "").trim().toLowerCase() === "on";
+  },
+  /** YYYY-MM-DD: deliveries from this India day count; the pilot ends 8 weeks later */
+  get reminderPilotStart() {
+    const v = (process.env.REMINDER_PILOT_START ?? "").trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+  },
+  /** customers in the pilot (both groups), default 100 */
+  get reminderPilotCustomers() {
+    return positive(process.env.REMINDER_PILOT_CUSTOMERS, 100);
+  },
+  /** Twilio's price of one reminder in paise (checked before the start), default 100 (₹1) */
+  get reminderCostPaise() {
+    return positive(process.env.REMINDER_COST_PAISE, 100);
+  },
+  /** the pilot's budget in paise, default 50000 (₹500) */
+  get reminderBudgetPaise() {
+    return positive(process.env.REMINDER_BUDGET_PAISE, 50_000);
   },
   /** only tests change it (a fake Twilio) */
   get twilioApiUrl() {

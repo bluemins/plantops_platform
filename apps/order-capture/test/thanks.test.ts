@@ -136,7 +136,7 @@ describe("sending on Delivered", () => {
   it("off without the Twilio account, and when the settings are broken or invalid", () => {
     const t = randomUUID();
     withSender(t);
-    expect(senderFor(t)).toEqual({ from: FROM, contentSid: CONTENT });
+    expect(senderFor(t)).toEqual({ from: FROM, contentSid: CONTENT, reminderContentSid: null });
     vi.spyOn(console, "error").mockImplementation(() => {});
     process.env.TWILIO_WHATSAPP_SENDERS = "{not json";
     expect(senderFor(t)).toBeNull();

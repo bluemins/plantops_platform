@@ -25,6 +25,8 @@ export type Action =
   | "view_changes" // Recent changes
   | "export" // CSV
   | "pending_summary" // all pending orders added up: total value, quantity / rate / amount per product
+  | "consent" // tick / untick "Agreed to WhatsApp reminders" on a customer (read out on the phone)
+  | "reminder_pilot" // the WhatsApp reminder pilot page
   | "support_log"; // the owner's "Support access" page
 
 export const ACCESS: Record<Action, readonly Who[]> = {
@@ -44,6 +46,8 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   view_changes: ["owner", "support"],
   export: ["owner"],
   pending_summary: ["owner"],
+  consent: ["owner", "desk"],
+  reminder_pilot: ["owner", "support"],
   support_log: ["owner"],
 };
 

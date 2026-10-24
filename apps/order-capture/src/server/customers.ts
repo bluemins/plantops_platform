@@ -11,6 +11,7 @@ import { normalisePhone } from "@plantops/module-kit/phone";
 import { clean, NAME_MAX, NAME_MIN, PHONE_TYPED_MAX, PLACE_MAX, PLACE_MIN } from "@/lib/upload";
 import { requireAccess } from "./access";
 import { audit } from "./audit";
+import { latestConsents, recordConsent } from "./consent";
 import { schema, withTenant, type OcTx } from "./db";
 import { badRequest, notFound } from "./http";
 import type { OcUser } from "./session";
@@ -23,8 +24,22 @@ export interface CustomerView {
   phone: string;
   place: string;
   active: boolean;
+  /** WhatsApp reorder reminders: the newest answer (null = never asked) */
+  reminders: "granted" | "declined" | "withdrawn" | null;
 }
-const view = (c: typeof customers.$inferSelect): CustomerView => ({ id: c.id, name: c.name, phone: c.phone, place: c.place, active: c.active });
+const view = (c: typeof customers.$inferSelect, reminders: CustomerView["reminders"] = null): CustomerView => ({
+  id: c.id,
+  name: c.name,
+  phone: c.phone,
+  place: c.place,
+  active: c.active,
+  reminders,
+});
+/** The views with each customer's newest reminder answer. */
+async function views(tx: OcTx, tenantId: string, rows: (typeof customers.$inferSelect)[]) {
+  const consents = await latestConsents(tx, tenantId, rows.map((c) => c.id));
+  return rows.map((c) => view(c, consents.get(c.id)?.status ?? null));
+}
 
 // ---------- inputs ----------
 const Name = z.string().transform(clean).pipe(z.string().min(NAME_MIN, "Please enter the customer's name (at least 2 letters)").max(NAME_MAX, `A name has at most ${NAME_MAX} characters`));
@@ -36,6 +51,8 @@ export const CustomerPatch = z
     name: Name.optional(),
     place: Place.optional(),
     active: z.boolean().optional(),
+    /** staff ticked / unticked "Agreed to WhatsApp reminders" after reading the question out on the phone */
+    reminders: z.boolean().optional(),
     phone: z.never({ error: "The phone can't be changed: a different number is a new customer" }).optional(),
   })
   .strict();
@@ -70,7 +87,7 @@ export async function listCustomers(user: OcUser, opts: { q?: string; showOff?: 
       .select({ total: sql<number>`count(*)::int`, off: sql<number>`count(*) filter (where not ${customers.active})::int` })
       .from(customers)
       .where(eq(customers.tenantId, user.tenantId));
-    return { customers: rows.slice(0, limit).map(view), more: rows.length > limit, total: counts?.total ?? 0, off: counts?.off ?? 0 };
+    return { customers: await views(tx, user.tenantId, rows.slice(0, limit)), more: rows.length > limit, total: counts?.total ?? 0, off: counts?.off ?? 0 };
   });
 }
 
@@ -86,7 +103,7 @@ export async function createCustomer(user: OcUser, input: z.infer<typeof Custome
   try {
     return await withTenant(user.tenantId, async (tx) => {
       const have = await findByPhone(tx, user.tenantId, phone);
-      if (have) return { created: false, customer: view(have) };
+      if (have) return { created: false, customer: (await views(tx, user.tenantId, [have]))[0]! };
       const [c] = await tx
         .insert(customers)
         .values({ tenantId: user.tenantId, name: input.name, phoneTyped: input.phone, phone, place: input.place, createdBy: user.userId, createdByName: user.name })
@@ -97,28 +114,36 @@ export async function createCustomer(user: OcUser, input: z.infer<typeof Custome
   } catch (err) {
     // someone else added the same number at the same moment: the database's one-per-phone rule refused ours
     if (!isUniqueViolation(err)) throw err;
-    const have = await withTenant(user.tenantId, (tx) => findByPhone(tx, user.tenantId, phone));
-    return { created: false, customer: view(have!) };
+    return withTenant(user.tenantId, async (tx) => ({ created: false, customer: (await views(tx, user.tenantId, [(await findByPhone(tx, user.tenantId, phone))!]))[0]! }));
   }
 }
 
-/** Edit name / place, or switch off / on. The phone never changes. Nothing changed = nothing written. */
+/**
+ * Edit name / place, switch off / on, or tick / untick "Agreed to WhatsApp reminders" (a consent row, source
+ * staff_phone). The phone never changes. Nothing changed = nothing written.
+ */
 export async function updateCustomer(user: OcUser, id: string, patch: z.infer<typeof CustomerPatch>): Promise<CustomerView> {
   requireAccess(user, "customers");
+  if (patch.reminders !== undefined) requireAccess(user, "consent");
   return withTenant(user.tenantId, async (tx) => {
     const [c] = await tx.select().from(customers).where(and(eq(customers.tenantId, user.tenantId), eq(customers.id, id)));
     if (!c) throw notFound("Customer not found");
+    if (patch.reminders !== undefined) {
+      const status = patch.reminders ? "granted" : "withdrawn";
+      if (await recordConsent(tx, user.tenantId, id, { status, source: "staff_phone", by: { userId: user.userId, name: user.name } }))
+        await audit(tx, user, "customer.reminders", id, { name: c.name, phone: c.phone, reminders: patch.reminders });
+    }
     const changes: Record<string, { from: unknown; to: unknown }> = {};
     if (patch.name !== undefined && patch.name !== c.name) changes.name = { from: c.name, to: patch.name };
     if (patch.place !== undefined && patch.place !== c.place) changes.place = { from: c.place, to: patch.place };
     if (patch.active !== undefined && patch.active !== c.active) changes.active = { from: c.active, to: patch.active };
-    if (!Object.keys(changes).length) return view(c);
+    if (!Object.keys(changes).length) return (await views(tx, user.tenantId, [c]))[0]!;
     const [u] = await tx
       .update(customers)
       .set({ name: patch.name ?? c.name, place: patch.place ?? c.place, active: patch.active ?? c.active, updatedAt: new Date() })
       .where(and(eq(customers.tenantId, user.tenantId), eq(customers.id, id)))
       .returning();
     await audit(tx, user, "customer.update", id, { name: u!.name, phone: u!.phone, changes });
-    return view(u!);
+    return (await views(tx, user.tenantId, [u!]))[0]!;
   });
 }

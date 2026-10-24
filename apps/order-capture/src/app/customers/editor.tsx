@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { Button, Card, ErrorText, TextField } from "@plantops/ui";
 import { api } from "@/lib/api";
+import { OPTIN_TEXT } from "@/lib/optin";
 import { NAME_MAX, PLACE_MAX } from "@/lib/upload";
 import type { CustomerView } from "@/server/customers";
 import { PhoneLink } from "../parts";
@@ -68,6 +69,7 @@ export function CustomersEditor({ list, q, showOff, canEdit, plainPhones }: { li
                       <p className="font-semibold break-words">
                         {c.name}
                         {!c.active && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Off</span>}
+                        {c.reminders === "granted" && <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">Reminders</span>}
                       </p>
                       <p className="text-sm text-slate-600">{c.place}</p>
                       <p className="text-sm">
@@ -105,7 +107,14 @@ function CustomerForm({ customer, onClose }: { customer?: CustomerView; onClose:
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    const body = { name: String(f.get("name") ?? ""), place: String(f.get("place") ?? ""), ...(customer ? {} : { phone: String(f.get("phone") ?? "") }) };
+    const agreed = f.get("reminders") === "on";
+    const body = {
+      name: String(f.get("name") ?? ""),
+      place: String(f.get("place") ?? ""),
+      ...(customer ? {} : { phone: String(f.get("phone") ?? "") }),
+      // only when the tick changed: a consent row is a record of what the customer said
+      ...(customer?.active && agreed !== (customer.reminders === "granted") ? { reminders: agreed } : {}),
+    };
     setBusy(true);
     setError(undefined);
     setFound(undefined);
@@ -136,6 +145,15 @@ function CustomerForm({ customer, onClose }: { customer?: CustomerView; onClose:
         <TextField label="Phone" name="phone" inputMode="tel" placeholder="98765 43210" maxLength={30} required autoComplete="off" />
       )}
       <TextField label="Place" name="place" defaultValue={customer?.place} maxLength={PLACE_MAX} required autoComplete="off" />
+      {customer?.active && (
+        <label className="flex min-h-11 items-start gap-3 text-sm">
+          <input type="checkbox" name="reminders" defaultChecked={customer.reminders === "granted"} className="mt-1 h-5 w-5 shrink-0 accent-(--brand)" />
+          <span>
+            <span className="font-semibold">Agreed to WhatsApp reminders</span>
+            <span className="block text-slate-600">Tick only after reading this to the customer and hearing yes: &ldquo;{OPTIN_TEXT}&rdquo;</span>
+          </span>
+        </label>
+      )}
       <ErrorText>{error}</ErrorText>
       {found && !found.active && (
         <Button type="button" variant="secondary" onClick={() => switchOn(found)}>
