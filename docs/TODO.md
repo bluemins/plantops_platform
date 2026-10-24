@@ -18,7 +18,6 @@ with priority). WhatsApp step details: `docs/WHATSAPP_BUILD_PLAN.md`.
 
 | Task | Status | Notes |
 |---|---|---|
-| Twilio Monitor → Errors: any 11200 between 20:11 and 21:59 IST on 2026-10-24 (bot stopped); call those customers back | open | bug B-19 |
 | Sheet **Leads** tab: customer orders 19:34–22:21 on 2026-10-24 → enter in Order Capture by hand | open | bot was still in pilot mode then |
 | Staff ask customers about reminders and tick "Agreed to WhatsApp reminders" | open | first reminders 2026-11-09 |
 | Cancel test orders O-0069 and O-0072 | open | |
