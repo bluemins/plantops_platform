@@ -1836,3 +1836,18 @@ Design `docs/WHATSAPP_BUILD_PLAN.md` section 8; owner "build" 2026-10-24 (after 
 - **Tests:** Order Capture 320 (+14), bot 68 (+19). Not deployed; release and pilot steps in the build plan section 8.
 **Live (2026-10-24):** Order Capture v0.30.0 (`production` = `a7bf54c`, no migration), checks OK
 (`docs/deployments/shared.md`). Bot 3.3.0 waits for its Railway variables (`BOT_ORDERS=pilot`, pilot phones).
+
+### 2026-10-24 — WhatsApp Step 4: reorder reminders — live, off until set (v0.31.0, bot 3.4.0)
+Design `docs/WHATSAPP_BUILD_PLAN.md` section 9 (owner, 2026-10-24: Order Capture sends the reminder itself; 10:30 IST;
+area list deferred until the bot takes new customers).
+- **Order Capture v0.31.0:** migration `0005_reminders.sql` (approved): append-only `customer_consents` (every
+  Yes / No / Stop, kept forever) and `reminder_groups` (30 % holdout drawn once); `customer_messages` holds reminders
+  and skip reasons. Staff tick "Agreed to WhatsApp reminders"; bot `POST /api/bot/v1/consent`; daily reminder job
+  `POST /api/cron/reminders` (15 days after delivery, consent, no newer order, caps 100 customers / ₹500 / 8 weeks, a
+  Twilio refusal stops it and alerts owners); owner page "Reminder pilot". New kind `order_capture.reminder_failed`.
+- **Bot 3.4.0:** asks once after an order (again only 90 days after a no), records STOP / START, handles the reminder's
+  three buttons.
+- **Tests:** Order Capture 343 (+23), bot 82 (+14), platform 369.
+- **Live 2026-10-24:** migration applied, `production` = `e15c585`, bot `7e308ae`; checks OK. **Not sending yet:** the
+  owner sets `REMINDER_COST_PAISE`, the template SID in `TWILIO_WHATSAPP_SENDERS`, the cron-job.org job,
+  `REMINDER_PILOT_START`, then `ORDER_REMINDERS=on` (build plan section 0).
