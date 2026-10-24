@@ -1856,5 +1856,5 @@ area list deferred until the bot takes new customers).
 Asked by the owner 2026-10-24 (see what staff will see before ticking "Can see own salary"). Staff → person → "See as
 worker: <month> slip" opens the person's slip exactly as My salary draws it (shared `slipCard()`), with a note on the
 tick and paid state; an unpaid month shows what Mark paid would save now. Owner + support only (`salary_view`). No
-migration; SSO token unchanged. Notes: `apps/attendance-salary/NOTES.md`. Tests: Attendance 464 (+3). Tagged on `main`,
-not deployed.
+migration; SSO token unchanged. Notes: `apps/attendance-salary/NOTES.md`. Tests: Attendance 464 (+3). **Live 2026-10-24** (`production` = `226ac26`);
+not yet tried on screen.
