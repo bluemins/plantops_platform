@@ -22,7 +22,7 @@ Filled on 2026-10-24 from CLAUDE.md, every `apps/*/NOTES.md`, the plan docs ("No
 | Task | Status | Notes |
 |---|---|---|
 | Salary type per person from October | done (checked 2026-10-24) | Fixed: Kedar, Dillip, Prakash, dirju, maheswar. Per day: reeta, Damayanti, joshobanti, Mohan, sushil. Monthly: Ramu (0 leave), bindu / Gaja / Anmol (2) |
-| 8 h work + 1 h lunch from October | done (checked 2026-10-24) | reeta, Damayanti, joshobanti, Ramu, bindu, Gaja, Anmol. **Owner to confirm:** Mohan and sushil (per day) are still 9 h with no lunch: intended? |
+| 8 h work + 1 h lunch from October | done (checked 2026-10-24) | reeta, Damayanti, joshobanti, Ramu, bindu, Gaja, Anmol. Mohan and sushil stay 9 h with no lunch on purpose (owner, 2026-10-24) |
 | Tick **Field staff** on Dillip and Kedar | done (checked 2026-10-24) | both with TA ₹2 / km, DA ₹100 / day |
 | Permanent / Temporary | done (checked 2026-10-24) | Temporary: Damayanti, Mohan, sushil, joshobanti; reeta is Permanent (per day) |
 | Review October OFF days, now unpaid | open | Only **Anmol** (6 OFF: 7–9, 21–23; 2 covered by leave, 4 cut at salary ÷ 30) changes pay. Ramu moved to per day ₹1,000 on 2026-10-24 23:21 (matches the owner's September sheet: present days × ₹1,000 + OT ₹125 / h), so his 4 OFF days are simply unpaid days. Per-day people get ₹0 for an OFF day either way (same as absent); fixed people are paid in full; Gaja's 1 is covered by leave. Damayanti's 1–5 Oct makes no pay difference (per day) |
