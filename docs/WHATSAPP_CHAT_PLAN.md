@@ -297,3 +297,83 @@ Button titles: at most 20 characters.
 **Decision 7 (consent wording in Odia):** (a) **yes: the Odia consent question is used for Odia chats and saved as
 optin-v1-od** *(recommended: a customer must understand what they agree to)* · (b) keep the consent question in English
 only.
+
+## 12. Phase 1 build plan: English chat (bot 3.5.0) — waiting for "build"
+
+Written 2026-10-25 after reading the bot's code (`src/app.js`, `catalog.js`, `commands.js`, `texts.js`, `store.js`,
+`feedback-flow.js`). Bot repo only; Order Capture, PlantOps, the Sheet layout and the six templates in use today are
+unchanged.
+
+**Templates created by the owner (2026-10-25, English, Quick reply, not submitted to Meta):**
+
+| Code | Name | Content SID |
+|---|---|---|
+| T1 | `bm_welcome_known_en` | `HX455339758bc15ef489c9d2d619d290d1` |
+| T2 | `bm_welcome_new_en` | `HXec5df135cedd6fdc868567bff4373538` |
+| T4 | `bm_sizes_en` | `HX77c43694b130a23ab5982ea22d9b2bfa` |
+| T5 | `bm_more_en` | `HX498440b37adcd717a7457fffa3aeba2a` |
+| T6 | `bm_landmark_again_en` | `HXcfd1a2b8a4b7d445f950bd26e4ab8cb3` |
+| T7 | `bm_confirm_en` | `HXa1174f9a31c1615a9302b7569d4869be` |
+| T8 | `bm_optin_en` | `HX262d12d0a62669a2ca9f9aa2495faba1` |
+
+**One new Railway variable on `whatsappbot`** (the complete value; pasted only at go-live):
+```
+CONTENT_SIDS=T1=HX455339758bc15ef489c9d2d619d290d1,T2=HXec5df135cedd6fdc868567bff4373538,T4=HX77c43694b130a23ab5982ea22d9b2bfa,T5=HX498440b37adcd717a7457fffa3aeba2a,T6=HXcfd1a2b8a4b7d445f950bd26e4ab8cb3,T7=HXa1174f9a31c1615a9302b7569d4869be,T8=HX262d12d0a62669a2ca9f9aa2495faba1
+```
+- **Not set** → today's chat exactly (old templates, Odia order steps). This is also the undo: delete the variable,
+  Deploy.
+- **Set but broken** (a code missing, not `HX` + 32 hex) → loud error line at startup ("CONTENT_SIDS: T5 missing — new
+  chat OFF") and today's chat. Never half the new chat.
+- The startup line says which chat runs: `Chat: new (English, 7 templates)` / `Chat: old`.
+- Templates with `{{1}}` are sent with `contentVariables`; values are made one line, ≤ 200 characters (WhatsApp
+  refuses line breaks in variables). No name → T2 instead of T1.
+
+**Changes, by file:**
+1. `src/config-sids.js` (new, small): reads and checks `CONTENT_SIDS`.
+2. `src/texts.js`: every English line of section 8 (M1–M17) in one place; the old English lines kept. `messages.js`
+   (Odia) stays for Phase 2 and for the old chat.
+3. `src/catalog.js`: `parseOrderText()` for C3: size + quantity in one message, several lines ("500ml 10 / 1l 5",
+   "10 box 1L", "2 500ml"), split on new line, "/", ",", "+", "&", "and"; quantities "10", "10 box(es)", Odia digits
+   ୧୦; a size alone = ask how many (M5); any part not understood = the parts understood are added and the bot asks
+   about the rest. Greeting words (hi, hii, hello, hey, namaskar, namaste, johar, ଜୁହାର, ନମସ୍କାର), YES words (yes, ok,
+   okay, haan, ha, confirm, ହଁ, ହ; T7's YES button), price words (rate, price, cost, dam, daam, ଦାମ), Hindi words.
+4. `src/store.js`: last landmark per phone, `landmark:<phone>`, 180 days (decision 3a), written only when an Order
+   Capture order is placed with a landmark.
+5. `src/app.js`:
+   - **Hi / MENU / anything unclear with no chat open** → Order Capture context; a customer with a last delivered
+     order and a name → **T1**, everyone else → **T2**. Buttons `menu_same`, `menu_order`, `menu_person`,
+     `menu_feedback` work even after the 30-minute session has expired.
+   - **Same as last time** (and the reminder's "Order again") → last basket → **M1 summary + T7**; the remembered
+     landmark is on the summary; no landmark yet → M6 first.
+   - **New order / EDIT / "Order"** → **T4** → M5 → **T5** ("Added …") → remembered landmark **T6** (or M6) → M1 + T7.
+   - **T7:** YES → Order Capture order (same idempotency key and lock as today; the word sent is the button / word);
+     EDIT → T4; CANCEL → cancelled.
+   - **After the order:** M2, then **T8** (first time only, unchanged rules; consent wording stays `optin-v1`).
+   - **Text + template in a row** are sent one after the other through Twilio (as the repeat offer + picker today),
+     so they arrive in order.
+   - **Thank-you buttons** (`great` / `okay` / `not_great`, no feedback chat open) → a Feedback row
+     `DELIVERY_BUTTON` with the rating, M11 / M12; Not great also alerts staff (as the feedback flow).
+   - **Rate / price** → M14. **Hindi** → M16 + staff alert. **Odia / ଓଡ଼ିଆ** in Phase 1 → "We can chat in English for
+     now; our team will call you if you'd like Odia." + staff alert (Phase 2 switches the language instead).
+     **"Repeat" just after an order** → M17. "Order" just after an order starts a new one (the summary already says
+     "You already have an order waiting").
+   - **Not understood:** first time (no chat open) → the welcome (T1 / T2) instead of "Say 'Hi'…"; second time →
+     handoff + alert, as today. Inside a step → that step's "please tap a button" line, as today.
+   - Unknown numbers and `BOT_ORDERS=off`: same steps in English (M7, M8, M9 summary "Reply YES", M10); still a Sheet
+     `lead`.
+6. `src/server.js`: B-18, the Redis error line prints the error code.
+7. `.env.example`, README, CLAUDE.md: `CONTENT_SIDS`; `package.json` version 3.5.0.
+
+**Tests** (fake Twilio records `contentSid` + `contentVariables`): the 20 Sep lost order replayed ("500ml", "500 ml /
+1 l", "1", "10" → an order); the 9 Oct chat ("Rate", "Hindi", "Majalgaon", "??" → M14, M16 + alert, welcome, handoff);
+thank-you buttons (Okay, Great, Not great); "Repeat" after an order; "ok" as YES; Same as last time in 3 replies;
+remembered landmark (T6, typed new one, Skip); EDIT; T8 + 1 / 2 still work; Odia digits; a part not understood;
+201 boxes; `CONTENT_SIDS` missing / broken → today's chat unchanged (every old test passes untouched); variables one
+line.
+
+**To check at go-live (owner's phone):** the thank-you buttons really send `great` / `okay` / `not_great` (Message_Logs
+"button" column); T1 shows the name; T5 / T6 show the filled-in text.
+
+**Go-live** (owner's word, as every release): push `main:production`, add `CONTENT_SIDS`, **Deploy** (never Restart),
+read the startup line, phone test (section 6): Hi → Same as last time → YES; New order with "500ml 10"; a thank-you
+button; Rate; "ok" as YES. Undo: delete `CONTENT_SIDS` and Deploy (or push the previous commit).
