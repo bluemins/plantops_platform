@@ -24,38 +24,48 @@ Both repos open together in VS Code with `~/projects/bluemins.code-workspace`.
 
 ---
 
-## 0. Handover: start the next session here (2026-10-25, 00:30 IST)
+## 0. Handover: start the next session here (2026-10-25, end of session)
 
-**Where it stopped:** Steps R, 0–4 **done and live**. The reminder pilot runs 2026-10-25 → 2026-12-19; first reminders
-can go on **2026-11-09**, only to customers who agreed by then. **Next work: the chat plan
-`docs/WHATSAPP_CHAT_PLAN.md`** (owner's TODO #1, bot + Twilio only, no Order Capture change), to be live before 9 Nov.
+**Where it stopped:** Steps R, 0–4 **done and live**. Chat plan (`docs/WHATSAPP_CHAT_PLAN.md`, TODO #1) **Phase 1 =
+English chat is live** (bot 3.5.3). The reminder pilot runs 2026-10-25 → 2026-12-19; first reminders can go on
+**2026-11-09**, only to customers who agreed by then. **Next: the owner's full phone test of 3.5.3, then Phase 2 (Odia).**
 
-| Item | State on 2026-10-25 00:30 IST |
+| Item | State on 2026-10-25 |
 |---|---|
-| Bot (`whatsappbot`, project `bluemins-whatsapp-bot`) | 3.4.0 live (`7e308ae`), `BOT_ORDERS=on` since deployment `605e3992` (2026-10-24 22:21 IST; before that the variable was saved but not deployed, bug B-20). Owner's live test O-0072 + reminder consent OK (22:39). `main` = `eaf2191` (docs link only). |
-| PlantOps (shared copy) | **v0.31.2 live** (`0b8e961`): v0.31.0 Step 4 + v0.31.1 / v0.31.2 Attendance "See as worker" slip preview. Checks OK (`docs/deployments/shared.md`). |
+| Bot (`whatsappbot`, project `bluemins-whatsapp-bot`) | **3.5.3 pushed to `production`** (`1884e88`, = `main`; tags 3.5.0–3.5.3). `CONTENT_SIDS` set by the owner (7 `_en` templates, value checked valid); 3.5.0 startup log showed `Chat: new (English, 7 templates)`, `BOT_ORDERS=on`. 3.5.3's own startup line / Active state: owner to glance at. 103 tests. |
+| What 3.5.x does | 3.5.0 new English chat (chat plan section 12) + B-18. 3.5.1 buttons from older messages do what they say, else the step is sent again (owner found an old "Add another size" ignored at the summary). 3.5.2 summary = `Name:` / `Place:` / `Landmark:` lines, **no price line**; unknown-number summary `Name:` / `Address:`. 3.5.3 Skip (button or typed) keeps the **last saved landmark** (Redis, 180 days, only landmarks from earlier WhatsApp orders); none saved = no Landmark line. |
+| Undo | Delete `CONTENT_SIDS` + Deploy = today's old chat (3.4.0 behaviour); or push an older commit to `production`. |
+| Owner's phone test so far | 3.5.0: Hi → menu, landmark → summary + T7 → typed "yes" → **O-0075** placed. Not yet tried: Same as last time with the remembered landmark, typed "ok" as YES, "500ml 10", "Rate", a delivery thank-you button, old buttons (3.5.1), the new summary / Skip (3.5.2–3.5.3). |
+| Twilio templates | 7 English, chat plan section 12 (T1 `HX4553…`, T2 `HXec5d…`, T4 `HX7714…`, T5 `HX4984…`, T6 `HXcfd1…`, T7 `HXa117…`, T8 `HX262d…`). The six old templates stay (undo path); delete a month after go-live. |
+| PlantOps (shared copy) | v0.31.2 live (`0b8e961`), unchanged by this work. |
 | Reminder template | `bluemins_reorder_reminder_v1` = `HXfd4deefc3196d6fa0e468484f6b3a49c`, approved by Meta. |
-| Chat plan | `docs/WHATSAPP_CHAT_PLAN.md` written 2026-10-24 (plan only): problems P1–P7 from the Sheet logs, changes C1–C5, script (section 8), **14 Twilio templates** (section 9), Odia wording list (section 10), timeline (section 11). |
-| Bugs to know | B-21 Twilio Debugger 93101 "webhook 404" (a console setting; owner to note the URL); B-18 empty "Redis error" log lines (fix with the next bot release). `docs/BUGS.md`. |
+| Bugs to know | B-18 fixed in 3.5.0. B-21 Twilio Debugger 93101 "webhook 404" still open (owner to note the URL). `docs/BUGS.md`. |
 | Bot key | Only in Railway (`whatsappbot`) and the owner's password manager. Rotation: `docs/DEPLOY.md` "WhatsApp bot key". |
 
+**Open questions for the owner (recommendation first):**
+- **"Order placed" message** (M2, bot `src/texts.js` `placed`) still says "Our team will call you about the price and
+  delivery." (the summary's price line was removed in 3.5.2). Recommend: keep it (tells the customer a call follows);
+  or shorten to "Our team will call you about the delivery." — owner to say.
+- **Thank-you button ids:** assumed `great` / `okay` / `not_great` (Order Capture's thank-you template). Check with one
+  real tap: right = "Thank you! Send ORDER whenever…"; the welcome menu instead = different ids, then match them.
+- **T6 "Skip"** now does the same as "Yes, same place" when a landmark is saved (3.5.3). Recommend: replace with
+  "Change place" in Phase 2 together with the Odia templates (a new Twilio template).
+- **"Yes, remind me" tapped long after the T8 question** is still not recorded (consent change: ask first). Recommend:
+  leave as is (the question comes again after the next order).
+
 **Next session, in this order:**
-1. ✅ **Owner: the 7 decisions** (2026-10-25: 1a Odia first, 2a no Hindi now, 3a remember the landmark, 4a "team will
-   call with today's price", 5 yes: new templates by the owner / old ones kept, 6 the owner writes the Odia, 7a Odia
-   consent saved as `optin-v1-od`).
-   **Two phases (owner, 2026-10-25):** Phase 1 = English only (owner creates the 7 `_en` templates now, bot sends
-   English); Phase 2 = Odia (items 2 and the `_od` half of 3). Details: chat plan "Two phases".
-2. **Owner: the Odia column** (Phase 2) (section 10, ~25 lines; a photo is fine). Target 28 Oct.
-3. **Owner: create the 14 templates in Twilio** (section 9) and send the HX ids. Target 29 Oct.
-4. ✅ **Phase 1 built 2026-10-25** (bot 3.5.0 `a1c83f3`, English, behind `CONTENT_SIDS`; chat plan section 12). Next:
-   **go live on the owner's word** (item 5). Phase 2 (Odia) after the Odia text.
-   Was: **Claude: plan → build in the bot repo** (release 3.5.0 on `main`, tests replaying the 20 Sep lost order and the
-   9 Oct chat; include B-18). Plan first and wait for "build", as for every step. 29–31 Oct.
-5. **Go live ~1 Nov** on the owner's word: `CONTENT_SIDS` on Railway → **Deploy** (never Restart) → read the startup
-   line → owner's phone test (section 6 of the chat plan).
-6. Meanwhile: staff tick "Agreed to WhatsApp reminders" (Customers → Edit); cancel test orders O-0069 and O-0072;
-   Twilio 93101 URL (B-21).
-7. Step 5 (learn from the pilot) after 2026-12-19.
+1. **Owner: phone test of 3.5.3** (Railway: newest deploy Active + `Chat: new`): Hi → Same as last time (landmark already
+   on the summary) → type "ok"; Hi → New order → "500ml 10" → That's all → Skip (saved landmark kept); an old button at
+   the summary; "Rate"; tap Great on a delivery thank-you. Fix anything found as a 3.5.x patch (plan → "build" → deploy
+   on the owner's word).
+2. **Owner: cancel test orders** in Order Capture: O-0069, O-0072, O-0075 and any from the phone test.
+3. **Phase 2 (Odia):** owner writes the Odia for the 52 lines (list in this session's chat, mapped in chat plan section 10
+   + the flow chart https://claude.ai/artifact/5jWEyptqPB4gt71PhSqRDE; a photo is fine); owner creates 7 `_od` templates
+   (section 9 IDs, same buttons); then plan → build: C1 Odia first + ENGLISH / ଓଡ଼ିଆ switch (decision 1a), Odia consent
+   `optin-v1-od` (7a), T6 second button. Before 2026-11-09 if possible.
+4. Meanwhile: staff tick "Agreed to WhatsApp reminders" (Customers → Edit); Twilio 93101 URL (B-21).
+5. Measure (chat plan section 6, 4): `Sessions_Log` 2 weeks before vs after 2026-10-25.
+6. Step 5 (learn from the pilot) after 2026-12-19.
 
 **Rules learnt:** give a recommendation with every question (owner); never push a bot release before its Railway
 variables exist; after changing a Railway variable click **Deploy** / Redeploy, never Restart, and read the startup line
