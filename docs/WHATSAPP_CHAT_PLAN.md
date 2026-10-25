@@ -1,7 +1,9 @@
 # WhatsApp chat: a clearer conversation with customers — plan
 
-**Status:** plan, written 2026-10-24 for the owner's decisions (section 7). No code yet. TODO #1; to be live **before
-2026-11-09**, when the first reorder reminders lead customers into this chat.
+**Status:** plan, written 2026-10-24. **Owner's decisions given 2026-10-25: 1a 2a 3a 4a 5 yes 6 me 7a** (all as
+recommended; section 7). No code yet; next: the Odia column (section 10, the owner writes it) and the 14 Twilio
+templates (section 9). TODO #1; to be live **before 2026-11-09**, when the first reorder reminders lead customers into
+this chat.
 
 **Where:** the bot repo only (`~/projects/order_handoff`). Based on the bot's code (`src/app.js`, `texts.js`,
 `messages.js`, `catalog.js`, `commands.js`) and the Sheet logs `Message_Logs` / `Sessions_Log` (13 Sep–24 Oct).
@@ -110,6 +112,8 @@ changing them is a Twilio setting (decision 5). Replies inside a chat don't need
    week, handoffs, replies per order. Group counts only.
 
 ## 7. Decisions for the owner (my recommendation first)
+
+**Decided by the owner 2026-10-25: 1a, 2a, 3a, 4a, 5 yes, 6 the owner writes the Odia, 7a.**
 1. **Language:** (a) **Odia first, English on request** *(recommended: most customers are local)* · (b) English first ·
    (c) ask at the start (one more step).
 2. **Hindi:** (a) **not now** *(recommended: one Hindi request so far, from outside the area; add when needed)* ·

@@ -40,10 +40,10 @@ can go on **2026-11-09**, only to customers who agreed by then. **Next work: the
 | Bot key | Only in Railway (`whatsappbot`) and the owner's password manager. Rotation: `docs/DEPLOY.md` "WhatsApp bot key". |
 
 **Next session, in this order:**
-1. **Owner: the 7 decisions** in `WHATSAPP_CHAT_PLAN.md` section 7 + decision 7 in section 11 (my recommendations:
-   1a Odia first, 2a no Hindi now, 3a remember the landmark, 4a "team will call with today's price", 5 new templates by
-   the owner / old ones kept, 6 owner or staff writes the Odia, 7a Odia consent saved as `optin-v1-od`). Target 27 Oct.
-2. **Owner / staff: the Odia column** (section 10, ~25 lines; a photo is fine). Target 28 Oct.
+1. ✅ **Owner: the 7 decisions** (2026-10-25: 1a Odia first, 2a no Hindi now, 3a remember the landmark, 4a "team will
+   call with today's price", 5 yes: new templates by the owner / old ones kept, 6 the owner writes the Odia, 7a Odia
+   consent saved as `optin-v1-od`).
+2. **Owner: the Odia column** (section 10, ~25 lines; a photo is fine). Target 28 Oct.
 3. **Owner: create the 14 templates in Twilio** (section 9) and send the HX ids. Target 29 Oct.
 4. **Claude: plan → build in the bot repo** (release 3.5.0 on `main`, tests replaying the 20 Sep lost order and the
    9 Oct chat; include B-18). Plan first and wait for "build", as for every step. 29–31 Oct.
