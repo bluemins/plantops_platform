@@ -391,8 +391,11 @@ Open: the migration `0005_reminders.sql` (draft shown to the owner), then "build
    after each WhatsApp order and STOP / START are recorded.
 4. **Twilio price:** check the price of one marketing message to India in Twilio and set `REMINDER_COST_PAISE` on
    `order-capture` (default 100 = ₹1); `REMINDER_BUDGET_PAISE` stays 50000 (₹500) unless the owner changes it.
-5. **Template:** in `TWILIO_WHATSAPP_SENDERS` on `order-capture`, add `"reminder_content_sid":
-   "HXfd4deefc3196d6fa0e468484f6b3a49c"` to plant 001's entry (next to `from` and `content_sid`).
+5. **Template:** replace the **whole** value of `TWILIO_WHATSAPP_SENDERS` on `order-capture` with (one line, straight
+   quotes; keep the existing `from` and thank-you `content_sid`):
+   `{"950ea907-0a74-48f6-aaaa-5308424049b4": {"from": "whatsapp:+91…", "content_sid": "HX…thank-you…", "reminder_content_sid": "HXfd4deefc3196d6fa0e468484f6b3a49c"}}`.
+   Then check the **thank-you tick box** still shows on "Mark delivered" (same setting; a broken value silently turned
+   off the thank-you and reminders on 2026-10-24, fixed 2026-10-25).
 6. **Job:** cron-job.org, new job "Order Capture reminders": `POST https://orders.bluemins.life/api/cron/reminders`,
    daily 10:30 IST, header `x-cron-secret` (as the other jobs); add it to HANDBOOK section 10.
 7. **Start:** `REMINDER_PILOT_START` = the start day (deliveries from that day count), then `ORDER_REMINDERS=on`. The
