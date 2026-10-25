@@ -298,7 +298,7 @@ Button titles: at most 20 characters.
 optin-v1-od** *(recommended: a customer must understand what they agree to)* · (b) keep the consent question in English
 only.
 
-## 12. Phase 1 build plan: English chat (bot 3.5.0) — built 2026-10-25, not live
+## 12. Phase 1 build plan: English chat (bot 3.5.0) — live 2026-10-25 (bot `production` = `a1c83f3`, `CONTENT_SIDS` set)
 
 **Built** (owner "build" 2026-10-25; bot `a1c83f3`, tag 3.5.0 on `main`, 98 tests): as below, with two details
 settled while building: **"Order"** typed by a customer with a last delivered order gets the T1 menu (so "Same as last
