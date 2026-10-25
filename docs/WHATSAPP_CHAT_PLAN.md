@@ -382,3 +382,62 @@ line.
 **Go-live** (owner's word, as every release): push `main:production`, add `CONTENT_SIDS`, **Deploy** (never Restart),
 read the startup line, phone test (section 6): Hi → Same as last time → YES; New order with "500ml 10"; a thank-you
 button; Rate; "ok" as YES. Undo: delete `CONTENT_SIDS` and Deploy (or push the previous commit).
+
+## 13. The 52 lines to write in Odia (Phase 2; list given to the owner 2026-10-25)
+
+Same numbers as the flow chart's "Odia #" (https://claude.ai/artifact/5jWEyptqPB4gt71PhSqRDE). Keep `{…}` as they are;
+🔘 = a button, at most 20 letters; keep ORDER, STOP, START, MENU, PERSON, SKIP, CANCEL in English. Since 3.5.2–3.5.3 the
+summary (20) is "Please check your order: / Name: … / Place: … / Landmark: … / lines" with no price line, and 18 (Skip)
+keeps the saved landmark.
+
+| # | English | Code |
+|---|---|---|
+| 1 | Johar {name}! What would you like? | T1 |
+| 2–4 | 🔘 Same as last time · 🔘 New order · 🔘 Talk to us | T1 (4 also T2) |
+| 5 | Johar! Bluemins packaged drinking water. What would you like? Type ENGLISH or ଓଡ଼ିଆ to change the language. | T2 |
+| 6–7 | 🔘 Order water · 🔘 Feedback | T2 |
+| 8 | Which size? | T4 |
+| 9–11 | 🔘 1L box (12) · 🔘 500ml box (24) · 🔘 250ml box (35) | T4 |
+| 12 | How many boxes of {size}? (1, 2, 5 …) | M5 |
+| 13 | Added {what}. Anything more? | T5 |
+| 14–15 | 🔘 Add another size · 🔘 That's all | T5 |
+| 16 | Deliver near {landmark} again? Or type a new landmark. | T6 |
+| 17–18 | 🔘 Yes, same place · 🔘 Skip (Phase 2: "Change place", owner to decide) | T6 |
+| 19 | Where should we deliver? Type a landmark (for example: near the Shiv temple), or SKIP. | M6 |
+| 20 | Please check your order: · Name: · Place: · Landmark: | M1 |
+| 21 | You already have an order waiting; this will be another order. | M1 |
+| 22 | Place this order? | T7 |
+| 23–25 | 🔘 YES · 🔘 EDIT · 🔘 CANCEL | T7 |
+| 26 | Okay, let's change it. Pick a size below. | — |
+| 27 | Thank you. Your order {ref} is placed. Our team will call you about the price and delivery. | M2 |
+| 28 | Your order is being saved. Please wait a moment. | — |
+| 29 | We couldn't confirm your order just now. Our team will call you. | — |
+| 30 | What name should we write for this order? | M7 |
+| 31 | Where should we deliver? Village / landmark. | M8 |
+| 32 | Thank you. We have noted your order. Our team will call you to confirm it. | M10 |
+| 33 | Would you like Bluemins to send you a WhatsApp reminder when it may be time to order again? Tap a button, or reply 1 for Yes, 2 for No. You can send STOP at any time. | T8 (consent `optin-v1-od`) |
+| 34–35 | 🔘 Yes, remind me · 🔘 No thanks | T8 |
+| 36 | Thank you. We will send you a reminder when it may be time to order again. Send STOP at any time to stop. | M3 |
+| 37 | Okay, no reminders. Thank you. | M4 |
+| 38 | Thank you! Send ORDER whenever you need water again. | M11 |
+| 39 | Sorry about that. Our team will call you. | M12 |
+| 40 | Prices depend on the order: our team will call you with today's price. Send ORDER to place one, or PERSON to talk to us. | M14 |
+| 41 | Okay, we will chat in Odia now. | M15 |
+| 42 | Sorry, we can chat in Odia or English only. Our team will call you if you'd like Hindi. | M16 |
+| 43 | Your order {ref} is placed. Send ORDER for another one. | M17 |
+| 44 | To change or cancel order {ref}, please talk to our team: {phone}. | — |
+| 45 | Okay, this order is cancelled. Nothing was saved. Send MENU to start again. | — |
+| 46 | For more than 200 boxes of one size, our team will call you to arrange it. If it is urgent, please call {phone}. | — |
+| 47 | We have passed your message to our team. If it is urgent, please call {phone}. | — |
+| 48 | How to use: reply with a number or tap a button. MENU = start again · CANCEL = drop this order · PERSON = our team · STOP = no more reminders | — |
+| 49 | You will not get reminder messages from Bluemins any more. You can still message us to order at any time. To get reminders again, send START. | M13 |
+| 50 | Okay, STOP is removed. Send STOP at any time to stop reminder messages. | — |
+| 51 | Okay, feedback stopped. Nothing more was saved. Send MENU to start again. | — |
+| 52 | Please keep the landmark short (at most 200 letters), or send SKIP. | — |
+
+Added in 3.5.x (also need Odia): "This order has timed out. Send ORDER to start again."; "Sorry, I didn't recognise that.
+Tap a size above, or type the size and boxes, for example: 500ml 10."; "Please reply with the number of boxes, for
+example: 10."; "Sorry, I didn't catch that. Tap a button above, or type another size and boxes, for example: 1L 5.";
+"I couldn't read: {parts}. Please send it again, for example: 1L 5."; "Please tap YES to place this order, EDIT to
+change it, or CANCEL."; the unknown-number summary "Name: / Address: … Reply YES to place this order, CHANGE to change
+the name or address, or CANCEL."
