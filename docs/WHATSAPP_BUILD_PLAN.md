@@ -43,7 +43,9 @@ can go on **2026-11-09**, only to customers who agreed by then. **Next work: the
 1. ✅ **Owner: the 7 decisions** (2026-10-25: 1a Odia first, 2a no Hindi now, 3a remember the landmark, 4a "team will
    call with today's price", 5 yes: new templates by the owner / old ones kept, 6 the owner writes the Odia, 7a Odia
    consent saved as `optin-v1-od`).
-2. **Owner: the Odia column** (section 10, ~25 lines; a photo is fine). Target 28 Oct.
+   **Two phases (owner, 2026-10-25):** Phase 1 = English only (owner creates the 7 `_en` templates now, bot sends
+   English); Phase 2 = Odia (items 2 and the `_od` half of 3). Details: chat plan "Two phases".
+2. **Owner: the Odia column** (Phase 2) (section 10, ~25 lines; a photo is fine). Target 28 Oct.
 3. **Owner: create the 14 templates in Twilio** (section 9) and send the HX ids. Target 29 Oct.
 4. **Claude: plan → build in the bot repo** (release 3.5.0 on `main`, tests replaying the 20 Sep lost order and the
    9 Oct chat; include B-18). Plan first and wait for "build", as for every step. 29–31 Oct.

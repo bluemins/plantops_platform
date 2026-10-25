@@ -1,9 +1,16 @@
 # WhatsApp chat: a clearer conversation with customers — plan
 
 **Status:** plan, written 2026-10-24. **Owner's decisions given 2026-10-25: 1a 2a 3a 4a 5 yes 6 me 7a** (all as
-recommended; section 7). No code yet; next: the Odia column (section 10, the owner writes it) and the 14 Twilio
-templates (section 9). TODO #1; to be live **before 2026-11-09**, when the first reorder reminders lead customers into
-this chat.
+recommended; section 7). No code yet. TODO #1; to be live **before 2026-11-09**, when the first reorder reminders lead
+customers into this chat.
+
+**Two phases (owner, 2026-10-25):**
+- **Phase 1 — English only.** The owner creates the **7 English templates** (T1, T2, T4–T8, `_en`) in Twilio now; the
+  bot sends the whole chat in English (changes C2–C5; C1's language switch waits). Today's Odia order steps become
+  English until Phase 2. T2 leaves out "Type ENGLISH or ଓଡ଼ିଆ…". T8 keeps the full `optin-v1` text (with "or reply 1
+  for Yes, 2 for No"), so the consent wording stays `optin-v1`. `CONTENT_SIDS` holds the 7 English ids.
+- **Phase 2 — Odia.** The owner writes the Odia (section 10), creates the 7 `_od` templates; the bot adds C1 (Odia
+  first, English on request, decision 1a) and the Odia consent `optin-v1-od` (7a).
 
 **Where:** the bot repo only (`~/projects/order_handoff`). Based on the bot's code (`src/app.js`, `texts.js`,
 `messages.js`, `catalog.js`, `commands.js`) and the Sheet logs `Message_Logs` / `Sessions_Log` (13 Sep–24 Oct).
