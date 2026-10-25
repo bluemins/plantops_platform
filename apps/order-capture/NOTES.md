@@ -28,3 +28,20 @@ outbox, no event secret, no 15-minute job.
 - **Made while building:** an unreachable Twilio marks that reminder failed (not retried, as the thank-you's "late is
   worse than none"); the "no open complaint" check is not in the pilot (no module-to-module lookup yet).
 - **Tests:** Order Capture 343 (+23: `test/reminders.test.ts`, access rows, append-only and isolation guards).
+
+### 2026-10-25 — Broken WhatsApp / bot settings are loud (v0.31.3)
+**Why:** on 2026-10-24 `TWILIO_WHATSAPP_SENDERS` on the live copy was replaced by the fragment
+`"reminder_content_sid": "HX…"` (the build plan said "add … to the entry"). `senderFor` returned null, so the thank-you
+tick box vanished and reminders were off, with only a log line. Found by the owner 2026-10-25.
+- **`src/server/thanks.ts`:** `readSender` reads the plant's entry once and names what is wrong: not JSON / not an
+  object, the plant's `from` or `content_sid` missing or invalid, Twilio account missing, `reminder_content_sid` not
+  `HX…` (thank-you keeps working), the same template twice. `whatsappProblem(tenant)` for pages,
+  `whatsappSettingsProblem()` for every plant (for `/health`). A plant not listed is not a problem (not set up).
+- **Order page:** a red note above "Mark delivered" for whoever may deliver: "The WhatsApp thank-you is off: the
+  WhatsApp settings are broken" + the reason. **Reminder pilot page:** the same in red; "Not sending" names it.
+- **`src/server/bot.ts`:** `botKeysProblem()` for a broken `ORDER_BOT_KEYS`.
+- **`/health`:** `warnings: [...]` (both of the above); still 200, since the app itself works. **Check it after any
+  Railway variable change** on `order-capture`.
+- No migration; platform and SSO token unchanged.
+- **Tests:** Order Capture 355 (+12: the exact 24 Oct fragment and each other broken shape, another plant's broken entry
+  only in `/health`, the order view, `/health` warnings).

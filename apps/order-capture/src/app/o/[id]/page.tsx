@@ -118,6 +118,12 @@ export default async function OrderPage({ params }: { params: Params }) {
         <p className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">You can view orders. Order desk or the owner marks them delivered.</p>
       )}
 
+      {may.deliver && o.thanks.problem && (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <span className="font-semibold">The WhatsApp thank-you is off: the WhatsApp settings are broken.</span> Ask PlantOps support to fix them ({o.thanks.problem}).
+        </p>
+      )}
+
       <OrderActions
         order={{ id: o.id, ref: o.ref, status: o.status, version: o.version, summary: o.lines.map((l) => `${l.product} ${l.quantity.toLocaleString("en-IN")} ${l.unit}`).join(", ") }}
         may={may}

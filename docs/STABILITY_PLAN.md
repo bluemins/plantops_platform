@@ -347,6 +347,15 @@ or unreliable — this week; **S3** confusing, slow or cosmetic — a later patc
    migration). Either way wired once in `packages/module-kit` `handle()` and the platform's `http.ts`. *Cost:* neither
    adds a Railway service; B adds a few rows to the existing database.
 4. GitHub emails on failed workflows reach the owner (GitHub → Settings → Notifications → Actions).
+5. **Settings changes (2026-10-25, after the vanished WhatsApp tick box):** tests only cover code with valid settings,
+   so a broken Railway variable switched two live features off silently. Rules from now on:
+   - Steps that change a variable give the **complete value to paste**, never "add X to …", and list a live check of
+     **every older feature that reads it** (not only the new one).
+   - A broken setting must be **loud**: a note on the screen that loses the feature + `warnings` in `/health`, never a
+     silently hidden button. Order Capture does this for `TWILIO_WHATSAPP_SENDERS` and `ORDER_BOT_KEYS` (v0.31.3); a
+     new JSON / structured variable gets the same, with a test feeding it the broken shapes.
+   - After any variable change on `order-capture`, open `https://orders.bluemins.life/health`: `"warnings":[]`.
+     UptimeRobot's Order Capture monitor can use the keyword `"warnings":[]` so a broken value alerts the owner.
 
 ---
 

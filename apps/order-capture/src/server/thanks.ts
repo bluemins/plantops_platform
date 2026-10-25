@@ -25,30 +25,74 @@ export interface Sender {
   reminderContentSid?: string | null;
 }
 
-/** The plant's Twilio sender, or null (not set up, or the settings are broken: logged, never thrown). */
-export function senderFor(tenantId: string): Sender | null {
-  if (!env.twilioAccountSid || !env.twilioAuthToken || !env.twilioWhatsappSenders) return null;
+const FROM_RE = /^(whatsapp:\+\d{8,15}|MG[0-9a-f]{32})$/i;
+const TEMPLATE_RE = /^HX[0-9a-f]{32}$/i;
+
+/**
+ * The plant's settings read once: its sender (null = no thank-you) and what is wrong with them, in words for the
+ * owner (null = fine, or the plant simply isn't set up). A broken value must be loud, never a silently missing tick
+ * box (2026-10-24: the whole value was replaced by a `"reminder_content_sid": …` fragment and both features went off).
+ */
+function readSender(tenantId: string): { sender: Sender | null; problem: string | null } {
+  const raw = env.twilioWhatsappSenders;
+  if (!raw.trim()) return { sender: null, problem: null };
   let all: unknown;
   try {
-    all = JSON.parse(env.twilioWhatsappSenders);
+    all = JSON.parse(raw);
   } catch {
-    console.error("[order-capture] TWILIO_WHATSAPP_SENDERS is not valid JSON; WhatsApp thank-you is off");
-    return null;
+    return { sender: null, problem: 'TWILIO_WHATSAPP_SENDERS is not valid JSON (it must look like {"<plant id>": {"from": …, "content_sid": …}})' };
   }
-  const s = (all as Record<string, { from?: unknown; content_sid?: unknown; reminder_content_sid?: unknown }> | null)?.[tenantId];
-  if (!s || typeof s.from !== "string" || typeof s.content_sid !== "string") return null;
-  if (!/^(whatsapp:\+\d{8,15}|MG[0-9a-f]{32})$/i.test(s.from) || !/^HX[0-9a-f]{32}$/i.test(s.content_sid)) {
-    console.error(`[order-capture] TWILIO_WHATSAPP_SENDERS entry for ${tenantId} is invalid; WhatsApp thank-you is off`);
-    return null;
+  if (!all || typeof all !== "object" || Array.isArray(all)) return { sender: null, problem: 'TWILIO_WHATSAPP_SENDERS must look like {"<plant id>": {"from": …, "content_sid": …}}' };
+  const s = (all as Record<string, unknown>)[tenantId] as { from?: unknown; content_sid?: unknown; reminder_content_sid?: unknown } | null | undefined;
+  if (s === undefined) return { sender: null, problem: null };
+  const at = "TWILIO_WHATSAPP_SENDERS, this plant's entry:";
+  if (!s || typeof s !== "object") return { sender: null, problem: `${at} not {"from": …, "content_sid": …}` };
+  if (typeof s.from !== "string" || !FROM_RE.test(s.from)) return { sender: null, problem: `${at} "from" is missing or not whatsapp:+91… / MG…` };
+  if (typeof s.content_sid !== "string" || !TEMPLATE_RE.test(s.content_sid)) return { sender: null, problem: `${at} "content_sid" (thank-you template) is missing or not HX…` };
+  if (!env.twilioAccountSid || !env.twilioAuthToken) return { sender: null, problem: "TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN is missing" };
+  const r = s.reminder_content_sid;
+  const reminder = typeof r === "string" && TEMPLATE_RE.test(r) ? r : null;
+  const sender = { from: s.from, contentSid: s.content_sid, reminderContentSid: reminder };
+  if (r !== undefined && !reminder) return { sender, problem: `${at} "reminder_content_sid" is not HX…, so reminders are off` };
+  if (reminder && reminder.toLowerCase() === s.content_sid.toLowerCase())
+    return { sender, problem: `${at} "content_sid" and "reminder_content_sid" are the same template (the thank-you needs its own)` };
+  return { sender, problem: null };
+}
+
+/** The plant's Twilio sender, or null (not set up, or the settings are broken: logged, never thrown). */
+export function senderFor(tenantId: string): Sender | null {
+  const { sender, problem } = readSender(tenantId);
+  if (problem) console.error(`[order-capture] WhatsApp settings for ${tenantId}: ${problem}`);
+  return sender;
+}
+
+/** What is wrong with this plant's WhatsApp settings (shown to staff on the order page and the Reminder pilot page). */
+export const whatsappProblem = (tenantId: string) => readSender(tenantId).problem;
+
+/** What is wrong with TWILIO_WHATSAPP_SENDERS for any plant (for /health); null = fine or not set. */
+export function whatsappSettingsProblem(): string | null {
+  const raw = env.twilioWhatsappSenders;
+  if (!raw.trim()) return null;
+  let all: unknown;
+  try {
+    all = JSON.parse(raw);
+  } catch {
+    return readSender("").problem;
   }
-  const reminder = typeof s.reminder_content_sid === "string" && /^HX[0-9a-f]{32}$/i.test(s.reminder_content_sid) ? s.reminder_content_sid : null;
-  return { from: s.from, contentSid: s.content_sid, reminderContentSid: reminder };
+  if (!all || typeof all !== "object" || Array.isArray(all)) return readSender("").problem;
+  for (const t of Object.keys(all)) {
+    const problem = readSender(t).problem;
+    if (problem) return `${problem} (plant ${t})`;
+  }
+  return null;
 }
 
 /** What the order page shows about this order's thank-you. */
 export interface ThanksView {
   /** the plant has a Twilio sender (the "Delivered" panel shows the tick box) */
   available: boolean;
+  /** the plant's WhatsApp settings are broken: shown as a red note instead of a silently missing tick box */
+  problem: string | null;
   message: { status: Exclude<MessageStatus, "skipped">; error: string | null; at: string; sent_at: string | null; by: string } | null;
 }
 
@@ -56,6 +100,7 @@ export async function thanksOf(tx: OcTx, tenantId: string, orderId: string): Pro
   const [m] = await tx.select().from(messages).where(and(eq(messages.tenantId, tenantId), eq(messages.orderId, orderId), eq(messages.kind, "delivery_thanks")));
   return {
     available: senderFor(tenantId) !== null,
+    problem: whatsappProblem(tenantId),
     message: m ? { status: m.status as Exclude<MessageStatus, "skipped">, error: m.error, at: m.createdAt.toISOString(), sent_at: m.sentAt?.toISOString() ?? null, by: m.requestedByName } : null,
   };
 }

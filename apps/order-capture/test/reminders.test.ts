@@ -396,7 +396,7 @@ describe("the Reminder pilot page and the cron route", () => {
     await withTenant(p.tenantId, (tx) => recordConsent(tx, p.tenantId, c2, { status: "withdrawn", source: "whatsapp_stop", by: { userId: STAFF, name: "WhatsApp" } }));
 
     const v = await reminderPilot(p.owner);
-    expect(v).toMatchObject({ on: true, start: START, end: "2026-12-26", template: true, agreed: 1, groups: { remind: 1, holdout: 1 }, due: 2, sent: 1, skipped: { holdout: 1 }, opt_outs: 1, refused: null });
+    expect(v).toMatchObject({ on: true, start: START, end: "2026-12-26", template: true, problem: null, agreed: 1, groups: { remind: 1, holdout: 1 }, due: 2, sent: 1, skipped: { holdout: 1 }, opt_outs: 1, refused: null });
     expect(v.reordered).toEqual({ remind: { base: 1, d7: 1, d14: 1 }, holdout: { base: 1, d7: 0, d14: 0 } });
     expect((await reminderPilot(p.support)).sent).toBe(1);
     expect((await refused(() => reminderPilot(p.desk))).status).toBe(403);

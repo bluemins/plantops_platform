@@ -55,21 +55,30 @@ export const hashBotKey = (key: string) => createHash("sha256").update(key).dige
 
 let parsedFrom: string | null = null;
 let parsed: BotKey[] = [];
-/** The configured keys. A broken ORDER_BOT_KEYS switches the bot API off (logged), never half on. */
+let parseProblem: string | null = null;
+/** The configured keys. A broken ORDER_BOT_KEYS switches the bot API off (logged, and shown by /health), never half on. */
 export function botKeys(): BotKey[] {
   const raw = env.botKeys;
   if (raw === parsedFrom) return parsed;
   parsedFrom = raw;
   parsed = [];
+  parseProblem = null;
   if (!raw.trim()) return parsed;
   try {
     const keys = z.array(KeyEntry).parse(JSON.parse(raw));
     if (new Set(keys.map((k) => k.id)).size !== keys.length) throw new Error("two entries share an id");
     parsed = keys;
   } catch (err) {
-    console.error("[order-capture] ORDER_BOT_KEYS is not valid, so the WhatsApp bot API is off:", (err as Error).message);
+    parseProblem = "ORDER_BOT_KEYS is not valid, so the WhatsApp bot API is off";
+    console.error(`[order-capture] ${parseProblem}:`, (err as Error).message);
   }
   return parsed;
+}
+
+/** What is wrong with ORDER_BOT_KEYS (for /health); null = fine or not set. */
+export function botKeysProblem(): string | null {
+  botKeys();
+  return parseProblem;
 }
 
 /** Orders entered by a bot carry the key id as entered_by (Step 3); such an order has no staff "taker". */

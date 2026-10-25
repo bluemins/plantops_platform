@@ -90,9 +90,14 @@ export default async function RemindersPage() {
 }
 
 function Status({ p }: { p: PilotView }) {
-  const missing = [!p.on && "ORDER_REMINDERS is not on", !p.start && "no start date (REMINDER_PILOT_START)", !p.template && "no approved reminder template set"].filter(Boolean);
+  const missing = [!p.on && "ORDER_REMINDERS is not on", !p.start && "no start date (REMINDER_PILOT_START)", !p.template && (p.problem ? "the WhatsApp settings are broken (above)" : "no approved reminder template set")].filter(Boolean);
   return (
     <Card>
+      {p.problem && (
+        <p className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+          <span className="font-semibold">The WhatsApp settings are broken:</span> {p.problem}.
+        </p>
+      )}
       <p className={`font-semibold ${missing.length ? "text-amber-700" : "text-emerald-700"}`}>{missing.length ? "Not sending" : "Sending, daily at 10:30 am"}</p>
       {missing.length > 0 && <p className="text-sm text-slate-600">Why: {missing.join("; ")}.</p>}
       <ul className="mt-2 space-y-1 text-sm text-slate-700">

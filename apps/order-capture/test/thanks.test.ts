@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { POST as deliverRoute } from "@/app/api/orders/[id]/deliver/route";
 import { DeliverInput, deliverOrder, getOrder, ReasonInput, undoDelivered } from "@/server/handling";
 import { createOrder, OrderInput } from "@/server/orders";
-import { MAX_AGE_MS, retryThanks, sendPending, senderFor } from "@/server/thanks";
+import { MAX_AGE_MS, retryThanks, sendPending, senderFor, whatsappProblem, whatsappSettingsProblem } from "@/server/thanks";
 import { thanksText } from "@/lib/history";
 import { SKUS, startFakePlatform, type FakePlatform } from "./fake-platform";
 import { asApp, asOwner, dbError, jsonReq, plant, refused, signInAs } from "./helpers";
@@ -119,7 +119,7 @@ describe("sending on Delivered", () => {
     expect((await deliverVia(p.desk, o.id, {})).status).toBe(200);
     expect(calls).toEqual([]);
     expect(await rows(o.id)).toEqual([]);
-    expect((await getOrder(p.desk, o.id)).thanks).toEqual({ available: true, message: null });
+    expect((await getOrder(p.desk, o.id)).thanks).toEqual({ available: true, problem: null, message: null });
   });
 
   it("a plant without a sender: no tick box, and send_thanks is refused (400) with nothing saved", async () => {
@@ -149,6 +149,77 @@ describe("sending on Delivered", () => {
     delete process.env.TWILIO_AUTH_TOKEN;
     expect(senderFor(t)).toBeNull();
     process.env.TWILIO_AUTH_TOKEN = token;
+  });
+
+  // 2026-10-24 live: the whole value was replaced by the fragment below; the tick box vanished with no warning
+  describe("broken settings are loud, never a silently missing tick box", () => {
+    const REMINDER = "HX" + "b".repeat(32);
+    const set = (v: unknown) => (process.env.TWILIO_WHATSAPP_SENDERS = typeof v === "string" ? v : JSON.stringify(v));
+    beforeEach(() => void vi.spyOn(console, "error").mockImplementation(() => {}));
+
+    it.each([
+      ["the fragment from 2026-10-24", `"reminder_content_sid": "${"HX" + "b".repeat(32)}"`, /not valid JSON/],
+      ["invalid JSON", "{not json", /not valid JSON/],
+      ["a list instead of plants", "[]", /must look like/],
+      ["the entry is not an object", (t: string) => ({ [t]: "whatsapp:+919000000001" }), /this plant's entry/],
+      ["no from", (t: string) => ({ [t]: { content_sid: CONTENT } }), /"from"/],
+      ["only the reminder template left", (t: string) => ({ [t]: { from: FROM, reminder_content_sid: REMINDER } }), /"content_sid"/],
+    ])("%s: no sender, and the problem is named", (_, value, words) => {
+      const t = randomUUID();
+      set(typeof value === "function" ? value(t) : value);
+      expect(senderFor(t)).toBeNull();
+      expect(whatsappProblem(t)).toMatch(words);
+      expect(whatsappSettingsProblem()).toMatch(words);
+    });
+
+    it("a broken reminder template, or the same template twice: the thank-you keeps working, the problem is named", () => {
+      const t = randomUUID();
+      set({ [t]: { from: FROM, content_sid: CONTENT, reminder_content_sid: "reorder" } });
+      expect(senderFor(t)).toEqual({ from: FROM, contentSid: CONTENT, reminderContentSid: null });
+      expect(whatsappProblem(t)).toMatch(/"reminder_content_sid" is not HX/);
+      set({ [t]: { from: FROM, content_sid: CONTENT, reminder_content_sid: CONTENT } });
+      expect(whatsappProblem(t)).toMatch(/same template/);
+    });
+
+    it("settings set but the Twilio account missing: named", () => {
+      const t = randomUUID();
+      withSender(t);
+      const token = process.env.TWILIO_AUTH_TOKEN;
+      delete process.env.TWILIO_AUTH_TOKEN;
+      try {
+        expect(whatsappProblem(t)).toMatch(/TWILIO_AUTH_TOKEN/);
+      } finally {
+        process.env.TWILIO_AUTH_TOKEN = token;
+      }
+    });
+
+    it("fine, not set, or another plant's entry only: no problem for this plant", () => {
+      const t = randomUUID();
+      set({ [t]: { from: FROM, content_sid: CONTENT, reminder_content_sid: REMINDER } });
+      expect([whatsappProblem(t), whatsappSettingsProblem()]).toEqual([null, null]);
+      expect(whatsappProblem(randomUUID())).toBeNull();
+      set("");
+      expect([whatsappProblem(t), whatsappSettingsProblem()]).toEqual([null, null]);
+    });
+
+    it("another plant's broken entry shows in /health, not on this plant's pages", () => {
+      const t = randomUUID();
+      const other = randomUUID();
+      set({ [t]: { from: FROM, content_sid: CONTENT }, [other]: { from: FROM } });
+      expect(whatsappProblem(t)).toBeNull();
+      expect(whatsappSettingsProblem()).toMatch(new RegExp(`"content_sid".*plant ${other}`));
+    });
+
+    it("the order page's view carries the problem while the tick box is gone", async () => {
+      const p = plant();
+      set(`"reminder_content_sid": "${REMINDER}"`);
+      const o = await sample(p);
+      const view = (await getOrder(p.desk, o.id)).thanks;
+      expect(view.available).toBe(false);
+      expect(view.problem).toMatch(/not valid JSON/);
+      withSender(p.tenantId);
+      expect((await getOrder(p.desk, o.id)).thanks).toMatchObject({ available: true, problem: null });
+    });
   });
 
   it("once per order ever: Undo + Delivered again (ticked) sends nothing more", async () => {

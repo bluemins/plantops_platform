@@ -123,6 +123,22 @@ describe("tile numbers and health", () => {
   it("health: up, with the database reachable", async () => {
     const res = await health();
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, module: "order_capture", database: "ok" });
+    expect(await res.json()).toEqual({ ok: true, module: "order_capture", database: "ok", warnings: [] });
+  });
+
+  it("health: broken WhatsApp or bot settings are listed as warnings, still 200", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    process.env.TWILIO_WHATSAPP_SENDERS = `"reminder_content_sid": "HX${"b".repeat(32)}"`;
+    process.env.ORDER_BOT_KEYS = "[{";
+    try {
+      const res = await health();
+      expect(res.status).toBe(200);
+      const { warnings } = (await res.json()) as { warnings: string[] };
+      expect(warnings).toEqual([expect.stringMatching(/TWILIO_WHATSAPP_SENDERS is not valid JSON/), "ORDER_BOT_KEYS is not valid, so the WhatsApp bot API is off"]);
+    } finally {
+      delete process.env.TWILIO_WHATSAPP_SENDERS;
+      delete process.env.ORDER_BOT_KEYS;
+      spy.mockRestore();
+    }
   });
 });

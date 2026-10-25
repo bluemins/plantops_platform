@@ -1858,3 +1858,12 @@ worker: <month> slip" opens the person's slip exactly as My salary draws it (sha
 tick and paid state; an unpaid month shows what Mark paid would save now. Owner + support only (`salary_view`). No
 migration; SSO token unchanged. Notes: `apps/attendance-salary/NOTES.md`. Tests: Attendance 464 (+3). **Live 2026-10-24** (`production` = `226ac26`);
 not yet tried on screen.
+
+### 2026-10-25 — Order Capture: broken WhatsApp / bot settings are loud (v0.31.3)
+Found by the owner 2026-10-25: the "Send a WhatsApp thank-you" tick box had vanished. Cause: on 24 Oct
+`TWILIO_WHATSAPP_SENDERS` was replaced by the fragment `"reminder_content_sid": …` (the build plan said "add … to the
+entry"), so the thank-you **and** the reminders were off silently. The owner restored the full value the same day.
+Fix: a broken WhatsApp setting now shows a red note on the order page and the Reminder pilot page, and `/health` lists
+broken WhatsApp / bot settings under `warnings` (still 200). New rule (`docs/STABILITY_PLAN.md` section 6 item 5):
+settings steps give the complete value and check every older feature that reads it. No migration; SSO token
+unchanged. Notes: `apps/order-capture/NOTES.md`. Tests: Order Capture 355 (+12). Not deployed.

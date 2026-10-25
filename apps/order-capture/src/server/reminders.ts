@@ -23,7 +23,7 @@ import { env } from "./env";
 import { kit } from "./kit";
 import type { SkipReason } from "./schema";
 import type { OcUser } from "./session";
-import { senderFor, twilioTemplate, type SendResult, type Sender } from "./thanks";
+import { senderFor, twilioTemplate, whatsappProblem, type SendResult, type Sender } from "./thanks";
 
 const { customers, customerMessages: messages, orderLines, orders, reminderGroups } = schema;
 
@@ -238,6 +238,8 @@ export interface PilotView {
   start: string | null;
   end: string | null;
   template: boolean;
+  /** the plant's WhatsApp settings are broken (thanks.ts whatsappProblem) */
+  problem: string | null;
   customers_max: number;
   cost_paise: number;
   budget_paise: number;
@@ -302,6 +304,7 @@ export async function reminderPilot(user: OcUser): Promise<PilotView> {
       start,
       end: start ? pilotEnd(start) : null,
       template: !!senderFor(t)?.reminderContentSid,
+      problem: whatsappProblem(t),
       customers_max: env.reminderPilotCustomers,
       cost_paise: env.reminderCostPaise,
       budget_paise: env.reminderBudgetPaise,
