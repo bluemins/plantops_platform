@@ -47,7 +47,9 @@ can go on **2026-11-09**, only to customers who agreed by then. **Next work: the
    English); Phase 2 = Odia (items 2 and the `_od` half of 3). Details: chat plan "Two phases".
 2. **Owner: the Odia column** (Phase 2) (section 10, ~25 lines; a photo is fine). Target 28 Oct.
 3. **Owner: create the 14 templates in Twilio** (section 9) and send the HX ids. Target 29 Oct.
-4. **Claude: plan → build in the bot repo** (release 3.5.0 on `main`, tests replaying the 20 Sep lost order and the
+4. ✅ **Phase 1 built 2026-10-25** (bot 3.5.0 `a1c83f3`, English, behind `CONTENT_SIDS`; chat plan section 12). Next:
+   **go live on the owner's word** (item 5). Phase 2 (Odia) after the Odia text.
+   Was: **Claude: plan → build in the bot repo** (release 3.5.0 on `main`, tests replaying the 20 Sep lost order and the
    9 Oct chat; include B-18). Plan first and wait for "build", as for every step. 29–31 Oct.
 5. **Go live ~1 Nov** on the owner's word: `CONTENT_SIDS` on Railway → **Deploy** (never Restart) → read the startup
    line → owner's phone test (section 6 of the chat plan).

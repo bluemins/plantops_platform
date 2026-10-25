@@ -298,7 +298,12 @@ Button titles: at most 20 characters.
 optin-v1-od** *(recommended: a customer must understand what they agree to)* · (b) keep the consent question in English
 only.
 
-## 12. Phase 1 build plan: English chat (bot 3.5.0) — waiting for "build"
+## 12. Phase 1 build plan: English chat (bot 3.5.0) — built 2026-10-25, not live
+
+**Built** (owner "build" 2026-10-25; bot `a1c83f3`, tag 3.5.0 on `main`, 98 tests): as below, with two details
+settled while building: **"Order"** typed by a customer with a last delivered order gets the T1 menu (so "Same as last
+time" stays one tap), others go straight to T4; Odia / ଓଡ଼ିଆ gets the "English for now" reply + staff alert (owner,
+2026-10-25). `package.json` keeps its old number (releases are git tags, as before).
 
 Written 2026-10-25 after reading the bot's code (`src/app.js`, `catalog.js`, `commands.js`, `texts.js`, `store.js`,
 `feedback-flow.js`). Bot repo only; Order Capture, PlantOps, the Sheet layout and the six templates in use today are
