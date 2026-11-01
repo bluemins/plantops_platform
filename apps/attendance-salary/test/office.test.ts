@@ -10,7 +10,7 @@ import PersonMonthPage from "@/app/staff/[user]/page";
 import SalaryPage from "@/app/salary/page";
 import SettingsPage from "@/app/settings/page";
 import { describeChange } from "@/lib/changes";
-import { addDays, istDay, istMonth } from "@/lib/days";
+import { addDays, istDay, istMonth, monthDays } from "@/lib/days";
 import { monthFor } from "@/server/calendar";
 import { claimsTab } from "@/server/claims";
 import { deskList, deskMark } from "@/server/desk";
@@ -323,7 +323,8 @@ describe("advances by Office staff", () => {
       [R(1000), "Sujata"],
       [R(2000), "Ramesh"],
     ]);
-    expect(v.stillToRecoverPaise).toBe(R(19200)); // ₹20,000 less last month's 2 paid-leave days (₹800)
+    // ₹20,000 less last month's earnings: ₹12,000 − (its days − 2 paid-leave days) × ₹400 (₹800 in a 30-day month, ₹400 in a 31-day one)
+    expect(v.stillToRecoverPaise).toBe(R(20000) - (R(12000) - (monthDays(last).length - 2) * R(400)));
     expect(v.firstAdvanceDate).toBe([`${last}-01`, addDays(TODAY, -7)].sort().at(-1));
     expect(v.correctable).toEqual([mine.id]);
     expect(Object.keys(v).sort()).toEqual(["advances", "correctable", "expect", "firstAdvanceDate", "month", "stillToRecoverPaise", "today"]); // nothing about pay

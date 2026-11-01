@@ -285,7 +285,8 @@ describe("My claims", () => {
     await setting(p.worker);
     const f = await sendClaim(p.worker, duty());
     await decide(p.worker, f.id, "approved");
-    await sendClaim(p.worker, expense({ on_date: addDays(TODAY, -1) }));
+    // yesterday, unless today is the 1st (yesterday would be last month, not on this month's page)
+    await sendClaim(p.worker, expense({ on_date: TODAY.endsWith("-01") ? TODAY : addDays(TODAY, -1) }));
     const other = { ...p.worker, userId: crypto.randomUUID(), name: "Gaja" };
     await setting(other);
     await sendClaim(other, expense({ amount: "777", note: "Gaja's lunch" }));

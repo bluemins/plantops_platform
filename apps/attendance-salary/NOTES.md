@@ -825,5 +825,6 @@ Asked by the owner 2026-11-01: for Anmol, bindu, Gaja and Ramu "even though they
 - **Database:** migration `0011_work_start.sql` (approved by the owner 2026-11-01): `salary_settings.work_start_minutes`
   (null, or 0-1425 in steps of 15). No row changes; grants unchanged (SELECT + INSERT).
 - Tests: `work-start.test.ts` (8), `salary-edit.test.ts` 6b; expectations for rules 8 / `earlyMinutes` updated.
-  Attendance 482 pass; the two date-dependent tests from v0.32.1 still fail on the 1st.
+  Attendance 482 pass. The two date-dependent tests from v0.32.1 were fixed the same night (office 12 assumed a
+  30-day last month; the claims tab put an expense on "yesterday", last month on the 1st).
 - **Owner to do after deploy:** Staff → Anmol, bindu, Gaja, Ramu → Salary box → Work starts at 09:00, from November.

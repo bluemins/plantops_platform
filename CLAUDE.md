@@ -1918,6 +1918,6 @@ date isn't counted (an 8:50 IN counts from 9:00), a later IN counts from the IN,
 "Counted from 09:00", day page "Before 09:00 (not counted)"; real scan times unchanged. `RULES_VERSION` 8. Attendance
 migration `0011_work_start.sql` (approved by the owner): `salary_settings.work_start_minutes`, null for existing rows,
 grants unchanged. SSO token and platform unchanged. October was already paid for the four, so the owner sets it from
-November. Notes: `apps/attendance-salary/NOTES.md`. Tests: Attendance 482 pass (+9); 2 date-dependent tests fail on the 1st
-with or without this change (known since v0.32.1). **Live 2026-11-01** (`production` = `f79dab1`, migration 0011 applied);
+November. Notes: `apps/attendance-salary/NOTES.md`. Tests: Attendance 482 pass (+9). The date-dependent tests that turned GitHub's Tests red from 25 Oct
+(Lab Records Form 1 from the 25th; Attendance on the 1st / after a 31-day month) are fixed in the tests (2026-11-02). **Live 2026-11-01** (`production` = `f79dab1`, migration 0011 applied);
 the owner set 09:00 from November for Anmol, bindu, Gaja and Ramu (08:00 for reeta).

@@ -253,7 +253,8 @@ describe("daily reminder job", () => {
     await updateParameter(R.lead, rTds, { limit_max: "500" });
     const b = await createBatch(R.tech, { batch_no: "OLD-1", production_date: today() });
     await createDailyEntry(R.tech, { batch_id: b.id, results: [{ parameter_id: rTds, value: "900" }] });
-    expect(await reminderFor(R.tenantId)).toBeNull(); // on hold, but not for a day yet
+    // on hold, but not for a day yet (from the 25th the reminder may still carry "Form 1 … not recorded")
+    expect((await reminderFor(R.tenantId)) ?? "").not.toMatch(/on hold/);
     await asOwner("update lab_records.batches set held_since = now() - interval '3 days' where id = $1", [b.id]);
     expect(await reminderFor(R.tenantId)).toMatch(/1 batch on hold for more than a day: OLD-1 \(3 days\)/);
     await runDaily();
