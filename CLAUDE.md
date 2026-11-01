@@ -1897,4 +1897,4 @@ tick; next J-number, same list / status / notes / CSV / 12-month removal. Resume
 form or later on the application's page; pages added, never replaced. New access row `add`; marked by
 `consent_version 'plant-v1'`; history and Recent changes from audit rows; CSV "Came in" column. **No migration**;
 platform and SSO token unchanged. CVs belong here, not in Document Store (it never deletes). Notes:
-`apps/job-applications/NOTES.md`. Tests: Job applications 134 (+12). **Not yet verified:** on screen; not deployed.
+`apps/job-applications/NOTES.md`. Tests: Job applications 134 (+12). **Live 2026-11-01** (`production` = `781bda6`); not yet tried on screen.
