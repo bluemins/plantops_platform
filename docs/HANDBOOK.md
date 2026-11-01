@@ -593,6 +593,10 @@ button shows when the module is switched on. They can't enter or change anything
   qualification, good to have), the on / off switch, ↑ ↓ within a group, the message at the top of the page. Switched-off
   positions vanish from the public page at once; nothing is deleted, and applications keep the name they applied for.
   People can always "just send their resume" (Any job), even with no position on.
+- **Someone who phoned or walked in (v0.33.1):** Applications → **+ Add applicant** (owner or HR desk). Ask them
+  whether the plant may keep their details for 12 months and tick the box. The resume is optional: add a PDF or photos
+  on the form, or later on their page ("Add the resume") when the CV arrives. Don't put CVs in Document Store: it
+  never deletes, while Job applications removes them after 12 months.
 - **The QR poster:** Openings → Print QR poster (A4, "We are hiring" + the QR of the public address). The address is
   taken from `MODULE_URL_JOB_APPLICATIONS`, so it is the real `https://jobs…` one.
 - **Spam rules:** a hidden trap field; **20 sends per internet connection per hour** (a hiring drive on one mobile

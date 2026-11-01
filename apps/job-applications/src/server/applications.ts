@@ -1,11 +1,11 @@
 // The plant's applications for the owner and HR desk (docs/JOB_APPLICATIONS_PHASE_PLAN.md screens 5 and 6): list,
 // one application, status, notes, resume pages, CSV and the owner's "Remove now". Every function checks the one
 // access table; the plant always comes from the login.
-import { and, asc, count, desc, eq, isNull, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { csv, csvTime } from "@plantops/module-kit/csv";
 import { normalisePhone } from "@plantops/module-kit/phone";
-import { formatRef } from "@/lib/apply";
+import { ENTERED_CONSENT, formatRef } from "@/lib/apply";
 import { NOTE_MAX, removalDate, STATUS_IDS, statusOf } from "@/lib/status";
 import { requireAccess } from "./access";
 import { audit } from "./audit";
@@ -15,7 +15,7 @@ import type { JaUser } from "./session";
 import type { ApplicationStatus } from "./schema";
 import { fileStorage } from "./storage";
 
-const { applications, applicationEvents, applicationFiles, supportViews } = schema;
+const { applications, applicationEvents, applicationFiles, auditLog, supportViews } = schema;
 
 export type StatusFilter = ApplicationStatus | "all";
 export interface ListFilters {
@@ -102,7 +102,8 @@ export async function getApplication(user: JaUser, id: string, now = new Date())
         .returning({ id: applications.id });
       if (opened.length) await tx.insert(applicationEvents).values({ tenantId: user.tenantId, applicationId: id, kind: "seen", userId: user.userId, userName: user.name, at: now });
     }
-    const [files, events, before] = await Promise.all([
+    const entered = a.consentVersion === ENTERED_CONSENT;
+    const [files, events, before, added] = await Promise.all([
       tx.select().from(applicationFiles).where(and(eq(applicationFiles.tenantId, user.tenantId), eq(applicationFiles.applicationId, id))).orderBy(asc(applicationFiles.pageNo)),
       tx.select().from(applicationEvents).where(and(eq(applicationEvents.tenantId, user.tenantId), eq(applicationEvents.applicationId, id))).orderBy(asc(applicationEvents.at)),
       tx
@@ -110,14 +111,25 @@ export async function getApplication(user: JaUser, id: string, now = new Date())
         .from(applications)
         .where(and(eq(applications.tenantId, user.tenantId), eq(applications.phone, a.phone), ne(applications.id, id)))
         .orderBy(desc(applications.createdAt)),
+      // who added it by hand and who added resume pages (application_events has no kinds for these)
+      tx
+        .select({ action: auditLog.action, details: auditLog.details, at: auditLog.at })
+        .from(auditLog)
+        .where(and(eq(auditLog.tenantId, user.tenantId), eq(auditLog.target, id), inArray(auditLog.action, ["application.added", "application.resume"]))),
     ]);
+    const by = (d: Record<string, unknown>) => String(d.by ?? "someone");
     const history: HistoryLine[] = [
-      { at: a.createdAt.toISOString(), text: "Sent from the public page" },
+      ...(entered ? [] : [{ at: a.createdAt.toISOString(), text: "Sent from the public page" }]),
+      ...added.map((r) => ({
+        // "Added" at the application's own time, so it always comes before its first note
+        at: (r.action === "application.added" ? a.createdAt : r.at).toISOString(),
+        text: r.action === "application.added" ? `Added by ${by(r.details)} (phone / walk-in)` : `Resume ${r.details.pdf ? "PDF" : `page ${r.details.page}`} added by ${by(r.details)}`,
+      })),
       ...events.map((e) => ({
         at: e.at.toISOString(),
         text: e.kind === "seen" ? `Opened by ${e.userName}` : e.kind === "status" ? `${statusOf(e.toStatus!).label} by ${e.userName}${e.text ? `: ${e.text}` : ""}` : `Note by ${e.userName}: ${e.text}`,
       })),
-    ];
+    ].sort((x, y) => x.at.localeCompare(y.at));
     return {
       id: a.id,
       ref: formatRef(a.refNo),
@@ -127,6 +139,8 @@ export async function getApplication(user: JaUser, id: string, now = new Date())
       position: a.openingTitle ?? "Any job",
       status: a.status,
       createdAt: a.createdAt.toISOString(),
+      /** added by the owner / HR desk (phone call, walk-in), not sent from the public page */
+      entered,
       consentAt: a.consentAt.toISOString(),
       removalOn: removalDate(a.createdAt).toISOString(),
       files: files.map((f) => ({ id: f.id, pageNo: f.pageNo, type: f.contentType, size: f.sizeBytes })),
@@ -211,8 +225,19 @@ export async function exportCsv(user: JaUser) {
     const lastNote = new Map(notes.map((n) => [n.applicationId, n.text]));
     await audit(tx, user, "export.csv", null, { rows: rows.length });
     return csv([
-      ["Reference", "Sent", "Position", "Name", "Mobile", "Place", "Status", "Last note", "Removed on"],
-      ...rows.map((r) => [formatRef(r.refNo), csvTime(r.createdAt), r.openingTitle ?? "Any job", r.name, r.phone, r.place, statusOf(r.status).label, lastNote.get(r.id) ?? "", csvTime(removalDate(r.createdAt)).slice(0, 10)]),
+      ["Reference", "Sent", "Position", "Name", "Mobile", "Place", "Status", "Last note", "Removed on", "Came in"],
+      ...rows.map((r) => [
+        formatRef(r.refNo),
+        csvTime(r.createdAt),
+        r.openingTitle ?? "Any job",
+        r.name,
+        r.phone,
+        r.place,
+        statusOf(r.status).label,
+        lastNote.get(r.id) ?? "",
+        csvTime(removalDate(r.createdAt)).slice(0, 10),
+        r.consentVersion === ENTERED_CONSENT ? "Added by the plant" : "Public page",
+      ]),
     ]);
   });
 }

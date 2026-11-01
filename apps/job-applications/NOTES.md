@@ -183,3 +183,28 @@ the check; all rows, files, bells and users removed afterwards):
      note / CSV, Remove now)
   5. not yet seen live: the volume across a redeploy, a file + backup copy deleted by the daily job, Railway's
      address header for the hourly limit
+
+## "+ Add applicant" (2026-11-01, v0.33.1)
+Asked by the owner 2026-11-01: they get few resumes, mostly calls; they type the details in themselves. No database
+change; SSO token and platform unchanged.
+- **Access:** new row `add` (owner, HR desk) in `src/server/access.ts`; support and plant staff refused.
+- **`src/server/add.ts`:** `addApplicant` (JSON, `POST /api/app/applications`) writes the same `applications` row as the
+  public send, with `consent_version = 'plant-v1'` (`ENTERED_CONSENT`: the person told the plant it may keep their
+  details; the form's tick is required) and `seen_at` / `seen_by` = whoever added it. Same advisory lock, reference,
+  double-tap key and 30-day phone + position rule as the public send (helpers now exported from `apply.ts`). Any
+  opening of the plant, also switched off. Optional first note = a normal `note` event. Audit `application.added`
+  with the ref only (no personal data: the audit line outlives a removal).
+- **Resume pages:** `addResumePage` (`POST /api/app/applications/<id>/resume`, the raw file as the body via
+  `handleUpload`, CSRF-safe like every module upload). One PDF on an application without files, or photos up to 3 in
+  all; never replaced. Plan storage checked (413 when full) and the 80 / 95 % warnings sent. Audit `application.resume`.
+  Works on public applications too.
+- **History:** "Added by … (phone / walk-in)" and "Resume … added by …" come from the audit rows of that application
+  (`application_events` has no kinds for them; adding kinds would be a schema change).
+- **Screens:** "+ Add applicant" on the list (owner, HR desk) → `/applications/new`; the application page says "added
+  … · phone / walk-in", "Resume · none yet" and an "Add the resume" / "Add more photos" box (`resume-picker.tsx`). If a
+  page fails to upload after saving, the page opens with "didn't fully upload. Add it again below."
+- **CSV:** new last column "Came in". **Notification:** "New job application" to the others (`exclude_user_id`).
+- **Made while building:** switched-off openings can be picked; a public application can get more photo pages; no
+  notification for a resume page.
+- Tests: Job applications 134 (+12 in `test/add.test.ts`; access and CSV tests updated). Typecheck and build pass.
+- **Not yet verified:** on screen / on a phone; not deployed.

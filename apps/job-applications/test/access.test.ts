@@ -22,8 +22,8 @@ describe("access table", () => {
     for (const a of ALL) expect(can(p.owner, a), a).toBe(true);
   });
 
-  it("HR desk reads and updates applications, nothing else", () => {
-    expect(ALL.filter((a) => can(p.hr, a)).sort()).toEqual(["read", "update"]);
+  it("HR desk reads, updates and adds applications, nothing else", () => {
+    expect(ALL.filter((a) => can(p.hr, a)).sort()).toEqual(["add", "read", "update"]);
   });
 
   it("PlantOps support only looks", () => {

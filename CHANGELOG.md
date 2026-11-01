@@ -4,6 +4,21 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.33.1 — 2026-11-01 — Job applications: "+ Add applicant"
+
+**What's in it** (asked by the owner 2026-11-01)
+- **"+ Add applicant"** on the Applications list (owner and HR desk): someone who phoned or walked in. Position (any
+  opening, also switched off, or Any job), name, mobile, place, an optional first note, and the tick "They agreed that
+  <plant> may keep their details for 12 months". They get the next J-number and appear in the list, notes, status and
+  CSV like any application; removed after 12 months like the others.
+- **Resume optional:** a PDF or up to 3 photos, on the form or later on the application's page ("Add the resume") when
+  a CV arrives. Pages are added, never replaced. A public application with 1-2 photos can also get more pages.
+- History says "Added by <name> (phone / walk-in)" and "Resume … added by <name>"; Recent changes lists both; the CSV
+  has a new last column "Came in" (Public page / Added by the plant). The others get the "New job application" bell, not
+  whoever added it. Same phone for the same position within 30 days: refused with the existing reference.
+
+**Migrations:** none (an application without a resume was already allowed by the database).
+
 ## v0.33.0 — 2026-11-01 — Arrange launcher tiles; sort the Salary table
 
 **What's in it** (asked by the owner 2026-11-01)

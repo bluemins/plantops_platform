@@ -39,6 +39,13 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
       <Header user={user} plant={plant} />
       <Tabs user={user} active="applications" />
       <h1 className="sr-only">Applications</h1>
+      {can(user, "add") && (
+        <div className="flex justify-end">
+          <a href="/applications/new" className="inline-flex min-h-11 items-center rounded-xl bg-(--brand) px-4 text-[15px] font-bold text-(--brand-contrast)">
+            + Add applicant
+          </a>
+        </div>
+      )}
       <nav aria-label="Status" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5">
         {STATUSES.map((s) => (
           <a key={s.id} href={link(s.id)} aria-current={status === s.id ? "page" : undefined} className={chip(status === s.id)}>
@@ -69,7 +76,7 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
 
       {list.rows.length === 0 ? (
         <Card>
-          <p className="text-slate-600">{list.counts.all ? "No applications match." : "No applications yet. Share your public page (Openings → Copy link or Print QR poster)."}</p>
+          <p className="text-slate-600">{list.counts.all ? "No applications match." : "No applications yet. Add someone who called with + Add applicant, or share your public page (Openings → Copy link or Print QR poster)."}</p>
         </Card>
       ) : (
         <ul className="space-y-3">

@@ -8,14 +8,18 @@ import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../../header";
 import { ContactButtons, StatusChip } from "../../parts";
+import { MAX_PHOTOS } from "@/lib/apply";
+import { AddResume } from "../resume-picker";
 import { NoteBox, RemoveNow, StatusButtons } from "./actions";
 
 type Params = Promise<{ id: string }>;
+type Search = Promise<Record<string, string | string[] | undefined>>;
 const dateOnly = (iso: string) => new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" }).format(new Date(iso));
 
 /** Mock-up 6: one application. Opening it the first time (owner / HR desk) records "Opened by …". */
-export default async function ApplicationPage({ params }: { params: Params }) {
+export default async function ApplicationPage({ params, searchParams }: { params: Params; searchParams: Search }) {
   const { id } = await params;
+  const resumeFailed = (await searchParams).resume === "failed";
   const user = await requirePageUser(`/applications/${id}`);
   if (!can(user, "read")) redirect("/applications");
   const [plant, a] = await Promise.all([kit.branding(user.tenantId), orNotFound(getApplication(user, id))]);
@@ -53,7 +57,7 @@ export default async function ApplicationPage({ params }: { params: Params }) {
           <StatusChip status={a.status} />
         </div>
         <p className="text-sm text-slate-600">
-          {a.ref} · sent {fmtDateTime(a.createdAt)} · from the public page
+          {a.ref} · {a.entered ? `added ${fmtDateTime(a.createdAt)} · phone / walk-in` : `sent ${fmtDateTime(a.createdAt)} · from the public page`}
         </p>
       </div>
       {!user.isSupport && <ContactButtons phone={a.phone} />}
@@ -65,12 +69,15 @@ export default async function ApplicationPage({ params }: { params: Params }) {
             <span className="text-right font-semibold">{v}</span>
           </div>
         ))}
-        <p className="py-3 text-[13px] text-slate-600">Agreed to be kept for 12 months · removed on {dateOnly(a.removalOn)}</p>
+        <p className="py-3 text-[13px] text-slate-600">
+          {a.entered ? "Told the plant they agree to be kept for 12 months" : "Agreed to be kept for 12 months"} · removed on {dateOnly(a.removalOn)}
+        </p>
       </section>
 
       <section className="space-y-2.5 rounded-2xl border border-slate-200 bg-white p-4">
-        <h2 className="text-base font-bold">Resume · {pdf ? "PDF" : `${photos.length} photo${photos.length === 1 ? "" : "s"}`}</h2>
-        {pdf ? (
+        <h2 className="text-base font-bold">Resume · {pdf ? "PDF" : photos.length ? `${photos.length} photo${photos.length === 1 ? "" : "s"}` : "none yet"}</h2>
+        {resumeFailed && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">The applicant was saved, but the resume didn&apos;t fully upload. Add it again below.</p>}
+        {!a.files.length ? null : pdf ? (
           <a href={`/api/app/files/${pdf.id}`} target="_blank" rel="noopener" className="inline-flex min-h-12 items-center rounded-xl border border-slate-300 px-4 font-semibold">
             Open PDF ({Math.max(1, Math.round(pdf.size / 1024))} KB)
           </a>
@@ -85,7 +92,8 @@ export default async function ApplicationPage({ params }: { params: Params }) {
             ))}
           </div>
         )}
-        <p className="text-[13px] text-slate-600">Tap a page to open it full screen. A PDF opens in the phone&apos;s viewer.</p>
+        {a.files.length > 0 && <p className="text-[13px] text-slate-600">Tap a page to open it full screen. A PDF opens in the phone&apos;s viewer.</p>}
+        {can(user, "add") && !pdf && photos.length < MAX_PHOTOS && <AddResume id={a.id} room={MAX_PHOTOS - photos.length} pdfAllowed={!photos.length} />}
       </section>
 
       <StatusButtons id={a.id} status={a.status} canEdit={can(user, "update")} />

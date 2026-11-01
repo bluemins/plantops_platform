@@ -8,6 +8,7 @@ export type Who = "owner" | "hr" | "support";
 export type Action =
   | "read" // the list, an application, its resume pages
   | "update" // change the status, add a note
+  | "add" // add an applicant by hand (phone call, walk-in), add resume pages
   | "view_openings" // see the openings and the page message (support: read-only)
   | "manage_openings" // add / edit / switch openings, the page message
   | "view_changes" // Recent changes
@@ -18,6 +19,7 @@ export type Action =
 export const ACCESS: Record<Action, readonly Who[]> = {
   read: ["owner", "hr", "support"],
   update: ["owner", "hr"],
+  add: ["owner", "hr"],
   view_openings: ["owner", "support"],
   manage_openings: ["owner"],
   view_changes: ["owner", "support"],

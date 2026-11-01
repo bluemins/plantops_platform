@@ -42,6 +42,10 @@ export function describeChange(action: string, details: Record<string, unknown>)
       return `Page message changed to "${short(details.to, 120)}"`;
     case "export.csv":
       return `Exported the applications (CSV, ${show(details.rows)} rows)`;
+    case "application.added":
+      return `Added applicant ${show(details.ref)} (phone / walk-in)`;
+    case "application.resume":
+      return `${show(details.ref)}: resume ${details.pdf ? "PDF" : `page ${show(details.page)}`} added`;
     case "application.removed":
       return `${show(details.ref)} removed: ${show(details.reason)}`;
     case "applications.purged":

@@ -1889,3 +1889,12 @@ the person can open are kept; locked tiles stay last. Platform migration `0020_t
 person, FORCE RLS, no audit: a display choice). **Attendance:** the Salary tab's PC table sorts by any column heading
 (`SORT_BY` in `src/app/salary/salary-table.tsx`; "—" last, per-day rate × 30); not remembered, phone list unchanged.
 SSO token unchanged. Tests: platform 374 (+6).
+
+### 2026-11-01 — Job applications: "+ Add applicant" (v0.33.1)
+Asked by the owner 2026-11-01 (few resumes; mostly calls, details typed in by the owner). Owner and HR desk add someone
+who phoned or walked in: position, name, mobile, place, optional note, a required "they agreed to be kept 12 months"
+tick; next J-number, same list / status / notes / CSV / 12-month removal. Resume optional (PDF or ≤ 3 photos), on the
+form or later on the application's page; pages added, never replaced. New access row `add`; marked by
+`consent_version 'plant-v1'`; history and Recent changes from audit rows; CSV "Came in" column. **No migration**;
+platform and SSO token unchanged. CVs belong here, not in Document Store (it never deletes). Notes:
+`apps/job-applications/NOTES.md`. Tests: Job applications 134 (+12). **Not yet verified:** on screen; not deployed.

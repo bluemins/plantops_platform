@@ -9,7 +9,9 @@ export const LIMITS = { name: [2, 100], place: [2, 200] } as const;
 
 /** The consent text the applicant ticks; its version is stored with every application. Change the text = new version. */
 export const CONSENT_VERSION = "v1";
-export const consentText = (plant: string) => `I agree that ${plant} may keep my details for 12 months to contact me about jobs.`;
+/** Stored instead for an applicant the owner / HR desk added by hand: they told the plant it may keep their details. */
+export const ENTERED_CONSENT = "plant-v1";
+export const consentText =(plant: string) => `I agree that ${plant} may keep my details for 12 months to contact me about jobs.`;
 
 /** A one-time key for one filled-in form (a double tap sends the same one). Not crypto.randomUUID(): that only exists
  * on https pages, and phones test on plain http (pnpm dev:lan). */

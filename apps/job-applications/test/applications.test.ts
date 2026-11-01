@@ -224,8 +224,8 @@ describe("CSV and Remove now (owner)", () => {
     const res = await exportRoute(new Request("http://x/api/app/export"), undefined as never);
     expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename="job-applications-\d{4}-\d{2}-\d{2}\.csv"$/);
     const lines = (await res.text()).replace(/^﻿/, "").trim().split("\r\n");
-    expect(lines[0]).toBe("Reference,Sent,Position,Name,Mobile,Place,Status,Last note,Removed on");
-    expect(lines[1]).toMatch(/^J-0001,\d{4}-\d{2}-\d{2} \d{2}:\d{2},Any job,'=HYPERLINK\(1\),9876543210,Bargarh,New,'\+second,\d{4}-\d{2}-\d{2}$/);
+    expect(lines[0]).toBe("Reference,Sent,Position,Name,Mobile,Place,Status,Last note,Removed on,Came in");
+    expect(lines[1]).toMatch(/^J-0001,\d{4}-\d{2}-\d{2} \d{2}:\d{2},Any job,'=HYPERLINK\(1\),9876543210,Bargarh,New,'\+second,\d{4}-\d{2}-\d{2},Public page$/);
     expect((await recentChanges(p.owner))[0]!.text).toBe("Exported the applications (CSV, 1 rows)");
   });
 

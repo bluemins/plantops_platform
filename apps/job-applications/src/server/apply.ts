@@ -11,7 +11,7 @@ import { z } from "zod";
 import { normalisePhone } from "@plantops/module-kit/phone";
 import { newStorageKey, sniffType } from "@plantops/module-kit/storage";
 import { CONSENT_VERSION, formatRef, LIMITS, MAX_FILE_BYTES, MAX_PHOTOS } from "@/lib/apply";
-import { schema, withTenant } from "./db";
+import { schema, withTenant, type JaTx } from "./db";
 import { HttpError, rateLimit } from "./http";
 import { kit } from "./kit";
 import type { PublicPlantView } from "./public";
@@ -23,7 +23,6 @@ const { applications, applicationFiles, openings } = schema;
 
 /** per connection (owner, 2026-10-17: 20, so a hiring drive on one mobile network isn't blocked) */
 export const SENDS_PER_HOUR = 20;
-const REPEAT_DAYS = 30;
 const DAY = 86_400_000;
 
 const text = (min: number, max: number, what: string) =>
@@ -59,9 +58,50 @@ export interface SentApplication {
 }
 
 /** The plan's storage limit in bytes, or null (blank = unlimited; PlantOps unreachable = not enforced, like Complaint Box). */
-async function storageLimitBytes(tenantId: string) {
+export async function storageLimitBytes(tenantId: string) {
   const mb = (await kit.plan(tenantId))?.limits.modules.job_applications?.storage_mb;
   return mb ? mb * 1024 * 1024 : null;
+}
+
+/** Bytes of resume files this plant keeps now. */
+export async function usedBytes(tx: JaTx, tenantId: string) {
+  const [u] = await tx
+    .select({ used: sql<string>`coalesce(sum(${applicationFiles.sizeBytes}), 0)::bigint` })
+    .from(applicationFiles)
+    .where(eq(applicationFiles.tenantId, tenantId));
+  return Number(u?.used ?? 0);
+}
+
+/** One new application at a time per plant from here (reference numbers, double-tap and 30-day checks can't race). */
+export async function lockRefs(tx: JaTx, tenantId: string) {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext('job_applications.ref'), hashtext(${tenantId}))`);
+}
+
+/** The next reference number (call after lockRefs). */
+export async function nextRefNo(tx: JaTx, tenantId: string) {
+  const [max] = await tx
+    .select({ n: sql<number>`coalesce(max(${applications.refNo}), 0)::int` })
+    .from(applications)
+    .where(eq(applications.tenantId, tenantId));
+  return Number(max?.n ?? 0) + 1;
+}
+
+export const REPEAT_DAYS = 30;
+/** An application from this phone for this position (Any job counts as one) in the last 30 days, or undefined. */
+export async function recentRepeat(tx: JaTx, tenantId: string, phone: string, openingId: string | null, now: Date) {
+  const [repeat] = await tx
+    .select({ refNo: applications.refNo, at: applications.createdAt })
+    .from(applications)
+    .where(
+      and(
+        eq(applications.tenantId, tenantId),
+        eq(applications.phone, phone),
+        openingId ? eq(applications.openingId, openingId) : isNull(applications.openingId),
+        gte(applications.createdAt, new Date(now.getTime() - REPEAT_DAYS * DAY)),
+      ),
+    )
+    .limit(1);
+  return repeat;
 }
 
 /** Refused because the plan's storage is full: the caller tells the owners. */
@@ -121,7 +161,7 @@ export async function submitApplication(plant: PublicPlantView, input: SendInput
     }
 
     // one send at a time per plant from here: reference numbers, the double-tap and 30-day checks can't race
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('job_applications.ref'), hashtext(${plant.tenantId}))`);
+    await lockRefs(tx, plant.tenantId);
 
     // 7. the same form sent twice (double tap, a retry): the first application's reference
     const [again] = await tx
@@ -131,29 +171,14 @@ export async function submitApplication(plant: PublicPlantView, input: SendInput
     if (again) return { ref: formatRef(again.refNo), name: again.name, phone: again.phone, saved: null, storage: null };
 
     // 8. one application per phone per position (Any job counts as one) per 30 days
-    const [repeat] = await tx
-      .select({ at: applications.createdAt })
-      .from(applications)
-      .where(
-        and(
-          eq(applications.tenantId, plant.tenantId),
-          eq(applications.phone, f.phone),
-          opening ? eq(applications.openingId, opening.id) : isNull(applications.openingId),
-          gte(applications.createdAt, new Date(now.getTime() - REPEAT_DAYS * DAY)),
-        ),
-      )
-      .limit(1);
+    const repeat = await recentRepeat(tx, plant.tenantId, f.phone, opening?.id ?? null, now);
     if (repeat) throw new HttpError(409, `You already applied on ${dateText(repeat.at)}. We have your details.`);
 
     // 9. the plan's storage
     const limit = await storageLimitBytes(plant.tenantId);
     let before = 0;
     if (limit) {
-      const [u] = await tx
-        .select({ used: sql<string>`coalesce(sum(${applicationFiles.sizeBytes}), 0)::bigint` })
-        .from(applicationFiles)
-        .where(eq(applicationFiles.tenantId, plant.tenantId));
-      before = Number(u?.used ?? 0);
+      before = await usedBytes(tx, plant.tenantId);
       if (before + total > limit) throw new StorageFull(before, limit);
     }
 
@@ -166,11 +191,7 @@ export async function submitApplication(plant: PublicPlantView, input: SendInput
         await storage.put(key, file.data, file.type!);
         written.push(key);
       }
-      const [max] = await tx
-        .select({ n: sql<number>`coalesce(max(${applications.refNo}), 0)::int` })
-        .from(applications)
-        .where(eq(applications.tenantId, plant.tenantId));
-      const refNo = Number(max?.n ?? 0) + 1;
+      const refNo = await nextRefNo(tx, plant.tenantId);
       const [row] = await tx
         .insert(applications)
         .values({
