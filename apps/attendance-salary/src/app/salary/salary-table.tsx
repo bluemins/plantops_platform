@@ -77,6 +77,66 @@ const td = "px-2 py-1.5 text-right tabular-nums whitespace-nowrap";
 const SHOW_ALL_KEY = "attendance.salary.showAllColumns";
 
 /**
+ * What each PC column sorts by (owner, 2026-11-01). null = the column shows "—" for that person; those rows always go
+ * last. A per-day rate sorts as 30 days of it, so it sits among the monthly salaries.
+ */
+const SORT_BY: Record<string, (r: TabRow) => number | string | null> = {
+  name: (r) => r.name.toLowerCase(),
+  salary: (r) => (r.payBasis === "per_day" ? (r.dayRatePaise ?? 0) * 30 : r.input.monthlyPaise),
+  days: (r) => r.counts.present,
+  full: (r) => r.counts.present,
+  short: (r) => (r.counts.short || r.counts.half) * 100_000 + (r.counts.shortMinutes ?? 0),
+  absent: (r) => r.counts.absent,
+  off: (r) => r.counts.off ?? 0,
+  leave: (r) => (r.payBasis === "monthly" ? r.result.leaveUsedHalves : null),
+  otHours: (r) => (r.getsOvertime ? r.result.otMinutes : null),
+  earned: (r) => r.result.earnedPaise,
+  otPay: (r) => (r.getsOvertime ? r.result.otPayPaise : null),
+  ta: (r) => (r.kmRatePaise || r.result.taPaise ? r.result.taPaise : null),
+  da: (r) => (r.daDayPaise || r.result.daPaise ? r.result.daPaise : null),
+  expenses: (r) => r.result.expensesPaise,
+  advances: (r) => r.result.advancesPaise,
+  carriedIn: (r) => r.result.carriedInPaise,
+  extras: (r) => extrasPaise(r.result),
+  taken: (r) => takenPaise(r.result),
+  remaining: (r) => r.result.remainingPaise,
+  paid: (r) => (r.payment ? 1 : 0),
+};
+type Sort = { key: string; dir: 1 | -1 } | null;
+const BOTH_COLS = ["name", "salary", "earned", "remaining", "paid"];
+const ALL_COLS = [...BOTH_COLS, "full", "short", "absent", "off", "leave", "otHours", "otPay", "ta", "da", "expenses", "advances", "carriedIn"];
+const SHORT_COLS = [...BOTH_COLS, "days", "extras", "taken"];
+
+function sortRows(rows: TabRow[], sort: Sort): TabRow[] {
+  const get = sort && SORT_BY[sort.key];
+  if (!sort || !get) return rows;
+  return [...rows].sort((a, b) => {
+    const x = get(a);
+    const y = get(b);
+    if (x === null || y === null) return x === y ? 0 : x === null ? 1 : -1;
+    const c = typeof x === "string" ? x.localeCompare(y as string) : x - (y as number);
+    return c * sort.dir;
+  });
+}
+
+/** A column heading that sorts the table: first tap biggest first (names A-Z), second tap the other way, third tap back to the usual order. */
+function SortTh({ k, sort, onSort, left, className = "", children }: { k: string; sort: Sort; onSort: (s: Sort) => void; left?: boolean; className?: string; children: React.ReactNode }) {
+  const on = sort?.key === k;
+  const first: 1 | -1 = k === "name" ? 1 : -1;
+  const next = () => onSort(!on ? { key: k, dir: first } : sort.dir === first ? { key: k, dir: (-first) as 1 | -1 } : null);
+  return (
+    <th aria-sort={on ? (sort.dir === 1 ? "ascending" : "descending") : "none"} className={`${thBase} ${left ? "text-left" : "text-right"} ${className}`}>
+      <button type="button" onClick={next} className={`inline-flex items-center gap-0.5 uppercase hover:text-slate-900 ${on ? "text-slate-900" : ""}`}>
+        {children}
+        <span aria-hidden className={on ? "text-(--brand)" : "text-slate-300"}>
+          {on ? (sort.dir === 1 ? "▲" : "▼") : "↕"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
+/**
  * The month's people: a table on a PC (scrolling inside its box) with a total row, a list on a phone. The table's
  * short form (owner, 2026-10-19) merges columns into Days, Extras and Taken; "Show all columns" shows each one again.
  * Tapping a person opens the checking panel with every figure: a drawer on the right on a PC, full screen on a phone.
@@ -84,6 +144,8 @@ const SHOW_ALL_KEY = "attendance.salary.showAllColumns";
 export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }) {
   const [open, setOpen] = useState<string | null>(null);
   const [all, setAll] = useState(false);
+  const [sort, setSort] = useState<Sort>(null);
+  const rows = sortRows(tab.rows, sort);
   const row = tab.rows.find((r) => r.userId === open) ?? null;
   const t = tab.totals;
 
@@ -97,6 +159,8 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
   }, []);
   function toggleAll(on: boolean) {
     setAll(on);
+    // a column that disappears can't stay the sort
+    if (sort && !(on ? ALL_COLS : SHORT_COLS).includes(sort.key)) setSort(null);
     try {
       localStorage.setItem(SHOW_ALL_KEY, on ? "1" : "0");
     } catch {
@@ -125,38 +189,38 @@ export function SalaryTable({ tab, canPay }: { tab: SalaryTab; canPay: boolean }
             <thead>
               <tr>
                 <th className={`${thBase} w-px pr-1 pl-4 text-right`}>#</th>
-                <th className={`${thBase} text-left`}>Person</th>
-                <th className={th}>Salary</th>
+                <SortTh k="name" left sort={sort} onSort={setSort}>Person</SortTh>
+                <SortTh k="salary" sort={sort} onSort={setSort}>Salary</SortTh>
                 {all ? (
                   <>
-                    <th className={th}>Full</th>
-                    <th className={th}>Short</th>
-                    <th className={th}>Absent</th>
-                    <th className={th}>Days off</th>
-                    <th className={th}>Paid leave</th>
-                    <th className={th}>OT hours</th>
-                    <th className={th}>Earned</th>
-                    <th className={th}>OT pay</th>
-                    <th className={th}>TA</th>
-                    <th className={th}>DA</th>
-                    <th className={th}>Expenses</th>
-                    <th className={th}>Advances</th>
-                    <th className={th}>Carried in</th>
+                    <SortTh k="full" sort={sort} onSort={setSort}>Full</SortTh>
+                    <SortTh k="short" sort={sort} onSort={setSort}>Short</SortTh>
+                    <SortTh k="absent" sort={sort} onSort={setSort}>Absent</SortTh>
+                    <SortTh k="off" sort={sort} onSort={setSort}>Days off</SortTh>
+                    <SortTh k="leave" sort={sort} onSort={setSort}>Paid leave</SortTh>
+                    <SortTh k="otHours" sort={sort} onSort={setSort}>OT hours</SortTh>
+                    <SortTh k="earned" sort={sort} onSort={setSort}>Earned</SortTh>
+                    <SortTh k="otPay" sort={sort} onSort={setSort}>OT pay</SortTh>
+                    <SortTh k="ta" sort={sort} onSort={setSort}>TA</SortTh>
+                    <SortTh k="da" sort={sort} onSort={setSort}>DA</SortTh>
+                    <SortTh k="expenses" sort={sort} onSort={setSort}>Expenses</SortTh>
+                    <SortTh k="advances" sort={sort} onSort={setSort}>Advances</SortTh>
+                    <SortTh k="carriedIn" sort={sort} onSort={setSort}>Carried in</SortTh>
                   </>
                 ) : (
                   <>
-                    <th className={`${thBase} text-left`}>Days</th>
-                    <th className={th}>Earned</th>
-                    <th className={th}>Extras</th>
-                    <th className={th}>Taken</th>
+                    <SortTh k="days" left sort={sort} onSort={setSort}>Days</SortTh>
+                    <SortTh k="earned" sort={sort} onSort={setSort}>Earned</SortTh>
+                    <SortTh k="extras" sort={sort} onSort={setSort}>Extras</SortTh>
+                    <SortTh k="taken" sort={sort} onSort={setSort}>Taken</SortTh>
                   </>
                 )}
-                <th className={th}>Remaining</th>
-                <th className={`${thBase} pr-4 text-left`}>Paid</th>
+                <SortTh k="remaining" sort={sort} onSort={setSort}>Remaining</SortTh>
+                <SortTh k="paid" left className="pr-4" sort={sort} onSort={setSort}>Paid</SortTh>
               </tr>
             </thead>
             <tbody>
-              {tab.rows.map((r, i) => {
+              {rows.map((r, i) => {
                 const days = daysText(r.counts, leaveOf(r), shiftOf(r));
                 return (
                   <tr key={r.userId} className={`border-t border-slate-100 ${open === r.userId ? "bg-(--brand-soft)" : ""}`}>

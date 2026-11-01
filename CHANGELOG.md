@@ -4,6 +4,18 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.33.0 — 2026-11-01 — Arrange launcher tiles; sort the Salary table
+
+**What's in it** (asked by the owner 2026-11-01)
+- **Launcher: "↕ Arrange tiles"** next to "Your modules": move tiles up / down, Done / Cancel / Usual order. Saved to
+  the person's account (same order on every phone and PC); each person has their own. Locked tiles stay last; a module
+  switched on later comes after the arranged ones.
+- **Attendance Salary tab (PC):** tap a column heading to sort (biggest first, then the other way, then the usual
+  order). "—" rows go last; a per-day rate sorts as 30 days of it.
+
+**Migrations:** platform `0020_tile_order.sql` (new table `tile_order`, one row per person, FORCE RLS; `platform_app`
+SELECT / INSERT / DELETE + UPDATE on `modules`, `updated_at`). Approved by the owner 2026-11-01.
+
 ## v0.32.1 — 2026-11-01 — Attendance: paid months locked for Office staff
 
 **What's in it** (asked by the owner 2026-11-01)

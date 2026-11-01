@@ -6,6 +6,7 @@ import { verifySummaryRequest, verifyToken } from "@plantops/auth";
 import { brandPalette } from "@plantops/ui/brand";
 import type { SummaryRequestPayload } from "@plantops/types";
 import * as launcherRoute from "@/app/api/launcher/route";
+import * as orderRoute from "@/app/api/launcher/order/route";
 import * as summaryRoute from "@/app/api/launcher/summary/[module]/route";
 import * as superLauncherRoute from "@/app/api/super/tenants/[id]/launcher/route";
 import * as superSummaryRoute from "@/app/api/super/tenants/[id]/summary/[module]/route";
@@ -18,7 +19,8 @@ import * as businessRoute from "@/app/api/admin/business/route";
 import * as ssoStart from "@/app/sso/start/route";
 import { safeNext } from "@/lib/safe-next";
 import { sha256 } from "@/server/crypto";
-import { decideTiles, landingFor, type ModuleAvailability } from "@/server/launcher";
+import { applyTileOrder, decideTiles, landingFor, type ModuleAvailability, type Tile } from "@/server/launcher";
+import { schema, withTenant } from "@/server/db";
 import { plantBrandColor } from "@/server/brand";
 import { publicJwks, signPlatformToken } from "@/server/sso";
 import { asOwner, call, makePlant, makeStaff, makeSuperAdmin, type Handler } from "./helpers";
@@ -361,5 +363,59 @@ describe("plant brand colour", () => {
     await call(businessRoute.PATCH as Handler, { cookie: A.adminCookie, method: "PATCH", body: { brand_color: "#0e7490" } });
     expect(await plantBrandColor(A.tenantId)).toBe("#0e7490");
     expect(await plantBrandColor(B.tenantId)).toBeNull();
+  });
+});
+
+// ---------- "Arrange tiles": each person's own order (owner, 2026-11-01) ----------
+describe("tile order", () => {
+  const t = (module: string, state: "open" | "off" | "locked" = "open") => ({ module, state, view: "owner" }) as Tile;
+
+  it("listed modules first in the person's order, the rest in the usual order, locked always last", () => {
+    const usual = [t("lab_records"), t("document_store"), t("floor_stock", "off"), t("order_capture"), t("amc", "locked")];
+    expect(applyTileOrder(usual, ["amc", "order_capture", "floor_stock"]).map((x) => x.module)).toEqual([
+      "order_capture",
+      "floor_stock",
+      "lab_records",
+      "document_store",
+      "amc",
+    ]);
+    expect(applyTileOrder(usual, null)).toEqual(usual);
+  });
+
+  let A: Awaited<ReturnType<typeof makePlant>>;
+  let B: Awaited<ReturnType<typeof makePlant>>;
+  let multi: Awaited<ReturnType<typeof makeStaff>>;
+  beforeAll(async () => {
+    A = await makePlant({ modules: ["lab_records", "floor_stock", "preventive_mgmt"], maxUsers: 10 });
+    B = await makePlant({ modules: ["lab_records", "floor_stock"], maxUsers: 10 });
+    multi = await makeStaff(A, "order", ["lab_technician", "store_keeper"]);
+  });
+  const modulesOf = async (cookie: string) =>
+    (await call(launcherRoute.GET as Handler, { cookie })).body.tiles.map((x: { module: string }) => x.module);
+
+  it("the owner saves an order; it comes back on the next load, only for them", async () => {
+    const res = await call(orderRoute.PUT as Handler, { method: "PUT", cookie: A.adminCookie, body: { modules: ["floor_stock", "lab_records"] } });
+    expect(res.status).toBe(200);
+    expect((await modulesOf(A.adminCookie)).slice(0, 2)).toEqual(["floor_stock", "lab_records"]);
+    expect(await modulesOf(multi.cookie)).toEqual(["lab_records", "floor_stock"]); // staff keep their own (usual) order
+    expect((await modulesOf(B.adminCookie)).slice(0, 2)).toEqual(["lab_records", "floor_stock"]); // other plant untouched
+  });
+
+  it("modules the person can't open are dropped; an empty list = the usual order again", async () => {
+    const res = await call(orderRoute.PUT as Handler, { method: "PUT", cookie: multi.cookie, body: { modules: ["amc", "floor_stock"] } });
+    expect(res.body).toEqual({ modules: ["floor_stock"] });
+    expect(await modulesOf(multi.cookie)).toEqual(["floor_stock", "lab_records"]);
+    await call(orderRoute.PUT as Handler, { method: "PUT", cookie: multi.cookie, body: { modules: [] } });
+    expect(await modulesOf(multi.cookie)).toEqual(["lab_records", "floor_stock"]);
+  });
+
+  it("unknown modules -> 400; not logged in -> 401", async () => {
+    expect((await call(orderRoute.PUT as Handler, { method: "PUT", cookie: A.adminCookie, body: { modules: ["nope"] } })).status).toBe(400);
+    expect((await call(orderRoute.PUT as Handler, { method: "PUT", body: { modules: [] } })).status).toBe(401);
+  });
+
+  it("one plant can never see another plant's saved order (RLS)", async () => {
+    const rows = await withTenant(B.tenantId, (tx) => tx.select().from(schema.tileOrder));
+    expect(rows).toEqual([]);
   });
 });

@@ -198,6 +198,18 @@ export const alertRecipients = platform.table(
   (t) => [primaryKey({ columns: [t.tenantId, t.userId, t.moduleId] })],
 );
 
+/** One person's launcher tile order (migration 0020); no row = the usual order. */
+export const tileOrder = platform.table(
+  "tile_order",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    modules: text("modules").array().notNull(),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.tenantId, t.userId] })],
+);
+
 export const notificationPrefs = platform.table(
   "notification_prefs",
   {

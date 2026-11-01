@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card } from "@plantops/ui";
+import { Button, Card } from "@plantops/ui";
 import { api } from "@/lib/api";
 import { MODULES } from "@/lib/modules";
 
@@ -109,7 +109,60 @@ export function LauncherTiles({
   );
 }
 
-const formatDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+/**
+ * "Arrange tiles" (owner, 2026-11-01): the tiles this person can open as a list with ↑ / ↓, saved to their account so
+ * every phone / PC shows the same order. Locked tiles are not listed: they always stay last.
+ */
+export function ArrangeTiles({ tiles, onDone }: { tiles: Tile[]; onDone: (saved: Tile[] | "reload" | null) => void }) {
+  const [list, setList] = useState(() => tiles.filter((t) => t.state !== "locked"));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const locked = tiles.filter((t) => t.state === "locked");
+
+  function move(i: number, by: -1 | 1) {
+    const next = [...list];
+    [next[i], next[i + by]] = [next[i + by]!, next[i]!];
+    setList(next);
+  }
+  async function save(modules: string[]) {
+    setBusy(true);
+    setError(undefined);
+    const r = await api("/api/launcher/order", { method: "PUT", body: { modules } });
+    setBusy(false);
+    if (!r.ok) return setError(r.error);
+    // "Usual order": the server works it out, so the launcher loads again
+    onDone(modules.length ? [...list, ...locked] : "reload");
+  }
+
+  return (
+    <Card>
+      <p className="mb-3 text-sm text-slate-600">Move the modules you use most to the top. Your order is kept on every phone and PC you log in from.</p>
+      <ol className="divide-y divide-slate-100">
+        {list.map((t, i) => (
+          <li key={t.module} className="flex items-center gap-3 py-1.5">
+            <span className="w-5 text-right text-sm text-slate-500">{i + 1}.</span>
+            <span className="text-xl">{MODULES[t.module].icon}</span>
+            <span className="flex-1 font-semibold">{MODULES[t.module].label}</span>
+            <button type="button" aria-label={`Move ${MODULES[t.module].label} up`} disabled={i === 0 || busy} onClick={() => move(i, -1)} className="h-11 w-11 rounded-lg border border-slate-200 text-lg disabled:opacity-30">
+              ↑
+            </button>
+            <button type="button" aria-label={`Move ${MODULES[t.module].label} down`} disabled={i === list.length - 1 || busy} onClick={() => move(i, 1)} className="h-11 w-11 rounded-lg border border-slate-200 text-lg disabled:opacity-30">
+              ↓
+            </button>
+          </li>
+        ))}
+      </ol>
+      {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button disabled={busy} onClick={() => save(list.map((t) => t.module))}>Done</Button>
+        <Button variant="secondary" disabled={busy} onClick={() => onDone(null)}>Cancel</Button>
+        <Button variant="secondary" disabled={busy} onClick={() => save([])}>Usual order</Button>
+      </div>
+    </Card>
+  );
+}
+
+const formatDate =(iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
 export function PlanCard({ plan }: { plan: PlanSummary }) {
   const rows: [string, string][] = [

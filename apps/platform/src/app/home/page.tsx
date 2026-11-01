@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@plantops/ui";
 import { api } from "@/lib/api";
-import { LauncherTiles, PlanCard, type PlanSummary, type Tile } from "@/lib/launcher-tiles";
+import { ArrangeTiles, LauncherTiles, PlanCard, type PlanSummary, type Tile } from "@/lib/launcher-tiles";
 import { NotificationBell, PushCard } from "@/lib/notifications-ui";
 import { turnOff } from "@/lib/push-client";
 
@@ -33,8 +33,13 @@ function greeting() {
 /** The launcher: module tiles for this user's roles and plant plan (mockups in refeDocs/). */
 export default function HomePage() {
   const [data, setData] = useState<Launcher>();
+  const [arranging, setArranging] = useState(false);
 
   useEffect(() => {
+    load();
+  }, []);
+
+  function load() {
     api<Launcher>("/api/launcher").then((r) => {
       if (r.status === 401) return window.location.replace("/login");
       if (!r.ok) return;
@@ -44,7 +49,13 @@ export default function HomePage() {
       if (r.data.landing !== "launcher" && !wantsLauncher) return window.location.replace(`/sso/start?module=${r.data.landing}`);
       setData(r.data);
     });
-  }, []);
+  }
+
+  function doneArranging(saved: Tile[] | "reload" | null) {
+    setArranging(false);
+    if (saved === "reload") load();
+    else if (saved && data) setData({ ...data, tiles: saved });
+  }
 
   async function logout() {
     await turnOff(); // a shared phone must stop getting this person's notifications
@@ -84,12 +95,23 @@ export default function HomePage() {
       {data.user.gets_alerts && <PushCard />}
 
       <section>
-        <h2 className="mb-2 text-xs font-semibold tracking-wider text-slate-500 uppercase">Your modules</h2>
-        <LauncherTiles
-          tiles={data.tiles}
-          summaryUrl={(m) => `/api/launcher/summary/${m}`}
-          openHref={(m) => `/sso/start?module=${m}`}
-        />
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-xs font-semibold tracking-wider text-slate-500 uppercase">Your modules</h2>
+          {!arranging && data.tiles.filter((t) => t.state !== "locked").length > 1 && (
+            <button type="button" onClick={() => setArranging(true)} className="py-1 text-sm font-semibold text-(--brand)">
+              ↕ Arrange tiles
+            </button>
+          )}
+        </div>
+        {arranging ? (
+          <ArrangeTiles tiles={data.tiles} onDone={doneArranging} />
+        ) : (
+          <LauncherTiles
+            tiles={data.tiles}
+            summaryUrl={(m) => `/api/launcher/summary/${m}`}
+            openHref={(m) => `/sso/start?module=${m}`}
+          />
+        )}
       </section>
 
       {data.plan_summary && <PlanCard plan={data.plan_summary} />}

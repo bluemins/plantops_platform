@@ -1,6 +1,7 @@
 // The launcher (tile screen): which module tiles a user sees, in which state, plus the owner's plan card.
 // Tile hiding is only convenience - every module still checks access itself (CLAUDE.md flow step 5).
 import { and, eq, sql } from "drizzle-orm";
+import { z } from "zod";
 import { canAccessModule } from "@plantops/auth";
 import { MODULE_IDS, OWNER_ONLY_ALERTS, PlanLimits, type ModuleId, type RoleId } from "@plantops/types";
 import type { CurrentUser } from "./auth";
@@ -10,7 +11,7 @@ import { notFound } from "./http";
 import { loadAlertModules } from "./users";
 import { roleLine } from "@/lib/modules";
 
-const { modules, tenants, tenantPlans, tenantProfiles, users } = schema;
+const { modules, tenants, tenantPlans, tenantProfiles, tileOrder, users } = schema;
 
 /** Modules sold as an add-on service: their locked tile says so instead of "Not enabled". */
 const ADDON_MODULES: readonly ModuleId[] = ["amc"];
@@ -57,6 +58,42 @@ export function decideTiles(roles: readonly RoleId[], enabled: readonly ModuleId
   // open first, then off, then locked (mockup order: working tiles before locked ones)
   const rank: Record<TileState, number> = { open: 0, off: 1, locked: 2 };
   return tiles.sort((a, b) => rank[a.state] - rank[b.state]);
+}
+
+/**
+ * A person's own order ("Arrange tiles", owner 2026-11-01): their listed modules first, in their order; the rest keep
+ * the usual order after them; locked tiles always stay last.
+ */
+export function applyTileOrder(tiles: readonly Tile[], order: readonly string[] | null): Tile[] {
+  if (!order?.length) return [...tiles];
+  const pos = (t: Tile) => {
+    if (t.state === "locked") return Infinity;
+    const i = order.indexOf(t.module);
+    return i === -1 ? order.length : i;
+  };
+  return [...tiles].sort((a, b) => pos(a) - pos(b)); // stable: equal places keep the usual order
+}
+
+export const TileOrderInput = z.object({ modules: z.array(z.enum(MODULE_IDS)).max(20) });
+
+/** Saves this person's tile order (an empty list = back to the usual order). Only modules they can open count. */
+export async function saveTileOrder(user: CurrentUser, input: z.infer<typeof TileOrderInput>) {
+  const available = await moduleAvailability(appDb());
+  return withTenant(user.tenantId, async (tx) => {
+    const tiles = decideTiles(user.roles, await enabledModules(tx, user.tenantId), available).filter((t) => t.state !== "locked");
+    const mine = new Set(tiles.map((t) => t.module));
+    const modules = [...new Set(input.modules)].filter((m) => mine.has(m));
+    const where = and(eq(tileOrder.tenantId, user.tenantId), eq(tileOrder.userId, user.userId));
+    if (!modules.length) {
+      await tx.delete(tileOrder).where(where);
+    } else {
+      await tx
+        .insert(tileOrder)
+        .values({ tenantId: user.tenantId, userId: user.userId, modules })
+        .onConflictDoUpdate({ target: [tileOrder.tenantId, tileOrder.userId], set: { modules, updatedAt: new Date() } });
+    }
+    return { modules };
+  });
 }
 
 /** Staff who can open exactly one module skip the tile screen. Owners and multi-module staff see tiles. */
@@ -116,7 +153,11 @@ export async function buildLauncher(user: CurrentUser) {
   const available = await moduleAvailability(appDb());
   return withTenant(user.tenantId, async (tx) => {
     const info = await plantInfo(tx, user.tenantId, "/api/business/logo");
-    const tiles = decideTiles(user.roles, info.enabled, available);
+    const [saved] = await tx
+      .select({ modules: tileOrder.modules })
+      .from(tileOrder)
+      .where(and(eq(tileOrder.tenantId, user.tenantId), eq(tileOrder.userId, user.userId)));
+    const tiles = applyTileOrder(decideTiles(user.roles, info.enabled, available), saved?.modules ?? null);
     const owner = user.roles.includes("tenant_admin");
     const alertModules = ((await loadAlertModules(tx, user.tenantId, [user.userId])).get(user.userId) ?? []).filter((m) => !OWNER_ONLY_ALERTS.includes(m));
     return {

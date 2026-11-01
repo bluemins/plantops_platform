@@ -1881,3 +1881,11 @@ Asked by the owner 2026-11-01. Once a month is marked paid for a person, Office 
 staff) can't add or cancel that person's times in it (server 403 + a note instead of Fix); the owner still can (it
 flows to the next month); Undo paid opens it. No migration; SSO token unchanged. Notes: `apps/attendance-salary/NOTES.md`.
 Also: paying on the last day leaves that day uncounted (it moves to the next month); the owner marks paid on the 1st.
+
+### 2026-11-01 — Arrange launcher tiles + sortable Salary table (v0.33.0)
+Asked by the owner 2026-11-01. **Launcher:** "↕ Arrange tiles" (↑ / ↓, Done / Cancel / Usual order), saved per person
+to their account (`PUT /api/launcher/order`, `applyTileOrder` in `apps/platform/src/server/launcher.ts`); only modules
+the person can open are kept; locked tiles stay last. Platform migration `0020_tile_order.sql` (approved: one row per
+person, FORCE RLS, no audit: a display choice). **Attendance:** the Salary tab's PC table sorts by any column heading
+(`SORT_BY` in `src/app/salary/salary-table.tsx`; "—" last, per-day rate × 30); not remembered, phone list unchanged.
+SSO token unchanged. Tests: platform 374 (+6).
