@@ -4,7 +4,7 @@
 // another owner's fix) the answer is 409 and the page reloads.
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { z } from "zod";
-import { addDays, dayStart, istDay, validDay } from "@/lib/days";
+import { addDays, dayStart, fmtMonth, istDay, validDay } from "@/lib/days";
 import { fmtTime } from "@/lib/punch";
 import { can, requireAccess } from "./access";
 import { audit } from "./audit";
@@ -13,6 +13,7 @@ import { badRequest, conflict, forbidden, notFound } from "./http";
 import { dbNow, lockPerson } from "./marks";
 import { correctedNotification, deskFixNotification } from "./notify";
 import { knownPerson, requireReach } from "./people";
+import { isMonthPaid } from "./salary-pay";
 import type { AtUser } from "./session";
 
 const { punches, punchCancels } = schema;
@@ -66,6 +67,29 @@ function notOwnAsOffice(user: AtUser, personId: string) {
   if (!user.isOwner && personId === user.userId) throw forbidden("Ask the owner to fix your own attendance");
 }
 
+/**
+ * Office staff and Supervisors never change a month already marked paid for that person (owner, 2026-11-01): the
+ * first paid month among `days`, or null. Owners may, and the change then flows to the next month.
+ */
+async function paidMonthFor(tx: AtTx, user: AtUser, personId: string, days: string[]) {
+  if (user.isOwner) return null;
+  for (const month of [...new Set(days.map((d) => d.slice(0, 7)))]) {
+    if (await isMonthPaid(tx, user.tenantId, personId, month)) return month;
+  }
+  return null;
+}
+
+async function notPaidAsOffice(tx: AtTx, user: AtUser, personId: string, days: string[]) {
+  const month = await paidMonthFor(tx, user, personId, days);
+  if (month) throw forbidden(`${fmtMonth(month)} is marked paid for this person. Ask the owner to change it.`);
+}
+
+/** For the day page: the paid month that keeps Office staff / a Supervisor from fixing this day, or null. */
+export async function fixLockedMonth(user: AtUser, personId: string, date: string) {
+  if (user.isOwner) return null;
+  return withTenant(user.tenantId, (tx) => paidMonthFor(tx, user, personId, [date]));
+}
+
 /** Owner, Office staff or a Supervisor (Office staff only, via `knownPerson`): add a forgotten IN or OUT, with a reason. */
 export async function addFix(user: AtUser, input: z.infer<typeof AddInput>) {
   requireAccess(user, "fix");
@@ -76,6 +100,7 @@ export async function addFix(user: AtUser, input: z.infer<typeof AddInput>) {
   const saved = await withTenant(user.tenantId, async (tx) => {
     await lockPerson(tx, user.tenantId, person.userId);
     if (at > (await dbNow(tx))) throw badRequest("That time is in the future");
+    await notPaidAsOffice(tx, user, person.userId, [input.day, input.date]);
     await checkStamp(tx, user, person.userId, input.day, input.expect);
     const [row] = await tx
       .insert(punches)
@@ -121,6 +146,7 @@ export async function cancelFix(user: AtUser, input: z.infer<typeof CancelInput>
     await lockPerson(tx, user.tenantId, mark.userId);
     const [already] = await tx.select({ by: punchCancels.createdByName }).from(punchCancels).where(and(eq(punchCancels.tenantId, user.tenantId), eq(punchCancels.punchId, mark.id))).orderBy(desc(punchCancels.createdAt));
     if (already) throw conflict(`Already cancelled by ${already.by}.`);
+    await notPaidAsOffice(tx, user, mark.userId, [input.day, istDay(mark.at)]);
     await checkStamp(tx, user, mark.userId, input.day, input.expect);
     const [c] = await tx
       .insert(punchCancels)

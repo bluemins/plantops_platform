@@ -792,3 +792,19 @@ Asked by the owner 2026-10-24: "before enabling the salary to employees, as owne
 - **v0.31.2 (same day):** the owner, testing the preview on Ramu: the slip must not show "Salary type: PV_SALARY_…".
   Removed from `slipCard()`, so neither the worker's slip nor the preview shows it (the frozen `band` stays saved;
   the owner still sees the type in the Salary box, tab and CSV). Test added.
+
+## 2026-11-01: paid months locked for Office staff and Supervisors (v0.32.1)
+Asked by the owner 2026-11-01 after closing October: "I do not want office staff to modify last / earlier month
+attendance once marked paid".
+- `addFix` / `cancelFix` (`src/server/fixes.ts`): a non-owner is refused (403 "<Month> is marked paid for this person.
+  Ask the owner to change it.") when the person's month is marked paid (not undone) for the page's day **or** the
+  mark's own date (a night-shift OUT on the 1st from the 31st's page is September's / October's day). Supervisors fixing
+  Office staff: the same rule. Owners may still fix; the change flows to the next month ("Changed after payment").
+  Undo paid opens the month again. `isMonthPaid()` in `src/server/salary-pay.ts`.
+- Day page: the Fix panel is replaced by a grey note for Office staff / Supervisors on a paid month.
+- No migration, no grant change; "Mark for someone" (now only) and "Mark days" (owner only) are unaffected.
+- Tests: `office.test.ts` 8b. Two date-dependent tests fail on the 1st of a month with or without this change
+  (`office.test.ts` 12, the claims tab test 14): to look at.
+- Also found the same day (plant 001's October): paying on the month's last day freezes the figures up to the day
+  before (today isn't counted), so that day's work moved into November as "Changed after payment" (Anmol −₹19.84,
+  Ramu +₹316.67). The owner will mark paid on the 1st from now on.

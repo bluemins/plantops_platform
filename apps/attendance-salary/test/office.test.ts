@@ -210,6 +210,43 @@ describe("Fix by Office staff", () => {
     expect((await refusal(() => cancelFix(office, { punch_id: own, day: DAY, reason: "wrong", expect: stamp }))).message).toBe("Ask the owner to fix your own attendance");
     expect((await refusal(() => addFix(supervisor, { user_id: bindu.userId, day: DAY, kind: "out", date: DAY, time: "18:00", reason: "forgot", expect: stamp }))).status).toBe(404);
   });
+
+  it("8b. a month marked paid for the person: Office staff and Supervisors can't add or cancel (night-shift OUT too); the owner can; Undo opens it again", async () => {
+    const { p, office, supervisor, bindu } = await setup();
+    const paid =async (u: { userId: string; name: string }) =>
+      (
+        (
+          await asApp(
+            p.tenantId,
+            `insert into attendance_salary.salary_payments (tenant_id, user_id, user_name, month, paid_on, paid_paise, remaining_paise, figures, created_by, created_by_name)
+             values ('${p.tenantId}', '${u.userId}', '${u.name}', '2026-09-01', '2026-10-01', 0, 0, '{}', gen_random_uuid(), 'Sujata') returning id`,
+          )
+        ).rows[0] as { id: string }
+      ).id;
+    const payment = await paid(bindu);
+    const inId = await markAt(bindu, "in", `${DAY} 09:10`);
+    const add = (u: typeof office, person: string, day = DAY, date = DAY) =>
+      addFix(u, { user_id: person, day, kind: "out", date, time: "06:00", reason: "forgot", expect: "" });
+    const locked = { status: 403, message: "September 2026 is marked paid for this person. Ask the owner to change it." };
+    expect(await refusal(() => addFix(office, { user_id: bindu.userId, day: DAY, kind: "out", date: DAY, time: "18:30", reason: "forgot", expect: "" }))).toEqual(locked);
+    expect(await refusal(() => cancelFix(office, { punch_id: inId, day: DAY, reason: "wrong", expect: "" }))).toEqual(locked);
+    // 30 Sept's page, an OUT on the morning of 1 Oct: still September's day
+    expect(await refusal(() => add(office, bindu.userId, "2026-09-30", "2026-10-01"))).toEqual(locked);
+    // a Supervisor fixing Office staff: the same rule
+    await paid(office);
+    expect(await refusal(() => add(supervisor, office.userId))).toEqual(locked);
+    // October is not paid: Office staff may fix it
+    const octStamp = await dayStamp(office, bindu.userId, "2026-10-02");
+    await addFix(office, { user_id: bindu.userId, day: "2026-10-02", kind: "in", date: "2026-10-02", time: "09:00", reason: "forgot", expect: octStamp });
+    // the owner may change a paid month (it flows to the next month)
+    await addFix(p.owner, { user_id: bindu.userId, day: DAY, kind: "out", date: DAY, time: "18:30", reason: "forgot", expect: await dayStamp(p.owner, bindu.userId, DAY) });
+    // Undo paid: Office staff may fix again
+    await asApp(
+      p.tenantId,
+      `insert into attendance_salary.salary_payment_undos (tenant_id, payment_id, reason, created_by, created_by_name) values ('${p.tenantId}', '${payment}', 'wrong month', gen_random_uuid(), 'Sujata')`,
+    );
+    await cancelFix(office, { punch_id: inId, day: DAY, reason: "wrong", expect: await dayStamp(office, bindu.userId, DAY) });
+  });
 });
 
 describe("advances by Office staff", () => {

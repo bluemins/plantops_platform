@@ -34,6 +34,11 @@ async function livePayment(tx: AtTx, tenantId: string, personId: string, month: 
   return rows.find((r) => !undone.has(r.id)) ?? null;
 }
 
+/** Whether the person's month is marked paid (and not undone). */
+export async function isMonthPaid(tx: AtTx, tenantId: string, personId: string, month: string) {
+  return (await livePayment(tx, tenantId, personId, month)) !== null;
+}
+
 export const PayInput = z.object({
   user_id: z.uuid(),
   month: z.string().refine(validMonth, "Not a month"),

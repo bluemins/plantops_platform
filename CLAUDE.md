@@ -1875,3 +1875,9 @@ Asked by the owner 2026-11-01 (all orders in one list; tell Bluemins / Mr.Charge
 pending summary, a Brand column at the end of the CSV. Order Capture migration `0006_product_brand.sql` (approved by the
 owner): `product_rates.brand` + UPDATE on that column only. Platform and SSO token unchanged. Notes:
 `apps/order-capture/NOTES.md`. Tests: Order Capture 367 (+12). **Not yet verified:** on screen; not deployed.
+
+### 2026-11-01 — Attendance: paid months locked for Office staff (v0.32.1)
+Asked by the owner 2026-11-01. Once a month is marked paid for a person, Office staff (and Supervisors fixing Office
+staff) can't add or cancel that person's times in it (server 403 + a note instead of Fix); the owner still can (it
+flows to the next month); Undo paid opens it. No migration; SSO token unchanged. Notes: `apps/attendance-salary/NOTES.md`.
+Also: paying on the last day leaves that day uncounted (it moves to the next month); the owner marks paid on the 1st.

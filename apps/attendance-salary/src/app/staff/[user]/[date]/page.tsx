@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { can } from "@/server/access";
 import { dayFor } from "@/server/calendar";
 import { personDayMarks } from "@/server/day-marks";
-import { dayStamp } from "@/server/fixes";
+import { fmtMonth } from "@/lib/days";
+import { dayStamp, fixLockedMonth } from "@/server/fixes";
 import { kit } from "@/server/kit";
 import { orNotFound } from "@/server/pages";
 import { monthStatuses } from "@/server/salary";
@@ -22,7 +23,7 @@ export default async function PersonDayPage({ params }: { params: Promise<{ user
   const { user: personId, date } = await params;
   const user = await requirePageUser(`/staff/${personId}/${date}`);
   if (!(can(user, "see_everyone") || can(user, "see_office_staff")) || !UUID.test(personId)) notFound();
-  const [plant, view, stamp, dayMarksMap] = await Promise.all([kit.branding(user.tenantId), orNotFound(dayFor(user, personId, date)), dayStamp(user, personId, date), personDayMarks(user, personId, date, date)]);
+  const [plant, view, stamp, dayMarksMap, lockedMonth] = await Promise.all([kit.branding(user.tenantId), orNotFound(dayFor(user, personId, date)), dayStamp(user, personId, date), personDayMarks(user, personId, date, date), fixLockedMonth(user, personId, date)]);
   const dayMark = dayMarksMap.get(date) ?? null;
   // rule 21: what the day counts as for the salary (counted days only)
   const statuses = await monthStatuses(user, personId, date.slice(0, 7), new Map([[date, view.day]]));
@@ -44,7 +45,13 @@ export default async function PersonDayPage({ params }: { params: Promise<{ user
       {statuses && counted && <WorkBox atPlant={view.day.minutes} day={counted} shiftMinutes={statuses.shiftMinutes} lunchMinutes={statuses.lunchMinutes} getsOvertime={statuses.getsOvertime} />}
       {/* the owner's whole-day ON / OFF (docs/DAY_MARKS_PLAN.md); others see the mark only */}
       <DayMarkPanel personId={personId} name={view.name ?? "This person"} day={date} mark={dayMark} canMark={can(user, "day_mark")} />
-      {can(user, "fix") && (user.isOwner || personId !== user.userId) && <FixPanel personId={personId} name={view.name ?? "This person"} day={date} today={view.today} stamp={stamp} marks={marks} />}
+      {/* Office staff / a Supervisor: no Fix once the month is marked paid for this person (owner, 2026-11-01) */}
+      {can(user, "fix") && lockedMonth && personId !== user.userId && (
+        <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+          {fmtMonth(lockedMonth)} is marked paid for {view.name ?? "this person"}. Ask the owner to change this day.
+        </p>
+      )}
+      {can(user, "fix") && !lockedMonth && (user.isOwner || personId !== user.userId) && <FixPanel personId={personId} name={view.name ?? "This person"} day={date} today={view.today} stamp={stamp} marks={marks} />}
     </div>
   );
 }

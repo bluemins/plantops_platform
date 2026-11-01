@@ -4,6 +4,16 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.32.1 — 2026-11-01 — Attendance: paid months locked for Office staff
+
+**What's in it** (asked by the owner 2026-11-01)
+- Once a month is marked paid for a person, **Office staff can't add or cancel** that person's times in that month
+  (also a night-shift OUT on the 1st morning). Supervisors fixing Office staff: the same. Their day page shows "October
+  2026 is marked paid for <name>. Ask the owner to change this day." instead of Fix.
+- The owner can still fix a paid month (the difference moves to the next month); Undo paid opens it again.
+
+**Migrations:** none.
+
 ## v0.32.0 — 2026-11-01 — Order Capture: brand tags on orders
 
 **What's in it** (asked by the owner 2026-11-01)
