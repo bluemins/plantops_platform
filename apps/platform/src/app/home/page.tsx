@@ -127,6 +127,7 @@ export default function HomePage() {
             <Link href="/admin/users"><Button>Manage users</Button></Link>
             <Link href="/admin/permissions"><Button>Permissions</Button></Link>
             <Link href="/admin/business"><Button>Business details</Button></Link>
+            <Link href="/admin/bank-remarks"><Button>Bank remarks</Button></Link>
           </>
         )}
         <Link href="/change-secret"><Button variant="secondary">Change PIN / password</Button></Link>

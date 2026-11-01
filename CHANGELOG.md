@@ -4,6 +4,20 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.34.0 — 2026-11-01 — Bank remarks (owner only)
+
+**What's in it** (asked by the owner 2026-11-01)
+- **"Bank remarks"** on the owner's dashboard (`/admin/bank-remarks`): open the month's bank statement Excel (as
+  downloaded, .xls / .xlsx / .csv), and Remarks and Party are filled in: remembered lines, the payer's name from NEFT /
+  UPI / IMPS lines, close guesses (amber) and "To check" for the rest. Fix them on screen, then **Download Excel**: the
+  bank's own sheet with only Remarks and Party written (a warning first if some lines have no remark).
+- **Teach from old file:** open a month that already has remarks; it learns which line gets which remark and party.
+  What you type is remembered for next month; "Remembered" lists the rules (delete, add your own, back up / restore).
+- **Owner only**, checked on the server (staff are sent to the dashboard, even with the address). The statement is read
+  and written in the browser only, never sent to or stored by PlantOps; remembered remarks stay in that browser.
+
+**Migrations:** none. New dependency: SheetJS `xlsx` 0.20.3 (from cdn.sheetjs.com, the maintained build).
+
 ## v0.33.1 — 2026-11-01 — Job applications: "+ Add applicant"
 
 **What's in it** (asked by the owner 2026-11-01)

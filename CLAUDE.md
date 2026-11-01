@@ -1898,3 +1898,15 @@ form or later on the application's page; pages added, never replaced. New access
 `consent_version 'plant-v1'`; history and Recent changes from audit rows; CSV "Came in" column. **No migration**;
 platform and SSO token unchanged. CVs belong here, not in Document Store (it never deletes). Notes:
 `apps/job-applications/NOTES.md`. Tests: Job applications 134 (+12). **Live 2026-11-01** (`production` = `781bda6`); not yet tried on screen.
+
+### 2026-11-01 — Bank remarks, owner only (v0.34.0)
+Asked by the owner 2026-11-01: each month they add Remarks / Party to the SBI statement for the accountant. Platform page
+`/admin/bank-remarks` ("Bank remarks" on the owner dashboard), **owners only, refused on the server** for everyone else
+(`ownerPageAccess` in `apps/platform/src/server/page-guard.ts`; owner: "no user, no staff access"). The Excel is read and
+written in the browser (SheetJS `xlsx` 0.20.3); nothing is sent to or stored by PlantOps. Rules in
+`src/lib/bank-remarks.ts`: your rules → remembered lines (payer name or description without reference numbers) → the
+payer's name for money in (NEFT / UPI / IMPS) → a close guess → "To check"; remembered remarks live in the browser
+(`localStorage`, per plant) with a backup file. Generic for any plant's owner. No migration; SSO token unchanged.
+Tests: platform 392 (+18). Verified locally (temporary plant, headless Chromium at 390 / 1280 px, test files with
+made-up lines; removed afterwards): teach from a remarked month, fill the next, edit, warning, download, rules page.
+**Not yet verified:** the owner's real SBI export (name reading is built from the SBI layout in their screenshot).
