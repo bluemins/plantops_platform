@@ -1922,8 +1922,8 @@ November. Notes: `apps/attendance-salary/NOTES.md`. Tests: Attendance 482 pass (
 (Lab Records Form 1 from the 25th; Attendance on the 1st / after a 31-day month) are fixed in the tests (2026-11-02). **Live 2026-11-01** (`production` = `f79dab1`, migration 0011 applied);
 the owner set 09:00 from November for Anmol, bindu, Gaja and Ramu (08:00 for reeta).
 
-### 2026-11-01 — Order Capture: dates follow the tab (v0.35.1)
+### 2026-11-01 — Order Capture: dates follow the tab — live (v0.35.1)
 Reported by the owner 2026-11-01 (Delivered "today" showed only orders also entered today). The From / To dates now use
 the day entered (Pending), delivered (Delivered) or cancelled (Cancelled); the first box is labelled "Entered from" /
 "Delivered from" / "Cancelled from". No migration; SSO token unchanged. Notes: `apps/order-capture/NOTES.md`. Tests:
-Order Capture 368 (+1).
+Order Capture 368 (+1). **Live 2026-11-01** (`production` = `a7fd238`).
