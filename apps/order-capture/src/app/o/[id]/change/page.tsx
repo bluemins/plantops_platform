@@ -25,7 +25,7 @@ export default async function ChangeOrderPage({ params }: { params: Params }) {
   // products already in the order stay changeable even if switched off in PlantOps since (with their saved name / unit)
   const kept: EditProduct[] = o.lines
     .filter((l) => !active.some((p) => p.sku_id === l.sku_id))
-    .map((l) => ({ sku_id: l.sku_id, product: l.product, pack: "", unit: l.unit, default_rate: null, addable: false }));
+    .map((l) => ({ sku_id: l.sku_id, product: l.product, pack: "", unit: l.unit, default_rate: null, brand: "", addable: false }));
   const products = [...active.map((p) => ({ ...p, unit: o.lines.find((l) => l.sku_id === p.sku_id)?.unit ?? p.unit })), ...kept];
 
   return (

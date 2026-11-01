@@ -1,6 +1,7 @@
 // Small pieces shared by the screens (server and client components).
 import type { ReactNode } from "react";
 import { phoneDisplay } from "@plantops/module-kit/phone";
+import { brandColour } from "@/lib/brand";
 
 export function BackLink({ href = "/", children = "← Order Capture" }: { href?: string; children?: ReactNode }) {
   return (
@@ -31,6 +32,11 @@ const STATUS: Record<string, string> = { pending: "Pending", delivered: "Deliver
 
 export function StatusBadge({ status }: { status: string }) {
   return <span className={`inline-block shrink-0 rounded-full px-3 py-1 text-sm font-semibold ${BADGE[status] ?? ""}`}>{STATUS[status] ?? status}</span>;
+}
+
+/** A product brand on an order card ("Bluemins"), the same colour everywhere. */
+export function BrandTag({ brand }: { brand: string }) {
+  return <span className={`inline-block shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${brandColour(brand)}`}>{brand}</span>;
 }
 
 /** A big tappable row that leads to another screen (home page, Rates page links). */

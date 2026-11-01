@@ -3,11 +3,13 @@
 //   * products are the plant's ACTIVE PlantOps products (Business details → Products), read through the platform
 //   * only the owner changes units and rates; PlantOps support sees them read-only
 //   * a product with no saved row uses the default unit and no rate (typed on each order)
+//   * brand: the owner's, else guessed from the product name ('' = no brand); the tag on each order card
 //   * every save that changes something is one audit row ("Recent changes")
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { productLabel } from "@plantops/module-kit";
 import type { TenantSku } from "@plantops/types";
+import { BRAND_MAX, effectiveBrand } from "@/lib/brand";
 import { defaultUnit, packText, RATE_RE, toRate, UNIT_MAX } from "@/lib/rates";
 import { requireAccess } from "./access";
 import { audit } from "./audit";
@@ -26,6 +28,8 @@ export interface RateView {
   unit: string;
   /** "90.00", or null = not set (typed on each order) */
   default_rate: string | null;
+  /** the owner's brand, else the guess from the name; "" = no brand */
+  brand: string;
 }
 
 export const RatesInput = z.object({
@@ -35,6 +39,8 @@ export const RatesInput = z.object({
         sku_id: z.uuid(),
         unit: z.string().trim().min(1, "Please enter a unit").max(UNIT_MAX, `A unit has at most ${UNIT_MAX} characters`),
         default_rate: z.string().trim().refine((v) => v === "" || RATE_RE.test(v), "A rate is a number of rupees with at most 2 decimals, e.g. 90 or 92.50"),
+        /** left out = unchanged; "" = no brand */
+        brand: z.string().trim().max(BRAND_MAX, `A brand has at most ${BRAND_MAX} characters`).optional(),
       }),
     )
     .max(500),
@@ -51,7 +57,8 @@ export async function effectiveRates(tx: OcTx, tenantId: string, products: Tenan
   return products.map((p) => {
     const row = saved.get(p.id);
     const unit = row?.unit ?? defaultUnit(p);
-    return { sku_id: p.id, product: productLabel(p), pack: packText(p, unit), unit, default_rate: row?.defaultRate ?? null };
+    const product = productLabel(p);
+    return { sku_id: p.id, product, pack: packText(p, unit), unit, default_rate: row?.defaultRate ?? null, brand: effectiveBrand(row?.brand, product) };
   });
 }
 
@@ -73,19 +80,23 @@ export async function saveRates(user: OcUser, input: z.infer<typeof RatesInput>)
   }
   return withTenant(user.tenantId, async (tx) => {
     const current = new Map((await effectiveRates(tx, user.tenantId, [...products.values()])).map((r) => [r.sku_id, r]));
-    const changes: { product: string; unit?: { from: string; to: string }; rate?: { from: string | null; to: string | null } }[] = [];
+    const changes: { product: string; unit?: { from: string; to: string }; rate?: { from: string | null; to: string | null }; brand?: { from: string; to: string } }[] = [];
     for (const r of input.rates) {
       const now = current.get(r.sku_id)!;
       const rate = toRate(r.default_rate);
-      if (now.unit === r.unit && now.default_rate === rate) continue;
+      // the box shows the brand in use (the guess too), so the same text back is no change
+      const brand = r.brand === undefined || r.brand === now.brand ? undefined : r.brand;
+      if (now.unit === r.unit && now.default_rate === rate && brand === undefined) continue;
+      const set = { unit: r.unit, defaultRate: rate, ...(brand !== undefined ? { brand } : {}), updatedBy: user.userId };
       await tx
         .insert(productRates)
-        .values({ tenantId: user.tenantId, skuId: r.sku_id, unit: r.unit, defaultRate: rate, updatedBy: user.userId })
-        .onConflictDoUpdate({ target: [productRates.tenantId, productRates.skuId], set: { unit: r.unit, defaultRate: rate, updatedBy: user.userId, updatedAt: new Date() } });
+        .values({ tenantId: user.tenantId, skuId: r.sku_id, ...set })
+        .onConflictDoUpdate({ target: [productRates.tenantId, productRates.skuId], set: { ...set, updatedAt: new Date() } });
       changes.push({
         product: now.product,
         ...(now.unit !== r.unit ? { unit: { from: now.unit, to: r.unit } } : {}),
         ...(now.default_rate !== rate ? { rate: { from: now.default_rate, to: rate } } : {}),
+        ...(brand !== undefined ? { brand: { from: now.brand, to: brand } } : {}),
       });
     }
     if (changes.length) await audit(tx, user, "rates.set", null, { rates: changes });

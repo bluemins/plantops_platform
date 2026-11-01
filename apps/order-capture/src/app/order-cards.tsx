@@ -5,7 +5,7 @@ import { productsText } from "@/lib/history";
 import { money } from "@/lib/money";
 import { whatsappText } from "@/lib/whatsapp";
 import type { ListRow } from "@/server/list";
-import { PhoneLink } from "./parts";
+import { BrandTag, PhoneLink } from "./parts";
 
 const day = (iso: string) => new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short" }).format(new Date(iso));
 
@@ -70,9 +70,14 @@ export function OrderCards({ orders, tickable, plainPhones }: { orders: ListRow[
               <div className="relative min-w-0 flex-1 space-y-1.5 px-4 py-3">
                 <div className="flex items-center justify-between gap-2">
                   {/* the whole card opens the order; the phone link sits above it */}
-                  <a href={`/o/${o.id}`} className="font-semibold break-words after:absolute after:inset-0 after:content-['']">
-                    {o.customer}
-                  </a>
+                  <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <a href={`/o/${o.id}`} className="font-semibold break-words after:absolute after:inset-0 after:content-['']">
+                      {o.customer}
+                    </a>
+                    {o.brands.map((b) => (
+                      <BrandTag key={b} brand={b} />
+                    ))}
+                  </span>
                   {o.age ? (
                     <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-sm ${o.age.amber ? "bg-amber-100 font-semibold text-amber-900" : "bg-slate-100 text-slate-700"}`}>{o.age.text}</span>
                   ) : (

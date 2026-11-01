@@ -14,6 +14,8 @@ export const productRates = oc.table("product_rates", {
   skuId: uuid("sku_id").notNull(),
   unit: text("unit").notNull(),
   defaultRate: numeric("default_rate", { precision: 10, scale: 2 }),
+  /** null = guessed from the product name; '' = no brand (0006) */
+  brand: text("brand"),
   updatedBy: uuid("updated_by").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),

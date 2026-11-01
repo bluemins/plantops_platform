@@ -11,11 +11,12 @@ export function describeChange(action: string, details: Record<string, unknown>)
   const changes = (details.changes ?? {}) as Record<string, Change>;
   switch (action) {
     case "rates.set": {
-      const list = (details.rates ?? []) as { product: string; unit?: Change; rate?: Change }[];
+      const list = (details.rates ?? []) as { product: string; unit?: Change; rate?: Change; brand?: Change }[];
       const parts = list.map((r) => {
         const bits: string[] = [];
         if (r.unit) bits.push(`unit ${show(r.unit.from)} → ${show(r.unit.to)}`);
         if (r.rate) bits.push(`rate ${rateText(r.rate.from as string | null)} → ${rateText(r.rate.to as string | null)}`);
+        if (r.brand) bits.push(`brand ${r.brand.from === "" ? "none" : show(r.brand.from)} → ${r.brand.to === "" ? "none" : show(r.brand.to)}`);
         return `${r.product}: ${bits.join(", ")}`;
       });
       return `Rates changed. ${parts.join("; ")}`;

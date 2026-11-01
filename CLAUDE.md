@@ -1867,3 +1867,11 @@ Fix: a broken WhatsApp setting now shows a red note on the order page and the Re
 broken WhatsApp / bot settings under `warnings` (still 200). New rule (`docs/STABILITY_PLAN.md` section 6 item 5):
 settings steps give the complete value and check every older feature that reads it. No migration; SSO token
 unchanged. Notes: `apps/order-capture/NOTES.md`. Tests: Order Capture 355 (+12). Not deployed.
+
+### 2026-11-01 — Order Capture: brand tags on orders (v0.32.0) — built, not deployed
+Asked by the owner 2026-11-01 (all orders in one list; tell Bluemins / Mr.Charge / Hemex apart). The owner sets a
+**Brand** per product on Rates, pre-filled with a guess from the product name (the words before the size); an empty box
+= no tag. Coloured tags on each order card, brand chips above the list (`?brand=`), a "By brand" table in the owner's
+pending summary, a Brand column at the end of the CSV. Order Capture migration `0006_product_brand.sql` (approved by the
+owner): `product_rates.brand` + UPDATE on that column only. Platform and SSO token unchanged. Notes:
+`apps/order-capture/NOTES.md`. Tests: Order Capture 367 (+12). **Not yet verified:** on screen; not deployed.

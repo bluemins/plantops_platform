@@ -3,14 +3,19 @@
 import { useState } from "react";
 import { Button, Card, ErrorText } from "@plantops/ui";
 import { api } from "@/lib/api";
+import { BRAND_MAX } from "@/lib/brand";
 import { RATE_RE, UNIT_MAX } from "@/lib/rates";
 import type { RateView } from "@/server/rates";
+import { BrandTag } from "../parts";
 
-type Row = { sku_id: string; unit: string; default_rate: string };
-const asRow = (r: RateView): Row => ({ sku_id: r.sku_id, unit: r.unit, default_rate: r.default_rate === null ? "" : String(Number(r.default_rate)) });
+type Row = { sku_id: string; unit: string; default_rate: string; brand: string };
+const asRow = (r: RateView): Row => ({ sku_id: r.sku_id, unit: r.unit, default_rate: r.default_rate === null ? "" : String(Number(r.default_rate)), brand: r.brand });
 const input = "min-h-11 w-full min-w-0 rounded-lg border bg-white px-3 text-base focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)";
 
-/** The Rates list (mock-up "Rates"): one unit and one rate box per product, one Save button. Support: read-only. */
+/**
+ * The Rates list (mock-up "Rates"): one unit and one rate box per product, the brand under it (the tag on order cards,
+ * pre-filled with the guess from the name), one Save button. Support: read-only.
+ */
 export function RatesEditor({ rates, canEdit }: { rates: RateView[]; canEdit: boolean }) {
   const [rows, setRows] = useState<Row[]>(rates.map(asRow));
   const [error, setError] = useState<string>();
@@ -68,12 +73,22 @@ export function RatesEditor({ rates, canEdit }: { rates: RateView[]; canEdit: bo
                     <span className={r.default_rate ? "" : "text-slate-400"}>{r.default_rate ? Number(r.default_rate).toLocaleString("en-IN") : "not set"}</span>
                   </>
                 )}
+                <label className="col-span-3 flex items-center gap-2 text-sm text-slate-500">
+                  Brand
+                  {canEdit ? (
+                    <input aria-label={`${r.product} brand`} className={`${input} max-w-56 border-slate-300`} value={row.brand} maxLength={BRAND_MAX} placeholder="none" onChange={(e) => set(i, { brand: e.target.value })} />
+                  ) : r.brand ? (
+                    <BrandTag brand={r.brand} />
+                  ) : (
+                    <span className="text-slate-400">none</span>
+                  )}
+                </label>
               </li>
             );
           })}
         </ul>
       </Card>
-      <p className="text-sm text-slate-500">&quot;Not set&quot;: the rate is typed on each order.</p>
+      <p className="text-sm text-slate-500">&quot;Not set&quot;: the rate is typed on each order. Brand: the tag on each order in the list; leave it empty for no tag.</p>
       <ErrorText>{error}</ErrorText>
       {saved && (
         <p role="status" className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">

@@ -4,6 +4,18 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.32.0 — 2026-11-01 — Order Capture: brand tags on orders
+
+**What's in it** (asked by the owner 2026-11-01)
+- **Brand per product** on Rates (owner): pre-filled with a guess from the product name ("Mr.Charge 5L" → Mr.Charge);
+  an empty box = no tag. Audited in Recent changes.
+- **Order list:** coloured brand tags next to the customer name; brand chips above the list to show one brand's orders.
+- **Owner's pending summary:** a "By brand" table (orders, quantity, amount) above "By product".
+- **CSV:** a Brand column at the end (existing columns unchanged).
+
+**Migrations:** Order Capture `0006_product_brand.sql` (`product_rates.brand` + UPDATE on that column only). Approved by
+the owner 2026-11-01.
+
 ## v0.31.0 — 2026-10-24 — WhatsApp reorder reminders: consent and the 15-day pilot (WhatsApp Step 4)
 
 **What's in it** (design `docs/WHATSAPP_BUILD_PLAN.md` section 9, owner "build" 2026-10-24)

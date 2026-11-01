@@ -3,19 +3,22 @@
 //     filter); amounts only for people who may see them (never plant staff: removed here, not just hidden on screen)
 //   * Pending oldest first; Delivered / Cancelled newest first (by when that happened)
 //   * search: "O-0042" / "42" = a reference, 3+ digits = part of the phone, otherwise name or place (any case)
+//   * brand tags: per product, the owner's (Rates) or guessed from the name; ?brand= shows orders with that brand
 //   * the CSV: one row per line of each order's CURRENT version; formulas neutralised; audited
 import { and, asc, desc, eq, ilike, inArray, like, or, sql, type SQL } from "drizzle-orm";
 import { csv, csvTime } from "@plantops/module-kit/csv";
 import { normalisePhone } from "@plantops/module-kit/phone";
+import { effectiveBrand } from "@/lib/brand";
 import { ageOf, withoutAmounts, type LineView } from "@/lib/history";
+import { fromPaise, toPaise, unitsText } from "@/lib/money";
 import { formatRef } from "@/lib/ref";
 import { can, requireAccess } from "./access";
 import { audit } from "./audit";
-import { schema, withTenant } from "./db";
+import { schema, withTenant, type OcTx } from "./db";
 import type { OrderStatus } from "./schema";
 import type { OcUser } from "./session";
 
-const { orders, orderLines } = schema;
+const { orders, orderLines, productRates } = schema;
 
 export type Tab = OrderStatus;
 export const TABS: [Tab, string][] = [
@@ -29,6 +32,8 @@ export interface ListFilters {
   /** YYYY-MM-DD, India date the order was entered */
   from?: string;
   to?: string;
+  /** one brand's orders only (an order with any of its products) */
+  brand?: string;
 }
 export interface ListRow {
   id: string;
@@ -40,6 +45,8 @@ export interface ListRow {
   place: string;
   entered_by: string;
   note: string | null;
+  /** the brands of its current lines, in line order */
+  brands: string[];
   lines: LineView[];
   /** null = hidden from this person */
   total: string | null;
@@ -66,12 +73,38 @@ function searchWhere(q: string): SQL | undefined {
   return or(...conds);
 }
 
+/**
+ * The brand of every product this plant ever ordered ("" = no brand): the owner's from Rates, else guessed from the
+ * product's newest name on an order. Per product, so a tag and the brand chips always agree.
+ */
+export async function brandsBySku(tx: OcTx, tenantId: string): Promise<Map<string, string>> {
+  const saved = new Map((await tx.select({ skuId: productRates.skuId, brand: productRates.brand }).from(productRates).where(eq(productRates.tenantId, tenantId))).map((r) => [r.skuId, r.brand]));
+  const { rows } = await tx.execute<{ sku_id: string; product: string }>(sql`
+    select l.sku_id, (array_agg(l.product_name order by o.created_at desc))[1] as product
+      from ${orders} o
+      join ${orderLines} l on l.order_id = o.id and l.tenant_id = o.tenant_id
+     where o.tenant_id = ${tenantId}
+     group by l.sku_id`);
+  return new Map(rows.map((r) => [r.sku_id, effectiveBrand(saved.get(r.sku_id), r.product)]));
+}
+
+const brandList = (bySku: Map<string, string>) => [...new Set([...bySku.values()].filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
 export async function listOrders(user: OcUser, f: ListFilters = {}, now = Date.now(), limit = 200) {
   requireAccess(user, "read");
   const amounts = can(user, "see_amounts");
   const tab = f.tab ?? "pending";
   return withTenant(user.tenantId, async (tx) => {
+    const bySku = await brandsBySku(tx, user.tenantId);
     const where = [eq(orders.tenantId, user.tenantId), eq(orders.status, tab)];
+    if (f.brand) {
+      const skus = [...bySku].filter(([, b]) => b === f.brand).map(([id]) => sql`${id}::uuid`);
+      where.push(
+        skus.length
+          ? sql`exists (select 1 from ${orderLines} bl where bl.tenant_id = ${orders.tenantId} and bl.order_id = ${orders.id} and bl.version = ${orders.version} and bl.sku_id in (${sql.join(skus, sql`, `)}))`
+          : sql`false`,
+      );
+    }
     const s = searchWhere(f.q ?? "");
     if (s) where.push(s);
     if (f.from && YMD.test(f.from)) where.push(sql`${istDay} >= ${f.from}::date`);
@@ -103,6 +136,7 @@ export async function listOrders(user: OcUser, f: ListFilters = {}, now = Date.n
         place: o.customerPlace,
         entered_by: o.enteredByName,
         note: o.orderNote,
+        brands: [...new Set(current.map((l) => bySku.get(l.sku_id) ?? "").filter(Boolean))],
         lines: amounts ? current : withoutAmounts(current),
         total: amounts ? o.total : null,
         created_at: o.createdAt.toISOString(),
@@ -110,7 +144,7 @@ export async function listOrders(user: OcUser, f: ListFilters = {}, now = Date.n
         age: o.status === "pending" ? ageOf(o.createdAt, now) : null,
       };
     });
-    return { orders: list, more: rows.length > limit };
+    return { orders: list, more: rows.length > limit, brands: brandList(bySku) };
   });
 }
 
@@ -130,6 +164,8 @@ export interface PendingSummary {
   total: string;
   /** one row per product and unit, biggest amount first */
   products: { sku_id: string; product: string; unit: string; quantity: number; orders: number; min_rate: string; max_rate: string; amount: string }[];
+  /** one row per brand ("" = products with no brand), biggest amount first; empty when no product has a brand */
+  brands: { brand: string; orders: number; units: string; amount: string }[];
 }
 
 /**
@@ -159,7 +195,25 @@ export async function pendingSummary(user: OcUser): Promise<PendingSummary> {
        where o.tenant_id = ${user.tenantId} and o.status = 'pending'
        group by l.sku_id, l.unit
        order by sum(l.line_total) desc, 2`);
-    return { orders: head!.orders, total: head!.total, products: rows };
+    const bySku = await brandsBySku(tx, user.tenantId);
+    const { rows: lines } = await tx.execute<{ order_id: string; sku_id: string; unit: string; quantity: number; line_total: string }>(sql`
+      select o.id as order_id, l.sku_id, l.unit, l.quantity, l.line_total::text
+        from ${orders} o
+        join ${orderLines} l on l.order_id = o.id and l.version = o.version and l.tenant_id = o.tenant_id
+       where o.tenant_id = ${user.tenantId} and o.status = 'pending'`);
+    const per = new Map<string, { orders: Set<string>; lines: { quantity: number; unit: string }[]; paise: bigint }>();
+    for (const l of lines) {
+      const b = bySku.get(l.sku_id) ?? "";
+      const row = per.get(b) ?? { orders: new Set(), lines: [], paise: 0n };
+      row.orders.add(l.order_id);
+      row.lines.push(l);
+      row.paise += toPaise(l.line_total);
+      per.set(b, row);
+    }
+    const brands = [...per]
+      .sort(([a, x], [b, y]) => (x.paise === y.paise ? a.localeCompare(b) : x.paise > y.paise ? -1 : 1))
+      .map(([brand, r]) => ({ brand, orders: r.orders.size, units: unitsText(r.lines), amount: fromPaise(r.paise) }));
+    return { orders: head!.orders, total: head!.total, products: rows, brands: brands.some((b) => b.brand) ? brands : [] };
   });
 }
 
@@ -171,6 +225,7 @@ export async function exportCsv(user: OcUser) {
   return withTenant(user.tenantId, async (tx) => {
     const os = await tx.select().from(orders).where(eq(orders.tenantId, user.tenantId)).orderBy(asc(orders.refNo));
     const ls = await tx.select().from(orderLines).where(eq(orderLines.tenantId, user.tenantId)).orderBy(asc(orderLines.lineNo));
+    const bySku = await brandsBySku(tx, user.tenantId);
     const rows: unknown[][] = [];
     for (const o of os) {
       for (const l of ls.filter((x) => x.orderId === o.id && x.version === o.version)) {
@@ -195,12 +250,13 @@ export async function exportCsv(user: OcUser) {
           l.rate,
           l.lineTotal,
           o.total,
+          bySku.get(l.skuId) ?? "",
         ]);
       }
     }
     await audit(tx, user, "export.csv", null, { orders: os.length, lines: rows.length });
     return csv([
-      ["Reference", "Entered at", "Entered by", "Customer", "Phone", "Place", "Order note", "Status", "Status changed at", "Delivered by", "Delivered at", "Delivery note", "Zoho invoice no.", "Version", "Product", "Unit", "Quantity", "Rate", "Line total", "Order total"],
+      ["Reference", "Entered at", "Entered by", "Customer", "Phone", "Place", "Order note", "Status", "Status changed at", "Delivered by", "Delivered at", "Delivery note", "Zoho invoice no.", "Version", "Product", "Unit", "Quantity", "Rate", "Line total", "Order total", "Brand"],
       ...rows,
     ]);
   });

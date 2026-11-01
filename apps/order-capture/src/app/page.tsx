@@ -6,7 +6,7 @@ import { listOrders, pendingSummary, TABS, tabCounts, type PendingSummary, type 
 import { requirePageUser } from "@/server/session";
 import { Header } from "./header";
 import { OrderCards } from "./order-cards";
-import { LinkRow } from "./parts";
+import { BrandTag, LinkRow } from "./parts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
@@ -17,7 +17,7 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
   const user = await requirePageUser("/");
   const sp = await searchParams;
   const tab = (TABS.find(([t]) => t === one(sp.tab))?.[0] ?? "pending") as Tab;
-  const filters = { tab, q: one(sp.q).slice(0, 100), from: one(sp.from), to: one(sp.to) };
+  const filters = { tab, q: one(sp.q).slice(0, 100), from: one(sp.from), to: one(sp.to), brand: one(sp.brand).slice(0, 30) };
   const plant = await kit.branding(user.tenantId);
 
   if (!can(user, "read")) {
@@ -34,8 +34,10 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
     tabCounts(user),
     tab === "pending" && can(user, "pending_summary") ? pendingSummary(user) : null,
   ]);
-  const filtered = Boolean(filters.q || filters.from || filters.to);
-  const link = (t: Tab) => `/?${new URLSearchParams({ ...Object.fromEntries(Object.entries(filters).filter(([k, v]) => v && k !== "tab")), tab: t })}`;
+  const filtered = Boolean(filters.q || filters.from || filters.to || filters.brand);
+  const keep = (skip: string) => Object.fromEntries(Object.entries(filters).filter(([k, v]) => v && k !== skip));
+  const link = (t: Tab) => `/?${new URLSearchParams({ ...keep("tab"), tab: t })}`;
+  const brandLink = (b: string) => `/?${new URLSearchParams({ ...keep("brand"), ...(b ? { brand: b } : {}) })}`;
 
   return (
     <div className="space-y-4">
@@ -62,8 +64,27 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
 
       {summary && summary.orders > 0 && <PendingTotals summary={summary} />}
 
+      {list.brands.length > 1 && (
+        <nav aria-label="Brand" className="flex flex-wrap gap-2">
+          {["", ...list.brands].map((b) => {
+            const on = b === filters.brand;
+            return (
+              <a
+                key={b || "all"}
+                href={brandLink(b)}
+                aria-current={on ? "page" : undefined}
+                className={`inline-flex min-h-10 items-center rounded-full border px-4 text-sm font-semibold ${on ? "border-(--brand) bg-(--brand-soft) text-(--brand)" : "border-slate-300 bg-white text-slate-700"}`}
+              >
+                {b || "All brands"}
+              </a>
+            );
+          })}
+        </nav>
+      )}
+
       <form method="get" className="space-y-2">
         <input type="hidden" name="tab" value={tab} />
+        {filters.brand && <input type="hidden" name="brand" value={filters.brand} />}
         <input name="q" defaultValue={filters.q} aria-label="Search orders" placeholder="Order no., name, phone or place" className={field} />
         <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2">
           <label className="block text-xs text-slate-500">
@@ -88,7 +109,7 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
       <p className="text-sm text-slate-500">{tab === "pending" ? "Oldest first" : "Newest first"}</p>
       {list.orders.length === 0 ? (
         <Card>
-          <p className="text-slate-500">{filtered ? "No order matches this search." : tab === "pending" ? "No pending orders." : `No ${tab} orders yet.`}</p>
+          <p className="text-slate-500">{filtered ? `No order matches this ${filters.brand && !filters.q && !filters.from && !filters.to ? "brand" : "search"}.` : tab === "pending" ? "No pending orders." : `No ${tab} orders yet.`}</p>
         </Card>
       ) : (
         <OrderCards orders={list.orders} tickable={tab === "pending" && can(user, "copy_list")} plainPhones={user.isSupport} />
@@ -141,9 +162,34 @@ function PendingTotals({ summary }: { summary: PendingSummary }) {
           <span className="block text-sm text-slate-500">All pending orders · {summary.orders.toLocaleString("en-IN")}</span>
           <span className="text-2xl font-bold">{money(summary.total)}</span>
         </span>
-        <span className="shrink-0 text-sm font-semibold text-(--brand)">By product ▾</span>
+        <span className="shrink-0 text-sm font-semibold text-(--brand)">{summary.brands.length ? "By brand & product ▾" : "By product ▾"}</span>
       </summary>
-      <table className="mt-3 w-full text-sm">
+      {summary.brands.length > 0 && (
+        <table className="mt-3 w-full text-sm">
+          <thead>
+            <tr className="text-left text-slate-500">
+              <th className="pb-1 font-normal">Brand</th>
+              <th className="pb-1 text-right font-normal">Qty</th>
+              <th className="pb-1 text-right font-normal">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {summary.brands.map((b) => (
+              <tr key={b.brand || "none"} className="border-t border-slate-100 align-top">
+                <td className="py-1.5 pr-2">
+                  {b.brand ? <BrandTag brand={b.brand} /> : <span className="text-slate-500">No brand</span>}
+                  <span className="block text-xs text-slate-500">
+                    {b.orders.toLocaleString("en-IN")} {b.orders === 1 ? "order" : "orders"}
+                  </span>
+                </td>
+                <td className="py-1.5 pl-2 text-right">{b.units}</td>
+                <td className="py-1.5 pl-2 text-right font-semibold whitespace-nowrap">{money(b.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <table className={`w-full text-sm ${summary.brands.length ? "mt-5" : "mt-3"}`}>
         <thead>
           <tr className="text-left text-slate-500">
             <th className="pb-1 font-normal">Product</th>

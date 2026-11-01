@@ -45,3 +45,23 @@ tick box vanished and reminders were off, with only a log line. Found by the own
 - No migration; platform and SSO token unchanged.
 - **Tests:** Order Capture 355 (+12: the exact 24 Oct fragment and each other broken shape, another plant's broken entry
   only in `/health`, the order view, `/health` warnings).
+
+### 2026-11-01 — Brand tags on orders (v0.32.0)
+**Asked by the owner 2026-11-01:** all orders are in one list; a tag per order showing the brand (Bluemins / Mr.Charge /
+Hemex), set by the owner or guessed. Owner chose: set on Rates (migration approved), plus brand chips and brand totals.
+- **Migration `0006_product_brand.sql`** (approved by the owner): `product_rates.brand` (null = guessed, `''` = no brand,
+  ≤ 30, trimmed) + UPDATE on that column only. Still no DELETE; nothing else changes.
+- **Guess** (`src/lib/brand.ts`): the product name's words before its size ("Mr.Charge 5L" → Mr.Charge, "Bluemins (1 L
+  × 12)" → Bluemins); none when the name starts with the size.
+- **Rates:** a Brand box under each product, filled with the brand in use (the guess too); the same text back saves
+  nothing, an emptied box = no tag. Audited ("brand Jar → Mr.Charge" in Recent changes).
+- **Order list:** coloured tags next to the customer name (one per brand in the order's current lines; the same brand
+  always has the same colour); chips "All brands · Bluemins · Mr.Charge …" when the plant has 2+ brands (`?brand=`,
+  kept by the search and the tabs; Select all / WhatsApp copy work on the filtered list). Everyone who reads the list
+  sees tags (a brand is not an amount).
+- **Owner's pending summary:** "By brand" table (orders, quantity per unit, amount) above "By product"; "No brand" row
+  for products without one; shown only when some product has a brand.
+- **CSV:** a `Brand` column at the end (existing columns unchanged).
+- The brand belongs to the product, not the order: changing it on Rates changes the tag on old orders too.
+- **Not done:** tag on the order page itself and in the WhatsApp copy text.
+- **Tests:** Order Capture 367 (+12 `test/brand.test.ts`; list summary / CSV tests updated).
