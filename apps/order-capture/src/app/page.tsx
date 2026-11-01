@@ -2,7 +2,7 @@ import { Card } from "@plantops/ui";
 import { money } from "@/lib/money";
 import { can } from "@/server/access";
 import { kit } from "@/server/kit";
-import { listOrders, pendingSummary, TABS, tabCounts, type PendingSummary, type Tab } from "@/server/list";
+import { DATE_LABEL, listOrders, pendingSummary, TABS, tabCounts, type PendingSummary, type Tab } from "@/server/list";
 import { requirePageUser } from "@/server/session";
 import { Header } from "./header";
 import { OrderCards } from "./order-cards";
@@ -88,7 +88,7 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
         <input name="q" defaultValue={filters.q} aria-label="Search orders" placeholder="Order no., name, phone or place" className={field} />
         <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2">
           <label className="block text-xs text-slate-500">
-            From
+            {DATE_LABEL[tab]}
             <input type="date" name="from" defaultValue={filters.from} className={field} />
           </label>
           <label className="block text-xs text-slate-500">

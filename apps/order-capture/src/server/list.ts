@@ -2,6 +2,7 @@
 //   * read: owner, Order desk, plant staff (view only), PlantOps support; one plant only (row-level security + tenant
 //     filter); amounts only for people who may see them (never plant staff: removed here, not just hidden on screen)
 //   * Pending oldest first; Delivered / Cancelled newest first (by when that happened)
+//   * dates: Pending by the day entered; Delivered / Cancelled by the day delivered / cancelled
 //   * search: "O-0042" / "42" = a reference, 3+ digits = part of the phone, otherwise name or place (any case)
 //   * brand tags: per product, the owner's (Rates) or guessed from the name; ?brand= shows orders with that brand
 //   * the CSV: one row per line of each order's CURRENT version; formulas neutralised; audited
@@ -29,7 +30,7 @@ export const TABS: [Tab, string][] = [
 export interface ListFilters {
   tab?: Tab;
   q?: string;
-  /** YYYY-MM-DD, India date the order was entered */
+  /** YYYY-MM-DD, India date: entered (Pending), delivered (Delivered) or cancelled (Cancelled) */
   from?: string;
   to?: string;
   /** one brand's orders only (an order with any of its products) */
@@ -57,7 +58,10 @@ export interface ListRow {
 }
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
-const istDay = sql`(${orders.createdAt} at time zone 'Asia/Kolkata')::date`;
+/** the India date the dates filter uses: when the order was entered, or when it was delivered / cancelled */
+const istDay = (tab: Tab) => sql`(${tab === "pending" ? orders.createdAt : orders.statusChangedAt} at time zone 'Asia/Kolkata')::date`;
+/** the From label on each tab, so it is clear which date the filter uses */
+export const DATE_LABEL: Record<Tab, string> = { pending: "Entered from", delivered: "Delivered from", cancelled: "Cancelled from" };
 
 function searchWhere(q: string): SQL | undefined {
   const text = q.trim();
@@ -107,8 +111,8 @@ export async function listOrders(user: OcUser, f: ListFilters = {}, now = Date.n
     }
     const s = searchWhere(f.q ?? "");
     if (s) where.push(s);
-    if (f.from && YMD.test(f.from)) where.push(sql`${istDay} >= ${f.from}::date`);
-    if (f.to && YMD.test(f.to)) where.push(sql`${istDay} <= ${f.to}::date`);
+    if (f.from && YMD.test(f.from)) where.push(sql`${istDay(tab)} >= ${f.from}::date`);
+    if (f.to && YMD.test(f.to)) where.push(sql`${istDay(tab)} <= ${f.to}::date`);
     const rows = await tx
       .select()
       .from(orders)

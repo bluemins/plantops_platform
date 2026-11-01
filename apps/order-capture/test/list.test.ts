@@ -65,6 +65,22 @@ describe("the order list", () => {
     expect(refs((await listOrders(p.owner, { tab: "delivered" })).orders)).toEqual(["O-0001", "O-0002"]);
   });
 
+  it("dates: Delivered / Cancelled by the day delivered / cancelled, not the day entered", async () => {
+    const p = plant();
+    const a = await add(p, "9000000001", "A shop", "Bargarh");
+    const b = await add(p, "9000000002", "B shop", "Bargarh");
+    await backdate(a.id, 3);
+    await backdate(b.id, 3);
+    await deliverOrder(p.desk, a.id, { expected: { status: "pending", version: 1 } });
+    await cancelOrder(p.desk, b.id, { expected: { status: "pending", version: 1 }, reason: "customer changed mind" });
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+    const old = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date(Date.now() - 3 * DAY));
+    expect(refs((await listOrders(p.desk, { tab: "delivered", from: today, to: today })).orders)).toEqual(["O-0001"]);
+    expect((await listOrders(p.desk, { tab: "delivered", from: old, to: old })).orders).toEqual([]);
+    expect(refs((await listOrders(p.desk, { tab: "cancelled", from: today, to: today })).orders)).toEqual(["O-0002"]);
+    expect((await listOrders(p.desk, { tab: "cancelled", from: old, to: old })).orders).toEqual([]);
+  });
+
   it("search: O-0042 / 42 → the reference, digits → the phone, otherwise name or place; dates", async () => {
     const p = plant();
     await add(p, "9876543210", "Sri ram hotel", "bijepur");

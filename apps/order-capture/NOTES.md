@@ -65,3 +65,11 @@ Hemex), set by the owner or guessed. Owner chose: set on Rates (migration approv
 - The brand belongs to the product, not the order: changing it on Rates changes the tag on old orders too.
 - **Not done:** tag on the order page itself and in the WhatsApp copy text.
 - **Tests:** Order Capture 367 (+12 `test/brand.test.ts`; list summary / CSV tests updated).
+
+### 2026-11-01 — Dates follow the tab (v0.35.1)
+**Reported by the owner 2026-11-01:** Delivered with From = To = today showed only 2 orders. The dates filtered by the
+day an order was **entered** on every tab, so orders entered earlier and delivered today were left out.
+- Now: Pending by the day entered, Delivered by the day delivered, Cancelled by the day cancelled (India date of
+  `status_changed_at`, the same time the list is sorted by). The first date box says which: "Entered from" /
+  "Delivered from" / "Cancelled from" (`DATE_LABEL` in `src/server/list.ts`).
+- No migration; platform and SSO token unchanged. Tests: Order Capture 368 (+1 in `test/list.test.ts`).
