@@ -179,8 +179,8 @@ describe("day statuses", () => {
     const days = workDays([mark("a", "in", "2026-10-09 22:00"), mark("b", "out", "2026-10-10 06:00")], [], ist("2026-10-20 12:00"));
     const r = dayStatuses(days, 480, ["2026-10-09", "2026-10-10"], true);
     expect(r).toEqual([
-      { date: "2026-10-09", minutes: 480, workMinutes: 480, status: "present", otMinutes: 0 },
-      { date: "2026-10-10", minutes: 0, workMinutes: 0, status: "absent", otMinutes: 0 },
+      { date: "2026-10-09", minutes: 480, earlyMinutes: 0, workMinutes: 480, status: "present", otMinutes: 0 },
+      { date: "2026-10-10", minutes: 0, earlyMinutes: 0, workMinutes: 0, status: "absent", otMinutes: 0 },
     ]);
   });
 
@@ -201,7 +201,7 @@ describe("day statuses", () => {
 
 describe("which setting applies", () => {
   const s = (fromMonth: string, monthlyRupees: number, createdAt: string): SalarySetting => ({
-    id: `${fromMonth}-${createdAt}`, fromMonth, payBasis: "monthly", monthlyPaise: R(monthlyRupees), dayRatePaise: null, kmRatePaise: null, daDayPaise: null, shiftMinutes: 480, lunchMinutes: 0, paidLeaveHalfdays: 4, getsOvertime: false, otRatePaise: null, joinedOn: null, leftOn: null, createdAt,
+    id: `${fromMonth}-${createdAt}`, fromMonth, payBasis: "monthly", monthlyPaise: R(monthlyRupees), dayRatePaise: null, kmRatePaise: null, daDayPaise: null, shiftMinutes: 480, lunchMinutes: 0, workStartMinutes: null, paidLeaveHalfdays: 4, getsOvertime: false, otRatePaise: null, joinedOn: null, leftOn: null, createdAt,
   });
 
   it("14. a setting from November leaves October unchanged; the newest of the same month wins", () => {
@@ -376,7 +376,7 @@ describe("per-day pay (rule 15)", () => {
 
   it("A7. monthly in October, per day from November: October is unchanged (₹9,040)", () => {
     const row = (fromMonth: string, over: Partial<SalarySetting>): SalarySetting => ({
-      id: fromMonth, fromMonth, payBasis: "monthly", monthlyPaise: R(12000), dayRatePaise: null, kmRatePaise: null, daDayPaise: null, shiftMinutes: 480, lunchMinutes: 0, paidLeaveHalfdays: 4, getsOvertime: true, otRatePaise: R(60), joinedOn: null, leftOn: null, createdAt: `${fromMonth}-01T10:00:00Z`, ...over,
+      id: fromMonth, fromMonth, payBasis: "monthly", monthlyPaise: R(12000), dayRatePaise: null, kmRatePaise: null, daDayPaise: null, shiftMinutes: 480, lunchMinutes: 0, workStartMinutes: null, paidLeaveHalfdays: 4, getsOvertime: true, otRatePaise: R(60), joinedOn: null, leftOn: null, createdAt: `${fromMonth}-01T10:00:00Z`, ...over,
     });
     const rows = [row("2026-10", {}), row("2026-11", { payBasis: "per_day", monthlyPaise: null, dayRatePaise: R(450), paidLeaveHalfdays: 0 })];
     const inputFor = (month: string, counts: Partial<PayInput>): ChainInput => {

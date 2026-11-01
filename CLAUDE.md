@@ -1910,3 +1910,13 @@ payer's name for money in (NEFT / UPI / IMPS) → a close guess → "To check"; 
 Tests: platform 392 (+18). Verified locally (temporary plant, headless Chromium at 390 / 1280 px, test files with
 made-up lines; removed afterwards): teach from a remarked month, fill the next, edit, warning, download, rules page.
 **Not yet verified:** the owner's real SBI export (name reading is built from the SBI layout in their screenshot).
+
+### 2026-11-01 — Attendance: "Work starts at" (v0.35.0) — built, not deployed
+Asked by the owner 2026-11-01: Anmol, bindu, Gaja and Ramu scan at ~8:50 but plant work starts at 9:00. Optional **Work
+starts at** in the Salary box; **rule 23** in `apps/attendance-salary/src/lib/salary.ts`: time before it on that India
+date isn't counted (an 8:50 IN counts from 9:00), a later IN counts from the IN, empty = from the IN as before. Calendar
+"Counted from 09:00", day page "Before 09:00 (not counted)"; real scan times unchanged. `RULES_VERSION` 8. Attendance
+migration `0011_work_start.sql` (approved by the owner): `salary_settings.work_start_minutes`, null for existing rows,
+grants unchanged. SSO token and platform unchanged. October was already paid for the four, so the owner sets it from
+November. Notes: `apps/attendance-salary/NOTES.md`. Tests: Attendance 482 pass (+9); 2 date-dependent tests fail on the 1st
+with or without this change (known since v0.32.1).

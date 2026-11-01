@@ -42,7 +42,7 @@ export default async function PersonDayPage({ params }: { params: Promise<{ user
         ‹ {view.name ?? "Person"} · month
       </a>
       <DayView day={view.day} />
-      {statuses && counted && <WorkBox atPlant={view.day.minutes} day={counted} shiftMinutes={statuses.shiftMinutes} lunchMinutes={statuses.lunchMinutes} getsOvertime={statuses.getsOvertime} />}
+      {statuses && counted && <WorkBox atPlant={view.day.minutes} day={counted} shiftMinutes={statuses.shiftMinutes} lunchMinutes={statuses.lunchMinutes} workStartMinutes={statuses.workStartMinutes} getsOvertime={statuses.getsOvertime} />}
       {/* the owner's whole-day ON / OFF (docs/DAY_MARKS_PLAN.md); others see the mark only */}
       <DayMarkPanel personId={personId} name={view.name ?? "This person"} day={date} mark={dayMark} canMark={can(user, "day_mark")} />
       {/* Office staff / a Supervisor: no Fix once the month is marked paid for this person (owner, 2026-11-01) */}

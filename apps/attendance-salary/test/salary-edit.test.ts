@@ -113,6 +113,24 @@ describe("salary setting", () => {
     expect((await refusal(() => setting(p.owner, { joined_on: `${THIS}-15`, left_on: `${THIS}-14`, expect: ex }))).message).toBe("The last day can't be before the joining day");
   });
 
+  it("6b. Work starts at (rule 23): saved as minutes, blank = none, bad times refused; an 8:50 IN counts from 9:00", async () => {
+    const { p, w, setting, panel } = setup();
+    await setting(p.owner, { work_start: "", from_month: "2026-10", reason: "first setting" });
+    expect((await rows("salary_settings", p.tenantId))[0]).toMatchObject({ work_start_minutes: null });
+    const ex = (await panel()).expect.setting;
+    for (const bad of ["9", "09:10", "24:00", "9:00 am"]) expect((await refusal(() => setting(p.owner, { work_start: bad, expect: ex }))).status, bad).toBe(400);
+    await setting(p.owner, { work_start: "09:00", lunch_hours: 1, from_month: "2026-10", reason: "plant opens at 9", expect: ex });
+    const panelNow = await panel();
+    expect(panelNow.applies).toMatchObject({ workStartMinutes: 540 });
+    expect(describeChange("salary.set", (await rows("audit_log", p.tenantId)).at(-1)!.details as never)).toMatch(/from 09:00/);
+
+    await markAt(p.worker, "in", "2026-10-05 08:50");
+    await markAt(p.worker, "out", "2026-10-05 18:00");
+    const oct = (await salaryMonths(p.owner, "2026-10", { personId: w, now: ist("2026-11-05 12:00") })).people[0]!.current!;
+    // 9 h 10 m at the plant − 10 m before 9:00 − 1 h lunch = 8 h: a full day, no overtime
+    expect(oct.days.find((d) => d.date === "2026-10-05")).toMatchObject({ earlyMinutes: 10, workMinutes: 480, status: "present", otMinutes: 0 });
+  });
+
   it("the route answers 400 for bad input and 201 for a good one", async () => {
     const { p, w } = setup();
     signInAs(p.owner);

@@ -1,5 +1,5 @@
 import { fmtMinutes, fmtMonth, fmtSpan, weekdayMon0 } from "@/lib/days";
-import { hoursText } from "@/lib/salary";
+import { clockText, hoursText } from "@/lib/salary";
 import type { MonthView } from "@/server/calendar";
 import type { MonthStatuses } from "@/server/salary";
 
@@ -102,6 +102,7 @@ export function CalendarKey({ statuses }: { statuses?: MonthStatuses | null } = 
     <div className="flex flex-wrap gap-x-4 gap-y-2 px-1 text-sm text-slate-600">
       {statuses && (
         <p className="w-full font-semibold text-slate-800">
+          {statuses.workStartMinutes != null ? `Counted from ${clockText(statuses.workStartMinutes)} · ` : ""}
           {statuses.lunchMinutes ? `Work = time at plant − ${hoursText(statuses.lunchMinutes)} h lunch · ` : ""}full day = {hoursText(statuses.shiftMinutes)} h work
         </p>
       )}

@@ -121,6 +121,8 @@ export const salarySettings = at.table("salary_settings", {
   shiftMinutes: integer("shift_minutes").notNull(),
   /** the lunch break taken off the time at the plant, 0-180 in 15-minute steps (migration 0009) */
   lunchMinutes: integer("lunch_minutes").notNull().default(0),
+  // rule 23 (0011): "Work starts at", minutes after midnight IST; null = from the IN
+  workStartMinutes: integer("work_start_minutes"),
   paidLeaveHalfdays: integer("paid_leave_halfdays").notNull().default(4),
   getsOvertime: boolean("gets_overtime").notNull(),
   otRatePaise: integer("ot_rate_paise"),

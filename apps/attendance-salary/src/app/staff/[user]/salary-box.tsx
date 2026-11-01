@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ErrorText } from "@plantops/ui";
 import { api } from "@/lib/api";
 import { fmtDayLong, fmtMonth, istDay } from "@/lib/days";
-import { SALARY_TYPES, halvesText, hoursText, paiseText, toPaise, type PayBasis } from "@/lib/salary";
+import { SALARY_TYPES, clockText, halvesText, hoursText, paiseText, toPaise, type PayBasis } from "@/lib/salary";
 
 /** The salary types in the order the owner picks them, with what each does (lib/salary.ts SALARY_TYPES). */
 const TYPE_CHOICES: [PayBasis, string][] = [
@@ -35,6 +35,7 @@ function initial(applies: HistoryRow | null, thisMonth: string) {
     staffType: (applies?.staffType ?? "permanent") as "permanent" | "temporary",
     shift: applies ? hoursText(applies.shiftMinutes) : "8",
     lunch: applies ? hoursText(applies.lunchMinutes) : "0",
+    start: applies?.workStartMinutes != null ? clockText(applies.workStartMinutes) : "",
     leave: applies ? halvesText(applies.paidLeaveHalfdays) : "2",
     ot: applies?.getsOvertime ?? false,
     rate: typed(applies?.otRatePaise),
@@ -82,6 +83,7 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
         da_rate: f.field ? f.da || null : null,
         shift_hours: Number(f.shift),
         lunch_hours: Number(f.lunch) || 0,
+        work_start: f.start || null,
         // a fixed salary has no overtime (the server refuses it)
         gets_overtime: f.ot && !fixed,
         ot_rate: f.ot && !fixed ? f.rate : null,
@@ -174,6 +176,11 @@ export function SalaryBox({ personId, applies, history, thisMonth, months, expec
               {lunch > 0 ? `${hoursText((shift + lunch) * 60)} h at plant = ${hoursText(shift * 60)} h work + ${hoursText(lunch * 60)} h lunch (taken off from 5 h at the plant)` : "No break: all time at the plant is work"}
             </span>
           )}
+        </label>
+        <label className={label}>
+          <span>Work starts at (optional)</span>
+          <input className={field} type="time" step={900} value={f.start} onChange={set("start")} />
+          <span className={hint}>{f.start ? `Time before ${f.start} isn't counted: an IN at 8:50 counts from ${f.start}; a later IN counts from the IN` : "Empty: work counts from the IN"}</span>
         </label>
         {perDay || fixed ? (
           <p className="self-start rounded-xl bg-slate-100 px-3 py-2.5 text-sm text-slate-700 sm:mt-6">Paid leave doesn&apos;t apply to {fixed ? "a fixed salary (nothing is cut)" : "per-day pay"}.</p>
@@ -290,7 +297,7 @@ export function History({ history }: { history: HistoryRow[] }) {
             <div className="flex flex-wrap justify-between gap-x-3">
               <span>
                 <strong>From {fmtMonth(h.fromMonth)}:</strong>{" "}
-                {settingText({ basis: h.payBasis, monthly: h.monthlyPaise, day_rate: h.dayRatePaise, km_rate: h.kmRatePaise, da_day: h.daDayPaise, field: h.fieldStaff, temporary: h.staffType === "temporary", shift: h.shiftMinutes, lunch: h.lunchMinutes, leave: h.paidLeaveHalfdays, ot_rate: h.getsOvertime ? h.otRatePaise : null, joined: h.joinedOn, left: h.leftOn })}
+                {settingText({ basis: h.payBasis, monthly: h.monthlyPaise, day_rate: h.dayRatePaise, km_rate: h.kmRatePaise, da_day: h.daDayPaise, field: h.fieldStaff, temporary: h.staffType === "temporary", shift: h.shiftMinutes, lunch: h.lunchMinutes, start: h.workStartMinutes, leave: h.paidLeaveHalfdays, ot_rate: h.getsOvertime ? h.otRatePaise : null, joined: h.joinedOn, left: h.leftOn })}
               </span>
               <span className="text-slate-600">
                 {h.byName}, {dayShort(istDay(new Date(h.at)))}
@@ -342,7 +349,7 @@ export function SalaryReadOnly({ applies, history, canSee, name }: { applies: Hi
     <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
       <h2 className="text-lg font-bold">Salary</h2>
       {applies ? (
-        <p>{settingText({ basis: applies.payBasis, monthly: applies.monthlyPaise, day_rate: applies.dayRatePaise, km_rate: applies.kmRatePaise, da_day: applies.daDayPaise, field: applies.fieldStaff, temporary: applies.staffType === "temporary", shift: applies.shiftMinutes, lunch: applies.lunchMinutes, leave: applies.paidLeaveHalfdays, ot_rate: applies.getsOvertime ? applies.otRatePaise : null, joined: applies.joinedOn, left: applies.leftOn })}</p>
+        <p>{settingText({ basis: applies.payBasis, monthly: applies.monthlyPaise, day_rate: applies.dayRatePaise, km_rate: applies.kmRatePaise, da_day: applies.daDayPaise, field: applies.fieldStaff, temporary: applies.staffType === "temporary", shift: applies.shiftMinutes, lunch: applies.lunchMinutes, start: applies.workStartMinutes, leave: applies.paidLeaveHalfdays, ot_rate: applies.getsOvertime ? applies.otRatePaise : null, joined: applies.joinedOn, left: applies.leftOn })}</p>
       ) : (
         <p className="text-slate-600">No salary set.</p>
       )}

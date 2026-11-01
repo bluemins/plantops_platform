@@ -808,3 +808,22 @@ attendance once marked paid".
 - Also found the same day (plant 001's October): paying on the month's last day freezes the figures up to the day
   before (today isn't counted), so that day's work moved into November as "Changed after payment" (Anmol −₹19.84,
   Ramu +₹316.67). The owner will mark paid on the 1st from now on.
+
+## 2026-11-01: "Work starts at" (v0.35.0, rule 23)
+Asked by the owner 2026-11-01: for Anmol, bindu, Gaja and Ramu "even though they scan at 8.50 the plant work starts at
+9 AM". October (read-only check): Gaja had 22 days with an IN before 9:00 (7 h 20 m counted, mostly overtime), Ramu 1 h
+36 m, Anmol 1 h 16 m, bindu 1 h 6 m. October was already paid for all four, so the setting starts in November.
+- **Salary box:** optional "Work starts at" (time picker, quarter hours); empty = from the IN, as before. History /
+  Recent changes say "from 09:00".
+- **Rule 23** (`earlyMinutes()` + `dayStatuses()` in `src/lib/salary.ts`): the minutes of the day's complete blocks
+  before the start time on that India date are not counted, before the lunch break is taken off. An 8:50 IN counts from
+  9:00; a 9:15 IN from 9:15 (still a short day); staying late is still overtime; a block that started the evening
+  before is untouched. Only blocks (real IN / OUT) are clipped; day marks ON / OFF are unchanged. `RULES_VERSION` 8;
+  frozen months keep `setting.workStartMinutes` (missing in older ones = none).
+- **Screens:** calendar key "Counted from 09:00 · …"; day page Work box row "Before 09:00 (not counted) − 10m". The
+  day view still shows the real scan times.
+- **Database:** migration `0011_work_start.sql` (approved by the owner 2026-11-01): `salary_settings.work_start_minutes`
+  (null, or 0-1425 in steps of 15). No row changes; grants unchanged (SELECT + INSERT).
+- Tests: `work-start.test.ts` (8), `salary-edit.test.ts` 6b; expectations for rules 8 / `earlyMinutes` updated.
+  Attendance 482 pass; the two date-dependent tests from v0.32.1 still fail on the 1st.
+- **Owner to do after deploy:** Staff → Anmol, bindu, Gaja, Ramu → Salary box → Work starts at 09:00, from November.

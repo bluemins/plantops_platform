@@ -1,7 +1,7 @@
 // "Recent changes": audit rows in plain words for the owner ("Added OUT 18:30 on Tue, 14 Oct for Ramu: forgot to scan").
 import { fmtDayLong, fmtMonth, istDay } from "./days";
 import { fmtTime } from "./punch";
-import { halvesText, hoursText, paiseText } from "./salary";
+import { clockText, halvesText, hoursText, paiseText } from "./salary";
 
 const show = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : String(v));
 const num = (v: unknown) => (typeof v === "number" ? v : 0);
@@ -15,9 +15,10 @@ const claimText = (d: Record<string, unknown>) =>
   d.kind === "field_duty" ? `field duty ${shortDay(d.on)}, ${num(d.km) / 10} km` : `expense ${paiseText(num(d.amount))} on ${shortDay(d.on)}`;
 
 /** "₹12,000 · 8 h work + 1 h lunch · overtime ₹60/h" (+ leave when not the usual 2 days, joined / last day): a salary setting. */
-export function settingText(d: { basis?: string; monthly: number | null; day_rate?: number | null; km_rate?: number | null; da_day?: number | null; field?: boolean; temporary?: boolean; shift: number; lunch?: number; leave: number; ot_rate: number | null; joined?: string | null; left?: string | null }) {
+export function settingText(d: { basis?: string; monthly: number | null; day_rate?: number | null; km_rate?: number | null; da_day?: number | null; field?: boolean; temporary?: boolean; shift: number; lunch?: number; start?: number | null; leave: number; ot_rate: number | null; joined?: string | null; left?: string | null }) {
   const pay = d.day_rate != null ? `per day ${paiseText(d.day_rate)}` : d.basis === "fixed" ? `fixed ${paiseText(d.monthly ?? 0)}` : paiseText(d.monthly ?? 0);
   const parts = [pay, d.lunch ? `${hoursText(d.shift)} h work + ${hoursText(d.lunch)} h lunch` : `${hoursText(d.shift)} h`, d.ot_rate ? `overtime ${paiseText(d.ot_rate)}/h` : "no overtime"];
+  if (d.start != null) parts.push(`from ${clockText(d.start)}`);
   if (d.day_rate == null && d.basis !== "fixed" && d.leave !== 4) parts.push(`leave ${halvesText(d.leave)} days`);
   if (d.km_rate) parts.push(`TA ${paiseText(d.km_rate)}/km`);
   if (d.da_day) parts.push(`DA ${paiseText(d.da_day)}/day`);
@@ -55,7 +56,7 @@ export function describeChange(action: string, d: Record<string, unknown>): stri
         ? `Cleared the day mark on ${fmtDayLong(show(d.day))} for ${show(d.person)} (back to the IN / OUT marks)`
         : `Marked ${fmtDayLong(show(d.day))} ${d.mark === "on" ? "ON (present)" : "OFF (day off, not paid)"} for ${show(d.person)}`;
     case "salary.set":
-      return `Salary for ${show(d.person)} from ${shortMonth(d.from)}: ${settingText({ basis: typeof d.basis === "string" ? d.basis : undefined, monthly: typeof d.monthly === "number" ? d.monthly : null, day_rate: typeof d.day_rate === "number" ? d.day_rate : null, km_rate: typeof d.km_rate === "number" ? d.km_rate : null, da_day: typeof d.da_day === "number" ? d.da_day : null, field: d.field === true, temporary: d.staff_type === "temporary", shift: num(d.shift), lunch: num(d.lunch), leave: num(d.leave), ot_rate: typeof d.ot_rate === "number" ? d.ot_rate : null, joined: d.joined as string | null, left: d.left as string | null })}${d.reason ? `: ${show(d.reason)}` : ""}`;
+      return `Salary for ${show(d.person)} from ${shortMonth(d.from)}: ${settingText({ basis: typeof d.basis === "string" ? d.basis : undefined, monthly: typeof d.monthly === "number" ? d.monthly : null, day_rate: typeof d.day_rate === "number" ? d.day_rate : null, km_rate: typeof d.km_rate === "number" ? d.km_rate : null, da_day: typeof d.da_day === "number" ? d.da_day : null, field: d.field === true, temporary: d.staff_type === "temporary", shift: num(d.shift), lunch: num(d.lunch), start: typeof d.start === "number" ? d.start : null, leave: num(d.leave), ot_rate: typeof d.ot_rate === "number" ? d.ot_rate : null, joined: d.joined as string | null, left: d.left as string | null })}${d.reason ? `: ${show(d.reason)}` : ""}`;
     case "claim.sent":
       return `Claim from ${show(d.person)}: ${claimText(d)}: ${show(d.note)}${d.approved ? " (own claim, approved)" : ""}`;
     case "claim.entered":

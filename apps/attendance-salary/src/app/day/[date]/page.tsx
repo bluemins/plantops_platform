@@ -28,7 +28,7 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
         Back to the month
       </a>
       <DayView day={view.day} />
-      {statuses && counted && <WorkBox atPlant={view.day.minutes} day={counted} shiftMinutes={statuses.shiftMinutes} lunchMinutes={statuses.lunchMinutes} getsOvertime={statuses.getsOvertime} />}
+      {statuses && counted && <WorkBox atPlant={view.day.minutes} day={counted} shiftMinutes={statuses.shiftMinutes} lunchMinutes={statuses.lunchMinutes} workStartMinutes={statuses.workStartMinutes} getsOvertime={statuses.getsOvertime} />}
       {mark && (
         <p className="rounded-2xl border border-slate-200 bg-white p-4 font-semibold">
           {mark === "off" ? "OFF (owner): a day off, not paid" : "ON (owner): counted as present"}

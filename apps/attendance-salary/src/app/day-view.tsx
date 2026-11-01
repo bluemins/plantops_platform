@@ -1,5 +1,5 @@
 import { dayStart, fmtDayLong, fmtMinutes, fmtSpan } from "@/lib/days";
-import { shortDaysText } from "@/lib/salary";
+import { clockText, shortDaysText } from "@/lib/salary";
 import { fmtTime } from "@/lib/punch";
 import type { Block, Mark, WorkDay } from "@/lib/sessions";
 
@@ -123,8 +123,8 @@ export function DayView({ day }: { day: WorkDay }) {
  * "Work for salary" under a counted day (rule 21): time at the plant − lunch = work, and what the day counts as. Hours
  * only, never money. Nothing for today (counted tomorrow) or without a salary setting.
  */
-export function WorkBox({ atPlant, day, shiftMinutes, lunchMinutes, getsOvertime }: { atPlant: number; day: { status: string; workMinutes: number; otMinutes: number; mark?: string }; shiftMinutes: number; lunchMinutes: number; getsOvertime: boolean }) {
-  const lunch = atPlant - day.workMinutes;
+export function WorkBox({ atPlant, day, shiftMinutes, lunchMinutes, workStartMinutes, getsOvertime }: { atPlant: number; day: { status: string; earlyMinutes: number; workMinutes: number; otMinutes: number; mark?: string }; shiftMinutes: number; lunchMinutes: number; workStartMinutes: number | null; getsOvertime: boolean }) {
+  const lunch = atPlant - day.earlyMinutes - day.workMinutes;
   const row = (label: string, value: string, strong = false) => (
     <div className={`flex justify-between gap-3 ${strong ? "font-bold" : ""}`}>
       <span className={strong ? "" : "text-slate-600"}>{label}</span>
@@ -144,6 +144,8 @@ export function WorkBox({ atPlant, day, shiftMinutes, lunchMinutes, getsOvertime
     <section aria-label="Work for salary" className="space-y-1.5 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
       <h2 className="text-base font-bold">Work for salary</h2>
       {row("At plant", fmtMinutes(atPlant))}
+      {/* rule 23: time before "Work starts at" */}
+      {workStartMinutes != null && day.earlyMinutes > 0 && row(`Before ${clockText(workStartMinutes)} (not counted)`, `− ${fmtMinutes(day.earlyMinutes)}`)}
       {lunchMinutes > 0 && row(`Lunch break (${fmtHours(lunchMinutes)})`, lunch > 0 ? `− ${fmtMinutes(lunch)}` : "not taken off")}
       {row("Work", fmtMinutes(day.workMinutes), true)}
       <p className={`rounded-lg px-3 py-2 font-semibold ${day.status === "short" && !day.mark ? "bg-amber-50 text-amber-900" : "bg-slate-100 text-slate-800"}`}>

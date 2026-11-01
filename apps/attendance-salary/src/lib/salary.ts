@@ -8,10 +8,12 @@
 // Rule 21 (owner, 2026-10-23): work = time at the plant − the lunch break; a day under the work hours is a SHORT day
 // (no more half days), and the month's short-day work ÷ the work hours = days paid. Pay is worked out in minutes and
 // rounded once; the "halves" figures of PayResult are kept for the screens (fractional since rule 21).
-import { monthDays } from "./days";
+// Rule 23 (owner, 2026-11-01): an optional "Work starts at" per person; time at the plant before it isn't counted (a
+// scan at 8:50 counts from 9:00), a later IN counts from the IN. Empty = from the IN, as before.
+import { dayStart, monthDays } from "./days";
 
 /** Saved with every payment's frozen figures; raise it whenever a rule here changes. */
-export const RULES_VERSION = 7;
+export const RULES_VERSION = 8;
 /**
  * The salary types (owner, 2026-10-23): each pay basis is one named calculation, picked first in the Salary box, shown
  * on the Salary tab, slip and CSV, and saved with a paid month's figures.
@@ -84,6 +86,8 @@ export interface SalarySetting {
   shiftMinutes: number;
   /** rule 21: the lunch break taken off the time at the plant; 0 = none */
   lunchMinutes: number;
+  /** rule 23: "Work starts at" as minutes after midnight, India time (540 = 9:00); null = from the IN */
+  workStartMinutes: number | null;
   paidLeaveHalfdays: number;
   getsOvertime: boolean;
   otRatePaise: number | null;
@@ -154,7 +158,9 @@ export interface DayResult {
   date: string;
   /** time at the plant: complete blocks only (sessions.ts), so a "no exit" day is 0 until the owner fixes it */
   minutes: number;
-  /** rule 21: time at the plant − the lunch break (workMinutes) */
+  /** rule 23: time at the plant before "Work starts at", not counted (0 without a start time) */
+  earlyMinutes: number;
+  /** rule 21: time at the plant (from the start time, rule 23) − the lunch break (workMinutes) */
   workMinutes: number;
   status: DayStatus;
   /** work minutes over the work hours; 0 for people without "Gets overtime" */
@@ -175,23 +181,49 @@ export function workMinutes(atPlant: number, lunchMinutes: number, gapMinutes = 
   return atPlant <= cap ? atPlant : Math.max(cap, atPlant - take);
 }
 
+/** One day's worked time as sessions.ts's workDays() gives it; `blocks` are needed only for rule 23. */
+export interface DayTime {
+  minutes: number;
+  gapMinutes?: number;
+  blocks?: readonly { status: string; minutes: number; start: { at: Date } }[];
+}
+
+/** "09:00" for 540 (rule 23). */
+export const clockText = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+
+/**
+ * Rule 23: the minutes of the day's complete blocks that lie before "Work starts at" on that India date. A block that
+ * starts before it counts from it (all of it is early if it also ends before it); a block starting later loses nothing.
+ */
+export function earlyMinutes(date: string, day: DayTime | undefined, workStartMinutes: number | null): number {
+  if (workStartMinutes == null || !day?.blocks) return 0;
+  const startsAt = dayStart(date).getTime() + workStartMinutes * 60_000;
+  let early = 0;
+  for (const b of day.blocks) {
+    if (b.status !== "done") continue;
+    early += Math.min(b.minutes, Math.max(0, Math.round((startsAt - b.start.at.getTime()) / 60_000)));
+  }
+  return early;
+}
+
 /**
  * Rules 2, 3, 9 and 21 for each counted day: present (a full day) if work ≥ the work hours, short if there is any work
  * below that, otherwise absent (also with no marks at all). Overtime = work − work hours when positive, exact minutes,
  * only with "Gets overtime". `days` is sessions.ts's workDays() (a night shift is already on the day it started).
  * Rule 20 (v0.26.0, docs/DAY_MARKS_PLAN.md): the owner's day mark decides the day instead: "on" = present, "off" =
  * a day off without pay (rule 22, owner 2026-10-23: paid leave covers it like an absent day). Overtime still comes
- * only from the real IN / OUT times.
+ * only from the real IN / OUT times. Rule 23: time before "Work starts at" is taken off before the lunch break.
  */
-export function dayStatuses(days: ReadonlyMap<string, { minutes: number; gapMinutes?: number }>, shiftMinutes: number, counted: readonly string[], getsOvertime: boolean, marks?: ReadonlyMap<string, DayMark>, lunchMinutes = 0): DayResult[] {
+export function dayStatuses(days: ReadonlyMap<string, DayTime>, shiftMinutes: number, counted: readonly string[], getsOvertime: boolean, marks?: ReadonlyMap<string, DayMark>, lunchMinutes = 0, workStartMinutes: number | null = null): DayResult[] {
   return counted.map((date) => {
     const day = days.get(date);
     const minutes = day?.minutes ?? 0;
-    const work = workMinutes(minutes, lunchMinutes, day?.gapMinutes ?? 0);
+    const early = earlyMinutes(date, day, workStartMinutes);
+    const work = workMinutes(minutes - early, lunchMinutes, day?.gapMinutes ?? 0);
     const mark = marks?.get(date);
     const byTime: DayStatus = work >= shiftMinutes ? "present" : work > 0 ? "short" : "absent";
     const status: DayStatus = mark === "on" ? "present" : mark === "off" ? "off" : byTime;
-    return { date, minutes, workMinutes: work, status, otMinutes: getsOvertime ? Math.max(0, work - shiftMinutes) : 0 };
+    return { date, minutes, earlyMinutes: early, workMinutes: work, status, otMinutes: getsOvertime ? Math.max(0, work - shiftMinutes) : 0 };
   });
 }
 
@@ -539,7 +571,7 @@ export interface FrozenMonth {
   /** the salary type the month was worked out with (rules 6+; missing before = no name) */
   band?: string;
   month: string;
-  setting: { payBasis: PayBasis; monthlyPaise: number | null; dayRatePaise: number | null; kmRatePaise: number | null; daDayPaise: number | null; shiftMinutes: number; lunchMinutes?: number; paidLeaveHalfdays: number; getsOvertime: boolean; otRatePaise: number | null; joinedOn: string | null; leftOn: string | null };
+  setting: { payBasis: PayBasis; monthlyPaise: number | null; dayRatePaise: number | null; kmRatePaise: number | null; daDayPaise: number | null; shiftMinutes: number; lunchMinutes?: number; workStartMinutes?: number | null; paidLeaveHalfdays: number; getsOvertime: boolean; otRatePaise: number | null; joinedOn: string | null; leftOn: string | null };
   counted: Counted;
   counts: DayCounts;
   advances: FrozenAdvance[];
@@ -567,7 +599,7 @@ export function readFrozen(f: FrozenMonth): FrozenMonth {
   const noClaims = { taPaise: 0, daPaise: 0, expensesPaise: 0 };
   return {
     ...f,
-    setting: { ...f.setting, payBasis: f.setting.payBasis ?? "monthly", dayRatePaise: f.setting.dayRatePaise ?? null, kmRatePaise: f.setting.kmRatePaise ?? null, daDayPaise: f.setting.daDayPaise ?? null, lunchMinutes: f.setting.lunchMinutes ?? 0 },
+    setting: { ...f.setting, payBasis: f.setting.payBasis ?? "monthly", dayRatePaise: f.setting.dayRatePaise ?? null, kmRatePaise: f.setting.kmRatePaise ?? null, daDayPaise: f.setting.daDayPaise ?? null, lunchMinutes: f.setting.lunchMinutes ?? 0, workStartMinutes: f.setting.workStartMinutes ?? null },
     claims: f.claims ?? [],
     fieldDutyDays: f.fieldDutyDays ?? 0,
     daDays: f.daDays ?? f.fieldDutyDays ?? 0,

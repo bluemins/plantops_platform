@@ -4,6 +4,18 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.35.0 — 2026-11-01 — Attendance: "Work starts at"
+
+**What's in it** (asked by the owner 2026-11-01)
+- **"Work starts at"** in a person's Salary box (optional). Time at the plant before it isn't counted for salary: an IN
+  at 8:50 counts from 9:00, so early scans no longer add work or overtime. An IN after it counts from the IN (a short day
+  as before); staying late is still overtime. Empty = work counts from the IN, as before.
+- The calendar says "Counted from 09:00"; a day's Work box shows "Before 09:00 (not counted)". Real scan times are
+  unchanged everywhere.
+- Paid months keep their figures. Set it from November for Anmol, bindu, Gaja and Ramu (October is paid).
+
+**Migrations:** Attendance `0011_work_start.sql` (one column on `salary_settings`, empty for existing rows).
+
 ## v0.34.0 — 2026-11-01 — Bank remarks (owner only)
 
 **What's in it** (asked by the owner 2026-11-01)

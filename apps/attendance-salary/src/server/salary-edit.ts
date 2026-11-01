@@ -100,6 +100,8 @@ export const SettingInput = z.object({
   shift_hours: z.number(),
   /** rule 21: the lunch break in hours (0-3, in quarter hours); missing = none */
   lunch_hours: z.number().default(0),
+  /** rule 23: "Work starts at" as "09:00" (quarter hours); blank / missing = count from the IN */
+  work_start: z.string().max(5).nullish(),
   /** monthly only; per day always saves 0 */
   leave_days: z.number().nullish(),
   /** TA ₹ per km and DA ₹ per field-duty day as typed; blank = none (docs/SALARY_EXTRAS_PHASE_PLAN.md) */
@@ -118,6 +120,16 @@ export const SettingInput = z.object({
   reason: z.string().max(300).nullish(),
   expect: Expect,
 });
+
+/** Rule 23: "09:00" -> 540; blank -> null (from the IN). Quarter hours only, like the time picker. */
+function workStart(text: string | null | undefined): number | null {
+  const t = text?.trim();
+  if (!t) return null;
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(t);
+  const minutes = m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
+  if (!(minutes % 15 === 0)) throw badRequest("Work starts at: a time like 09:00, in steps of 15 minutes");
+  return minutes;
+}
 
 /** Owner: a new salary setting for a person, from a month on (a new row; the old ones stay as history). */
 export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInput>) {
@@ -141,6 +153,7 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
     throw badRequest("Lunch break: 0 to 3 hours, in steps of 15 minutes (1 or 0.5)");
   }
   if (shiftMinutes + lunchMinutes > 16 * 60) throw badRequest("Work hours + lunch break can be at most 16 hours");
+  const workStartMinutes = workStart(input.work_start);
   const leaveDays = perDay || fixed ? 0 : (input.leave_days ?? 2); // rule 15: no paid leave for per-day pay; fixed: none needed
   const halves = leaveDays * 2;
   if (!(leaveDays >= 0 && leaveDays <= 10) || !Number.isInteger(halves)) throw badRequest("Paid leave: 0 to 10 days, in steps of half a day");
@@ -172,6 +185,7 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
         staffType: input.staff_type,
         shiftMinutes,
         lunchMinutes,
+        workStartMinutes,
         paidLeaveHalfdays: halves,
         getsOvertime: input.gets_overtime,
         otRatePaise,
@@ -194,6 +208,7 @@ export async function saveSetting(user: AtUser, input: z.infer<typeof SettingInp
       staff_type: input.staff_type,
       shift: shiftMinutes,
       lunch: lunchMinutes,
+      start: workStartMinutes,
       leave: halves,
       ot_rate: otRatePaise,
       joined: input.joined_on,
@@ -374,6 +389,8 @@ export interface HistoryRow {
   shiftMinutes: number;
   /** rule 21 */
   lunchMinutes: number;
+  /** rule 23: "Work starts at", minutes after midnight IST; null = from the IN */
+  workStartMinutes: number | null;
   paidLeaveHalfdays: number;
   getsOvertime: boolean;
   otRatePaise: number | null;
@@ -438,6 +455,7 @@ export async function salaryPanel(user: AtUser, personId: string, month: string)
       staffType: s.staffType,
       shiftMinutes: s.shiftMinutes,
       lunchMinutes: s.lunchMinutes,
+      workStartMinutes: s.workStartMinutes,
       paidLeaveHalfdays: s.paidLeaveHalfdays,
       getsOvertime: s.getsOvertime,
       otRatePaise: s.otRatePaise,
