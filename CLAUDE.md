@@ -1911,7 +1911,7 @@ Tests: platform 392 (+18). Verified locally (temporary plant, headless Chromium 
 made-up lines; removed afterwards): teach from a remarked month, fill the next, edit, warning, download, rules page.
 **Not yet verified:** the owner's real SBI export (name reading is built from the SBI layout in their screenshot).
 
-### 2026-11-01 — Attendance: "Work starts at" (v0.35.0) — built, not deployed
+### 2026-11-01 — Attendance: "Work starts at" — live (v0.35.0)
 Asked by the owner 2026-11-01: Anmol, bindu, Gaja and Ramu scan at ~8:50 but plant work starts at 9:00. Optional **Work
 starts at** in the Salary box; **rule 23** in `apps/attendance-salary/src/lib/salary.ts`: time before it on that India
 date isn't counted (an 8:50 IN counts from 9:00), a later IN counts from the IN, empty = from the IN as before. Calendar
@@ -1919,4 +1919,5 @@ date isn't counted (an 8:50 IN counts from 9:00), a later IN counts from the IN,
 migration `0011_work_start.sql` (approved by the owner): `salary_settings.work_start_minutes`, null for existing rows,
 grants unchanged. SSO token and platform unchanged. October was already paid for the four, so the owner sets it from
 November. Notes: `apps/attendance-salary/NOTES.md`. Tests: Attendance 482 pass (+9); 2 date-dependent tests fail on the 1st
-with or without this change (known since v0.32.1).
+with or without this change (known since v0.32.1). **Live 2026-11-01** (`production` = `f79dab1`, migration 0011 applied);
+the owner set 09:00 from November for Anmol, bindu, Gaja and Ramu (08:00 for reeta).
