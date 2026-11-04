@@ -32,7 +32,7 @@ describe("role buttons on Add / Edit user", () => {
 
   it("offers owner, plant staff and the roles of switched-on modules, each with its module", () => {
     const c = roleChoices(plant, []);
-    expect(c.map((x) => x.role)).toEqual(["tenant_admin", "lab_technician", "lab_lead", "store_keeper", "order_desk", "plant_staff", "stock_viewer", "order_viewer"]);
+    expect(c.map((x) => x.role)).toEqual(["tenant_admin", "lab_technician", "lab_lead", "store_keeper", "order_desk", "plant_staff", "stock_viewer", "order_viewer", "delivery_staff"]);
     expect(c.find((x) => x.role === "stock_viewer")).toMatchObject({ hint: "Floor Stock, view only: the sections the owner picks", off: false });
     expect(c.find((x) => x.role === "store_keeper")).toMatchObject({ hint: "Floor Stock", off: false });
     expect(c.find((x) => x.role === "lab_lead")?.hint).toBe("Lab Records");
@@ -50,7 +50,7 @@ describe("role buttons on Add / Edit user", () => {
   });
 
   it("offers every role when the module list did not load", () => {
-    expect(roleChoices([], []).map((x) => x.role)).toHaveLength(15); // + Office staff, Supervisor (0015), HR desk (0016), the three viewers (0018)
+    expect(roleChoices([], []).map((x) => x.role)).toHaveLength(16); // + Office staff, Supervisor (0015), HR desk (0016), the three viewers (0018), Delivery staff (0021)
     expect(roleChoices([], []).every((x) => !x.off)).toBe(true);
   });
 });
@@ -84,5 +84,19 @@ describe("launcher tile line for view-only people (v0.27.0)", () => {
     expect(roleLine("order_capture", ["order_viewer"])).toBe("View orders");
     expect(roleLine("order_capture", ["plant_staff"])).toBe("View orders");
     expect(roleLine("attendance_salary", ["office_staff"])).toBe("Attendance desk");
+  });
+});
+
+describe("Delivery staff (docs/CALLS_PHASE_PLAN.md Phase 1)", () => {
+  it("the role button says Calls only; the grid says Delivery staff · Calls only, with 🔔 (they get Customer called)", () => {
+    expect(roleChoices(["order_capture"], []).find((x) => x.role === "delivery_staff")).toMatchObject({ label: "Delivery staff", hint: "Order Capture · Calls only", off: false });
+    expect(roleChoices(["floor_stock"], []).some((x) => x.role === "delivery_staff")).toBe(false); // Order Capture not on
+    expect(cellFor(["delivery_staff"], [], "order_capture")).toEqual({ kind: "work", label: "Delivery staff · Calls only", alerts: true });
+    expect(cellFor(["delivery_staff"], [], "floor_stock")).toBeNull();
+  });
+
+  it("is never offered the 'Gets alerts' tick box", () => {
+    expect(alertChoices(["order_capture", "floor_stock"], ["delivery_staff"])).toEqual([]);
+    expect(alertChoices(["order_capture"], ["delivery_staff", "order_desk"])).toEqual(["order_capture"]); // Order desk still is
   });
 });

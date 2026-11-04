@@ -1,12 +1,14 @@
+import { redirect } from "next/navigation";
 import { Card } from "@plantops/ui";
 import { money } from "@/lib/money";
 import { can } from "@/server/access";
 import { kit } from "@/server/kit";
+import { waitingCount } from "@/server/calls-tab";
 import { DATE_LABEL, listOrders, pendingSummary, TABS, tabCounts, type PendingSummary, type Tab } from "@/server/list";
 import { requirePageUser } from "@/server/session";
 import { Header } from "./header";
 import { OrderCards } from "./order-cards";
-import { BrandTag, LinkRow } from "./parts";
+import { BrandTag, LinkRow, SectionTabs } from "./parts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
@@ -15,6 +17,7 @@ const field = "min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-whi
 /** Order Capture home (mock-up "Pending orders"): New order, the Pending / Delivered / Cancelled lists, search. */
 export default async function HomePage({ searchParams }: { searchParams: Search }) {
   const user = await requirePageUser("/");
+  if (user.who === "delivery") redirect("/calls"); // Delivery staff work in Calls only
   const sp = await searchParams;
   const tab = (TABS.find(([t]) => t === one(sp.tab))?.[0] ?? "pending") as Tab;
   const filters = { tab, q: one(sp.q).slice(0, 100), from: one(sp.from), to: one(sp.to), brand: one(sp.brand).slice(0, 30) };
@@ -29,10 +32,11 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
     );
   }
 
-  const [list, counts, summary] = await Promise.all([
+  const [list, counts, summary, waiting] = await Promise.all([
     listOrders(user, filters),
     tabCounts(user),
     tab === "pending" && can(user, "pending_summary") ? pendingSummary(user) : null,
+    waitingCount(user),
   ]);
   const filtered = Boolean(filters.q || filters.from || filters.to || filters.brand);
   const keep = (skip: string) => Object.fromEntries(Object.entries(filters).filter(([k, v]) => v && k !== skip));
@@ -42,6 +46,7 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
   return (
     <div className="space-y-4">
       <Header user={user} plant={plant} />
+      {can(user, "calls_view") && <SectionTabs current="orders" waiting={waiting} />}
       {can(user, "enter") && (
         <a href="/new" className="flex min-h-14 w-full items-center justify-center rounded-xl bg-(--brand) px-5 text-lg font-semibold text-(--brand-contrast) hover:bg-(--brand-hover)">
           + New order

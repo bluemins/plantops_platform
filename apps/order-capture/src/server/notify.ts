@@ -2,11 +2,14 @@
 // (the plant's owners + those ticked "Gets Order Capture alerts" + also_user_ids, each re-checked) and leaves out
 // whoever acted; these functions only write the text. None is urgent: each person can mute or downgrade them.
 //   1 new order (phone + bell; with the order note, shortened to fit)  ·  2 delivered: to whoever entered it only (bell)  ·  3 cancelled: + them (bell)
-//   4 note added after saving (bell)
-// The customer's phone number is never put in a notification (it would show on a lock screen).
+//   4 note added after saving (bell)  ·  5 customer called: Delivery staff only (phone + bell)
+// The customer's phone number is never put in a notification (it would show on a lock screen), except a new caller's
+// in 5 (owner, 2026-11-04).
+import { phoneDisplay } from "@plantops/module-kit/phone";
 import type { NotificationInput } from "@plantops/types";
 import { productsText } from "@/lib/history";
 import { money } from "@/lib/money";
+import { isMobile, type CallAlert } from "./calls";
 import type { OrderEvent } from "./handling";
 import { kit } from "./kit";
 import type { OrderBy, SavedOrder } from "./orders";
@@ -75,6 +78,39 @@ export function noteNotification(user: OcUser, e: OrderEvent): NotificationInput
     dedupe_key: `note:${e.order_id}:${e.event_id}`,
     exclude_user_id: user.userId,
   };
+}
+
+/**
+ * 5. "Customer called" (docs/CALLS_PHASE_PLAN.md "Notifications"): the plant's Delivery staff only, never owners (their
+ * phone already rang) or Order desk. The one Order Capture alert with a phone number: a new caller's number is all
+ * there is to call back (owner, 2026-11-04). No amounts, no order details.
+ */
+export function callNotification(a: CallAlert, deliveryStaff: string[]): NotificationInput | null {
+  if (!deliveryStaff.length) return null;
+  const who = a.customer
+    ? `${a.customer.name} (${a.customer.place})`
+    : a.phone === "hidden"
+      ? "Hidden number"
+      : `New number ${isMobile(a.phone) ? phoneDisplay(a.phone).text : a.phone}`;
+  return {
+    kind: "order_capture.call",
+    title: title(`${a.missed ? "Missed call" : "Call"}: ${who}${a.n > 1 ? ` · rang ${a.rings} times` : ""}`),
+    body: "Open Calls to call back.",
+    link: "/calls",
+    level: "push",
+    dedupe_key: `call:${a.phone}:${a.firstRingId}${a.n > 1 ? `:${a.n}` : ""}`,
+    also_user_ids: deliveryStaff,
+    only_listed: true,
+  };
+}
+
+/** Sends "Customer called" after the answer to the phone: Delivery staff from the platform's contact list. */
+export async function sendCallAlert(tenantId: string, a: CallAlert) {
+  const contacts = await kit.contacts(tenantId);
+  const staff = (contacts ?? []).filter((c) => c.roles.includes("delivery_staff") && !c.roles.includes("tenant_admin")).map((c) => c.user_id);
+  if (!contacts) console.warn("[order-capture] call alert: the platform's contact list can't be read; not sent");
+  const note = callNotification(a, staff);
+  if (note) await kit.notify(tenantId, note);
 }
 
 /** The daily job: resend what waited in the outbox (no scheduled notifications in v1) and waiting WhatsApp thank-yous. */

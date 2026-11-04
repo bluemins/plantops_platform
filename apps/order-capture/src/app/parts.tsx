@@ -53,3 +53,23 @@ export function LinkRow({ href, children, note }: { href: string; children: Reac
     </a>
   );
 }
+
+/** "Orders | Calls" under the header for people who use both (owner, Order desk, support); Calls shows the waiting count. */
+export function SectionTabs({ current, waiting }: { current: "orders" | "calls"; waiting: number }) {
+  const tab = (key: "orders" | "calls", href: string, label: string) => (
+    <a
+      href={href}
+      aria-current={key === current ? "page" : undefined}
+      className={`flex min-h-11 items-center justify-center gap-2 rounded-lg text-sm font-semibold ${key === current ? "bg-(--brand) text-(--brand-contrast)" : "text-slate-600"}`}
+    >
+      {label}
+      {key === "calls" && waiting > 0 && <span className="rounded-full bg-red-600 px-2 text-xs text-white">{waiting}</span>}
+    </a>
+  );
+  return (
+    <nav aria-label="Orders or calls" className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-white p-1">
+      {tab("orders", "/", "Orders")}
+      {tab("calls", "/calls", "📞 Calls")}
+    </nav>
+  );
+}

@@ -4,9 +4,10 @@ import { forbidden } from "./http";
 
 /**
  * owner = tenant_admin; desk = Order desk (plant staff are NOT desk: roleWorksIn); viewer = plant staff without Order
- * desk (viewOnlyIn: sees the orders, never amounts, never writes; owner 2026-10-14); support = PlantOps, read-only
+ * desk (viewOnlyIn: sees the orders, never amounts, never writes; owner 2026-10-14); delivery = Delivery staff (the
+ * Calls tab only, never orders, customers or amounts; docs/CALLS_PHASE_PLAN.md); support = PlantOps, read-only
  */
-export type Who = "owner" | "desk" | "viewer" | "support";
+export type Who = "owner" | "desk" | "viewer" | "delivery" | "support";
 
 export type Action =
   | "read" // the order list, an order
@@ -27,7 +28,12 @@ export type Action =
   | "pending_summary" // all pending orders added up: total value, quantity / rate / amount per product
   | "consent" // tick / untick "Agreed to WhatsApp reminders" on a customer (read out on the phone)
   | "reminder_pilot" // the WhatsApp reminder pilot page
-  | "support_log"; // the owner's "Support access" page
+  | "support_log" // the owner's "Support access" page
+  | "calls_view" // the Calls tab: waiting numbers, attended today
+  | "calls_attend" // mark a number attended, saving a new caller to the customer list
+  | "calls_numbers" // the owner's calls numbers page
+  | "view_ignored" // the "Not an order number" list (its labels can be private)
+  | "calls_ignore"; // add / remove a number on that list
 
 export const ACCESS: Record<Action, readonly Who[]> = {
   read: ["owner", "desk", "viewer", "support"],
@@ -49,6 +55,11 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   consent: ["owner", "desk"],
   reminder_pilot: ["owner", "support"],
   support_log: ["owner"],
+  calls_view: ["owner", "desk", "delivery", "support"],
+  calls_attend: ["owner", "desk", "delivery"],
+  calls_numbers: ["owner", "support"],
+  view_ignored: ["owner", "support"],
+  calls_ignore: ["owner"],
 };
 
 /** What the user is, for this table. null = no Order Capture rights at all (e.g. a store keeper). */
@@ -64,5 +75,6 @@ export function requireAccess(user: Actor, action: Action) {
   if (user.who === "support") throw forbidden("PlantOps support view is read-only");
   if (user.who === "desk") throw forbidden("Only the plant owner can do this");
   if (user.who === "viewer") throw forbidden("You can view orders only. Order desk or the owner does this.");
+  if (user.who === "delivery") throw forbidden("Delivery staff work in Calls only.");
   throw forbidden("You don't have access to Order Capture");
 }

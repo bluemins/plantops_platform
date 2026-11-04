@@ -9,6 +9,7 @@ export function proxy(req: NextRequest) {
 
 export const config = {
   // Not for: Next's own files, the login/support callbacks, the platform's tile-number call (own signed ticket),
-  // the health check, the scheduled-job endpoint (own secret) and the WhatsApp bot's API (own key).
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|sso/|api/plantops/|api/cron/|api/bot/|health).*)"],
+  // the health check, the scheduled-job endpoint (own secret), the WhatsApp bot's API (own key) and the order phone's
+  // call address (own key; exactly /api/calls/v1, so the Calls screens' own /api/calls/* stay behind the login).
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|sso/|api/plantops/|api/cron/|api/bot/|api/calls/v1$|health).*)"],
 };

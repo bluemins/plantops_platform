@@ -1,7 +1,7 @@
 // Who is using Order Capture right now (from the module kit's session cookies). What they may do is in access.ts.
 import { redirect } from "next/navigation";
 import type { ModuleSession } from "@plantops/auth";
-import { roleWorksIn, viewOnlyIn, type RoleId } from "@plantops/types";
+import { viewOnlyIn, type RoleId } from "@plantops/types";
 import type { Who } from "./access";
 import { schema, withTenant } from "./db";
 import { HttpError } from "./http";
@@ -20,12 +20,14 @@ export interface OcUser {
 }
 
 /**
- * Owner wins over a staff role; desk = a role that works in Order Capture (Order desk; never plant staff); viewer =
- * plant staff without Order desk (read-only, no amounts).
+ * Owner wins over a staff role; desk = Order desk; delivery = Delivery staff without Order desk (Calls only); viewer =
+ * plant staff / Order viewer without either (read-only, no amounts).
  */
 export function whoFor(roles: RoleId[]): Who | null {
   if (roles.includes("tenant_admin")) return "owner";
-  if (roles.some((r) => roleWorksIn(r, "order_capture"))) return "desk";
+  if (roles.includes("order_desk")) return "desk";
+  // Calls only, also with Plant staff / Order viewer (owner, 2026-11-04)
+  if (roles.includes("delivery_staff")) return "delivery";
   return viewOnlyIn(roles, "order_capture") ? "viewer" : null;
 }
 
@@ -48,6 +50,7 @@ export const supportUser = (tenantId: string, superAdminId: string): OcUser => (
 export function roleLabel(user: OcUser) {
   if (user.isSupport) return "Read-only";
   if (user.who === "viewer") return "View only";
+  if (user.who === "delivery") return "Delivery staff";
   return user.isOwner ? "Owner" : "Order desk";
 }
 

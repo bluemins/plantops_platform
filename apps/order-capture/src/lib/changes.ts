@@ -22,7 +22,11 @@ export function describeChange(action: string, details: Record<string, unknown>)
       return `Rates changed. ${parts.join("; ")}`;
     }
     case "customer.add":
-      return `Added customer ${show(details.name)}, ${show(details.place)} (${phone(details.phone)})`;
+      return `Added customer ${show(details.name)}, ${show(details.place)} (${phone(details.phone)})${details.from === "call" ? " from a phone call" : ""}`;
+    case "ignored.add":
+      return `Number ${phone(details.phone)} added to Not an order number (${show(details.label)})`;
+    case "ignored.remove":
+      return `Number ${phone(details.phone)} removed from Not an order number`;
     case "customer.update": {
       const parts: string[] = [];
       if (changes.name) parts.push(`name ${show(changes.name.from)} → ${show(changes.name.to)}`);

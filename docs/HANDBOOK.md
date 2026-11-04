@@ -581,6 +581,46 @@ button shows when the module is switched on. They can't enter or change anything
 - **Alerts:** tick "Gets Floor Stock alerts" / "Gets Document Store alerts" on Manage users if they should get them. A
   Stock viewer's count alert lists only the items in their sections. Order viewers can't get Order Capture alerts.
 
+### Order Capture: phone calls (v0.36.0)
+Every call to the order phone is recorded in Order Capture; **Delivery staff** call customers back from the **Calls**
+tab. Design and rules: `docs/CALLS_PHASE_PLAN.md`. The order phone is the owner's own Android phone.
+
+**1. The key (once per plant, from this computer).**
+- `pnpm --filter order-capture call:key <plant tenant id> "Order phone"` prints the key **once** (for MacroDroid) and
+  the **complete** value for `ORDER_CALL_KEYS`. If `order-capture` already has a value, run it as
+  `ORDER_CALL_KEYS='<current value>' pnpm --filter order-capture call:key …` so the printed value keeps the old entries.
+- Railway → `order-capture` → Variables → `ORDER_CALL_KEYS` = the printed value (the whole thing, never a piece).
+  Redeploy, then open `orders.bluemins.life/health`: `"warnings":[]` means it was read.
+- Save the key in the password manager. Lost or leaked: make a new one, replace `ORDER_CALL_KEYS`, change MacroDroid.
+
+**2. MacroDroid on the order phone** (free, Play Store; menu names can differ slightly between versions).
+1. Install **MacroDroid**, open it, allow **Phone** and **Call log** when asked.
+2. Android Settings → Apps → MacroDroid → **Battery → Unrestricted** (or "Don't optimise"), so calls are sent when
+   the screen is off.
+3. **Macro 1 "PlantOps call incoming":** Trigger **Call Incoming** → **Any number**. Action **HTTP Request**:
+   - method **POST**, URL `https://orders.bluemins.life/api/calls/v1`
+   - header `Authorization` = `Bearer occ_…` (the key from step 1)
+   - body type **application/json**, body `{"phone": "[call_number]", "event": "incoming"}` (pick `[call_number]`
+     from the magic-text list, don't type it)
+   - turn on any "retry" / "block until complete" option the action offers
+4. **Macro 2 "PlantOps call missed":** the same, with Trigger **Call Missed** → **Any number** and
+   `"event": "missed"`.
+5. **Test:** ring the order phone from another phone and cut it. Within a minute the call shows on Calls (one ring,
+   "missed") and Delivery staff get "Missed call: …".
+
+**3. Every day.**
+- **Delivery staff** (Manage users → role "Delivery staff"): Calls tab only. Call back with 📞, then **✓ Attended**;
+  a new number needs **name + place**, which adds the caller to Customers. "Wrong number, don't save" for strangers.
+  They get "Customer called" on the phone (turn on phone alerts on PlantOps → Notifications).
+- **Owner / Order desk:** the "Orders | 📞 Calls" switch on Order Capture; they can mark calls Attended too.
+- **Not an order number** (owner): Calls → Not an order number, or "Not a customer, never show again" on a card.
+  Family / supplier / staff calls are then not recorded at all. Remove puts them back.
+- **Calls numbers** (owner): Calls → Calls numbers (today, this week, the month, picked dates).
+
+**If calls stop appearing:** check MacroDroid is on and allowed to run (battery), the phone has internet,
+`orders.bluemins.life/health` shows no `ORDER_CALL_KEYS` warning, and the macro's HTTP log (MacroDroid → Macro →
+Log): 401 = wrong key, 429 = too many sends, 403 = Order Capture switched off for the plant.
+
 ### Job applications: public page, Turnstile, QR poster, removal (v0.25.0)
 - **Switching it on for a plant:** super_admin → the plant → plan → tick Job applications (optionally set "Job
   applications storage (MB)"). Give the person who calls applicants the **HR desk** role on Manage users; tick "Gets

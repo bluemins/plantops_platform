@@ -1,18 +1,41 @@
 // Launcher tile numbers (CLAUDE.md "Launcher tiles"): read live each time a launcher opens, never stored. Up to 3
-// badges, the same for the owner and staff (docs/ORDER_CAPTURE_PHASE_PLAN.md "Standard pieces"):
-//   "3 pending" (info; "No pending orders" ok)  ·  "1 pending over 2 days" (warn)  ·  "2 new today" (ok)
+// badges (docs/ORDER_CAPTURE_PHASE_PLAN.md "Standard pieces", docs/CALLS_PHASE_PLAN.md "Launcher tiles"):
+//   Order desk, viewers: "3 pending" (info; "No pending orders" ok)  ·  "1 pending over 2 days" (warn)  ·  "2 new today" (ok)
+//   owner: the same, but "12 calls today · 1 waiting" instead of "new today" once the plant has any call recorded
+//   Delivery staff ("desk"): "2 waiting" (warn; "Nobody waiting" ok)  ·  "7 calls today" (info); never orders or money
 import { sql } from "drizzle-orm";
 import type { ModuleSummary, SummaryView } from "@plantops/types";
 import { AMBER_AFTER_DAYS } from "@/lib/history";
-import { withTenant } from "./db";
+import { LAST_UPTO, LISTED, RING } from "./calls-tab";
+import { withTenant, type OcTx } from "./db";
 
 const istDay = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(d);
 
-export function summaryFor(tenantId: string, _view: SummaryView, now = new Date()): Promise<ModuleSummary> {
+/** Calls today and numbers waiting, by the Calls tab's own rules ("Not an order number" left out). */
+async function callCounts(tx: OcTx, tenantId: string, todayStart: Date) {
+  const { rows } = await tx.execute<{ any: boolean; today: number; waiting: number }>(sql`
+    select exists (select 1 from order_capture.call_events e where e.tenant_id = ${tenantId} and e.phone not in ${LISTED}) as any,
+           (select count(*)::int from order_capture.call_events e
+             where e.tenant_id = ${tenantId} and ${RING} and e.created_at >= ${todayStart} and e.phone not in ${LISTED}) as today,
+           (select count(distinct e.phone)::int from order_capture.call_events e
+             where e.tenant_id = ${tenantId} and ${RING} and e.created_at > ${LAST_UPTO} and e.phone not in ${LISTED}) as waiting`);
+  return rows[0] ?? { any: false, today: 0, waiting: 0 };
+}
+
+export function summaryFor(tenantId: string, view: SummaryView, now = new Date()): Promise<ModuleSummary> {
   // "over 2 days" = the same rule as the amber cards: entered 2 whole days ago or more
   const amberFrom = new Date(now.getTime() - AMBER_AFTER_DAYS * 24 * 60 * 60 * 1000);
   const todayStart = new Date(`${istDay(now)}T00:00:00+05:30`);
   return withTenant(tenantId, async (tx) => {
+    if (view === "desk") {
+      const calls = await callCounts(tx, tenantId, todayStart);
+      return {
+        badges: [
+          calls.waiting ? { text: `${calls.waiting} waiting`, tone: "warn" } : { text: "Nobody waiting", tone: "ok" },
+          { text: `${calls.today} call${calls.today === 1 ? "" : "s"} today`, tone: "info" },
+        ],
+      };
+    }
     const { rows } = await tx.execute<{ pending: number; old: number; today: number }>(sql`
       select count(*) filter (where status = 'pending')::int as pending,
              count(*) filter (where status = 'pending' and created_at <= ${amberFrom.toISOString()}::timestamptz)::int as old,
@@ -22,7 +45,9 @@ export function summaryFor(tenantId: string, _view: SummaryView, now = new Date(
     const { pending = 0, old = 0, today = 0 } = rows[0] ?? {};
     const badges: ModuleSummary["badges"] = [pending ? { text: `${pending} pending`, tone: "info" } : { text: "No pending orders", tone: "ok" }];
     if (old) badges.push({ text: `${old} pending over ${AMBER_AFTER_DAYS} days`, tone: "warn" });
-    if (today) badges.push({ text: `${today} new today`, tone: "ok" });
+    const calls = view === "owner" ? await callCounts(tx, tenantId, todayStart) : null;
+    if (calls?.any) badges.push({ text: `${calls.today} call${calls.today === 1 ? "" : "s"} today · ${calls.waiting} waiting`, tone: calls.waiting ? "warn" : "info" });
+    else if (today) badges.push({ text: `${today} new today`, tone: "ok" });
     return { badges };
   });
 }

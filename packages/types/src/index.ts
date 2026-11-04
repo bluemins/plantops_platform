@@ -33,6 +33,7 @@ export const ROLE_IDS = [
   "stock_viewer",
   "document_viewer",
   "order_viewer",
+  "delivery_staff",
 ] as const;
 export const RoleId = z.enum(ROLE_IDS);
 export type RoleId = z.infer<typeof RoleId>;
@@ -56,6 +57,8 @@ export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin" | "plant_staff" 
   supervisor: "attendance_salary",
   /** Job applications: sees and calls applicants, changes status, adds notes (openings, CSV and Remove now are owner-only) */
   hr_desk: "job_applications",
+  /** Order Capture's Calls tab only: calls customers back, marks Attended, saves new callers; no orders, no amounts */
+  delivery_staff: "order_capture",
 };
 
 /**
@@ -81,10 +84,17 @@ export const viewRoleFor = (role: RoleId, moduleId: ModuleId) => isViewRole(role
 export const VIEWER_ALERTS: readonly ModuleId[] = ["floor_stock", "document_store"];
 
 /**
+ * Roles that work in a module but never get its alerts by a tick (owner, 2026-11-04; docs/CALLS_PHASE_PLAN.md): Order
+ * Capture's other alerts carry amounts, so Delivery staff get only "Customer called", sent to them by name.
+ */
+export const NO_ALERT_TICK_ROLES: readonly RoleId[] = ["delivery_staff"];
+
+/**
  * May someone with this role be ticked for (and receive) this module's alerts? A role that works there, or the module's
  * view role where VIEWER_ALERTS allows it. Owners always get alerts and are handled separately.
  */
 export function getsAlertsIn(role: RoleId, moduleId: ModuleId): boolean {
+  if (NO_ALERT_TICK_ROLES.includes(role)) return false;
   return roleWorksIn(role, moduleId) || (viewRoleFor(role, moduleId) && VIEWER_ALERTS.includes(moduleId));
 }
 
@@ -130,7 +140,11 @@ export function isEmployee(roles: readonly RoleId[]): boolean {
  * Roles whose launcher tile gets the "desk" view of a module's numbers (owner, 2026-10-17): Attendance's Office staff
  * and Supervisor see the attendance numbers (in now / not marked / no exit), never money.
  */
-export const DESK_ROLES: Partial<Record<ModuleId, readonly RoleId[]>> = { attendance_salary: ["office_staff", "supervisor"] };
+export const DESK_ROLES: Partial<Record<ModuleId, readonly RoleId[]>> = {
+  attendance_salary: ["office_staff", "supervisor"],
+  /** Delivery staff see the calls numbers (waiting, calls today), never orders or amounts */
+  order_capture: ["delivery_staff"],
+};
 
 /**
  * Does this staff role work in this module? plant_staff works only in PLANT_STAFF_MODULES. tenant_admin is not a
@@ -311,7 +325,7 @@ export const NOTIFICATION_KINDS: Record<
     urgent?: true;
     bellOnly?: true;
     aboutYou?: true;
-    /** in an owner-only module: non-owners holding one of these roles receive it too (Attendance's Supervisor) */
+    /** non-owners holding one of these roles receive it (Attendance's Supervisor, Order Capture's Delivery staff); only they see it in settings */
     roles?: readonly RoleId[];
     /** owners never receive it (Attendance's every-scan bell goes to supervisors only) */
     noOwners?: true;
@@ -349,6 +363,7 @@ export const NOTIFICATION_KINDS: Record<
   "order_capture.feedback_low": { module: "order_capture", label: "Unhappy customer on WhatsApp" },
   "order_capture.handoff": { module: "order_capture", label: "WhatsApp customer asks for a person" },
   "order_capture.reminder_failed": { module: "order_capture", label: "WhatsApp reminders stopped (Twilio refused)" },
+  "order_capture.call": { module: "order_capture", label: "Customer called", roles: ["delivery_staff"], noOwners: true },
   "attendance_salary.corrected": { module: "attendance_salary", label: "Your attendance was changed", aboutYou: true },
   "attendance_salary.outside": { module: "attendance_salary", label: "Mark refused: outside the plant", bellOnly: true },
   "attendance_salary.no_exit": { module: "attendance_salary", label: "People who didn't mark OUT (morning)", bellOnly: true },

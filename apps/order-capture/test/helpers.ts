@@ -91,11 +91,18 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
   const consent = await one(`insert into order_capture.customer_consents (tenant_id, customer_id, scope, status, wording, source, created_by, created_by_name)
     values ('${tenantId}', '${customer}', 'reorder_reminder', 'granted', 'optin-v1', 'staff_phone', '${who}', 'Atharv') returning id`);
   await asApp(tenantId, `insert into order_capture.reminder_groups (tenant_id, customer_id, grp) values ('${tenantId}', '${customer}', 'remind')`);
-  return { who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent };
+  // phone calls (0007): a ring, its missed mark, an Attended, a "Not an order number"
+  const ring = await one(`insert into order_capture.call_events (tenant_id, key_id, phone, event) values ('${tenantId}', '${who}', '9000000009', 'incoming') returning id`);
+  await asApp(tenantId, `insert into order_capture.call_events (tenant_id, key_id, phone, event, ring_id) values ('${tenantId}', '${who}', '9000000009', 'missed', '${ring}')`);
+  const attended = await one(`insert into order_capture.call_attended (tenant_id, phone, upto, outcome, customer_id, attended_by, attended_by_name)
+    values ('${tenantId}', '9000000009', now(), 'known', '${customer}', '${who}', 'Raju') returning id`);
+  const ignored = await one(`insert into order_capture.ignored_number_changes (tenant_id, phone, action, label, changed_by, changed_by_name)
+    values ('${tenantId}', '9111111111', 'add', 'Brother', '${who}', 'Sujata') returning id`);
+  return { who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored };
 }
 
 /** The tables in the order_capture schema (the guard tests compare against this list). */
-export const TABLES = ["audit_log", "customer_consents", "customer_messages", "customers", "notification_outbox", "order_events", "order_lines", "orders", "product_rates", "reminder_groups", "support_views"];
+export const TABLES = ["audit_log", "call_attended", "call_events", "customer_consents", "customer_messages", "customers", "ignored_number_changes", "notification_outbox", "order_events", "order_lines", "orders", "product_rates", "reminder_groups", "support_views"];
 
 /**
  * Calls an API route as `user` (owner, Order desk, support...), the way the proxy and the kit's session cookie would

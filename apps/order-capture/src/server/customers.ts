@@ -42,8 +42,8 @@ async function views(tx: OcTx, tenantId: string, rows: (typeof customers.$inferS
 }
 
 // ---------- inputs ----------
-const Name = z.string().transform(clean).pipe(z.string().min(NAME_MIN, "Please enter the customer's name (at least 2 letters)").max(NAME_MAX, `A name has at most ${NAME_MAX} characters`));
-const Place = z.string().transform(clean).pipe(z.string().min(PLACE_MIN, "Please enter the place (at least 2 letters)").max(PLACE_MAX, `A place has at most ${PLACE_MAX} characters`));
+export const Name = z.string().transform(clean).pipe(z.string().min(NAME_MIN, "Please enter the customer's name (at least 2 letters)").max(NAME_MAX, `A name has at most ${NAME_MAX} characters`));
+export const Place = z.string().transform(clean).pipe(z.string().min(PLACE_MIN, "Please enter the place (at least 2 letters)").max(PLACE_MAX, `A place has at most ${PLACE_MAX} characters`));
 export const CustomerInput = z.object({ name: Name, phone: z.string().trim().max(PHONE_TYPED_MAX, "Please enter a 10-digit mobile number"), place: Place }).strict();
 /** The phone is not here on purpose: it can't be changed. A request that sends one is refused (strict). */
 export const CustomerPatch = z
@@ -62,8 +62,6 @@ export async function findByPhone(tx: OcTx, tenantId: string, phone: string) {
   const [c] = await tx.select().from(customers).where(and(eq(customers.tenantId, tenantId), eq(customers.phone, phone)));
   return c ?? null;
 }
-
-const isUniqueViolation = (err: unknown) => ((err as { cause?: { code?: string } }).cause?.code ?? (err as { code?: string }).code) === "23505";
 
 // ---------- reading ----------
 /**
@@ -100,22 +98,26 @@ export async function createCustomer(user: OcUser, input: z.infer<typeof Custome
   requireAccess(user, "customers");
   const phone = normalisePhone(input.phone);
   if (!phone) throw badRequest("Please enter a 10-digit mobile number");
-  try {
-    return await withTenant(user.tenantId, async (tx) => {
-      const have = await findByPhone(tx, user.tenantId, phone);
-      if (have) return { created: false, customer: (await views(tx, user.tenantId, [have]))[0]! };
-      const [c] = await tx
-        .insert(customers)
-        .values({ tenantId: user.tenantId, name: input.name, phoneTyped: input.phone, phone, place: input.place, createdBy: user.userId, createdByName: user.name })
-        .returning();
-      await audit(tx, user, "customer.add", c!.id, { name: c!.name, place: c!.place, phone });
-      return { created: true, customer: view(c!) };
-    });
-  } catch (err) {
-    // someone else added the same number at the same moment: the database's one-per-phone rule refused ours
-    if (!isUniqueViolation(err)) throw err;
-    return withTenant(user.tenantId, async (tx) => ({ created: false, customer: (await views(tx, user.tenantId, [(await findByPhone(tx, user.tenantId, phone))!]))[0]! }));
-  }
+  return withTenant(user.tenantId, async (tx) => {
+    const { created, customer } = await insertCustomer(tx, user, { name: input.name, phoneTyped: input.phone, phone, place: input.place });
+    return { created, customer: created ? view(customer) : (await views(tx, user.tenantId, [customer]))[0]! };
+  });
+}
+
+/**
+ * The one way a customer is added (the customer list, and Attended on the Calls tab): one customer per phone per plant.
+ * A phone already in the list, also one added by someone else at this moment, gives back that customer (`created:
+ * false`) instead of a second one. Audited as "customer.add" (Recent changes).
+ */
+export async function insertCustomer(tx: OcTx, user: OcUser, c: { name: string; phoneTyped: string; phone: string; place: string }, details: Record<string, unknown> = {}) {
+  const [row] = await tx
+    .insert(customers)
+    .values({ tenantId: user.tenantId, name: c.name, phoneTyped: c.phoneTyped, phone: c.phone, place: c.place, createdBy: user.userId, createdByName: user.name })
+    .onConflictDoNothing({ target: [customers.tenantId, customers.phone] })
+    .returning();
+  if (!row) return { created: false, customer: (await findByPhone(tx, user.tenantId, c.phone))! };
+  await audit(tx, user, "customer.add", row.id, { name: row.name, place: row.place, phone: c.phone, ...details });
+  return { created: true, customer: row };
 }
 
 /**

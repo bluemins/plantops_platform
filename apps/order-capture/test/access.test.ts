@@ -28,6 +28,12 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["support_log", true, false, false, false, false],
   ["consent", true, true, false, false, false],
   ["reminder_pilot", true, false, false, false, true],
+  // phone calls (docs/CALLS_PHASE_PLAN.md "Who uses it")
+  ["calls_view", true, true, false, false, true],
+  ["calls_attend", true, true, false, false, false],
+  ["calls_numbers", true, false, false, false, true],
+  ["view_ignored", true, false, false, false, true],
+  ["calls_ignore", true, false, false, false, false],
 ];
 
 describe("who is who", () => {
@@ -43,6 +49,11 @@ describe("who is who", () => {
     expect(whoFor(["order_viewer"])).toBe("viewer"); // Order viewer role (v0.27.0): same view as plant staff
     expect(whoFor(["order_viewer", "order_desk"])).toBe("desk");
     expect(whoFor(["stock_viewer"])).toBeNull(); // another module's viewer
+    expect(whoFor(["delivery_staff"])).toBe("delivery"); // Calls only (docs/CALLS_PHASE_PLAN.md)
+    expect(whoFor(["delivery_staff", "plant_staff"])).toBe("delivery"); // also with Plant staff: Calls only (owner, 2026-11-04)
+    expect(whoFor(["delivery_staff", "order_viewer"])).toBe("delivery");
+    expect(whoFor(["delivery_staff", "order_desk"])).toBe("desk");
+    expect(whoFor(["delivery_staff", "tenant_admin"])).toBe("owner");
     expect(whoFor(["store_keeper"])).toBeNull();
     expect(whoFor(["complaint_desk"])).toBeNull();
     expect(whoFor(["lab_technician", "lab_lead"])).toBeNull();
@@ -61,6 +72,16 @@ describe("the access table", () => {
 
   it.each(TABLE)("%s: owner %s, Order desk %s, plant staff %s, store keeper %s, support %s", (action, ...expected) => {
     expect(Object.values(people).map((u) => can(u, action))).toEqual(expected);
+  });
+
+  it.each(TABLE)("%s: Delivery staff may only see Calls and mark attended", (action) => {
+    expect(can(ocUser(p.owner.tenantId, ["delivery_staff"], "Raju"), action)).toBe(action === "calls_view" || action === "calls_attend");
+  });
+
+  it("Delivery staff are told they work in Calls only; the header says Delivery staff", async () => {
+    const raju = ocUser(p.owner.tenantId, ["delivery_staff"], "Raju");
+    expect(await refused(() => requireAccess(raju, "read"))).toEqual({ status: 403, message: "Delivery staff work in Calls only." });
+    expect(roleLabel(raju)).toBe("Delivery staff");
   });
 
   it.each(TABLE)("%s: an Order viewer may do exactly what plant staff may", (action, _o, _d, staff) => {

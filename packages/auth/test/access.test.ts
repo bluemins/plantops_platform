@@ -42,6 +42,10 @@ describe("canAccessModule", () => {
     [["document_viewer"], "floor_stock", false],
     [["order_viewer"], "order_capture", true],
     [["order_viewer"], "attendance_salary", false],
+    // Delivery staff (docs/CALLS_PHASE_PLAN.md): Order Capture's Calls tab only
+    [["delivery_staff"], "order_capture", true],
+    [["delivery_staff"], "floor_stock", false],
+    [["delivery_staff"], "attendance_salary", false],
   ])("%j -> %s = %s", (roles, mod, expected) => {
     expect(canAccessModule(roles, enabled, mod)).toBe(expected);
   });

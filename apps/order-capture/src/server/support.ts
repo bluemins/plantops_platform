@@ -27,5 +27,8 @@ export function describeView(path: string, refs: Map<string, string> = new Map()
   if (path.startsWith("/rates")) return "the rates";
   if (path.startsWith("/customers")) return "the customer list";
   if (path.startsWith("/changes")) return "Recent changes";
+  if (path.startsWith("/calls/ignored")) return "Not an order number";
+  if (path.startsWith("/calls/numbers")) return "Calls numbers";
+  if (path.startsWith("/calls")) return "Calls";
   return "the order list";
 }

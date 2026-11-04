@@ -7,7 +7,9 @@ import * as adminUserRoute from "@/app/api/admin/users/[id]/route";
 import * as settingsRoute from "@/app/api/notifications/settings/route";
 import { sha256 } from "@/server/crypto";
 import { ROLE_LABELS } from "@/lib/api";
-import { MODULES } from "@/lib/modules";
+import { MODULES, roleLine } from "@/lib/modules";
+import { summaryViewFor } from "@/server/summary";
+import { MODULE_IDS, PLANT_STAFF_MODULES, getsAlertsIn, roleWorksIn, viewOnlyIn } from "@plantops/types";
 import { asOwner, call, makePlant, makeStaff, type Handler } from "./helpers";
 
 const OC_SECRET = "order-module-test-secret";
@@ -89,5 +91,48 @@ describe("alerts and notification settings", () => {
     expect((await settings(general.cookie)).some((s) => s.kind.startsWith("order_capture."))).toBe(false);
     const Q = await makePlant({ modules: ["floor_stock"] });
     expect((await settings(Q.adminCookie)).some((s) => s.kind.startsWith("order_capture."))).toBe(false);
+  });
+});
+
+// Phone calls Phase 1 (docs/CALLS_PHASE_PLAN.md): Delivery staff work in Order Capture's Calls tab only, never get its
+// order alerts (they carry amounts), get only "Customer called", and see the desk numbers on their tile.
+describe("Delivery staff", () => {
+  let delivery: Awaited<ReturnType<typeof makeStaff>>;
+  beforeAll(async () => {
+    delivery = await makeStaff(A, "delivery", ["delivery_staff"]);
+  });
+
+  it("the role exists, works in Order Capture only, is not view-only and never gets alerts by a tick", async () => {
+    expect(ROLE_LABELS.delivery_staff).toBe("Delivery staff");
+    expect((await asOwner("select module_id, label from platform.roles where id = 'delivery_staff'")).rows).toEqual([{ module_id: "order_capture", label: "Delivery staff" }]);
+    for (const m of MODULE_IDS) expect(roleWorksIn("delivery_staff", m)).toBe(m === "order_capture");
+    expect(viewOnlyIn(["delivery_staff"], "order_capture")).toBe(false);
+    for (const m of MODULE_IDS) expect(getsAlertsIn("delivery_staff", m)).toBe(false);
+    expect(getsAlertsIn("order_desk", "order_capture")).toBe(true);
+    expect(PLANT_STAFF_MODULES).toEqual(["attendance_salary"]); // plant staff unchanged
+    expect(viewOnlyIn(["plant_staff"], "order_capture")).toBe(true);
+  });
+
+  it("opens Order Capture only and lands straight in it, tile 'Calls' with the desk numbers", async () => {
+    expect((await handoff(delivery.cookie, "order_capture")).status).toBe(200);
+    expect((await handoff(delivery.cookie, "floor_stock")).status).toBe(403);
+    const mine = await call(launcherRoute.GET as Handler, { cookie: delivery.cookie });
+    expect(mine.body.landing).toBe("order_capture");
+    expect(mine.body.tiles).toHaveLength(1);
+    expect(mine.body.tiles[0]).toMatchObject({ module: "order_capture", state: "open", view: "staff", subtitle: "Calls" });
+    expect(roleLine("order_capture", ["delivery_staff"])).toBe("Calls");
+    expect(summaryViewFor(["delivery_staff"], "order_capture")).toBe("desk"); // the numbers request for their tile
+    expect(summaryViewFor(["order_desk"], "order_capture")).toBe("staff");
+  });
+
+  it("the 'Gets alerts' tick for Order Capture is refused for them (400)", async () => {
+    expect((await tick(A.adminCookie, delivery.userId, ["order_capture"])).status).toBe(400);
+  });
+
+  it("'Customer called' is in Delivery staff's settings only, never the owner's or Order desk's", async () => {
+    expect((await settings(delivery.cookie)).map((s) => s.kind)).toEqual(["order_capture.call"]);
+    expect((await settings(delivery.cookie))[0]).toMatchObject({ urgent: false, bell_only: false });
+    expect((await settings(desk.cookie)).some((s) => s.kind === "order_capture.call")).toBe(false);
+    expect((await settings(A.adminCookie)).some((s) => s.kind === "order_capture.call")).toBe(false);
   });
 });

@@ -28,6 +28,12 @@ describe("append-only for order_app", () => {
       `update order_capture.customer_consents set status = 'withdrawn' where id = '${ids.consent}'`,
       `update order_capture.customer_consents set created_at = now() where id = '${ids.consent}'`,
       `update order_capture.reminder_groups set grp = 'holdout'`,
+      // phone calls (0007): read + add only
+      `update order_capture.call_events set event = 'missed' where id = '${ids.ring}'`,
+      `update order_capture.call_events set phone = '9000000000' where id = '${ids.ring}'`,
+      `update order_capture.call_attended set upto = now() where id = '${ids.attended}'`,
+      `update order_capture.call_attended set attended_by_name = 'X' where id = '${ids.attended}'`,
+      `update order_capture.ignored_number_changes set action = 'remove' where id = '${ids.ignored}'`,
       `update order_capture.customer_messages set kind = 'reorder_reminder' where id = '${ids.message}'`,
       `update order_capture.customer_messages set skip_reason = 'holdout' where id = '${ids.message}'`,
       // an order's reference, customer copy and who entered it are fixed
@@ -94,7 +100,7 @@ describe("append-only for order_app", () => {
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(78);
+    expect(list.length).toBe(89); // + the three call tables (delete, truncate) and five call updates (0007)
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 

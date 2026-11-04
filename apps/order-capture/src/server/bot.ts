@@ -110,8 +110,8 @@ export class BotError extends Error {
 }
 
 const WINDOW_MS = 60_000;
-/** A per-minute limit; over it = 429 rate_limited. */
-function limit(key: string, max: number) {
+/** A per-minute limit; over it = 429 rate_limited. Also used by the order phone's call address (calls.ts). */
+export function limit(key: string, max: number) {
   try {
     rateLimit(key, max, WINDOW_MS);
   } catch (err) {
@@ -120,7 +120,7 @@ function limit(key: string, max: number) {
   }
 }
 
-function errorResponse(e: BotError) {
+export function errorResponse(e: BotError) {
   const headers = e.status === 429 ? { "retry-after": "60" } : undefined;
   return Response.json({ error: { code: e.code, message: e.message } }, { status: e.status, headers });
 }
@@ -185,7 +185,7 @@ function caught(err: unknown) {
 }
 
 /** The key's plant must have Order Capture switched on (its plan, read through the platform). */
-async function checkPlant(key: BotKey) {
+export async function checkPlant(key: Pick<BotKey, "tenant_id">) {
   const plan = await kit.plan(key.tenant_id);
   if (!plan) throw new BotError(503, "unavailable", "The plant's plan can't be read right now");
   if (!plan.enabled_modules.includes("order_capture")) throw new BotError(403, "module_off", "Order Capture is switched off for this plant");

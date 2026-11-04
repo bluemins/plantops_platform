@@ -285,7 +285,8 @@ async function kindsFor(tx: PlatformTx, user: CurrentUser) {
     if (k.module === null) return owner;
     if (!enabled.includes(k.module)) return false;
     if (owner) return !k.noOwners;
-    if (k.roles?.some((r) => user.roles.includes(r))) return true;
+    // a kind for named roles (Supervisor's scan, Delivery staff's call) is offered to those roles only
+    if (k.roles) return k.roles.some((r) => user.roles.includes(r));
     if (OWNER_ONLY_ALERTS.includes(k.module) && !k.aboutYou) return false;
     // "about you" in an owner-only module (Attendance): only employees are tracked, so only Plant staff get them
     if (OWNER_ONLY_ALERTS.includes(k.module) && !isEmployee(user.roles)) return false;

@@ -72,6 +72,11 @@ through the Lab Records API.
   Capture, no amounts). Each opens its one module read-only (`VIEW_ROLE_MODULE` + `viewOnlyIn()`), never works there
   (`roleWorksIn` false), and gets alerts only if the owner ticks them (`getsAlertsIn`; never Order Capture). New modules
   get a view role only when the owner asks.
+- **Delivery staff** (`delivery_staff`), Order Capture only (owner, 2026-11-04; v0.36.0, `docs/CALLS_PHASE_PLAN.md`): the
+  Calls tab only (call customers back, mark Attended, save a new caller with name + place), never orders, customers or
+  amounts (`Who = "delivery"` in Order Capture's access table). Never ticked for alerts (`NO_ALERT_TICK_ROLES`,
+  `getsAlertsIn` false); they get only "Customer called" (`order_capture.call`, sent to them by name). Their tile gets the
+  `desk` view. With Plant staff too: still Calls only.
 - A user can hold **more than one role** (e.g. lab technician AND store keeper in a small plant). tenant_admin
   is a role in `users`/`user_roles`, not a separate account type.
 - Login: plant users log in with **plant code + username + secret**. Staff use a 6-digit **PIN**; anyone holding
@@ -1927,3 +1932,23 @@ Reported by the owner 2026-11-01 (Delivered "today" showed only orders also ente
 the day entered (Pending), delivered (Delivered) or cancelled (Cancelled); the first box is labelled "Entered from" /
 "Delivered from" / "Cancelled from". No migration; SSO token unchanged. Notes: `apps/order-capture/NOTES.md`. Tests:
 Order Capture 368 (+1). **Live 2026-11-01** (`production` = `a7fd238`).
+
+### 2026-11-04 — Order Capture: phone calls + Delivery staff — built (v0.36.0)
+Agreed with the owner 2026-11-04 (design, mock-ups, four decisions): `docs/CALLS_PHASE_PLAN.md`; one dated note per
+phase in `apps/order-capture/NOTES.md`; how to set it up (MacroDroid): `docs/HANDBOOK.md` "Order Capture: phone calls".
+- **Platform:** migration `0021_delivery_staff.sql` (role); `NO_ALERT_TICK_ROLES`, `DESK_ROLES.order_capture`, kind
+  `order_capture.call` (`roles`, `noOwners`); a kind for named roles is offered only to them in settings; role button,
+  Permissions line, tile "Calls".
+- **Order Capture:** migration `0007_calls.sql` (`call_events`, `call_attended`, `ignored_number_changes`; FORCE RLS,
+  SELECT + INSERT only). `POST /api/calls/v1` (key `occ_…` in `ORDER_CALL_KEYS`, outside the login proxy; ring rules,
+  limits, bot error shape); "Customer called" to Delivery staff (first ring, again after 10 min); `/calls` (waiting,
+  Attended, new caller → customer list via the shared `insertCustomer`), `/calls/ignored` (owner), `/calls/numbers`
+  (owner + support); tiles (owner calls badge once the plant has a call; Delivery staff `desk` view).
+- **Decisions (owner, 2026-11-04):** the plan as written; Delivery staff + Plant staff = Calls only; a new caller's
+  number shown in the alert. **Made while building:** 🔔 for Delivery staff on Permissions (they do get an alert);
+  Attended rows stay out of Recent changes; the owner keeps "N new today" until the plant's first call.
+- **Found while building:** Odisha landlines (`0674 …`) read as mobiles under the shared `normalisePhone` rule (still
+  dial correctly).
+- **Tests:** platform 398, auth 70, Order Capture 455. Verified on `pnpm dev` per phase (curl calls, headless Chromium at
+  390 / 1280 px, tiles through the platform; all test data removed).
+- **Not yet:** deployed; MacroDroid on the owner's phone; the owner's checklist at plant 001 (plan Phase 5).

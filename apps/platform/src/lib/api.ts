@@ -28,4 +28,5 @@ export const ROLE_LABELS: Record<string, string> = {
   stock_viewer: "Stock viewer",
   document_viewer: "Document viewer",
   order_viewer: "Order viewer",
+  delivery_staff: "Delivery staff",
 };

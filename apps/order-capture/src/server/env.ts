@@ -51,6 +51,13 @@ export const env = {
   get botKeys() {
     return process.env.ORDER_BOT_KEYS ?? "";
   },
+  /**
+   * Order phone keys (src/server/calls.ts, docs/CALLS_PHASE_PLAN.md): JSON [{"id","tenant_id","sha256","label"}]. Only
+   * the key's SHA-256 is here; empty = the call address is off.
+   */
+  get callKeys() {
+    return process.env.ORDER_CALL_KEYS ?? "";
+  },
   /** "off" = the bot may not create orders (403 ordering_off); its reads and alerts keep working */
   get botOrdersOff() {
     return (process.env.ORDER_BOT_ORDERS ?? "").trim().toLowerCase() === "off";

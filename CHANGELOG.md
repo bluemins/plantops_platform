@@ -4,6 +4,31 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.36.0 — 2026-11-04 — Order Capture: phone calls and the Delivery staff role
+
+**What's in it** (agreed with the owner 2026-11-04, `docs/CALLS_PHASE_PLAN.md`)
+- **Every call to the order phone is recorded.** MacroDroid on the owner's phone sends each incoming and missed call to
+  Order Capture (`POST /api/calls/v1`) with a key that can only add a call. A missed call is one ring (never counted
+  twice); a repeat send is ignored. Only the number and time are stored.
+- **New role Delivery staff** (Manage users: "Order Capture · Calls only"): the Calls tab only, no orders, customers or
+  amounts. A Delivery-staff-only person lands straight on Calls. They get **"Customer called"** on the phone when a number
+  starts waiting (again after 10 minutes if still waiting); owners and Order desk don't.
+- **Calls tab** (`/calls`, owner, Order desk, Delivery staff): waiting numbers with their rings, "rang N times", the
+  customer or "New number", the last delivered order without amounts, 📞 call back and **✓ Attended**. A new mobile is
+  saved to the customer list with name + place; "Wrong number, don't save"; landline / hidden numbers Attended only.
+  "Orders | Calls" switch for owner and Order desk.
+- **"Not an order number"** (owner only, `/calls/ignored` or "Not a customer, never show again" on a card): family,
+  supplier and staff numbers are not recorded at all, and their earlier calls drop out of the counts.
+- **Calls numbers** (owner, `/calls/numbers`): calls, missed, numbers, attended, waiting, new; by day; who rang most;
+  who attended. **Tiles:** owner "N calls today · N waiting" (once the plant has a call; replaces "N new today"),
+  Delivery staff "N waiting · N calls today". PlantOps support reads Calls read-only, views logged.
+
+**Migrations:** platform `0021_delivery_staff.sql` (the role); Order Capture `0007_calls.sql` (three new append-only
+tables: `call_events`, `call_attended`, `ignored_number_changes`; no existing table changed).
+
+**New setting:** `ORDER_CALL_KEYS` on `order-capture` (made with `pnpm --filter order-capture call:key <plant id>`;
+always the complete value). Without it the call address is off; a broken value shows under `/health` `warnings`.
+
 ## v0.35.0 — 2026-11-01 — Attendance: "Work starts at"
 
 **What's in it** (asked by the owner 2026-11-01)

@@ -163,3 +163,42 @@ export const reminderGroups = oc.table("reminder_groups", {
   grp: text("grp").$type<"remind" | "holdout">().notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
+
+// ---------- phone calls (0007, docs/CALLS_PHASE_PLAN.md) ----------
+export type CallEvent = "incoming" | "missed";
+
+/** Every event the order phone sends; a ring = an incoming, or a missed without ring_id. */
+export const callEvents = oc.table("call_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  keyId: uuid("key_id").notNull(),
+  phone: text("phone").notNull(),
+  event: text("event").$type<CallEvent>().notNull(),
+  ringId: uuid("ring_id"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+/** A number attended: covers its events with created_at <= upto. */
+export const callAttended = oc.table("call_attended", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  phone: text("phone").notNull(),
+  upto: ts("upto").notNull(),
+  outcome: text("outcome").$type<"known" | "new_customer" | "wrong_number">().notNull(),
+  customerId: uuid("customer_id"),
+  attendedBy: uuid("attended_by").notNull(),
+  attendedByName: text("attended_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+/** "Not an order number" list as a history: a number is listed when its newest row is 'add'. */
+export const ignoredNumberChanges = oc.table("ignored_number_changes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  phone: text("phone").notNull(),
+  action: text("action").$type<"add" | "remove">().notNull(),
+  label: text("label"),
+  changedBy: uuid("changed_by").notNull(),
+  changedByName: text("changed_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
