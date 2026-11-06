@@ -1982,5 +1982,5 @@ Import from Zoho** (Contacts + Invoices + Payments Received CSVs; preview must m
 new; contacts' opening balances become `OB-…` bills; never creates customers, links only a unique same mobile) and
 **Customers → Match Zoho customers** (owner: every Zoho contact and customer in one of three lists; link / unlink / add
 as new customer). Plant 001's real files checked: billed ₹33,97,724.12, received
-₹32,93,400.02, due ₹1,04,896.26 = Zoho; 224 contacts linked, 880 to match; 42 of 86 delivered orders linked. Tests: Order Capture 503 (+48).
+₹32,93,400.02, due ₹1,04,896.26 = Zoho; 224 contacts linked, 880 to match; 42 of 86 delivered orders linked. Tests: Order Capture 503 (+48). **Live 2026-11-06** (`production` = `599c7d9`, migration 0008 applied).
 Next: L4 customer page + Bills / Payments tabs + statement + "Match after import" (owner, 2026-11-06).
