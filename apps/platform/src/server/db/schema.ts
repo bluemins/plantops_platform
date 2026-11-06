@@ -1,6 +1,6 @@
 // Drizzle table definitions mirroring db/migrations/*.sql (the SQL files are the source of truth).
 import { sql } from "drizzle-orm";
-import { bigint, boolean, customType, date, integer, jsonb, pgSchema, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, customType, date, integer, jsonb, numeric, pgSchema, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const platform = pgSchema("platform");
 const ts = (name: string) => timestamp(name, { withTimezone: true });
@@ -86,6 +86,9 @@ export const tenantSkus = platform.table("tenant_skus", {
   unitsPerPack: integer("units_per_pack").notNull().default(1),
   packType: text("pack_type").notNull(),
   status: text("status").$type<"active" | "inactive">().notNull().default("active"),
+  hsn: text("hsn"),
+  /** purchase rate in rupees, as text ("105.00"); owner only, never sent to modules */
+  costRate: numeric("cost_rate", { precision: 12, scale: 2 }),
   createdAt: ts("created_at").notNull().defaultNow(),
   createdBy: text("created_by").notNull(),
   updatedAt: ts("updated_at").notNull().defaultNow(),

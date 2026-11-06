@@ -414,6 +414,8 @@ export const TenantSku = z.object({
   units_per_pack: z.number().int(),
   pack_type: z.string(),
   status: z.enum(["active", "inactive"]),
+  /** HSN code (from Zoho Items, v0.37.0); optional so modules still read older answers */
+  hsn: z.string().nullable().optional(),
 });
 export type TenantSku = z.infer<typeof TenantSku>;
 

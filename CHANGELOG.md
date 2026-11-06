@@ -4,6 +4,20 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.37.0 — 2026-11-06 — Products: HSN, purchase rate and "Import Zoho items"
+
+First step of the sales ledger (order → bill → payment → closed) and Zoho import, asked by the owner 2026-11-06; plan
+`docs/ZOHO_IMPORT_PHASE_PLAN.md` (step L1).
+- **Business details → Products** gains **HSN** and **Purchase rate** (both optional). Modules get the HSN with the
+  product list; the purchase rate stays on the platform (owner only).
+- **"⇩ Import Zoho items (Zoho wins)"** (owner): pick Zoho's Items export (CSV). Only items Zoho sells come in. Matched
+  by SKU code; **Zoho wins** on name, SKU code, HSN, purchase rate and active / inactive; **PlantOps keeps** size, pack
+  type and units per pack. A Zoho code no product has yet is matched by hand once ("Same as: …" or "New product" with
+  its size). Products not in the file are never changed. Preview first, nothing saved until Confirm; Confirm refuses
+  if anything changed since the preview (409); running it again changes nothing; one audit row `sku.zoho_import`.
+- **Migrations:** platform `0023_sku_hsn_cost.sql` (two optional columns on `tenant_skus`; no grant change). SSO token
+  unchanged.
+
 ## v0.36.2 — 2026-11-06 — v0.36.1 builds on Railway
 
 v0.36.1's platform build stopped at the type check of a new test (`rows[0]` could be empty), so Railway kept running

@@ -43,6 +43,9 @@ export const SkuInput = z.object({
   volume_ml: z.number().int().min(1).max(100000), // size of one unit (one bottle/jar)
   units_per_pack: z.number().int().min(1).max(1000).default(1), // e.g. 24 for a case of 24 bottles
   pack_type: z.enum(PACK_TYPES),
+  hsn: optional(z.string().trim().regex(/^[0-9]{4,8}$/, "HSN: 4 to 8 digits")).optional(),
+  /** purchase rate in rupees (owner only; never sent to modules) */
+  cost_rate: z.number().min(0).max(10_000_000).multipleOf(0.01).nullable().optional(),
 });
 // No defaults when editing: a field that isn't sent stays as it is.
 export const UpdateSkuInput = SkuInput.extend({
@@ -162,13 +165,25 @@ function skuView(s: typeof tenantSkus.$inferSelect) {
     units_per_pack: s.unitsPerPack,
     pack_type: s.packType,
     status: s.status,
+    hsn: s.hsn,
+    cost_rate: s.costRate === null ? null : Number(s.costRate),
   };
 }
 
-async function listSkusTx(tx: PlatformTx, tenantId: string) {
-  const rows = await tx.select().from(tenantSkus).where(eq(tenantSkus.tenantId, tenantId)).orderBy(asc(tenantSkus.name));
-  return rows.map(skuView);
+/** What modules get: everything except the purchase rate. */
+function moduleSkuView(s: typeof tenantSkus.$inferSelect) {
+  const { cost_rate: _cost, ...rest } = skuView(s);
+  return rest;
 }
+
+export const selectSkus = (tx: PlatformTx, tenantId: string) =>
+  tx.select().from(tenantSkus).where(eq(tenantSkus.tenantId, tenantId)).orderBy(asc(tenantSkus.name));
+
+async function listSkusTx(tx: PlatformTx, tenantId: string) {
+  return (await selectSkus(tx, tenantId)).map(skuView);
+}
+
+const costText = (n: number | null | undefined) => (n === null || n === undefined ? n : n.toFixed(2));
 
 const duplicateSku = (code: string | null | undefined) => conflict(`SKU code ${code} is already used in this plant`);
 
@@ -183,6 +198,8 @@ async function addSku(tx: PlatformTx, tenantId: string, input: z.infer<typeof Sk
         volumeMl: input.volume_ml,
         unitsPerPack: input.units_per_pack,
         packType: input.pack_type,
+        hsn: input.hsn ?? null,
+        costRate: costText(input.cost_rate) ?? null,
         createdBy: actor,
       })
       .returning();
@@ -202,6 +219,8 @@ async function editSku(tx: PlatformTx, tenantId: string, skuId: string, input: z
   if (input.units_per_pack !== undefined) changes.unitsPerPack = input.units_per_pack;
   if (input.pack_type !== undefined) changes.packType = input.pack_type;
   if (input.status !== undefined) changes.status = input.status;
+  if (input.hsn !== undefined) changes.hsn = input.hsn;
+  if (input.cost_rate !== undefined) changes.costRate = costText(input.cost_rate);
   try {
     const [row] = await tx
       .update(tenantSkus)
@@ -279,7 +298,7 @@ export const getBranding = (tenantId: string) =>
 export const getLogoForModule = (tenantId: string) => withTenant(tenantId, (tx) => readLogo(tx, tenantId));
 
 /** All of the plant's products (active and inactive: old records still point at inactive ones). */
-export const getSkusForModule = (tenantId: string) => withTenant(tenantId, (tx) => listSkusTx(tx, tenantId));
+export const getSkusForModule = (tenantId: string) => withTenant(tenantId, async (tx) => (await selectSkus(tx, tenantId)).map(moduleSkuView));
 
 /** Sends a stored logo as an image. Locked down so the browser only ever treats it as a picture. */
 export function logoResponse(logo: { data: Buffer; type: string }) {

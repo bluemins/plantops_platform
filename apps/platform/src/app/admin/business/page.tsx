@@ -31,7 +31,7 @@ export default function BusinessPage() {
       </div>
       <p className="text-sm text-slate-500">Plant code and usernames can only be changed by PlantOps support.</p>
       {/* refresh re-renders the layout, so a new brand colour shows at once */}
-      <BusinessSections businessUrl="/api/admin/business" skusUrl="/api/admin/skus" onSaved={() => router.refresh()} />
+      <BusinessSections businessUrl="/api/admin/business" skusUrl="/api/admin/skus" zohoImportHref="/admin/business/zoho-items" onSaved={() => router.refresh()} />
     </div>
   );
 }

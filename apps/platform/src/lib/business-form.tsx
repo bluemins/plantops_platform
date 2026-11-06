@@ -192,6 +192,8 @@ type Sku = {
   units_per_pack: number;
   pack_type: string;
   status: "active" | "inactive";
+  hsn: string | null;
+  cost_rate: number | null;
 };
 
 export const sizeLabel = (ml: number) => (ml >= 1000 ? `${ml / 1000} L` : `${ml} ml`);
@@ -199,10 +201,11 @@ export const sizeLabel = (ml: number) => (ml >= 1000 ? `${ml / 1000} L` : `${ml}
 const packLabel = (s: Sku) =>
   s.units_per_pack > 1 ? `${s.pack_type} of ${s.units_per_pack} × ${sizeLabel(s.volume_ml)}` : `${sizeLabel(s.volume_ml)} ${s.pack_type}`;
 
-const emptySku = { name: "", sku_code: "", size: "", unit: "L" as "ml" | "L", units: "1", pack_type: "bottle" as string };
+const emptySku = { name: "", sku_code: "", size: "", unit: "L" as "ml" | "L", units: "1", pack_type: "bottle" as string, hsn: "", cost: "" };
+const rupees = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** Product list (SKUs) at `url`. Products are made inactive, never deleted. */
-export function SkuEditor({ url }: { url: string }) {
+export function SkuEditor({ url, zohoImportHref }: { url: string; zohoImportHref?: string }) {
   const [skus, setSkus] = useState<Sku[]>();
   const [form, setForm] = useState(emptySku);
   const [editing, setEditing] = useState<string>();
@@ -222,12 +225,16 @@ export function SkuEditor({ url }: { url: string }) {
     if (!(size > 0)) return setError("Enter the size of one bottle/jar, e.g. 1 L or 500 ml");
     const units = Number(form.units);
     if (!Number.isInteger(units) || units < 1) return setError("Units per pack: a whole number, 1 or more");
+    const cost = form.cost.trim() === "" ? null : Number(form.cost);
+    if (cost !== null && !(cost >= 0)) return setError("Purchase rate: a number in rupees, e.g. 105 or 0.27");
     const body = {
       name: form.name,
       sku_code: form.sku_code,
       volume_ml: Math.round(form.unit === "L" ? size * 1000 : size),
       units_per_pack: units,
       pack_type: form.pack_type,
+      hsn: form.hsn,
+      cost_rate: cost === null ? null : Math.round(cost * 100) / 100,
     };
     const r = editing ? await api(`${url}/${editing}`, { method: "PATCH", body }) : await api(url, { body });
     if (!r.ok) return setError(r.error);
@@ -246,6 +253,8 @@ export function SkuEditor({ url }: { url: string }) {
       unit: inLitres ? "L" : "ml",
       units: String(s.units_per_pack),
       pack_type: s.pack_type,
+      hsn: s.hsn ?? "",
+      cost: s.cost_rate === null ? "" : String(s.cost_rate),
     });
   }
 
@@ -259,6 +268,9 @@ export function SkuEditor({ url }: { url: string }) {
   if (!skus) return <ErrorText>{error}</ErrorText>;
   return (
     <div className="space-y-3">
+      {zohoImportHref && (
+        <a href={zohoImportHref} className="inline-block text-sm font-medium text-(--brand)">⇩ Import Zoho items (Zoho wins)</a>
+      )}
       {skus.length === 0 && <p className="text-sm text-slate-500">No products yet.</p>}
       {skus.map((s) => (
         <div key={s.id} className={`flex items-center justify-between gap-2 border-b border-slate-100 py-2 ${s.status === "inactive" ? "opacity-50" : ""}`}>
@@ -266,6 +278,7 @@ export function SkuEditor({ url }: { url: string }) {
             <p className="font-medium">{s.name}{s.status === "inactive" && " (inactive)"}</p>
             <p className="text-sm text-slate-500">
               <span className="capitalize">{packLabel(s)}</span>{s.sku_code ? ` · ${s.sku_code}` : ""}
+              {s.hsn ? ` · HSN ${s.hsn}` : ""}{s.cost_rate !== null ? ` · purchase ${rupees(s.cost_rate)}` : ""}
             </p>
           </div>
           <div className="flex gap-2">
@@ -310,6 +323,8 @@ export function SkuEditor({ url }: { url: string }) {
             onChange={(e) => setForm({ ...form, units: e.target.value })}
             required
           />
+          <TextField label="HSN (optional)" inputMode="numeric" value={form.hsn} onChange={(e) => setForm({ ...form, hsn: e.target.value })} maxLength={8} />
+          <TextField label="Purchase rate ₹ (optional)" inputMode="decimal" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
         </div>
         <ErrorText>{error}</ErrorText>
         <div className="flex gap-2">
@@ -323,7 +338,17 @@ export function SkuEditor({ url }: { url: string }) {
   );
 }
 
-export function BusinessSections({ businessUrl, skusUrl, onSaved }: { businessUrl: string; skusUrl: string; onSaved?: (b: { name: string }) => void }) {
+export function BusinessSections({
+  businessUrl,
+  skusUrl,
+  zohoImportHref,
+  onSaved,
+}: {
+  businessUrl: string;
+  skusUrl: string;
+  zohoImportHref?: string;
+  onSaved?: (b: { name: string }) => void;
+}) {
   return (
     <>
       <Card>
@@ -332,7 +357,7 @@ export function BusinessSections({ businessUrl, skusUrl, onSaved }: { businessUr
       </Card>
       <Card>
         <h2 className="mb-3 text-lg font-semibold">Products (SKUs)</h2>
-        <SkuEditor url={skusUrl} />
+        <SkuEditor url={skusUrl} zohoImportHref={zohoImportHref} />
       </Card>
     </>
   );

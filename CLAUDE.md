@@ -1963,3 +1963,16 @@ kept in the module session by `packages/auth`) and refuses older add / cancel fi
 a note instead of Fix. Owners unlimited; paid-month lock unchanged. SSO token unchanged. Notes:
 `apps/attendance-salary/NOTES.md`. Tests (all pass): platform 403 (5 new), Attendance 480 (6 new), auth 70. **Live 2026-11-06** (v0.36.2, `production` =
 `79e8c81`; v0.36.1's build failed on a test type error). **Not yet:** on screen.
+
+### 2026-11-06 — Sales ledger + Zoho import: plan approved; step L1 (Items) built (v0.37.0)
+Asked by the owner 2026-11-06: "order entry → invoice → payment → order close, like Zoho Books", everything from Zoho
+(items, customers, invoices, payments) in Order Capture, one page per customer. Plan, decisions and the Zoho files'
+facts: **`docs/ZOHO_IMPORT_PHASE_PLAN.md`** (phases L1–L6). Decided: PlantOps makes a **bill** (statement of account,
+never a tax invoice; Zoho stays for GST invoices, its number saved on the bill); imported invoices become bills; payments
+imported; Zoho contacts without a mobile kept as "no phone yet"; numbers `B-0001` / `P-0001`; Owner + Order desk bill and
+take payments, only the owner cancels; payments to the oldest bills first. Both migrations approved (platform `0023`,
+Order Capture `0008` in L2).
+**L1 built:** HSN + purchase rate on products (platform migration `0023_sku_hsn_cost.sql`), "Import Zoho items" on
+Business details → Products (Zoho wins on name / SKU / HSN / purchase rate / status, PlantOps keeps size / pack / units;
+owner only; preview → confirm). Modules get `hsn`, never `cost_rate`. Tests: platform 415 (+12). Dry run of plant 001's
+real `Item.csv` against the live products: 8 updated, 2 added, 6 kept, 50 purchase items skipped.
