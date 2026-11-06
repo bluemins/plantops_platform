@@ -1961,4 +1961,5 @@ staff / Supervisors (not owners); no number = 2. Platform migration `0022_fix_da
 RLS, SELECT / INSERT / DELETE). Attendance gets it as `fix_days_back` in the user status re-check (Attendance only,
 kept in the module session by `packages/auth`) and refuses older add / cancel fixes on its own server; the day page shows
 a note instead of Fix. Owners unlimited; paid-month lock unchanged. SSO token unchanged. Notes:
-`apps/attendance-salary/NOTES.md`. Tests (all pass): platform 403 (5 new), Attendance 480 (6 new), auth 70. **Not yet:** deployed; on screen.
+`apps/attendance-salary/NOTES.md`. Tests (all pass): platform 403 (5 new), Attendance 480 (6 new), auth 70. **Live 2026-11-06** (v0.36.2, `production` =
+`79e8c81`; v0.36.1's build failed on a test type error). **Not yet:** on screen.
