@@ -7,6 +7,12 @@ oldest bills first unless bills are ticked. Section 13 points 5–6 as recommend
 product form; `src/lib/zoho-items.ts` (rules), `src/server/zoho-items.ts` (preview / confirm, fingerprint, one audit
 row `sku.zoho_import`); `POST /api/admin/skus/zoho/{preview,confirm}` (owner only; super_admin not yet);
 page `/admin/business/zoho-items`; modules get `hsn`, never `cost_rate`; tests `test/zoho-items.test.ts`.
+**v0.37.0 live 2026-11-06**; plant 001 imported (8 updated, 2 added, 6 kept, 50 skipped), then the owner renamed 7
+products. **v0.37.1 (owner, same day): edits are remembered.** Table `platform.zoho_item_links` (migration `0024`,
+approved) keeps Zoho's last values per product + Zoho Item ID; a field changes only when Zoho changed it since the last
+import; a code changed in PlantOps is found through the link. Products imported before links existed keep their
+values on the next import (plant had a `sku.zoho_import` before). Dry run for plant 001: 0 changes, 7 names kept,
+10 links.
 The Zoho **rate** is not stored on the platform: Order Capture's import (L3) reads `Item.csv` too and sets Rates.
 
 ## 1. What the owner wants (2026-11-06)

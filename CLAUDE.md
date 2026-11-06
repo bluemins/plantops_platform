@@ -1973,6 +1973,6 @@ imported; Zoho contacts without a mobile kept as "no phone yet"; numbers `B-0001
 take payments, only the owner cancels; payments to the oldest bills first. Both migrations approved (platform `0023`,
 Order Capture `0008` in L2).
 **L1 built:** HSN + purchase rate on products (platform migration `0023_sku_hsn_cost.sql`), "Import Zoho items" on
-Business details → Products (Zoho wins on name / SKU / HSN / purchase rate / status, PlantOps keeps size / pack / units;
+Business details → Products (Zoho wins on name / SKU / HSN / purchase rate / status where Zoho changed since the last import, owner edits kept otherwise (v0.37.1, migration `0024_zoho_item_links.sql`); PlantOps keeps size / pack / units;
 owner only; preview → confirm). Modules get `hsn`, never `cost_rate`. Tests: platform 415 (+12). **Live 2026-11-06** (`production` = `ec66d49`, migration 0023 applied). Dry run of plant 001's
 real `Item.csv` against the live products: 8 updated, 2 added, 6 kept, 50 purchase items skipped.

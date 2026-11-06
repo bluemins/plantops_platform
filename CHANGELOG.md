@@ -4,6 +4,18 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.37.1 — 2026-11-06 — Zoho items import keeps the owner's edits
+
+Asked by the owner 2026-11-06 after renaming products: "remember my edits so the next import from the same Zoho keeps
+them".
+- **Each import remembers what Zoho said** per product (name, SKU, HSN, purchase rate, active) and links the product to
+  Zoho's Item ID. On the next import a field changes **only if Zoho changed it since**; an edit made in PlantOps stays
+  otherwise. A SKU code changed in PlantOps is still found through the link and kept.
+- Products imported with v0.37.0 (before links existed) keep their current PlantOps values on the next import, which
+  links them. The preview lists **"Your edits kept"** with Zoho's value next to each.
+- **Migrations:** platform `0024_zoho_item_links.sql` (one new table, FORCE RLS, SELECT / INSERT / UPDATE, no DELETE).
+  SSO token unchanged.
+
 ## v0.37.0 — 2026-11-06 — Products: HSN, purchase rate and "Import Zoho items"
 
 First step of the sales ledger (order → bill → payment → closed) and Zoho import, asked by the owner 2026-11-06; plan

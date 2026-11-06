@@ -33,7 +33,7 @@ const product = (p: Partial<ExistingSku> & { id: string; name: string }): Existi
 describe("reading Zoho's Items export", () => {
   it("reads names, codes, HSN (leading zeros kept), purchase rate, status and whether Zoho sells it", () => {
     expect(ITEMS).toHaveLength(6);
-    expect(ITEMS[2]).toEqual({ line: 4, name: "Bluemins Water - 20 Litre", sku: "PV_BM_20L", hsn: "002201", cost_rate: 45, active: true, sold: true });
+    expect(ITEMS[2]).toEqual({ line: 4, zoho_id: "3", name: "Bluemins Water - 20 Litre", sku: "PV_BM_20L", hsn: "002201", cost_rate: 45, active: true, sold: true });
     expect(ITEMS[4]!.sold).toBe(false);
     expect(ITEMS[5]!.active).toBe(false);
   });
@@ -85,10 +85,40 @@ describe("the plan", () => {
     expect(plan.kept).toEqual([{ id: "d", name: "Hemex 1L", sku_code: "HE_DM_1L" }]);
   });
 
+  it("remembers Zoho's last values: an owner's edit is kept, a change made in Zoho wins", () => {
+    const p = product({ id: "a", name: "Mr.Charge 1L", sku_code: "PV_DM_1", hsn: "285300", cost_rate: 105 });
+    const link = { sku_id: "a", zoho_id: "1", sku: "PV_DM_1", name: "1 Litre Deionised Water", hsn: "285300", cost_rate: 105, active: true };
+    const one = ITEMS.slice(0, 1);
+    const same = planItems(one, [p], { match: {}, specs: {} }, { links: [link], importedBefore: true });
+    expect(same.updated).toEqual([]);
+    expect(same.unchanged[0]!.kept).toEqual([{ field: "name", yours: "Mr.Charge 1L", zoho: "1 Litre Deionised Water" }]);
+    const renamedInZoho = planItems([{ ...one[0]!, name: "DM Water 1L", cost_rate: 110 }], [p], { match: {}, specs: {} }, { links: [link], importedBefore: true });
+    expect(renamedInZoho.updated[0]!.changes).toEqual([
+      { field: "name", from: "Mr.Charge 1L", to: "DM Water 1L" },
+      { field: "cost_rate", from: 105, to: 110 },
+    ]);
+    expect(renamedInZoho.links[0]).toMatchObject({ sku_id: "a", zoho_id: "1", name: "DM Water 1L", cost_rate: 110 });
+  });
+
+  it("the link finds a product whose code the owner changed, and keeps that code", () => {
+    const p = product({ id: "a", name: "Mr.Charge 1L", sku_code: "MC_1L", hsn: "285300", cost_rate: 105 });
+    const link = { sku_id: "a", zoho_id: "1", sku: "PV_DM_1", name: "1 Litre Deionised Water", hsn: "285300", cost_rate: 105, active: true };
+    const plan = planItems(ITEMS.slice(0, 1), [p], { match: {}, specs: {} }, { links: [link], importedBefore: true });
+    expect(plan.to_choose).toEqual([]);
+    expect(plan.unchanged[0]!.kept.map((k) => k.field).sort()).toEqual(["name", "sku_code"]);
+  });
+
+  it("products imported before links existed (matched by code, plant imported before) keep the owner's values", () => {
+    const p = product({ id: "a", name: "Mr.Charge 1L", sku_code: "PV_DM_1", hsn: "285300", cost_rate: 105 });
+    const plan = planItems(ITEMS.slice(0, 1), [p], { match: {}, specs: {} }, { links: [], importedBefore: true });
+    expect(plan.updated).toEqual([]);
+    expect(plan.links).toHaveLength(1);
+  });
+
   it("one product can't be picked twice; a bad HSN is warned about and not copied", () => {
     const items: ZohoItem[] = [
-      { line: 2, name: "X", sku: "X1", hsn: "12", cost_rate: null, active: true, sold: true },
-      { line: 3, name: "Y", sku: "Y1", hsn: "", cost_rate: null, active: true, sold: true },
+      { line: 2, zoho_id: "x", name: "X", sku: "X1", hsn: "12", cost_rate: null, active: true, sold: true },
+      { line: 3, zoho_id: "y", name: "Y", sku: "Y1", hsn: "", cost_rate: null, active: true, sold: true },
     ];
     const plan = planItems(items, [product({ id: "p", name: "P", hsn: "2201" })], { match: { X1: "p", Y1: "p" }, specs: {} });
     expect(plan.updated[0]!.changes.map((c) => c.field)).not.toContain("hsn");
@@ -98,9 +128,9 @@ describe("the plan", () => {
 
   it("skips a code twice in the file and codes PlantOps can't store", () => {
     const items: ZohoItem[] = [
-      { line: 2, name: "A", sku: "A1", hsn: "", cost_rate: null, active: true, sold: true },
-      { line: 3, name: "B", sku: "A1", hsn: "", cost_rate: null, active: true, sold: true },
-      { line: 4, name: "C", sku: "C 1", hsn: "", cost_rate: null, active: true, sold: true },
+      { line: 2, zoho_id: "a", name: "A", sku: "A1", hsn: "", cost_rate: null, active: true, sold: true },
+      { line: 3, zoho_id: "b", name: "B", sku: "A1", hsn: "", cost_rate: null, active: true, sold: true },
+      { line: 4, zoho_id: "c", name: "C", sku: "C 1", hsn: "", cost_rate: null, active: true, sold: true },
     ];
     expect(planItems(items, [], { match: {}, specs: {} }).skipped.map((s) => s.line)).toEqual([3, 4]);
   });
@@ -152,16 +182,34 @@ describe("import through the API", () => {
     expect(list.find((s) => s.sku_code === "PV_BM_20L")).toMatchObject({ volume_ml: 20000, pack_type: "jar", hsn: "002201" });
     expect(list.find((s) => s.sku_code === "PV_OLD")).toMatchObject({ status: "inactive" });
 
-    // run again with the same file: everything is matched by code now and nothing changes
+    // run again with the same file: everything is found through its link and nothing changes
     const again = await preview(A.adminCookie, {});
     expect(again.body).toMatchObject({ updated: [], added: [], to_choose: [] });
     expect(again.body.unchanged).toHaveLength(5);
 
+    // the owner renames and recodes a product in PlantOps: the next import keeps both
+    await call(skuRoute.PATCH as Handler, { cookie: A.adminCookie, method: "PATCH", params: { id: b5.id }, body: { name: "Mr.Charge 5L", sku_code: "MC_5L" } });
+    const kept = await preview(A.adminCookie, {});
+    expect(kept.body.updated).toEqual([]);
+    expect(kept.body.to_choose).toEqual([]);
+    expect(kept.body.unchanged.find((u: { id: string }) => u.id === b5.id).kept.map((k: { field: string }) => k.field).sort()).toEqual(["name", "sku_code"]);
+    // a name changed in Zoho since the last import wins
+    const zohoRenamed = ITEMS.map((i) => (i.sku === "PV_DM_5" ? { ...i, name: "DM Water 5L" } : i));
+    const p2 = await call(previewRoute.POST as Handler, { cookie: A.adminCookie, body: { items: zohoRenamed } });
+    expect(p2.body.updated).toEqual([expect.objectContaining({ id: b5.id, changes: [{ field: "name", from: "Mr.Charge 5L", to: "DM Water 5L" }] })]);
+    const c2 = await call(confirmRoute.POST as Handler, { cookie: A.adminCookie, body: { items: zohoRenamed, fingerprint: p2.body.fingerprint } });
+    expect(c2.status).toBe(200);
+    const after = (await call(skusRoute.GET as Handler, { cookie: A.adminCookie })).body.find((s: { id: string }) => s.id === b5.id);
+    expect(after).toMatchObject({ name: "DM Water 5L", sku_code: "MC_5L" });
+
+    const links = await asOwner("select count(*)::int as n from platform.zoho_item_links where tenant_id = $1", [A.tenantId]);
+    expect(links.rows[0]!.n).toBe(5);
+    expect((await asOwner("select count(*)::int as n from platform.zoho_item_links where tenant_id = $1", [B.tenantId])).rows[0]!.n).toBe(0);
     const bList = (await call(skusRoute.GET as Handler, { cookie: B.adminCookie })).body;
     expect(bList).toEqual([expect.objectContaining({ name: "Mr.Charge 1L", hsn: null })]);
 
-    const audit = await asOwner("select details from platform.audit_log where tenant_id = $1 and action = 'sku.zoho_import'", [A.tenantId]);
-    expect(audit.rows).toHaveLength(1);
+    const audit = await asOwner("select details from platform.audit_log where tenant_id = $1 and action = 'sku.zoho_import' order by id", [A.tenantId]);
+    expect(audit.rows).toHaveLength(2);
     expect(audit.rows[0]!.details).toMatchObject({ file: "Item.csv", updated: 3, added: 2, skipped: 1 });
   });
 

@@ -237,3 +237,21 @@ export const notificationPrefs = platform.table(
   },
   (t) => [primaryKey({ columns: [t.tenantId, t.userId, t.kind] })],
 );
+
+/** What Zoho said about each linked product at the last "Import Zoho items" (migration 0024). */
+export const zohoItemLinks = platform.table(
+  "zoho_item_links",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    skuId: uuid("sku_id").notNull(),
+    zohoItemId: text("zoho_item_id").notNull(),
+    zohoSku: text("zoho_sku").notNull(),
+    zohoName: text("zoho_name").notNull(),
+    zohoHsn: text("zoho_hsn"),
+    zohoCost: numeric("zoho_cost", { precision: 12, scale: 2 }),
+    zohoActive: boolean("zoho_active").notNull(),
+    importedAt: ts("imported_at").notNull().defaultNow(),
+    importedBy: text("imported_by").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.tenantId, t.skuId] })],
+);

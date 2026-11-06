@@ -10,7 +10,7 @@ import { FIELD_LABEL, PACK_TYPES, readZohoItems, type FieldChange, type ItemsPla
 
 type Me = { roles: string[]; must_change_secret: boolean };
 type Preview = ItemsPlan & { fingerprint: string };
-type Counts = { updated: number; added: number; unchanged: number; skipped: number; kept: number };
+type Counts = { updated: number; added: number; unchanged: number; skipped: number; kept: number; kept_edits: number };
 
 const show = (f: FieldChange["field"], v: string | number | null) =>
   v === null ? "—" : f === "cost_rate" ? `₹${Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : String(v);
@@ -106,7 +106,7 @@ export default function ZohoItemsPage() {
       <Card>
         <p className="text-sm text-slate-600">
           In Zoho: Items → ⋯ → Export Items (CSV). Only items Zoho <b>sells</b> come in. <b>Zoho wins</b> on name, SKU code, HSN, purchase
-          rate and active / inactive. Size, pack type and units per pack stay as they are in PlantOps. Products not in the file are never
+          rate and active / inactive, but only where Zoho changed since your last import: what you edited here is kept. Size, pack type and units per pack stay as they are in PlantOps. Products not in the file are never
           changed. Nothing is saved until you press Confirm.
         </p>
         <label className="mt-3 inline-block cursor-pointer rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 hover:bg-slate-50">
@@ -120,7 +120,7 @@ export default function ZohoItemsPage() {
       {done && (
         <Card>
           <p className="rounded-lg bg-green-50 px-3 py-2 text-green-800">
-            Saved: {done.updated} updated, {done.added} added, {done.unchanged} already the same, {done.skipped} skipped, {done.kept} not in Zoho (kept).
+            Saved: {done.updated} updated, {done.added} added, {done.unchanged} already the same, {done.kept_edits} of your edits kept, {done.skipped} skipped, {done.kept} not in Zoho (kept).
           </p>
           <Link href="/admin/business" className="mt-3 inline-block font-medium text-(--brand)">Back to products</Link>
         </Card>
@@ -200,6 +200,26 @@ export default function ZohoItemsPage() {
               </p>
             ))}
           </Card>
+
+          {(() => {
+            const kept = [...preview.updated, ...preview.unchanged].filter((p) => p.kept.length);
+            if (!kept.length) return null;
+            return (
+              <Card>
+                <h2 className="mb-1 text-lg font-semibold">Your edits kept ({kept.reduce((n, p) => n + p.kept.length, 0)})</h2>
+                <p className="mb-2 text-sm text-slate-500">You changed these in PlantOps and Zoho hasn't changed them since, so yours stay.</p>
+                {kept.map((p) => (
+                  <div key={p.id} className="border-b border-slate-100 py-2">
+                    {p.kept.map((k) => (
+                      <p key={k.field} className="text-sm text-slate-600">
+                        {FIELD_LABEL[k.field]}: <b>{show(k.field, k.yours)}</b> <span className="text-slate-400">(Zoho: {show(k.field, k.zoho)})</span>
+                      </p>
+                    ))}
+                  </div>
+                ))}
+              </Card>
+            );
+          })()}
 
           {preview.warnings.length > 0 && (
             <Card>

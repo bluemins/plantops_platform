@@ -4,17 +4,18 @@
 import { createHash } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { PACK_TYPES, planItems, ZOHO_ITEMS_MAX, type ExistingSku, type ItemsPlan } from "@/lib/zoho-items";
+import { PACK_TYPES, planItems, ZOHO_ITEMS_MAX, type ExistingSku, type ItemLink, type ItemsPlan } from "@/lib/zoho-items";
 import { audit } from "./audit";
 import type { CurrentUser } from "./auth";
 import { selectSkus } from "./business";
 import { schema, withTenant, type PlatformTx } from "./db";
 import { badRequest, conflict } from "./http";
 
-const { tenantSkus } = schema;
+const { auditLog, tenantSkus, zohoItemLinks } = schema;
 
 const Item = z.object({
   line: z.number().int().min(1).max(1_000_000),
+  zoho_id: z.string().min(1).max(60),
   name: z.string().max(500),
   sku: z.string().max(200),
   hsn: z.string().max(50),
@@ -51,14 +52,38 @@ async function existing(tx: PlatformTx, tenantId: string): Promise<ExistingSku[]
   }));
 }
 
+async function links(tx: PlatformTx, tenantId: string): Promise<ItemLink[]> {
+  const rows = await tx.select().from(zohoItemLinks).where(eq(zohoItemLinks.tenantId, tenantId));
+  return rows.map((l) => ({
+    sku_id: l.skuId,
+    zoho_id: l.zohoItemId,
+    sku: l.zohoSku,
+    name: l.zohoName,
+    hsn: l.zohoHsn,
+    cost_rate: l.zohoCost === null ? null : Number(l.zohoCost),
+    active: l.zohoActive,
+  }));
+}
+
+/** Has this plant run the import before (v0.37.0, before links were kept)? */
+async function importedBefore(tx: PlatformTx, tenantId: string) {
+  const [row] = await tx
+    .select({ id: auditLog.id })
+    .from(auditLog)
+    .where(and(eq(auditLog.tenantId, tenantId), eq(auditLog.action, "sku.zoho_import")))
+    .limit(1);
+  return !!row;
+}
+
 /** What confirm would do, as one hash: any change in the products or the file since the preview changes it. */
 export function fingerprint(plan: ItemsPlan) {
-  const what = { u: plan.updated.map((u) => [u.id, u.changes]), a: plan.added, c: plan.to_choose.map((c) => c.sku) };
+  const what = { u: plan.updated.map((u) => [u.id, u.changes]), a: plan.added, c: plan.to_choose.map((c) => c.sku), l: plan.links };
   return createHash("sha256").update(JSON.stringify(what)).digest("hex");
 }
 
 const work = async (tx: PlatformTx, tenantId: string, input: z.infer<typeof ZohoItemsInput>) => {
-  const plan = planItems(input.items, await existing(tx, tenantId), { match: input.match, specs: input.specs });
+  const ctx = { links: await links(tx, tenantId), importedBefore: await importedBefore(tx, tenantId) };
+  const plan = planItems(input.items, await existing(tx, tenantId), { match: input.match, specs: input.specs }, ctx);
   return { ...plan, fingerprint: fingerprint(plan) };
 };
 
@@ -93,8 +118,9 @@ export const confirmZohoItems = (admin: CurrentUser, input: z.infer<typeof ZohoI
       }
       await tx.update(tenantSkus).set(set).where(and(eq(tenantSkus.tenantId, admin.tenantId), eq(tenantSkus.id, u.id)));
     }
+    const newIds = new Map<string, string>();
     if (plan.added.length) {
-      await tx.insert(tenantSkus).values(
+      const rows = await tx.insert(tenantSkus).values(
         plan.added.map((a) => ({
           tenantId: admin.tenantId,
           name: a.name,
@@ -107,9 +133,26 @@ export const confirmZohoItems = (admin: CurrentUser, input: z.infer<typeof ZohoI
           costRate: a.cost_rate === null ? null : a.cost_rate.toFixed(2),
           createdBy: actor,
         })),
-      );
+      ).returning({ id: tenantSkus.id, sku: tenantSkus.skuCode });
+      for (const r of rows) newIds.set(r.sku!, r.id);
     }
-    const counts = { updated: plan.updated.length, added: plan.added.length, unchanged: plan.unchanged.length, skipped: plan.skipped.length, kept: plan.kept.length };
+    // what Zoho says now becomes the next import's starting point (an owner's later edit is then kept)
+    for (const l of plan.links) {
+      const skuId = l.sku_id ?? newIds.get(l.new_sku!)!;
+      const values = {
+        zohoItemId: l.zoho_id,
+        zohoSku: l.sku,
+        zohoName: l.name,
+        zohoHsn: l.hsn,
+        zohoCost: l.cost_rate === null ? null : l.cost_rate.toFixed(2),
+        zohoActive: l.active,
+        importedAt: new Date(),
+        importedBy: actor,
+      };
+      await tx.insert(zohoItemLinks).values({ tenantId: admin.tenantId, skuId, ...values }).onConflictDoUpdate({ target: [zohoItemLinks.tenantId, zohoItemLinks.skuId], set: values });
+    }
+    const keptEdits = [...plan.updated, ...plan.unchanged].reduce((n, p) => n + p.kept.length, 0);
+    const counts = { updated: plan.updated.length, added: plan.added.length, unchanged: plan.unchanged.length, skipped: plan.skipped.length, kept: plan.kept.length, kept_edits: keptEdits };
     await audit(tx, {
       tenantId: admin.tenantId,
       actor,

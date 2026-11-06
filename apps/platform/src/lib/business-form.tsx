@@ -269,7 +269,7 @@ export function SkuEditor({ url, zohoImportHref }: { url: string; zohoImportHref
   return (
     <div className="space-y-3">
       {zohoImportHref && (
-        <a href={zohoImportHref} className="inline-block text-sm font-medium text-(--brand)">⇩ Import Zoho items (Zoho wins)</a>
+        <a href={zohoImportHref} className="inline-block text-sm font-medium text-(--brand)">⇩ Import Zoho items</a>
       )}
       {skus.length === 0 && <p className="text-sm text-slate-500">No products yet.</p>}
       {skus.map((s) => (
