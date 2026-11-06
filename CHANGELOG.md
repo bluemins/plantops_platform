@@ -4,6 +4,12 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.36.2 — 2026-11-06 — v0.36.1 builds on Railway
+
+v0.36.1's platform build stopped at the type check of a new test (`rows[0]` could be empty), so Railway kept running
+v0.36.0. One-line test fix; everything in v0.36.1 goes live with this release. **Migrations:** none (v0.36.1's `0022`
+is already applied on the shared copy).
+
 ## v0.36.1 — 2026-11-06 — Attendance: how far back Office staff and Supervisors can fix
 
 **What's in it** (asked by the owner 2026-11-06: Office staff could add attendance for others many days back)

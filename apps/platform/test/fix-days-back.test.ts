@@ -61,7 +61,7 @@ describe("Attendance days back", () => {
     const owner = await add("owner3", ["tenant_admin", "office_staff"], 7);
     expect((await status(owner.body.id)).body).not.toHaveProperty("fix_days_back");
     const { rows } = await asOwner("select count(*)::int as n from platform.fix_days_back where user_id = any($1)", [[worker.body.id, owner.body.id]]);
-    expect(rows[0].n).toBe(0);
+    expect(rows[0]!.n).toBe(0);
   });
 
   it("only whole numbers 0-31", async () => {
