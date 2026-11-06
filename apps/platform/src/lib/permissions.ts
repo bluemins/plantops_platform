@@ -56,6 +56,7 @@ const ROLE_HINTS: Partial<Record<RoleId, string>> = {
   document_viewer: "Document Store, view only",
   order_viewer: "Order Capture, view only: no amounts",
   delivery_staff: "Order Capture · Calls only",
+  accounts: "Order Capture: bills and payments, after delivery",
 };
 
 /** A role button on Add / Edit user: what it opens, and whether its module is switched off for the plant. */

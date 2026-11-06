@@ -4,6 +4,19 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.40.0 — 2026-11-06 — New role: Accounts (bills and payments after delivery)
+
+Owner, 2026-11-06: "Accounts is the new role … only users with Accounts will see the Bills section."
+- **Accounts** (Order Capture): the Bills section (Bills / Payments lists, bill pages, a customer's Account and
+  Statement), **Make bill** and **Receive payment**; sees orders and their amounts read-only (no new order, deliver or
+  cancel). Plant totals, cancelling a bill / payment and CSV stay owner-only.
+- **Order desk no longer sees bills or payments** (orders, delivery and order amounts unchanged). Someone with both
+  roles (Order desk + Accounts) gets both; the header says "Order desk + Accounts".
+- Manage users: role button "Accounts · Order Capture: bills and payments, after delivery"; Permissions screen; launcher
+  tile text "Bills".
+- **Migrations:** platform `0025_accounts_role.sql` (one role row). SSO token unchanged. Plant 001's people with Order
+  desk lose the Bills section until the owner gives them Accounts.
+
 ## v0.39.1 — 2026-11-06 — Plant totals owner only
 
 Owner, 2026-11-06: "Only the owner should be able to see the total." Bills' "Still due / Overdue bills" and Payments'

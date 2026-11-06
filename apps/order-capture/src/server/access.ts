@@ -5,9 +5,11 @@ import { forbidden } from "./http";
 /**
  * owner = tenant_admin; desk = Order desk (plant staff are NOT desk: roleWorksIn); viewer = plant staff without Order
  * desk (viewOnlyIn: sees the orders, never amounts, never writes; owner 2026-10-14); delivery = Delivery staff (the
- * Calls tab only, never orders, customers or amounts; docs/CALLS_PHASE_PLAN.md); support = PlantOps, read-only
+ * Calls tab only, never orders, customers or amounts; docs/CALLS_PHASE_PLAN.md); accounts = Accounts (bills and payments
+ * after delivery; orders read-only with amounts; owner 2026-11-06: "only users with Accounts see the Bills section");
+ * support = PlantOps, read-only. A person can hold Order desk AND Accounts: `also` adds the second set of rights.
  */
-export type Who = "owner" | "desk" | "viewer" | "delivery" | "support";
+export type Who = "owner" | "desk" | "viewer" | "delivery" | "accounts" | "support";
 
 export type Action =
   | "read" // the order list, an order
@@ -45,10 +47,10 @@ export type Action =
   | "ledger_totals"; // the plant's totals: still due, overdue bills, received (owner 2026-11-06: owner only)
 
 export const ACCESS: Record<Action, readonly Who[]> = {
-  read: ["owner", "desk", "viewer", "support"],
-  see_amounts: ["owner", "desk", "support"],
+  read: ["owner", "desk", "viewer", "accounts", "support"],
+  see_amounts: ["owner", "desk", "accounts", "support"],
   copy_list: ["owner", "desk", "viewer"],
-  view_customers: ["owner", "desk", "support"],
+  view_customers: ["owner", "desk", "accounts", "support"],
   enter: ["owner", "desk"],
   customers: ["owner", "desk"],
   deliver: ["owner", "desk"],
@@ -71,10 +73,10 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   calls_ignore: ["owner"],
   zoho_import: ["owner"],
   zoho_match: ["owner"],
-  ledger_view: ["owner", "desk", "support"],
-  bill_make: ["owner", "desk"],
+  ledger_view: ["owner", "accounts", "support"],
+  bill_make: ["owner", "accounts"],
   bill_cancel: ["owner"],
-  payment_receive: ["owner", "desk"],
+  payment_receive: ["owner", "accounts"],
   payment_cancel: ["owner"],
   ledger_export: ["owner"],
   ledger_totals: ["owner", "support"],
@@ -83,16 +85,23 @@ export const ACCESS: Record<Action, readonly Who[]> = {
 /** What the user is, for this table. null = no Order Capture rights at all (e.g. a store keeper). */
 export interface Actor {
   who: Who | null;
+  /** a second set of rights (Order desk + Accounts) */
+  also?: Who[];
 }
 
-export const can = (user: Actor, action: Action) => user.who !== null && ACCESS[action].includes(user.who);
+export const can = (user: Actor, action: Action) =>
+  user.who !== null && (ACCESS[action].includes(user.who) || (user.also ?? []).some((w) => ACCESS[action].includes(w)));
+
+const LEDGER: Action[] = ["ledger_view", "bill_make", "payment_receive"];
 
 /** Throws 403 with a plain message when the table says no. */
 export function requireAccess(user: Actor, action: Action) {
   if (can(user, action)) return;
   if (user.who === "support") throw forbidden("PlantOps support view is read-only");
+  if (user.who === "desk" && LEDGER.includes(action)) throw forbidden("Bills and payments need the Accounts role. Ask the owner.");
   if (user.who === "desk") throw forbidden("Only the plant owner can do this");
   if (user.who === "viewer") throw forbidden("You can view orders only. Order desk or the owner does this.");
   if (user.who === "delivery") throw forbidden("Delivery staff work in Calls only.");
+  if (user.who === "accounts") throw forbidden("Accounts works on bills and payments. Order desk or the owner does this.");
   throw forbidden("You don't have access to Order Capture");
 }

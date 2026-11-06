@@ -36,10 +36,10 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["calls_ignore", true, false, false, false, false],
   ["zoho_import", true, false, false, false, false],
   ["zoho_match", true, false, false, false, false],
-  ["ledger_view", true, true, false, false, true],
-  ["bill_make", true, true, false, false, false],
+  ["ledger_view", true, false, false, false, true],
+  ["bill_make", true, false, false, false, false],
   ["bill_cancel", true, false, false, false, false],
-  ["payment_receive", true, true, false, false, false],
+  ["payment_receive", true, false, false, false, false],
   ["payment_cancel", true, false, false, false, false],
   ["ledger_export", true, false, false, false, false],
   ["ledger_totals", true, false, false, false, true],
@@ -115,5 +115,25 @@ describe("the access table", () => {
     for (const action of ["enter", "customers", "deliver", "cancel", "undo_delivered", "rates", "customer_upload", "export"] as Action[]) {
       expect((await refused(() => requireAccess(p.support, action))).message, action).toBe("PlantOps support view is read-only");
     }
+  });
+});
+
+// Accounts (owner, 2026-11-06): bills and payments after delivery; orders read-only with amounts. Only Accounts (and the
+// owner, support read-only) see the Bills section. Order desk + Accounts gets both sets of rights.
+describe("Accounts", () => {
+  const acc = ocUser(p.owner.tenantId, ["accounts"], "Kedar");
+  const both = ocUser(p.owner.tenantId, ["order_desk", "accounts"], "Kedar");
+  const ACCOUNTS_MAY = ["read", "see_amounts", "view_customers", "ledger_view", "bill_make", "payment_receive"];
+  it.each(TABLE)("%s: Accounts may only read orders and work on bills / payments", (action) => {
+    expect(can(acc, action)).toBe(ACCOUNTS_MAY.includes(action));
+  });
+  it.each(TABLE)("%s: Order desk + Accounts = Order desk's rights plus Accounts'", (action, _o, desk) => {
+    expect(can(both, action)).toBe(desk || ACCOUNTS_MAY.includes(action));
+  });
+  it("labels and plain refusals", async () => {
+    expect([roleLabel(acc), roleLabel(both)]).toEqual(["Accounts", "Order desk + Accounts"]);
+    expect(await refused(() => requireAccess(acc, "enter"))).toEqual({ status: 403, message: "Accounts works on bills and payments. Order desk or the owner does this." });
+    expect(await refused(() => requireAccess(p.desk, "ledger_view"))).toEqual({ status: 403, message: "Bills and payments need the Accounts role. Ask the owner." });
+    expect(can(both, "bill_cancel") || can(both, "ledger_totals") || can(both, "ledger_export")).toBe(false);
   });
 });

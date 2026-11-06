@@ -73,6 +73,10 @@ through the Lab Records API.
   Capture, no amounts). Each opens its one module read-only (`VIEW_ROLE_MODULE` + `viewOnlyIn()`), never works there
   (`roleWorksIn` false), and gets alerts only if the owner ticks them (`getsAlertsIn`; never Order Capture). New modules
   get a view role only when the owner asks.
+- **Accounts** (`accounts`), Order Capture only (owner, 2026-11-06; v0.40.0): the sales ledger after delivery (Bills /
+  Payments, bill pages, a customer's Account and Statement, Make bill, Receive payment); orders read-only with amounts.
+  **Only Accounts (and owners; support read-only) see the Bills section**; Order desk does not. Plant totals, cancel and
+  CSV stay owner-only. Order desk + Accounts = both (`also` in Order Capture's access table).
 - **Delivery staff** (`delivery_staff`), Order Capture only (owner, 2026-11-04; v0.36.0, `docs/CALLS_PHASE_PLAN.md`): the
   Calls tab only (call customers back, mark Attended, save a new caller with name + place), never orders, customers or
   amounts (`Who = "delivery"` in Order Capture's access table). Never ticked for alerts (`NO_ALERT_TICK_ROLES`,

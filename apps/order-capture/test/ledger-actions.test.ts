@@ -19,12 +19,14 @@ import { listOrders } from "@/server/list";
 import { paymentNotification } from "@/server/notify";
 import { createOrder, OrderInput } from "@/server/orders";
 import { SKUS, startFakePlatform, type FakePlatform } from "./fake-platform";
-import { asApp, auditRows, plant, refused } from "./helpers";
+import { asApp, auditRows, ocUser, plant, refused } from "./helpers";
 
 let platform: FakePlatform;
 const [b1l, b500] = SKUS as [(typeof SKUS)[0], (typeof SKUS)[0]];
 const a = plant();
 const b = plant();
+/** Accounts (owner, 2026-11-06): makes bills and receives payments; Order desk no longer does */
+const acct = ocUser(a.tenantId, ["accounts"], "Kedar");
 let k = 0;
 let customerId = "";
 
@@ -39,7 +41,7 @@ async function deliveredOrder() {
   return o;
 }
 const pay = (amount: string, bill_ids: string[] = [], date = "2026-11-06", mode: "cash" | "upi" = "cash") =>
-  receivePayment(a.desk, { customer_id: customerId, amount, payment_date: date, mode, bill_ids });
+  receivePayment(acct, { customer_id: customerId, amount, payment_date: date, mode, bill_ids });
 
 beforeAll(async () => {
   platform = await startFakePlatform();
@@ -61,10 +63,11 @@ describe("make bill, receive payment, advances, cancel", () => {
       values ('${a.tenantId}', 'zoho', 'INV-000500', 'zi-500', '2026-10-01', '2026-10-01', '${contact}', 'Sriram Hotel (Bijepur)', 500, 500, '${imp}', gen_random_uuid(), 'Sujata') returning id`);
   });
 
-  it("only owner and Order desk make bills; only for a delivered order; one per order", async () => {
+  it("only owner and Accounts make bills (not Order desk); only for a delivered order; one per order", async () => {
     expect((await refused(() => makeBill(a.staff, { order_id: o1.id }))).status).toBe(403);
+    expect((await refused(() => makeBill(a.desk, { order_id: o1.id }))).message).toBe("Bills and payments need the Accounts role. Ask the owner.");
     expect((await refused(() => makeBill(a.support, { order_id: o1.id }))).status).toBe(403);
-    const bill = await makeBill(a.desk, { order_id: o1.id, discount: "20", zoho_gst_invoice_no: "INV-001900" });
+    const bill = await makeBill(acct, { order_id: o1.id, discount: "20", zoho_gst_invoice_no: "INV-001900" });
     expect(bill).toMatchObject({ number: "B-0001", total: "350.00", advance_used: "0.00" });
     expect((await refused(() => makeBill(a.owner, { order_id: o1.id }))).message).toBe("This order already has bill B-0001.");
     const d = await billDetail(a.owner, bill.id);
@@ -87,8 +90,8 @@ describe("make bill, receive payment, advances, cancel", () => {
     expect(acc.totals).toMatchObject({ billed: "850.00", received: "600.00", due: "250.00", advance: "0.00", balance: "250.00" });
     expect(acc.bills.map((x) => [x.number, x.status, x.due])).toEqual([["B-0001", "part_paid", "250.00"], ["INV-000500", "paid", "0.00"]]);
     expect(acc.zoho_names).toEqual(["Sriram Hotel (Bijepur)"]);
-    const n = paymentNotification(a.desk, p);
-    expect(n).toMatchObject({ kind: "order_capture.payment", title: "Payment ₹600 from Sri ram hotel", level: "bell", exclude_user_id: a.desk.userId });
+    const n = paymentNotification(acct, p);
+    expect(n).toMatchObject({ kind: "order_capture.payment", title: "Payment ₹600 from Sri ram hotel", level: "bell", exclude_user_id: acct.userId });
     expect(n.body).toContain("Paid INV-000500, B-0001");
   });
 
@@ -111,11 +114,12 @@ describe("make bill, receive payment, advances, cancel", () => {
     const other = (await asApp(a.tenantId, "select id from order_capture.bills where number = 'INV-000500'")).rows[0]!.id as string;
     expect((await refused(() => pay("10", [other]))).status).toBe(409); // already paid
     expect((await refused(() => receivePayment(a.staff, { customer_id: customerId, amount: "10", payment_date: "2026-11-06", mode: "cash", bill_ids: [] }))).status).toBe(403);
+    expect((await refused(() => receivePayment(a.desk, { customer_id: customerId, amount: "10", payment_date: "2026-11-06", mode: "cash", bill_ids: [] }))).status).toBe(403);
   });
 
   it("owner cancels a payment: the bills it paid are due again; Order desk can't", async () => {
     const p = (await asApp(a.tenantId, "select id from order_capture.payments where number = 'P-0002'")).rows[0]!.id as string;
-    expect((await refused(() => cancelPayment(a.desk, p, { reason: "typed twice" }))).status).toBe(403);
+    expect((await refused(() => cancelPayment(acct, p, { reason: "typed twice" }))).status).toBe(403);
     await cancelPayment(a.owner, p, { reason: "typed twice" });
     expect((await refused(() => cancelPayment(a.owner, p, { reason: "again" }))).status).toBe(409);
     const acc = await account(a.owner, { kind: "customer", id: customerId });
@@ -128,7 +132,7 @@ describe("make bill, receive payment, advances, cancel", () => {
     const undo = () => undoDelivered(a.owner, o1.id, ReasonInput.parse({ expected: { status: "delivered", version: 1 }, reason: "wrong customer" }));
     expect((await refused(undo)).message).toBe("This order has bill B-0001. Cancel the bill first, then undo the delivery.");
     const bill1 = (await asApp(a.tenantId, "select id from order_capture.bills where number = 'B-0001'")).rows[0]!.id as string;
-    expect((await refused(() => cancelBill(a.desk, bill1, { reason: "wrong customer" }))).status).toBe(403);
+    expect((await refused(() => cancelBill(acct, bill1, { reason: "wrong customer" }))).status).toBe(403);
     await cancelBill(a.owner, bill1, { reason: "wrong customer" });
     const acc = await account(a.owner, { kind: "customer", id: customerId });
     // P-0001 had paid ₹100 on B-0001: now an advance
@@ -142,7 +146,7 @@ describe("make bill, receive payment, advances, cancel", () => {
 
   it("the GST invoice no. on a PlantOps bill; audit rows", async () => {
     const bill2 = (await asApp(a.tenantId, "select id from order_capture.bills where number = 'B-0002'")).rows[0]!.id as string;
-    await setGstInvoice(a.desk, bill2, { zoho_gst_invoice_no: "INV-001901" });
+    await setGstInvoice(acct, bill2, { zoho_gst_invoice_no: "INV-001901" });
     expect((await billDetail(a.owner, bill2)).gst_invoice_no).toBe("INV-001901");
     const actions = (await auditRows(a.tenantId)).map((r) => r.action);
     for (const x of ["bill.make", "payment.receive", "payment.cancel", "bill.cancel", "bill.gst_invoice"]) expect(actions).toContain(x);
@@ -165,9 +169,10 @@ describe("make bill, receive payment, advances, cancel", () => {
     const pays = await paymentsList(a.owner, { mode: "upi" });
     expect(pays.payments.map((x) => [x.number, x.cancelled])).toEqual([["P-0002", true]]);
     expect(pays.total!.sum).toBe("0.00");
-    // the plant's totals: owner (and support) only, never Order desk
-    expect((await billsList(a.desk)).summary).toBeNull();
-    expect((await paymentsList(a.desk)).total).toBeNull();
+    // the plant's totals: owner (and support) only, never Accounts; Order desk can't open Bills at all
+    expect((await billsList(acct)).summary).toBeNull();
+    expect((await paymentsList(acct)).total).toBeNull();
+    expect((await refused(() => billsList(a.desk))).status).toBe(403);
     expect((await billsList(a.support)).summary).not.toBeNull();
     expect((await refused(() => billsList(a.staff))).status).toBe(403);
     expect((await billsList(a.support)).bills.length).toBeGreaterThan(0);

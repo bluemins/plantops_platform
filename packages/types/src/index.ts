@@ -34,6 +34,7 @@ export const ROLE_IDS = [
   "document_viewer",
   "order_viewer",
   "delivery_staff",
+  "accounts",
 ] as const;
 export const RoleId = z.enum(ROLE_IDS);
 export type RoleId = z.infer<typeof RoleId>;
@@ -59,6 +60,8 @@ export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin" | "plant_staff" 
   hr_desk: "job_applications",
   /** Order Capture's Calls tab only: calls customers back, marks Attended, saves new callers; no orders, no amounts */
   delivery_staff: "order_capture",
+  /** Order Capture after delivery (owner, 2026-11-06): bills, Make bill, Receive payment, a customer's account; orders read-only */
+  accounts: "order_capture",
 };
 
 /**

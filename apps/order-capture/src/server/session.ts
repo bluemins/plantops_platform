@@ -14,6 +14,8 @@ export interface OcUser {
   roles: RoleId[];
   /** the row of the access table this person uses; null = no Order Capture rights */
   who: Who | null;
+  /** Order desk who also holds Accounts: ["accounts"] (bills and payments on top of order work) */
+  also?: Who[];
   isOwner: boolean;
   /** PlantOps support (super_admin) looking read-only: every write is refused */
   isSupport: boolean;
@@ -26,6 +28,7 @@ export interface OcUser {
 export function whoFor(roles: RoleId[]): Who | null {
   if (roles.includes("tenant_admin")) return "owner";
   if (roles.includes("order_desk")) return "desk";
+  if (roles.includes("accounts")) return "accounts";
   // Calls only, also with Plant staff / Order viewer (owner, 2026-11-04)
   if (roles.includes("delivery_staff")) return "delivery";
   return viewOnlyIn(roles, "order_capture") ? "viewer" : null;
@@ -33,7 +36,8 @@ export function whoFor(roles: RoleId[]): Who | null {
 
 export function toOcUser(s: ModuleSession): OcUser {
   const who = whoFor(s.roles);
-  return { tenantId: s.tenant_id, userId: s.user_id, name: s.display_name ?? "Order Capture user", roles: s.roles, who, isOwner: who === "owner", isSupport: false };
+  const also: Who[] = who === "desk" && s.roles.includes("accounts") ? ["accounts"] : [];
+  return { tenantId: s.tenant_id, userId: s.user_id, name: s.display_name ?? "Order Capture user", roles: s.roles, who, also, isOwner: who === "owner", isSupport: false };
 }
 
 export const supportUser = (tenantId: string, superAdminId: string): OcUser => ({
@@ -51,6 +55,8 @@ export function roleLabel(user: OcUser) {
   if (user.isSupport) return "Read-only";
   if (user.who === "viewer") return "View only";
   if (user.who === "delivery") return "Delivery staff";
+  if (user.who === "accounts") return "Accounts";
+  if (user.also?.includes("accounts")) return "Order desk + Accounts";
   return user.isOwner ? "Owner" : "Order desk";
 }
 

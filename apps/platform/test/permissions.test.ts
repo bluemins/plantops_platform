@@ -32,7 +32,7 @@ describe("role buttons on Add / Edit user", () => {
 
   it("offers owner, plant staff and the roles of switched-on modules, each with its module", () => {
     const c = roleChoices(plant, []);
-    expect(c.map((x) => x.role)).toEqual(["tenant_admin", "lab_technician", "lab_lead", "store_keeper", "order_desk", "plant_staff", "stock_viewer", "order_viewer", "delivery_staff"]);
+    expect(c.map((x) => x.role)).toEqual(["tenant_admin", "lab_technician", "lab_lead", "store_keeper", "order_desk", "plant_staff", "stock_viewer", "order_viewer", "delivery_staff", "accounts"]);
     expect(c.find((x) => x.role === "stock_viewer")).toMatchObject({ hint: "Floor Stock, view only: the sections the owner picks", off: false });
     expect(c.find((x) => x.role === "store_keeper")).toMatchObject({ hint: "Floor Stock", off: false });
     expect(c.find((x) => x.role === "lab_lead")?.hint).toBe("Lab Records");
@@ -50,7 +50,7 @@ describe("role buttons on Add / Edit user", () => {
   });
 
   it("offers every role when the module list did not load", () => {
-    expect(roleChoices([], []).map((x) => x.role)).toHaveLength(16); // + Office staff, Supervisor (0015), HR desk (0016), the three viewers (0018), Delivery staff (0021)
+    expect(roleChoices([], []).map((x) => x.role)).toHaveLength(17); // + Office staff, Supervisor (0015), HR desk (0016), the three viewers (0018), Delivery staff (0021), Accounts (0025)
     expect(roleChoices([], []).every((x) => !x.off)).toBe(true);
   });
 });

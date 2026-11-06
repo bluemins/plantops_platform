@@ -219,3 +219,10 @@ who see amounts). Access rows `ledger_view` (owner, desk, support), `bill_make` 
   recurring bills; sending bills to Zoho for GST (send queue, decision 4.9).
 - **v0.39.1 (owner, same day):** the plant's totals (Bills "Still due / Overdue", Payments "Received") are owner +
   support only (`ledger_totals`); `billsList().summary` / `paymentsList().total` are null for Order desk.
+
+### 2026-11-06 — Accounts role (v0.40.0)
+Owner: only people with **Accounts** see the Bills section. Platform migration `0025_accounts_role.sql`; `accounts` in
+`ROLE_IDS` / `ROLE_MODULE` (works in Order Capture, so it can be ticked for its alerts). Order Capture: `Who` gains
+`accounts`; `OcUser.also` carries Accounts for someone who is also Order desk (`can()` checks both). Access:
+`read`, `see_amounts`, `view_customers`, `ledger_view`, `bill_make`, `payment_receive` for Accounts; Order desk loses
+`ledger_view`, `bill_make`, `payment_receive` (plain refusal "Bills and payments need the Accounts role. Ask the owner.").
