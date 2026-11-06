@@ -1990,3 +1990,8 @@ account (Bills / Orders / Payments / Statement with print + CSV); **Make bill** 
 or payment with a reason; "Closed" orders; Undo delivered refused while a bill is open; bell alerts for payments and
 cancellations (3 new `NOTIFICATION_KINDS`). No migration. **Live 2026-11-06** (`production` = `12e954e`). Next (owner to order): credit notes, aging / sales reports,
 payment reminders, walk-in bills, Zoho GST send queue.
+**Decided by the owner (2026-11-06): from 6 Nov 2026 plant 001's bills and payments are made in PlantOps** (Make bill,
+Receive payment); Zoho only for GST invoices (number typed on the bill). Zoho holds everything up to 5 Nov (imported
+6 Nov). No more Zoho invoice / payment imports. 6 orders delivered on 6 Nov need PlantOps bills; orders delivered up
+to 5 Nov are billed in Zoho (42 linked, the rest to link by hand). Proposed guard (asked): Make bill refused before
+the Zoho export date; re-imports skip invoices / payments dated on or after it.
