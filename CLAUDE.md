@@ -1988,5 +1988,5 @@ Next: L4 customer page + Bills / Payments tabs + statement + "Match after import
 account (Bills / Orders / Payments / Statement with print + CSV); **Make bill** (B-0001…, advance used first) and
 **Receive payment** (P-0001…, oldest bills first or ticked, rest = advance) for owner + Order desk; owner cancels a bill
 or payment with a reason; "Closed" orders; Undo delivered refused while a bill is open; bell alerts for payments and
-cancellations (3 new `NOTIFICATION_KINDS`). No migration. Next (owner to order): credit notes, aging / sales reports,
+cancellations (3 new `NOTIFICATION_KINDS`). No migration. **Live 2026-11-06** (`production` = `12e954e`). Next (owner to order): credit notes, aging / sales reports,
 payment reminders, walk-in bills, Zoho GST send queue.
