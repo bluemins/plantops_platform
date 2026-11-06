@@ -34,6 +34,8 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["calls_numbers", true, false, false, false, true],
   ["view_ignored", true, false, false, false, true],
   ["calls_ignore", true, false, false, false, false],
+  ["zoho_import", true, false, false, false, false],
+  ["zoho_match", true, false, false, false, false],
 ];
 
 describe("who is who", () => {

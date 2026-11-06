@@ -28,6 +28,16 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
           Upload a customer list
         </LinkRow>
       )}
+      {can(user, "zoho_import") && (
+        <LinkRow href="/customers/zoho" note="Contacts, invoices and payments from Zoho Books (CSV)">
+          Import from Zoho
+        </LinkRow>
+      )}
+      {can(user, "zoho_match") && (
+        <LinkRow href="/customers/match" note="Link every Zoho contact to one of your customers">
+          Match Zoho customers
+        </LinkRow>
+      )}
       <CustomersEditor list={list} q={q} showOff={showOff} canEdit={can(user, "customers")} plainPhones={user.isSupport} />
     </div>
   );

@@ -1,6 +1,6 @@
 // Drizzle table definitions mirroring db/migrations/*.sql (the SQL files are the source of truth).
 // Money and rates are numeric in the database and strings here ("140.00"), so no paisa is lost to rounding.
-import { bigint, boolean, integer, jsonb, numeric, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, date, integer, jsonb, numeric, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const oc = pgSchema("order_capture");
 const ts = (name: string) => timestamp(name, { withTimezone: true });
@@ -200,5 +200,143 @@ export const ignoredNumberChanges = oc.table("ignored_number_changes", {
   label: text("label"),
   changedBy: uuid("changed_by").notNull(),
   changedByName: text("changed_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+// ---------- sales ledger (0008): bills, payments, allocations, adjustments, Zoho contacts + imports ----------
+export type LedgerSource = "zoho" | "plantops";
+export type PaymentMode = "cash" | "upi" | "bank" | "cheque" | "other";
+export type AdjustmentKind = "zoho_closed" | "write_off" | "discount";
+
+export const zohoImports = oc.table("zoho_imports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  files: jsonb("files").notNull().default({}),
+  counts: jsonb("counts").notNull().default({}),
+  exportDate: date("export_date"),
+  importedBy: uuid("imported_by").notNull(),
+  importedByName: text("imported_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const zohoContacts = oc.table("zoho_contacts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  zohoContactId: text("zoho_contact_id").notNull(),
+  name: text("name").notNull(),
+  company: text("company"),
+  mobileTyped: text("mobile_typed"),
+  mobile: text("mobile"),
+  gstin: text("gstin"),
+  zohoStatus: text("zoho_status"),
+  customerId: uuid("customer_id"),
+  importId: uuid("import_id").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+const cancelCols = {
+  cancelledAt: ts("cancelled_at"),
+  cancelledBy: uuid("cancelled_by"),
+  cancelledByName: text("cancelled_by_name"),
+  cancelReason: text("cancel_reason"),
+};
+
+export const bills = oc.table("bills", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  source: text("source").$type<LedgerSource>().notNull(),
+  number: text("number").notNull(),
+  refNo: integer("ref_no"),
+  zohoInvoiceId: text("zoho_invoice_id"),
+  billDate: date("bill_date").notNull(),
+  dueDate: date("due_date"),
+  customerId: uuid("customer_id"),
+  zohoContactId: uuid("zoho_contact_id"),
+  customerName: text("customer_name").notNull(),
+  orderId: uuid("order_id"),
+  subTotal: numeric("sub_total", { precision: 18, scale: 2 }).notNull(),
+  discount: numeric("discount", { precision: 18, scale: 2 }).notNull().default("0"),
+  adjustment: numeric("adjustment", { precision: 18, scale: 2 }).notNull().default("0"),
+  taxTotal: numeric("tax_total", { precision: 18, scale: 2 }).notNull().default("0"),
+  total: numeric("total", { precision: 18, scale: 2 }).notNull(),
+  notes: text("notes"),
+  salesperson: text("salesperson"),
+  zohoGstInvoiceNo: text("zoho_gst_invoice_no"),
+  zohoStatus: text("zoho_status"),
+  zohoBalance: numeric("zoho_balance", { precision: 18, scale: 2 }),
+  importId: uuid("import_id"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  ...cancelCols,
+});
+
+export const billLines = oc.table("bill_lines", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  billId: uuid("bill_id").notNull(),
+  lineNo: integer("line_no").notNull(),
+  skuId: uuid("sku_id"),
+  skuCode: text("sku_code"),
+  itemName: text("item_name").notNull(),
+  description: text("description"),
+  quantity: numeric("quantity", { precision: 14, scale: 3 }).notNull(),
+  unit: text("unit"),
+  rate: numeric("rate", { precision: 14, scale: 2 }).notNull(),
+  discount: numeric("discount", { precision: 14, scale: 2 }).notNull().default("0"),
+  taxName: text("tax_name"),
+  taxPercent: numeric("tax_percent", { precision: 5, scale: 2 }),
+  taxAmount: numeric("tax_amount", { precision: 14, scale: 2 }).notNull().default("0"),
+  hsn: text("hsn"),
+  lineTotal: numeric("line_total", { precision: 18, scale: 2 }).notNull(),
+});
+
+export const payments = oc.table("payments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  source: text("source").$type<LedgerSource>().notNull(),
+  number: text("number").notNull(),
+  refNo: integer("ref_no"),
+  zohoPaymentId: text("zoho_payment_id"),
+  paymentDate: date("payment_date").notNull(),
+  customerId: uuid("customer_id"),
+  zohoContactId: uuid("zoho_contact_id"),
+  customerName: text("customer_name").notNull(),
+  mode: text("mode").$type<PaymentMode>().notNull(),
+  reference: text("reference"),
+  depositTo: text("deposit_to"),
+  amount: numeric("amount", { precision: 18, scale: 2 }).notNull(),
+  note: text("note"),
+  importId: uuid("import_id"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  ...cancelCols,
+});
+
+export const paymentAllocations = oc.table("payment_allocations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  paymentId: uuid("payment_id").notNull(),
+  billId: uuid("bill_id").notNull(),
+  amount: numeric("amount", { precision: 18, scale: 2 }).notNull(),
+  allocatedOn: date("allocated_on").notNull(),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const billAdjustments = oc.table("bill_adjustments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  billId: uuid("bill_id").notNull(),
+  kind: text("kind").$type<AdjustmentKind>().notNull(),
+  amount: numeric("amount", { precision: 18, scale: 2 }).notNull(),
+  reason: text("reason").notNull(),
+  adjustedOn: date("adjusted_on").notNull(),
+  importId: uuid("import_id"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
 });

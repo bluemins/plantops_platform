@@ -4,6 +4,35 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.38.0 — 2026-11-06 — Order Capture: sales ledger tables, "Import from Zoho" and "Match Zoho customers"
+
+Steps L2 + L3 of the sales ledger (order → bill → payment → closed), asked by the owner 2026-11-06; plan
+`docs/ZOHO_IMPORT_PHASE_PLAN.md`.
+- **Ledger in the database:** bills (Zoho invoices and, later, PlantOps bills B-0001…), bill lines, payments,
+  what each payment paid, adjustments, Zoho contacts and an import log. A bill's due, a payment's unused amount, a
+  customer's balance, an order's "Closed" and the statement are worked out from the rows (`src/lib/ledger.ts`), never
+  stored. Nothing is deleted; only a contact's link / phone, a bill's order link / GST invoice no. / cancellation and a
+  payment's cancellation can change.
+- **Customers → Import from Zoho** (owner only): pick Zoho's Contacts, Invoices and Payments Received CSVs (only the
+  needed columns are sent; the files are never stored). Preview first: money must match Zoho (billed, received, due per
+  invoice) or nothing can be saved; Confirm saves everything in one transaction; importing newer files again adds only
+  what is new.
+  - Contacts: linked to a customer only when exactly one Zoho contact has a mobile already in the customer list (your
+    name for them stays). **No customer is ever created by the import** (owner: "I can do the match ... do not miss
+    anything"); every other contact waits on the Match screen.
+  - Invoices → bills with Zoho's lines exactly; a contact's opening balance → its own bill `OB-…`.
+  - Payments → payments; Cash deposited to a bank account → Bank; drafts skipped.
+  - Invoices Zoho shows as settled for more than their payments → "closed in Zoho" adjustments.
+  - Delivered orders → linked to their invoice (same mobile, invoice 1 day before to 3 days after delivery, same
+    products and quantities); the rest listed to check after the import.
+- **Customers → Match Zoho customers** (owner only): three lists that together hold every Zoho contact and every
+  customer: To match (suggestions by the same mobile and by name, search any customer, or "+ Add as new customer"),
+  Linked (unlink / change), Your customers without Zoho (suggested Zoho contacts). A contact's bills and payments
+  follow its link; linking never changes the customer's name or mobile; every link is audited.
+- Nothing new on the order screens yet; the customer page with bills / payments / statement is the next step (L4).
+- **Migrations:** Order Capture `0008_ledger.sql` (seven new tables, FORCE RLS, no DELETE; no existing table changes).
+  Platform and SSO token unchanged.
+
 ## v0.37.1 — 2026-11-06 — Zoho items import keeps the owner's edits
 
 Asked by the owner 2026-11-06 after renaming products: "remember my edits so the next import from the same Zoho keeps

@@ -1976,3 +1976,11 @@ Order Capture `0008` in L2).
 Business details → Products (Zoho wins on name / SKU / HSN / purchase rate / status where Zoho changed since the last import, owner edits kept otherwise (v0.37.1, migration `0024_zoho_item_links.sql`, live 2026-11-06 `f30bc31`); PlantOps keeps size / pack / units;
 owner only; preview → confirm). Modules get `hsn`, never `cost_rate`. Tests: platform 415 (+12). **Live 2026-11-06** (`production` = `ec66d49`, migration 0023 applied). Dry run of plant 001's
 real `Item.csv` against the live products: 8 updated, 2 added, 6 kept, 50 purchase items skipped.
+**L2 + L3 built (v0.38.0, not deployed):** Order Capture migration `0008_ledger.sql` (7 tables: bills, bill lines,
+payments, allocations, adjustments, Zoho contacts, imports), money rules `src/lib/ledger.ts`, owner-only **Customers →
+Import from Zoho** (Contacts + Invoices + Payments Received CSVs; preview must match Zoho; re-import adds only what's
+new; contacts' opening balances become `OB-…` bills; never creates customers, links only a unique same mobile) and
+**Customers → Match Zoho customers** (owner: every Zoho contact and customer in one of three lists; link / unlink / add
+as new customer). Plant 001's real files checked: billed ₹33,97,724.12, received
+₹32,93,400.02, due ₹1,04,896.26 = Zoho; 224 contacts linked, 880 to match; 42 of 86 delivered orders linked. Tests: Order Capture 503 (+48).
+Next: L4 customer page + Bills / Payments tabs + statement + "Match after import" (owner, 2026-11-06).

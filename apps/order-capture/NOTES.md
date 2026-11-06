@@ -171,3 +171,33 @@ Plan `docs/CALLS_PHASE_PLAN.md`, mock-up screen 5. **No migration**, platform an
   waiting", Delivery staff "3 waiting · 3 calls today", Order desk "No pending orders"; the numbers page at 390 and 1280
   px (no sideways page scroll; the by-day table scrolls inside its box on a phone).
 - **Tests:** Order Capture 455 (+12: `test/calls-numbers.test.ts` with the mock-up's worked day, `test/summary.test.ts`).
+
+### 2026-11-06 — Sales ledger tables + Import from Zoho (L2 + L3, v0.38.0)
+Plan and decisions: `docs/ZOHO_IMPORT_PHASE_PLAN.md`. Migration `0008_ledger.sql` (approved): `zoho_imports`,
+`zoho_contacts`, `bills`, `bill_lines`, `payments`, `payment_allocations`, `bill_adjustments`; FORCE RLS; `order_app`
+SELECT + INSERT, UPDATE only on `zoho_contacts (customer_id, mobile, mobile_typed, updated_at)`, `bills (order_id,
+zoho_gst_invoice_no, cancel columns)`, `payments (cancel columns)`; no DELETE. One open bill per order (partial unique
+index); numbers unique per plant; a bill / payment belongs to exactly one customer or Zoho contact.
+- **Money rules:** `src/lib/ledger.ts` (paise): `billDue`, `billStatus`, `paymentUnused`, `ledgerTotals`,
+  `allocatePayment` (ticked bills or oldest first, rest = advance), `useAdvances`, `orderLedgerStatus` (Closed),
+  `statement` (running balance, opening before a range). Nothing stored.
+- **Import:** `src/lib/zoho-import.ts` (readers + `planImport`), `src/server/zoho-import.ts` (preview / confirm,
+  fingerprint, refuses unless every due matches Zoho), `POST /api/zoho-import/{preview,confirm}`, page
+  `/customers/zoho` (owner; access row `zoho_import`). Imported bills always point at the Zoho contact; the contact
+  points at the customer (so adding a phone later moves its bills). Zoho bills keep Zoho's invoice id as
+  `zoho_invoice_id`; an opening balance uses `ob:<contact id>` and number `OB-<contact id>`.
+- **Made while building:** contacts' **opening balances** (12 at plant 001, ₹20,936; 11 payments "Customer opening
+  balance") become bills, not found in the plan before; place from the brackets in the Zoho name (Zoho has no billing
+  city for plant 001); order matching window 1 day before to 3 days after delivery (no delivered order at plant 001 has
+  a typed invoice no.); Zoho's leading apostrophe on mobiles stripped; the Zoho rate is **not** imported to Rates.
+- **Plant 001 (real files, dry run against live data, read-only):** billed ₹33,97,724.12 (incl. ₹20,936 opening
+  balances), received ₹32,93,400.02 (2 drafts, ₹1,500, skipped), due ₹1,04,896.26 = Zoho, 0 mismatches, 33
+  adjustments ₹6,892.84; 262 contacts linked, 382 new customers, 460 no phone yet; 42 of 86 delivered orders linked, 44
+  to check. Real files through the real import into the test database: preview 0.1 s, confirm 0.8 s (2 MB request).
+- **Changed the same day (owner: "I can do the match ... do not miss anything"):** the import never creates customers;
+  it links a contact only when exactly one Zoho contact has a mobile already in the customer list (plant 001: 224
+  linked, 880 to match). **Match screen** `/customers/match` (`src/server/zoho-match.ts`, `src/lib/name-match.ts`,
+  `POST /api/zoho-match`; access row `zoho_match`, owner): To match / Linked / Your customers without Zoho, name
+  suggestions (titles and punctuation dropped, place in brackets compared separately, score ≥ 0.5), link / unlink /
+  new customer (409 when the mobile is already a customer). Mock-ups: https://claude.ai/artifact/31f4BLeKyxsT6azMdE62CQ
+- Tests: Order Capture `ledger.test.ts`, `ledger-db.test.ts`, `zoho-import.test.ts`, `zoho-match.test.ts`, guards.

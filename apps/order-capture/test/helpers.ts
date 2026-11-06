@@ -98,11 +98,31 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
     values ('${tenantId}', '9000000009', now(), 'known', '${customer}', '${who}', 'Raju') returning id`);
   const ignored = await one(`insert into order_capture.ignored_number_changes (tenant_id, phone, action, label, changed_by, changed_by_name)
     values ('${tenantId}', '9111111111', 'add', 'Brother', '${who}', 'Sujata') returning id`);
-  return { who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored };
+  // sales ledger (0008): an import, a Zoho contact, a Zoho bill + line, a PlantOps bill, a payment, its allocation, an adjustment
+  const imp = await one(`insert into order_capture.zoho_imports (tenant_id, imported_by, imported_by_name) values ('${tenantId}', '${who}', 'Sujata') returning id`);
+  const contact = await one(`insert into order_capture.zoho_contacts (tenant_id, zoho_contact_id, name, mobile_typed, mobile, customer_id, import_id)
+    values ('${tenantId}', 'zc-${randomUUID()}', 'Sri ram hotel', '+91 ${phone}', '${phone}', '${customer}', '${imp}') returning id`);
+  const zohoBill = await one(`insert into order_capture.bills (tenant_id, source, number, zoho_invoice_id, bill_date, due_date, zoho_contact_id, customer_name, sub_total, total, import_id, created_by, created_by_name)
+    values ('${tenantId}', 'zoho', 'INV-000001', 'zi-1', '2026-10-01', '2026-10-01', '${contact}', 'Sri ram hotel', 500, 500, '${imp}', '${who}', 'Sujata') returning id`);
+  const billLine = await one(`insert into order_capture.bill_lines (tenant_id, bill_id, line_no, sku_code, item_name, quantity, rate, line_total)
+    values ('${tenantId}', '${zohoBill}', 1, 'PV_BM_500', '500ml Water Bottle', 5, 100, 500) returning id`);
+  const bill = await one(`insert into order_capture.bills (tenant_id, source, number, ref_no, bill_date, customer_id, customer_name, order_id, sub_total, total, created_by, created_by_name)
+    values ('${tenantId}', 'plantops', 'B-0001', 1, '2026-11-06', '${customer}', 'Sri ram hotel', '${order}', 510, 510, '${who}', 'Sujata') returning id`);
+  const payment = await one(`insert into order_capture.payments (tenant_id, source, number, ref_no, payment_date, customer_id, customer_name, mode, amount, created_by, created_by_name)
+    values ('${tenantId}', 'plantops', 'P-0001', 1, '2026-11-06', '${customer}', 'Sri ram hotel', 'cash', 300, '${who}', 'Sujata') returning id`);
+  const allocation = await one(`insert into order_capture.payment_allocations (tenant_id, payment_id, bill_id, amount, allocated_on, created_by, created_by_name)
+    values ('${tenantId}', '${payment}', '${zohoBill}', 300, '2026-11-06', '${who}', 'Sujata') returning id`);
+  const adjustment = await one(`insert into order_capture.bill_adjustments (tenant_id, bill_id, kind, amount, reason, adjusted_on, import_id, created_by, created_by_name)
+    values ('${tenantId}', '${zohoBill}', 'zoho_closed', 200, 'Closed in Zoho', '2026-11-05', '${imp}', '${who}', 'Sujata') returning id`);
+  return { who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment };
 }
 
 /** The tables in the order_capture schema (the guard tests compare against this list). */
-export const TABLES = ["audit_log", "call_attended", "call_events", "customer_consents", "customer_messages", "customers", "ignored_number_changes", "notification_outbox", "order_events", "order_lines", "orders", "product_rates", "reminder_groups", "support_views"];
+export const TABLES = [
+  "audit_log", "bill_adjustments", "bill_lines", "bills", "call_attended", "call_events", "customer_consents", "customer_messages", "customers",
+  "ignored_number_changes", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "product_rates",
+  "reminder_groups", "support_views", "zoho_contacts", "zoho_imports",
+];
 
 /**
  * Calls an API route as `user` (owner, Order desk, support...), the way the proxy and the kit's session cookie would

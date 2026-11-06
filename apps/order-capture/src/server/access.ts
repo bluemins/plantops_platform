@@ -33,7 +33,9 @@ export type Action =
   | "calls_attend" // mark a number attended, saving a new caller to the customer list
   | "calls_numbers" // the owner's calls numbers page
   | "view_ignored" // the "Not an order number" list (its labels can be private)
-  | "calls_ignore"; // add / remove a number on that list
+  | "calls_ignore" // add / remove a number on that list
+  | "zoho_import" // bring Zoho's contacts, invoices and payments into the sales ledger (docs/ZOHO_IMPORT_PHASE_PLAN.md)
+  | "zoho_match"; // the Match screen: link Zoho contacts to customers, or add them as customers
 
 export const ACCESS: Record<Action, readonly Who[]> = {
   read: ["owner", "desk", "viewer", "support"],
@@ -60,6 +62,8 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   calls_numbers: ["owner", "support"],
   view_ignored: ["owner", "support"],
   calls_ignore: ["owner"],
+  zoho_import: ["owner"],
+  zoho_match: ["owner"],
 };
 
 /** What the user is, for this table. null = no Order Capture rights at all (e.g. a store keeper). */

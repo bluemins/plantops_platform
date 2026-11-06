@@ -95,12 +95,33 @@ describe("append-only for order_app", () => {
       `update order_capture.customer_messages set requested_by_name = 'X' where id = '${ids.message}'`,
       `update order_capture.customer_messages set created_at = now() where id = '${ids.message}'`,
       `update order_capture.customer_messages set tenant_id = gen_random_uuid() where id = '${ids.message}'`,
+      // sales ledger (0008): bills, payments, lines, allocations, adjustments and imports never change, except the
+      // link / cancel columns; a Zoho contact only gets its customer link or phone
+      `update order_capture.bills set total = 1 where id = '${ids.bill}'`,
+      `update order_capture.bills set number = 'B-9999' where id = '${ids.bill}'`,
+      `update order_capture.bills set customer_id = null where id = '${ids.bill}'`,
+      `update order_capture.bills set bill_date = '2020-01-01' where id = '${ids.bill}'`,
+      `update order_capture.bills set created_by_name = 'X' where id = '${ids.bill}'`,
+      `update order_capture.bills set zoho_balance = 0 where id = '${ids.zohoBill}'`,
+      `update order_capture.bills set tenant_id = gen_random_uuid() where id = '${ids.bill}'`,
+      `update order_capture.bill_lines set quantity = 9 where id = '${ids.billLine}'`,
+      `update order_capture.bill_lines set line_total = 1 where id = '${ids.billLine}'`,
+      `update order_capture.payments set amount = 1 where id = '${ids.payment}'`,
+      `update order_capture.payments set payment_date = '2020-01-01' where id = '${ids.payment}'`,
+      `update order_capture.payments set mode = 'upi' where id = '${ids.payment}'`,
+      `update order_capture.payments set customer_id = null where id = '${ids.payment}'`,
+      `update order_capture.payment_allocations set amount = 1 where id = '${ids.allocation}'`,
+      `update order_capture.payment_allocations set bill_id = '${ids.bill}' where id = '${ids.allocation}'`,
+      `update order_capture.bill_adjustments set amount = 1 where id = '${ids.adjustment}'`,
+      `update order_capture.zoho_imports set counts = '{}' where id = '${ids.imp}'`,
+      `update order_capture.zoho_contacts set name = 'X' where id = '${ids.contact}'`,
+      `update order_capture.zoho_contacts set zoho_contact_id = 'X' where id = '${ids.contact}'`,
     ];
   };
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(89); // + the three call tables (delete, truncate) and five call updates (0007)
+    expect(list.length).toBe(89 + 14 + 19); // + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008)
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 
@@ -116,6 +137,14 @@ describe("append-only for order_app", () => {
     ).toBe(1);
     expect((await asApp(t, `update order_capture.notification_outbox set attempts = 1, last_error = 'x', sent_at = now() where id = '${ids.outbox}'`)).rowCount).toBe(1);
     expect((await asApp(t, `update order_capture.customer_messages set status = 'sent', provider_sid = 'SM123', error = null, attempts = 1, sent_at = now() where id = '${ids.message}'`)).rowCount).toBe(1);
+  });
+
+  it("ledger: a bill gets its order / GST invoice no. or is cancelled; a payment is cancelled; a contact gets its customer / phone", async () => {
+    expect((await asApp(t, `update order_capture.bills set zoho_gst_invoice_no = 'INV-001900' where id = '${ids.bill}'`)).rowCount).toBe(1);
+    expect((await asApp(t, `update order_capture.bills set cancelled_at = now(), cancelled_by = gen_random_uuid(), cancelled_by_name = 'Sujata', cancel_reason = 'Wrong rate' where id = '${ids.bill}'`)).rowCount).toBe(1);
+    expect((await asApp(t, `update order_capture.bills set order_id = null where id = '${ids.zohoBill}'`)).rowCount).toBe(1);
+    expect((await asApp(t, `update order_capture.payments set cancelled_at = now(), cancelled_by = gen_random_uuid(), cancelled_by_name = 'Sujata', cancel_reason = 'Typed twice' where id = '${ids.payment}'`)).rowCount).toBe(1);
+    expect((await asApp(t, `update order_capture.zoho_contacts set customer_id = null, mobile = null, mobile_typed = null, updated_at = now() where id = '${ids.contact}'`)).rowCount).toBe(1);
   });
 });
 

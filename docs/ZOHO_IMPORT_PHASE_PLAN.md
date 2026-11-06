@@ -13,6 +13,13 @@ approved) keeps Zoho's last values per product + Zoho Item ID; a field changes o
 import; a code changed in PlantOps is found through the link. Products imported before links existed keep their
 values on the next import (plant had a `sku.zoho_import` before). Dry run for plant 001: 0 changes, 7 names kept,
 10 links.
+**L2 + L3 built 2026-11-06 (v0.38.0; notes in `apps/order-capture/NOTES.md`).** L2 (ledger database + rules): Order Capture migration
+`0008_ledger.sql`: `zoho_imports`, `zoho_contacts`, `bills`, `bill_lines`, `payments`, `payment_allocations`,
+`bill_adjustments` (FORCE RLS; SELECT + INSERT; UPDATE only on contact link / phone, bill order link / GST invoice no. /
+cancel, payment cancel; no DELETE; one open bill per order; numbers unique per plant). Drizzle in
+`src/server/schema.ts`; money rules in `src/lib/ledger.ts` (paise: bill due, status, unused, totals, oldest-first
+allocation, advances, Closed, statement). Tests: Order Capture 477 (+22: `ledger.test.ts`, `ledger-db.test.ts`,
+append-only and RLS guards cover the 7 tables).
 The Zoho **rate** is not stored on the platform: Order Capture's import (L3) reads `Item.csv` too and sets Rates.
 
 ## 1. What the owner wants (2026-11-06)
@@ -208,6 +215,10 @@ customer-facing bills / the customer app, 20L jars and deposits, purchase side, 
 - **L3 – Zoho import:** the three-file preview / confirm, re-import, order linking, "Check these"; tests with
   plant 001's shapes (made-up names).
 - **L4 – Customer page + Bills / Payments tabs + statement + CSV;** "no phone yet" contacts and Add phone.
+  **Match after import** (owner, 2026-11-06: "we can run a matching post import, for customer name"): a screen that
+  suggests, for each "no phone yet" Zoho contact, existing customers with a similar name (place in brackets ignored /
+  compared separately); the owner confirms (links the contact, its bills and payments follow) or skips. The same screen
+  lists delivered orders not linked to a bill ("Check these") with the nearest bills.
 - **L5 – New flow:** Make bill, Receive payment, cancel, Closed orders, notifications.
 - **L6 – Release:** NOTES, HANDBOOK "Bills and payments" + "Importing from Zoho", `next build`, deploy; the owner
   imports plant 001's files on the live copy and checks the three totals.
