@@ -42,6 +42,7 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["payment_receive", true, true, false, false, false],
   ["payment_cancel", true, false, false, false, false],
   ["ledger_export", true, false, false, false, false],
+  ["ledger_totals", true, false, false, false, true],
 ];
 
 describe("who is who", () => {

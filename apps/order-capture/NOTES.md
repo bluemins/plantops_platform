@@ -217,3 +217,5 @@ who see amounts). Access rows `ledger_view` (owner, desk, support), `bill_make` 
 - **Next Zoho Books features (owner to order):** credit notes; receivables aging (0–30 / 31–60 / 61–90 / 90+ days) and
   sales by customer / product; payment reminders (WhatsApp / bell for overdue bills); a bill without an order (walk-in);
   recurring bills; sending bills to Zoho for GST (send queue, decision 4.9).
+- **v0.39.1 (owner, same day):** the plant's totals (Bills "Still due / Overdue", Payments "Received") are owner +
+  support only (`ledger_totals`); `billsList().summary` / `paymentsList().total` are null for Order desk.

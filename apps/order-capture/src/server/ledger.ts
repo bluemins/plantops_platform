@@ -27,7 +27,7 @@ import {
   type LedgerPayment,
 } from "@/lib/ledger";
 import { formatRef } from "@/lib/ref";
-import { requireAccess } from "./access";
+import { can, requireAccess } from "./access";
 import { audit } from "./audit";
 import { schema, withTenant, type OcTx } from "./db";
 import { badRequest, conflict, notFound } from "./http";
@@ -258,7 +258,8 @@ export async function billsList(user: OcUser, f: { show?: BillFilter; q?: string
         contact_id: r.contact_id,
       };
     });
-    return { bills: list, more: rows.rows.length > limit, summary: summary.rows[0]! };
+    // the plant's totals: owner (and support) only; Order desk sees the list, not the totals (owner, 2026-11-06)
+    return { bills: list, more: rows.rows.length > limit, summary: can(user, "ledger_totals") ? summary.rows[0]! : null };
   });
 }
 
@@ -289,7 +290,7 @@ export async function paymentsList(user: OcUser, f: { q?: string; from?: string;
     const total = await tx.execute<{ n: number; sum: string }>(sql`
       select count(*)::int as n, coalesce(sum(amount), 0)::numeric(18, 2)::text as sum from order_capture.payments
        where tenant_id = ${user.tenantId} and cancelled_at is null and (${mode} = '' or mode = ${mode}) and payment_date between ${from}::date and ${to}::date`);
-    return { payments: rows.rows.slice(0, limit), more: rows.rows.length > limit, total: total.rows[0]! };
+    return { payments: rows.rows.slice(0, limit), more: rows.rows.length > limit, total: can(user, "ledger_totals") ? total.rows[0]! : null };
   });
 }
 

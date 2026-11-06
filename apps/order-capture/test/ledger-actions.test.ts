@@ -159,12 +159,16 @@ describe("make bill, receive payment, advances, cancel", () => {
   it("the plant's lists: due total, filters, search; payments with modes", async () => {
     const open = await billsList(a.owner, { show: "open" });
     expect(open.bills.every((x) => x.due !== "0.00")).toBe(true);
-    expect(Number(open.summary.due)).toBeGreaterThan(0);
+    expect(Number(open.summary!.due)).toBeGreaterThan(0);
     expect((await billsList(a.owner, { show: "cancelled" })).bills.map((x) => x.number)).toEqual(["B-0001"]);
     expect((await billsList(a.owner, { show: "all", q: "INV-000500" })).bills.map((x) => x.name)).toEqual(["Sri ram hotel"]);
     const pays = await paymentsList(a.owner, { mode: "upi" });
     expect(pays.payments.map((x) => [x.number, x.cancelled])).toEqual([["P-0002", true]]);
-    expect(pays.total.sum).toBe("0.00");
+    expect(pays.total!.sum).toBe("0.00");
+    // the plant's totals: owner (and support) only, never Order desk
+    expect((await billsList(a.desk)).summary).toBeNull();
+    expect((await paymentsList(a.desk)).total).toBeNull();
+    expect((await billsList(a.support)).summary).not.toBeNull();
     expect((await refused(() => billsList(a.staff))).status).toBe(403);
     expect((await billsList(a.support)).bills.length).toBeGreaterThan(0);
   });

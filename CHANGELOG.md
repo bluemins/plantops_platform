@@ -4,6 +4,13 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.39.1 — 2026-11-06 — Plant totals owner only
+
+Owner, 2026-11-06: "Only the owner should be able to see the total." Bills' "Still due / Overdue bills" and Payments'
+"Received" are shown to the owner (and PlantOps support, read-only) only; the server doesn't send them to Order desk.
+Order desk keeps the lists and each customer's own balance (needed to take a payment). Access row `ledger_totals`.
+No migration.
+
 ## v0.39.0 — 2026-11-06 — Order Capture: bills and payments in daily use (like Zoho Books)
 
 Steps L4 + L5 of `docs/ZOHO_IMPORT_PHASE_PLAN.md` (owner: "start building it, the complete stuff … similar to Zoho

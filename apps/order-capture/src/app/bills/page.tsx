@@ -34,7 +34,7 @@ export default async function BillsPage({ searchParams }: { searchParams: Search
         {can(user, "ledger_export") && <a href="/api/export/bills" className="ml-auto pb-1 text-(--brand)">CSV</a>}
       </nav>
 
-      <Card className="grid grid-cols-2 gap-3">
+      {data.summary && <Card className="grid grid-cols-2 gap-3">
         <div>
           <p className="text-xs text-slate-500">Still due</p>
           <p className="text-2xl font-bold text-amber-700">{money(data.summary.due)}</p>
@@ -44,7 +44,7 @@ export default async function BillsPage({ searchParams }: { searchParams: Search
           <p className="text-xs text-slate-500">Overdue bills</p>
           <p className="text-2xl font-bold">{data.summary.overdue}</p>
         </div>
-      </Card>
+      </Card>}
 
       <nav aria-label="Show" className="flex flex-wrap gap-2">
         {BILL_FILTERS.map((s) => (

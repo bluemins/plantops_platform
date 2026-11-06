@@ -32,11 +32,11 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Sea
         <span className="border-b-2 border-(--brand) pb-1">Payments</span>
         {can(user, "ledger_export") && <a href="/api/export/payments" className="ml-auto pb-1 text-(--brand)">CSV</a>}
       </nav>
-      <Card>
+      {data.total && <Card>
         <p className="text-xs text-slate-500">Received{f.from || f.to ? " in these dates" : ""}{f.mode ? ` (${f.mode})` : ""}</p>
         <p className="text-2xl font-bold">{money(data.total.sum)}</p>
         <p className="text-xs text-slate-500">{data.total.n} payments</p>
-      </Card>
+      </Card>}
       <form method="get" className="space-y-2">
         <input name="q" defaultValue={f.q} className={field} placeholder="Search payment no., name or reference" />
         <div className="grid grid-cols-3 gap-2">
