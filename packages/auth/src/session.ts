@@ -25,6 +25,8 @@ export interface ModuleSession {
   display_name?: string;
   roles: RoleId[];
   enabled_modules: ModuleId[];
+  /** Attendance only: how far back an Office staff / Supervisor may fix (from the status check; absent = default) */
+  fix_days_back?: number;
   /** ms since epoch */
   login_at: number;
   /** ms since epoch: last successful status check with the platform */
@@ -42,6 +44,7 @@ export async function startModuleSession(creds: ModuleCredentials, code: string,
     tenant_id: p.tenant_id,
     user_id: p.user_id,
     display_name: status.display_name,
+    ...(status.fix_days_back !== undefined ? { fix_days_back: status.fix_days_back } : {}),
     roles: p.roles,
     enabled_modules: p.enabled_modules,
     login_at: now,
@@ -69,6 +72,7 @@ const SessionShape = (moduleId: ModuleId) => ({
     if (!s || typeof s.tenant_id !== "string" || typeof s.user_id !== "string") return null;
     if (typeof s.login_at !== "number" || typeof s.checked_at !== "number") return null;
     if (s.display_name !== undefined && typeof s.display_name !== "string") return null;
+    if (s.fix_days_back !== undefined && !Number.isInteger(s.fix_days_back)) return null;
     const roles = RoleId.array().safeParse(s.roles);
     const mods = ModuleId.array().safeParse(s.enabled_modules);
     if (!roles.success || !mods.success || !mods.data.includes(moduleId)) return null;
@@ -106,7 +110,9 @@ export async function refreshModuleSession(
     const status = await fetchUserStatus(creds, session.tenant_id, session.user_id);
     if (!status.active || !canAccessModule(status.roles, status.enabled_modules, creds.moduleId)) return null;
     const display_name = status.display_name ?? session.display_name;
-    return { session: { ...session, display_name, roles: status.roles, enabled_modules: status.enabled_modules, checked_at: now }, changed: true };
+    const { fix_days_back: _old, ...rest } = session;
+    const fix = status.fix_days_back !== undefined ? { fix_days_back: status.fix_days_back } : {};
+    return { session: { ...rest, ...fix, display_name, roles: status.roles, enabled_modules: status.enabled_modules, checked_at: now }, changed: true };
   } catch (err) {
     // The platform said no (unknown user, module switched off, wrong secret): log out now.
     if (err instanceof PlatformRequestError && err.status < 500) return null;

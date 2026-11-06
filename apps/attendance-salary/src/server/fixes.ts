@@ -4,7 +4,7 @@
 // another owner's fix) the answer is 409 and the page reloads.
 import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { z } from "zod";
-import { addDays, dayStart, fmtMonth, istDay, validDay } from "@/lib/days";
+import { addDays, dayStart, fmtDayLong, fmtMonth, istDay, validDay } from "@/lib/days";
 import { fmtTime } from "@/lib/punch";
 import { can, requireAccess } from "./access";
 import { audit } from "./audit";
@@ -84,6 +84,28 @@ async function notPaidAsOffice(tx: AtTx, user: AtUser, personId: string, days: s
   if (month) throw forbidden(`${fmtMonth(month)} is marked paid for this person. Ask the owner to change it.`);
 }
 
+/**
+ * Office staff and Supervisors fix only the last few days (owner, 2026-11-06): today and the `fixDaysBack` days before,
+ * as the owner set it for them on Manage users. The oldest day among `days` that is too old, or null. Owners: no limit.
+ */
+export function tooOldDay(user: AtUser, days: string[], today: string): string | null {
+  if (user.isOwner || user.fixDaysBack === null) return null;
+  const first = addDays(today, -user.fixDaysBack);
+  const old = days.filter((d) => d < first).sort();
+  return old[0] ?? null;
+}
+
+/** "today only" / "the last 2 days" for the notes and refusals. */
+export function fixWindowText(user: AtUser) {
+  const n = user.fixDaysBack ?? 0;
+  return n === 0 ? "today only" : `today and the ${n === 1 ? "day" : `${n} days`} before`;
+}
+
+function notTooOld(user: AtUser, days: string[], today: string) {
+  const old = tooOldDay(user, days, today);
+  if (old) throw forbidden(`You can fix ${fixWindowText(user)}. Ask the owner to change ${fmtDayLong(old)}.`);
+}
+
 /** For the day page: the paid month that keeps Office staff / a Supervisor from fixing this day, or null. */
 export async function fixLockedMonth(user: AtUser, personId: string, date: string) {
   if (user.isOwner) return null;
@@ -99,7 +121,9 @@ export async function addFix(user: AtUser, input: z.infer<typeof AddInput>) {
   const at = new Date(`${input.date}T${input.time}:00+05:30`);
   const saved = await withTenant(user.tenantId, async (tx) => {
     await lockPerson(tx, user.tenantId, person.userId);
-    if (at > (await dbNow(tx))) throw badRequest("That time is in the future");
+    const now = await dbNow(tx);
+    if (at > now) throw badRequest("That time is in the future");
+    notTooOld(user, [input.day, input.date], istDay(now));
     await notPaidAsOffice(tx, user, person.userId, [input.day, input.date]);
     await checkStamp(tx, user, person.userId, input.day, input.expect);
     const [row] = await tx
@@ -146,6 +170,7 @@ export async function cancelFix(user: AtUser, input: z.infer<typeof CancelInput>
     await lockPerson(tx, user.tenantId, mark.userId);
     const [already] = await tx.select({ by: punchCancels.createdByName }).from(punchCancels).where(and(eq(punchCancels.tenantId, user.tenantId), eq(punchCancels.punchId, mark.id))).orderBy(desc(punchCancels.createdAt));
     if (already) throw conflict(`Already cancelled by ${already.by}.`);
+    notTooOld(user, [input.day, istDay(mark.at)], istDay(await dbNow(tx)));
     await notPaidAsOffice(tx, user, mark.userId, [input.day, istDay(mark.at)]);
     await checkStamp(tx, user, mark.userId, input.day, input.expect);
     const [c] = await tx

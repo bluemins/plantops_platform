@@ -147,6 +147,19 @@ export const DESK_ROLES: Partial<Record<ModuleId, readonly RoleId[]>> = {
 };
 
 /**
+ * How far back Office staff and Supervisors may add or cancel someone's IN / OUT in Attendance (owner, 2026-11-06):
+ * set per person by the owner on Manage users (platform table `fix_days_back`, migration 0022). 0 = today only,
+ * 2 = today and the 2 days before. No saved number = the default. Owners have no limit.
+ */
+export const FIX_DAYS_DEFAULT = 2;
+export const FIX_DAYS_MAX = 31;
+export const FixDaysBack = z.number().int().min(0).max(FIX_DAYS_MAX);
+/** Does this person get a "days back" limit? Office staff or Supervisor, not an owner. */
+export function hasFixLimit(roles: readonly RoleId[]) {
+  return !roles.includes("tenant_admin") && (roles.includes("office_staff") || roles.includes("supervisor"));
+}
+
+/**
  * Does this staff role work in this module? plant_staff works only in PLANT_STAFF_MODULES. tenant_admin is not a
  * working role (owners get the read-only view).
  */
@@ -197,6 +210,8 @@ export const UserStatus = z.object({
   display_name: z.string().optional(),
   roles: z.array(RoleId),
   enabled_modules: z.array(ModuleId),
+  /** Attendance only, for Office staff / Supervisors: how many days back they may fix (absent = FIX_DAYS_DEFAULT) */
+  fix_days_back: FixDaysBack.optional(),
 });
 export type UserStatus = z.infer<typeof UserStatus>;
 

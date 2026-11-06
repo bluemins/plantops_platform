@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
-import { ModuleId, OWNER_ONLY_ALERTS, PlanLimits, RoleId, getsAlertsIn } from "@plantops/types";
+import { FIX_DAYS_DEFAULT, FixDaysBack, ModuleId, OWNER_ONLY_ALERTS, PlanLimits, RoleId, getsAlertsIn, hasFixLimit } from "@plantops/types";
 import { audit, type Actor } from "./audit";
 import { hashSecret, temporarySecret, validateSecret, type SecretKind } from "./crypto";
 import { schema, withTenant, type PlatformDb, type PlatformTx } from "./db";
@@ -8,7 +8,7 @@ import { badRequest, conflict, notFound } from "./http";
 import type { CurrentUser } from "./auth";
 import { loadRoles } from "./auth";
 
-const { alertRecipients, users, userRoles, sessions, tenantPlans } = schema;
+const { alertRecipients, fixDaysBack, users, userRoles, sessions, tenantPlans } = schema;
 
 export const Roles = z
   .array(RoleId)
@@ -36,6 +36,8 @@ export const NewUserInput = z.object({
   email: z.preprocess((v) => blankToNull(v) ?? undefined, Email.optional()),
   roles: Roles,
   alert_modules: AlertModules.optional(),
+  /** Attendance: how far back an Office staff / Supervisor may fix (ignored for anyone else) */
+  fix_days_back: FixDaysBack.optional(),
 });
 export type NewUserInput = z.infer<typeof NewUserInput>;
 
@@ -47,6 +49,7 @@ export const UpdateUserInput = z
     roles: Roles,
     status: z.enum(["active", "disabled"]),
     alert_modules: AlertModules,
+    fix_days_back: FixDaysBack,
   })
   .partial();
 export type UpdateUserInput = z.infer<typeof UpdateUserInput>;
@@ -109,7 +112,14 @@ export async function insertUser(tx: PlatformTx, tenantId: string, input: NewUse
   }
   await tx.insert(userRoles).values(input.roles.map((roleId) => ({ tenantId, userId: id, roleId, grantedBy: actor })));
   if (input.alert_modules?.length) await setAlertModules(tx, tenantId, id, input.roles, input.alert_modules, actor, true);
-  await audit(tx, { tenantId, actor, action: "user.created", target: id, details: { username: input.username, roles: input.roles, alert_modules: input.alert_modules ?? [] } });
+  if (input.fix_days_back !== undefined && hasFixLimit(input.roles)) await setFixDays(tx, tenantId, id, input.fix_days_back, actor);
+  await audit(tx, {
+    tenantId,
+    actor,
+    action: "user.created",
+    target: id,
+    details: { username: input.username, roles: input.roles, alert_modules: input.alert_modules ?? [], ...(hasFixLimit(input.roles) ? { fix_days_back: input.fix_days_back ?? FIX_DAYS_DEFAULT } : {}) },
+  });
   return { id, temporary_secret: temporary, secret_kind: kind };
 }
 
@@ -174,7 +184,29 @@ async function setAlertModules(tx: PlatformTx, tenantId: string, userId: string,
   return keep;
 }
 
-export function toView(u: typeof users.$inferSelect, roles: RoleId[], alertModules: ModuleId[] = []) {
+// ---------- Attendance "days back" for Office staff / Supervisors (migration 0022) ----------
+
+/** Each person's saved "days back" (no entry = FIX_DAYS_DEFAULT). */
+export async function loadFixDays(tx: PlatformTx | PlatformDb, tenantId: string, userIds: string[]) {
+  const map = new Map<string, number>();
+  if (!userIds.length) return map;
+  const rows = await tx
+    .select({ userId: fixDaysBack.userId, days: fixDaysBack.days })
+    .from(fixDaysBack)
+    .where(and(eq(fixDaysBack.tenantId, tenantId), inArray(fixDaysBack.userId, userIds)));
+  for (const r of rows) map.set(r.userId, r.days);
+  return map;
+}
+
+async function setFixDays(tx: PlatformTx, tenantId: string, userId: string, days: number, actor: Actor) {
+  await tx.delete(fixDaysBack).where(and(eq(fixDaysBack.tenantId, tenantId), eq(fixDaysBack.userId, userId)));
+  await tx.insert(fixDaysBack).values({ tenantId, userId, days, setBy: actor });
+}
+
+/** What the forms show: the number for Office staff / Supervisors, null for everyone else. */
+const fixDaysFor = (roles: readonly RoleId[], saved: number | undefined) => (hasFixLimit(roles) ? (saved ?? FIX_DAYS_DEFAULT) : null);
+
+export function toView(u: typeof users.$inferSelect, roles: RoleId[], alertModules: ModuleId[] = [], fixDays?: number) {
   return {
     id: u.id,
     username: u.username,
@@ -183,6 +215,8 @@ export function toView(u: typeof users.$inferSelect, roles: RoleId[], alertModul
     email: u.email,
     roles,
     alert_modules: alertModules,
+    /** Attendance: days back this Office staff / Supervisor may fix; null when the limit doesn't apply */
+    fix_days_back: fixDaysFor(roles, fixDays),
     status: u.status,
     secret_kind: u.secretKind,
     must_change_secret: u.mustChangeSecret,
@@ -207,15 +241,21 @@ export function listUsers(admin: CurrentUser) {
       ? await tx.select().from(userRoles).where(inArray(userRoles.userId, rows.map((r) => r.id)))
       : [];
     const alerts = await loadAlertModules(tx, admin.tenantId, rows.map((r) => r.id));
+    const fixDays = await loadFixDays(tx, admin.tenantId, rows.map((r) => r.id));
     return rows.map((u) =>
-      toView(u, roleRows.filter((r) => r.userId === u.id).map((r) => r.roleId as RoleId).sort(), alerts.get(u.id)),
+      toView(u, roleRows.filter((r) => r.userId === u.id).map((r) => r.roleId as RoleId).sort(), alerts.get(u.id), fixDays.get(u.id)),
     );
   });
 }
 
 export function getUser(admin: CurrentUser, userId: string) {
   return withTenant(admin.tenantId, async (tx) =>
-    toView(await getUserRow(tx, admin.tenantId, userId), await loadRoles(tx, userId), (await loadAlertModules(tx, admin.tenantId, [userId])).get(userId)),
+    toView(
+      await getUserRow(tx, admin.tenantId, userId),
+      await loadRoles(tx, userId),
+      (await loadAlertModules(tx, admin.tenantId, [userId])).get(userId),
+      (await loadFixDays(tx, admin.tenantId, [userId])).get(userId),
+    ),
   );
 }
 
@@ -264,9 +304,12 @@ export async function applyUserUpdate(tx: PlatformTx, tenantId: string, userId: 
       : input.roles
         ? await setAlertModules(tx, tenantId, userId, nextRoles, current, actor, false)
         : current;
+  // Attendance "days back": saved only while the person is Office staff / Supervisor (a stray row is ignored by
+  // the status check, and kept so the number comes back if the role is given again)
+  if (input.fix_days_back !== undefined && hasFixLimit(nextRoles)) await setFixDays(tx, tenantId, userId, input.fix_days_back, actor);
   if (nextStatus === "disabled") await revokeSessions(tx, userId);
   await audit(tx, { tenantId, actor, action: "user.updated", target: userId, details: input });
-  return toView(await getUserRow(tx, tenantId, userId), await loadRoles(tx, userId), alertModules);
+  return toView(await getUserRow(tx, tenantId, userId), await loadRoles(tx, userId), alertModules, (await loadFixDays(tx, tenantId, [userId])).get(userId));
 }
 
 /**

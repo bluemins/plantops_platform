@@ -559,6 +559,10 @@ the Today board, the Staff list or the Salary tab, and don't mark their own atte
     with Office staff + Plant staff), same location rules. Attendance → Office staff → the person → the day → Fix adds a
     forgotten IN / OUT or cancels a wrong mark, with a reason; your phone gets "Sunil changed Mohan's attendance".
     Never their own attendance and never other workers. Office staff can still scan the QR themselves.
+- **How far back they can fix** (v0.36.1): when you tick Office staff or Supervisor on Manage users, the box
+  **"Attendance: can fix times up to N days back"** appears (0 = today only, 2 = today and the 2 days before, up to 31;
+  2 when nothing is set). Older days show "You can fix … Ask the owner to change this day." instead of Fix; only you can
+  fix them. A change works within about 5 minutes. A month already marked paid stays closed to them either way.
 - **The not-marked alert:** Attendance → Settings → Not-marked alert: 08:00, 09:00, 10:00 (default), 11:00 or Off. One
   phone alert to the owners and supervisors listing who has no mark yet today. Weekly offs and leave aren't built
   yet, so a day off shows there too. It needs the "Attendance morning" job on cron-job.org (section 10, hourly

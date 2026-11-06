@@ -198,6 +198,19 @@ export const alertRecipients = platform.table(
   (t) => [primaryKey({ columns: [t.tenantId, t.userId, t.moduleId] })],
 );
 
+/** Attendance: how far back an Office staff / Supervisor may fix (migration 0022); no row = FIX_DAYS_DEFAULT. */
+export const fixDaysBack = platform.table(
+  "fix_days_back",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    days: integer("days").notNull(),
+    setBy: text("set_by").notNull(),
+    setAt: ts("set_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.tenantId, t.userId] })],
+);
+
 /** One person's launcher tile order (migration 0020); no row = the usual order. */
 export const tileOrder = platform.table(
   "tile_order",

@@ -7,10 +7,16 @@ import { attendDb } from "@/server/db";
 import { kit } from "@/server/kit";
 import { supportUser, toAtUser, type AtUser } from "@/server/session";
 
+/**
+ * Tests of other rules fix old days (September 2026), so their Office staff / Supervisors get a window wide enough
+ * not to matter. The "days back" tests pass a real one (fix-days-back.test.ts).
+ */
+export const WIDE_FIX_DAYS = 100_000;
+
 /** An Attendance user of one plant, as the session would describe them. */
-export function atUser(tenantId: string, roles: RoleId[], name = roles.join("+"), userId = randomUUID()): AtUser {
+export function atUser(tenantId: string, roles: RoleId[], name = roles.join("+"), userId = randomUUID(), fixDaysBack = WIDE_FIX_DAYS): AtUser {
   const now = Date.now();
-  return toAtUser({ tenant_id: tenantId, user_id: userId, display_name: name, roles, enabled_modules: ["attendance_salary"], login_at: now, checked_at: now });
+  return toAtUser({ tenant_id: tenantId, user_id: userId, display_name: name, roles, enabled_modules: ["attendance_salary"], fix_days_back: fixDaysBack, login_at: now, checked_at: now });
 }
 
 /** A fresh plant: owner, owner who is also Plant staff, a worker, a store keeper (no Attendance rights), support. */
@@ -128,7 +134,7 @@ export function signInAs(user: AtUser) {
   spy.mockResolvedValue(
     user.isSupport
       ? ({ kind: "support", support: { tenant_id: user.tenantId, super_admin_id: user.userId, read_only: true, expires_at: Date.now() + 60_000 } } as never)
-      : ({ kind: "user", session: { tenant_id: user.tenantId, user_id: user.userId, display_name: user.name, roles: user.roles, enabled_modules: ["attendance_salary"], login_at: Date.now(), checked_at: Date.now() } } as never),
+      : ({ kind: "user", session: { tenant_id: user.tenantId, user_id: user.userId, display_name: user.name, roles: user.roles, enabled_modules: ["attendance_salary"], ...(user.fixDaysBack !== null ? { fix_days_back: user.fixDaysBack } : {}), login_at: Date.now(), checked_at: Date.now() } } as never),
   );
   return () => spy.mockRestore();
 }

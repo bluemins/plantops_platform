@@ -2,8 +2,9 @@ import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { importJWK, SignJWT, type JWK } from "jose";
 import { canAccessModule } from "@plantops/auth";
-import { ModuleId, ROLE_IDS, roleWorksIn, viewRoleFor, TOKEN_ISSUER, type AlertContact, type RoleId, type TokenPayload, type UserStatus } from "@plantops/types";
+import { FIX_DAYS_DEFAULT, ModuleId, ROLE_IDS, hasFixLimit, roleWorksIn, viewRoleFor, TOKEN_ISSUER, type AlertContact, type RoleId, type TokenPayload, type UserStatus } from "@plantops/types";
 import { loadRoles, type CurrentUser } from "./auth";
+import { loadFixDays } from "./users";
 import { randomToken, safeEqual, sha256 } from "./crypto";
 import { appDb, schema, withTenant, type PlatformTx } from "./db";
 import { env } from "./env";
@@ -137,7 +138,7 @@ export async function exchangeHandoffCode(moduleId: ModuleId, code: string) {
 }
 
 /** Modules re-check this every few minutes so a disabled user / removed role loses access quickly. */
-export async function getUserStatus(tenantId: string, userId: string): Promise<UserStatus> {
+export async function getUserStatus(tenantId: string, userId: string, moduleId?: ModuleId): Promise<UserStatus> {
   return withTenant(tenantId, async (tx) => {
     const [row] = await tx
       .select({ userStatus: users.status, tenantStatus: tenants.status, displayName: users.displayName })
@@ -145,11 +146,15 @@ export async function getUserStatus(tenantId: string, userId: string): Promise<U
       .innerJoin(tenants, eq(tenants.id, users.tenantId))
       .where(eq(users.id, userId));
     if (!row) throw notFound("User not found");
+    const roles = await loadRoles(tx, userId);
+    // Attendance only: how far back this Office staff / Supervisor may fix (owner, 2026-11-06)
+    const fixDays = moduleId === "attendance_salary" && hasFixLimit(roles) ? ((await loadFixDays(tx, tenantId, [userId])).get(userId) ?? FIX_DAYS_DEFAULT) : undefined;
     return {
       active: row.userStatus === "active" && row.tenantStatus === "active",
       display_name: row.displayName,
-      roles: await loadRoles(tx, userId),
+      roles,
       enabled_modules: await enabledModules(tx, tenantId),
+      ...(fixDays !== undefined ? { fix_days_back: fixDays } : {}),
     };
   });
 }

@@ -60,7 +60,8 @@ through the Lab Records API.
   someone", office phone at the plant), fix times and give advances, never for themselves, and never see a salary,
   slip or claim. A Supervisor sees the Today board read-only, gets a bell for every IN / OUT and the morning
   "not marked" alert, and marks / fixes the Office staff's IN / OUT (only them, never themselves; owner 2026-10-19,
-  v0.26.1). Neither is tracked or paid unless they also hold Plant staff. Inside Attendance a person's roles
+  v0.26.1). Both fix times only up to the days back the owner sets for them on Manage users (default 2; owner 2026-11-06,
+  v0.36.1). Neither is tracked or paid unless they also hold Plant staff. Inside Attendance a person's roles
   become a set of capacities (owner, employee, office, supervisor) in one access table (`src/server/access.ts`).
 - **HR desk** (`hr_desk`), Job applications only (owner, 2026-10-17; v0.25.0): sees every application, calls /
   WhatsApps, changes the status and adds notes. Openings, CSV and "Remove now" are owner-only. Plant staff never work in
@@ -1952,3 +1953,12 @@ phase in `apps/order-capture/NOTES.md`; how to set it up (MacroDroid): `docs/HAN
 - **Tests:** platform 398, auth 70, Order Capture 455. Verified on `pnpm dev` per phase (curl calls, headless Chromium at
   390 / 1280 px, tiles through the platform; all test data removed).
 - **Not yet:** deployed; MacroDroid on the owner's phone; the owner's checklist at plant 001 (plan Phase 5).
+
+### 2026-11-06 — Attendance: how far back Office staff and Supervisors can fix — built (v0.36.1)
+Reported by the owner 2026-11-06 (Office staff could add attendance for others many days back); owner's choice: set it
+per person when giving the role. Manage users shows **"Attendance: can fix times up to N days back"** (0-31) for Office
+staff / Supervisors (not owners); no number = 2. Platform migration `0022_fix_days_back.sql` (approved: one table, FORCE
+RLS, SELECT / INSERT / DELETE). Attendance gets it as `fix_days_back` in the user status re-check (Attendance only,
+kept in the module session by `packages/auth`) and refuses older add / cancel fixes on its own server; the day page shows
+a note instead of Fix. Owners unlimited; paid-month lock unchanged. SSO token unchanged. Notes:
+`apps/attendance-salary/NOTES.md`. Tests (all pass): platform 403 (5 new), Attendance 480 (6 new), auth 70. **Not yet:** deployed; on screen.

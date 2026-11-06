@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Card, ErrorText, TextField } from "@plantops/ui";
 import { api } from "@/lib/api";
-import { mobileLabel, RolePicker, TempSecret, UserCard, type UserView } from "@/lib/user-form";
+import { FIX_DAYS_DEFAULT, hasFixLimit, type RoleId } from "@plantops/types";
+import { FixDaysField, mobileLabel, RolePicker, TempSecret, UserCard, type UserView } from "@/lib/user-form";
 
-const emptyForm = { username: "", display_name: "", phone: "", email: "", roles: [] as string[] };
+const emptyForm = { username: "", display_name: "", phone: "", email: "", roles: [] as string[], fix_days_back: FIX_DAYS_DEFAULT };
 
 export default function UsersPage() {
   const router = useRouter();
@@ -32,7 +33,8 @@ export default function UsersPage() {
   async function create(e: FormEvent) {
     e.preventDefault();
     setError(undefined);
-    const r = await api("/api/admin/users", { body: form });
+    const { fix_days_back, ...rest } = form;
+    const r = await api("/api/admin/users", { body: hasFixLimit(form.roles as RoleId[]) ? form : rest });
     if (!r.ok) return setError(r.error);
     setTemp({ who: form.display_name, secret: r.data.temporary_secret, kind: r.data.secret_kind });
     setForm(emptyForm);
@@ -80,6 +82,7 @@ export default function UsersPage() {
           <TextField label={mobileLabel(form.roles, enabled)} type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <TextField label="Email (optional)" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoCapitalize="none" />
           <RolePicker value={form.roles} enabled={enabled} onChange={(roles) => setForm({ ...form, roles })} />
+          <FixDaysField roles={form.roles} value={form.fix_days_back} onChange={(fix_days_back) => setForm({ ...form, fix_days_back })} />
           <Button type="submit" className="w-full">Add user</Button>
         </form>
       </Card>

@@ -2,8 +2,8 @@ import { notFound } from "next/navigation";
 import { can } from "@/server/access";
 import { dayFor } from "@/server/calendar";
 import { personDayMarks } from "@/server/day-marks";
-import { fmtMonth } from "@/lib/days";
-import { dayStamp, fixLockedMonth } from "@/server/fixes";
+import { fmtMonth, istDay } from "@/lib/days";
+import { dayStamp, fixLockedMonth, fixWindowText, tooOldDay } from "@/server/fixes";
 import { kit } from "@/server/kit";
 import { orNotFound } from "@/server/pages";
 import { monthStatuses } from "@/server/salary";
@@ -25,6 +25,7 @@ export default async function PersonDayPage({ params }: { params: Promise<{ user
   if (!(can(user, "see_everyone") || can(user, "see_office_staff")) || !UUID.test(personId)) notFound();
   const [plant, view, stamp, dayMarksMap, lockedMonth] = await Promise.all([kit.branding(user.tenantId), orNotFound(dayFor(user, personId, date)), dayStamp(user, personId, date), personDayMarks(user, personId, date, date), fixLockedMonth(user, personId, date)]);
   const dayMark = dayMarksMap.get(date) ?? null;
+  const tooOld = tooOldDay(user, [date], istDay());
   // rule 21: what the day counts as for the salary (counted days only)
   const statuses = await monthStatuses(user, personId, date.slice(0, 7), new Map([[date, view.day]]));
   const counted = statuses?.days[date];
@@ -51,7 +52,13 @@ export default async function PersonDayPage({ params }: { params: Promise<{ user
           {fmtMonth(lockedMonth)} is marked paid for {view.name ?? "this person"}. Ask the owner to change this day.
         </p>
       )}
-      {can(user, "fix") && !lockedMonth && (user.isOwner || personId !== user.userId) && <FixPanel personId={personId} name={view.name ?? "This person"} day={date} today={view.today} stamp={stamp} marks={marks} />}
+      {/* Office staff / a Supervisor: only the last few days, as the owner set it on Manage users (owner, 2026-11-06) */}
+      {can(user, "fix") && !lockedMonth && tooOld && personId !== user.userId && (
+        <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+          You can fix {fixWindowText(user)}. Ask the owner to change this day.
+        </p>
+      )}
+      {can(user, "fix") && !lockedMonth && !tooOld && (user.isOwner || personId !== user.userId) && <FixPanel personId={personId} name={view.name ?? "This person"} day={date} today={view.today} stamp={stamp} marks={marks} />}
     </div>
   );
 }

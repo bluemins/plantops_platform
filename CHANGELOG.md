@@ -4,6 +4,25 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.36.1 — 2026-11-06 — Attendance: how far back Office staff and Supervisors can fix
+
+**What's in it** (asked by the owner 2026-11-06: Office staff could add attendance for others many days back)
+- **The owner sets it per person** on Manage users: ticking **Office staff** or **Supervisor** shows "Attendance: can
+  fix times up to N days back" (0 = today only, up to 31). No number saved = **2** (today and the 2 days before), so
+  everyone who already holds these roles is limited from this release. The user card shows "Attendance: fixes up to N
+  days back". Audited with the user change. super_admin can set it too.
+- **Attendance refuses older fixes on its own server** (add a time or cancel a mark): "You can fix today and the 2 days
+  before. Ask the owner to change 3 Nov." The day page shows that note instead of Fix. Owners: no limit. The paid-month
+  lock and "never yourself" are unchanged; "Mark for someone" (always now) is not affected.
+- Attendance reads the number from the platform's user re-check (`fix_days_back` in the status answer, sent to
+  Attendance only), so a change works within about 5 minutes. **The SSO token is unchanged.**
+
+**Migrations:** platform `0022_fix_days_back.sql` (one new table, one row per person, FORCE RLS; `platform_app` /
+`platform_super` SELECT / INSERT / DELETE). No Attendance migration.
+
+**Deploy:** `platform` and `attendance-salary` (both read the new field); the other modules only get the shared
+session code, unchanged in behaviour.
+
 ## v0.36.0 — 2026-11-04 — Order Capture: phone calls and the Delivery staff role
 
 **What's in it** (agreed with the owner 2026-11-04, `docs/CALLS_PHASE_PLAN.md`)

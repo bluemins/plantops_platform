@@ -6,7 +6,7 @@ import { ProfileInput, writeProfile } from "./business";
 import { schema, superDb, withTenant, type PlatformTx } from "./db";
 import { conflict, notFound } from "./http";
 import { notifyPlanChange } from "./platform-events";
-import { applySecretReset, applyUserUpdate, insertUser, loadAlertModules, lockTenantUsers, NewUserInput, toView, UpdateUserInput, Username } from "./users";
+import { applySecretReset, applyUserUpdate, insertUser, loadAlertModules, loadFixDays, lockTenantUsers, NewUserInput, toView, UpdateUserInput, Username } from "./users";
 import type { CurrentSuperAdmin } from "./super-auth";
 
 const { tenants, tenantPlans, users, userRoles, sessions } = schema;
@@ -101,7 +101,8 @@ export async function getTenant(tenantId: string) {
     plan: planView(row.tenant_plans ?? undefined),
     users: await (async () => {
       const alerts = await loadAlertModules(db, tenantId, userRows.map((u) => u.id));
-      return userRows.map((u) => toView(u, roleRows.filter((r) => r.userId === u.id).map((r) => r.roleId as RoleId).sort(), alerts.get(u.id)));
+      const fixDays = await loadFixDays(db, tenantId, userRows.map((u) => u.id));
+      return userRows.map((u) => toView(u, roleRows.filter((r) => r.userId === u.id).map((r) => r.roleId as RoleId).sort(), alerts.get(u.id), fixDays.get(u.id)));
     })(),
   };
 }

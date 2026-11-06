@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Button, Card, ErrorText, TextField } from "@plantops/ui";
-import { roleWorksIn, type ModuleId, type RoleId } from "@plantops/types";
+import { FIX_DAYS_DEFAULT, FIX_DAYS_MAX, hasFixLimit, roleWorksIn, type ModuleId, type RoleId } from "@plantops/types";
 import { ROLE_LABELS } from "@/lib/api";
 import { moduleLabel } from "@/lib/modules";
 import { alertChoices, roleChoices } from "@/lib/permissions";
@@ -17,6 +17,8 @@ export type UserView = {
   roles: string[];
   /** modules whose app notifications this person gets (owners: always, so empty) */
   alert_modules?: string[];
+  /** Attendance: how many days back this Office staff / Supervisor may fix (null: not one of them) */
+  fix_days_back?: number | null;
   status: "active" | "disabled";
   secret_kind: "pin" | "password";
   must_change_secret: boolean;
@@ -80,6 +82,36 @@ export function AlertPicker({ enabled, roles, value, onChange }: { enabled: stri
   );
 }
 
+/**
+ * Attendance (owner, 2026-11-06): how far back an Office staff / Supervisor may add or cancel someone's IN / OUT. Shown
+ * only while one of those roles is chosen (and never for an owner, who has no limit).
+ */
+export function FixDaysField({ roles, value, onChange }: { roles: string[]; value: number; onChange: (n: number) => void }) {
+  if (!hasFixLimit(roles as RoleId[])) return null;
+  return (
+    <label className="block">
+      <span className="mb-1 block text-sm font-medium text-slate-700">Attendance: can fix times up to</span>
+      <span className="flex items-center gap-2">
+        <input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={FIX_DAYS_MAX}
+          step={1}
+          required
+          value={Number.isNaN(value) ? "" : value}
+          onChange={(e) => onChange(e.target.value === "" ? NaN : Number(e.target.value))}
+          className="min-h-11 w-20 rounded-lg border border-slate-300 px-3 text-center"
+        />
+        <span className="text-sm text-slate-700">days back</span>
+      </span>
+      <span className="mt-1 block text-xs text-slate-500">
+        0 = today only; 2 = today and the 2 days before (up to {FIX_DAYS_MAX}). Older days: only the owner can fix them.
+      </span>
+    </label>
+  );
+}
+
 /** Shown once: a temporary PIN/password the admin passes on to the user. */
 export function TempSecret({ info, onClose }: { info: { who: string; secret: string; kind: string }; onClose: () => void }) {
   return (
@@ -115,14 +147,17 @@ export function UserEditForm({
     email: user.email ?? "",
     roles: user.roles,
     alert_modules: user.alert_modules ?? [],
+    fix_days_back: user.fix_days_back ?? FIX_DAYS_DEFAULT,
   });
   const [error, setError] = useState<string>();
   const ownerChange = form.roles.includes("tenant_admin") !== user.roles.includes("tenant_admin");
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    const { username, alert_modules, ...details } = form;
+    const { username, alert_modules, fix_days_back, ...details } = form;
     const body: Record<string, unknown> = { ...details };
+    // Attendance days back: sent when it applies and differs from what is saved (or the role is new)
+    if (hasFixLimit(form.roles as RoleId[]) && fix_days_back !== user.fix_days_back) body.fix_days_back = fix_days_back;
     // Send the ticks only when the module list is known (never untick everyone because it failed to load). Only
     // modules that still fit the (possibly changed) roles; after a role change the server drops misfits anyway.
     if (enabledModules.length && !form.roles.includes("tenant_admin")) {
@@ -149,6 +184,7 @@ export function UserEditForm({
         <RolePicker value={form.roles} enabled={enabledModules} onChange={(roles) => setForm({ ...form, roles })} />
       </div>
       <AlertPicker enabled={enabledModules} roles={form.roles} value={form.alert_modules} onChange={(alert_modules) => setForm({ ...form, alert_modules })} />
+      <FixDaysField roles={form.roles} value={form.fix_days_back} onChange={(fix_days_back) => setForm({ ...form, fix_days_back })} />
       {ownerChange && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
           Owners log in with a password, staff with a PIN. They log in once more with their current one and are then asked to
@@ -235,6 +271,9 @@ export function UserCard({
         {user.locked && <span className="ml-1 rounded bg-red-100 px-2 text-red-700">locked</span>}
       </p>
       {!!user.alert_modules?.length && <p className="text-sm text-slate-500">Gets alerts: {user.alert_modules.map(moduleLabel).join(", ")}</p>}
+      {user.fix_days_back != null && (
+        <p className="text-sm text-slate-500">Attendance: fixes {user.fix_days_back === 0 ? "today only" : `up to ${user.fix_days_back} day${user.fix_days_back === 1 ? "" : "s"} back`}</p>
+      )}
       {(user.phone || user.email) && (
         <p className="text-sm text-slate-500">{[user.phone, user.email].filter(Boolean).join(" · ")}</p>
       )}

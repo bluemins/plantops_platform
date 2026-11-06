@@ -1,7 +1,7 @@
 // Who is using Attendance right now (from the module kit's session cookies). What they may do is in access.ts.
 import { redirect } from "next/navigation";
 import type { ModuleSession } from "@plantops/auth";
-import { isEmployee, type RoleId } from "@plantops/types";
+import { FIX_DAYS_DEFAULT, hasFixLimit, isEmployee, type RoleId } from "@plantops/types";
 import type { Capacity, Who } from "./access";
 import { schema, withTenant } from "./db";
 import { HttpError } from "./http";
@@ -15,6 +15,11 @@ export interface AtUser {
   /** what this person is in the access table (several at once); empty = no Attendance rights */
   who: Who;
   isOwner: boolean;
+  /**
+   * Office staff / a Supervisor: how many days back they may add or cancel someone's times (set by the owner on Manage
+   * users, owner 2026-11-06; 0 = today only). null = no limit (owners; support never writes).
+   */
+  fixDaysBack: number | null;
   /** PlantOps support (super_admin) looking read-only: every write is refused */
   isSupport: boolean;
 }
@@ -38,6 +43,7 @@ export function toAtUser(s: ModuleSession): AtUser {
     roles: s.roles,
     who,
     isOwner: who.includes("owner"),
+    fixDaysBack: hasFixLimit(s.roles) ? (s.fix_days_back ?? FIX_DAYS_DEFAULT) : null,
     isSupport: false,
   };
 }
@@ -49,6 +55,7 @@ export const supportUser = (tenantId: string, superAdminId: string): AtUser => (
   roles: [],
   who: ["support"],
   isOwner: false,
+  fixDaysBack: null,
   isSupport: true,
 });
 

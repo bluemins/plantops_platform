@@ -828,3 +828,20 @@ Asked by the owner 2026-11-01: for Anmol, bindu, Gaja and Ramu "even though they
   Attendance 482 pass. The two date-dependent tests from v0.32.1 were fixed the same night (office 12 assumed a
   30-day last month; the claims tab put an expense on "yesterday", last month on the 1st).
 - **Owner to do after deploy:** Staff → Anmol, bindu, Gaja, Ramu → Salary box → Work starts at 09:00, from November.
+
+## 2026-11-06: how far back Office staff and Supervisors can fix (v0.36.1)
+Reported by the owner 2026-11-06: Office staff could add attendance for others many days back (only a paid month
+stopped them). Owner's choice: the owner sets the number per person when giving the role.
+- **Where it's set:** platform Manage users (Add / Edit user), shown while Office staff or Supervisor is chosen and the
+  person isn't an owner (`hasFixLimit()` in `packages/types`). Platform table `fix_days_back` (migration 0022); no row =
+  `FIX_DAYS_DEFAULT` = 2. 0-31 whole days.
+- **How Attendance gets it:** `fix_days_back` in `GET /api/m/tenants/:tid/users/:uid/status`, only when Attendance asks
+  and only for those roles; `packages/auth` keeps it in the module session (login + 5-minute re-check). `AtUser.fixDaysBack`
+  (null = no limit: owners, support, everyone else).
+- **The rule:** `tooOldDay()` in `src/server/fixes.ts`: allowed from today − N (India date, database clock) to today.
+  `addFix` checks the page's day and the mark's date; `cancelFix` the page's day and the mark's own date. 403 "You can fix
+  today and the N days before. Ask the owner to change <day>." Checked before the paid-month lock.
+- **Day page:** a grey note instead of the Fix panel on an older day.
+- Not affected: "Mark for someone" (always now), "Mark days" and advances (their own 7-day rule).
+- Tests: `fix-days-back.test.ts` (6) here, `apps/platform/test/fix-days-back.test.ts` (5). Older Office staff tests fix
+  September days, so the test helper `atUser` gives a very wide window unless a test sets one (`WIDE_FIX_DAYS`).
