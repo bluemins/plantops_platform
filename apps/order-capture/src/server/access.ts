@@ -35,7 +35,13 @@ export type Action =
   | "view_ignored" // the "Not an order number" list (its labels can be private)
   | "calls_ignore" // add / remove a number on that list
   | "zoho_import" // bring Zoho's contacts, invoices and payments into the sales ledger (docs/ZOHO_IMPORT_PHASE_PLAN.md)
-  | "zoho_match"; // the Match screen: link Zoho contacts to customers, or add them as customers
+  | "zoho_match" // the Match screen: link Zoho contacts to customers, or add them as customers
+  | "ledger_view" // bills, payments, a customer's account and statement (amounts)
+  | "bill_make" // make a delivered order's bill; the Zoho GST invoice no. on a bill
+  | "bill_cancel" // cancel a bill, with a reason
+  | "payment_receive" // receive a payment from a customer
+  | "payment_cancel" // cancel a payment, with a reason
+  | "ledger_export"; // bills / payments CSV
 
 export const ACCESS: Record<Action, readonly Who[]> = {
   read: ["owner", "desk", "viewer", "support"],
@@ -64,6 +70,12 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   calls_ignore: ["owner"],
   zoho_import: ["owner"],
   zoho_match: ["owner"],
+  ledger_view: ["owner", "desk", "support"],
+  bill_make: ["owner", "desk"],
+  bill_cancel: ["owner"],
+  payment_receive: ["owner", "desk"],
+  payment_cancel: ["owner"],
+  ledger_export: ["owner"],
 };
 
 /** What the user is, for this table. null = no Order Capture rights at all (e.g. a store keeper). */

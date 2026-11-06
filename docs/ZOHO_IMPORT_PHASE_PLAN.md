@@ -13,6 +13,8 @@ approved) keeps Zoho's last values per product + Zoho Item ID; a field changes o
 import; a code changed in PlantOps is found through the link. Products imported before links existed keep their
 values on the next import (plant had a `sku.zoho_import` before). Dry run for plant 001: 0 changes, 7 names kept,
 10 links.
+**L4 + L5 built 2026-11-06 (v0.39.0): customer account + statement, Bills / Payments lists, bill page, Make bill,
+Receive payment, cancel, Closed orders, alerts.** Next Zoho Books features listed in `apps/order-capture/NOTES.md`.
 **L2 + L3 built 2026-11-06 (v0.38.0; notes in `apps/order-capture/NOTES.md`).** L2 (ledger database + rules): Order Capture migration
 `0008_ledger.sql`: `zoho_imports`, `zoho_contacts`, `bills`, `bill_lines`, `payments`, `payment_allocations`,
 `bill_adjustments` (FORCE RLS; SELECT + INSERT; UPDATE only on contact link / phone, bill order link / GST invoice no. /

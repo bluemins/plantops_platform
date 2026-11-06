@@ -1984,3 +1984,9 @@ new; contacts' opening balances become `OB-…` bills; never creates customers, 
 as new customer). Plant 001's real files checked: billed ₹33,97,724.12, received
 ₹32,93,400.02, due ₹1,04,896.26 = Zoho; 224 contacts linked, 880 to match; 42 of 86 delivered orders linked. Tests: Order Capture 503 (+48). **Live 2026-11-06** (`production` = `599c7d9`, migration 0008 applied).
 Next: L4 customer page + Bills / Payments tabs + statement + "Match after import" (owner, 2026-11-06).
+**L4 + L5 built (v0.39.0):** Orders | Bills | Calls; Bills and Payments lists (owner CSV); a bill's page; a customer's
+account (Bills / Orders / Payments / Statement with print + CSV); **Make bill** (B-0001…, advance used first) and
+**Receive payment** (P-0001…, oldest bills first or ticked, rest = advance) for owner + Order desk; owner cancels a bill
+or payment with a reason; "Closed" orders; Undo delivered refused while a bill is open; bell alerts for payments and
+cancellations (3 new `NOTIFICATION_KINDS`). No migration. Next (owner to order): credit notes, aging / sales reports,
+payment reminders, walk-in bills, Zoho GST send queue.

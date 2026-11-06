@@ -82,7 +82,7 @@ export function OrderCards({ orders, tickable, plainPhones }: { orders: ListRow[
                     <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-sm ${o.age.amber ? "bg-amber-100 font-semibold text-amber-900" : "bg-slate-100 text-slate-700"}`}>{o.age.text}</span>
                   ) : (
                     <span className="shrink-0 text-sm text-slate-500">
-                      {o.status === "delivered" ? "Delivered" : "Cancelled"} {day(o.status_changed_at)}
+                      {o.closed ? "Closed · delivered" : o.status === "delivered" ? "Delivered" : "Cancelled"} {day(o.status_changed_at)}
                     </span>
                   )}
                 </div>

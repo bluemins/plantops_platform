@@ -4,6 +4,29 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.39.0 — 2026-11-06 — Order Capture: bills and payments in daily use (like Zoho Books)
+
+Steps L4 + L5 of `docs/ZOHO_IMPORT_PHASE_PLAN.md` (owner: "start building it, the complete stuff … similar to Zoho
+Books"). No migration (the tables came with v0.38.0); SSO token unchanged.
+- **Orders | Bills | Calls** under the header (owner, Order desk, support). **Bills**: still due, overdue count, Due /
+  Overdue / Paid / Cancelled / All, search, dates, owner CSV. **Payments**: total received, mode and dates, search, CSV.
+- **A bill's page:** lines (with Zoho's tax / HSN when imported), sub-total, discount, tax, adjustment, total, every
+  payment on it, "settled in Zoho" lines, still due, its order, the Zoho GST invoice no.; print / save as PDF.
+- **A customer's account** (Customers → Account ›; also for a Zoho contact not matched yet): balance due, advance,
+  last payment; Bills / Orders / Payments / **Statement** (running balance, any dates, print, CSV).
+- **Make bill** on a delivered order (owner, Order desk): its lines and rates, optional discount, due date, Zoho GST
+  invoice no.; numbered B-0001…; the customer's advance pays it first. One open bill per order.
+- **Receive payment** on the customer's account (owner, Order desk): amount, date, mode (cash / UPI / bank / cheque),
+  reference; pays the oldest bills first (Zoho's and PlantOps'), or only the ticked ones; the rest stays as advance;
+  numbered P-0001…
+- **Cancel** a bill or a payment (owner, with a reason, final): what was paid goes back as advance / the bills are due
+  again (reversing rows; nothing is changed or deleted).
+- **Closed:** a delivered order whose bill is fully paid shows "Closed" (order page, Delivered list, customer's
+  orders). **Undo delivered** is refused while the order has an open bill.
+- **Alerts (bell):** payment received, bill cancelled, payment cancelled (owners + ticked; never whoever did it).
+  Platform: three `NOTIFICATION_KINDS`.
+- Plant staff / viewers / Delivery staff never see bills or amounts.
+
 ## v0.38.0 — 2026-11-06 — Order Capture: sales ledger tables, "Import from Zoho" and "Match Zoho customers"
 
 Steps L2 + L3 of the sales ledger (order → bill → payment → closed), asked by the owner 2026-11-06; plan

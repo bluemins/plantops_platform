@@ -80,6 +80,33 @@ export function noteNotification(user: OcUser, e: OrderEvent): NotificationInput
   };
 }
 
+/** 6. A payment received (sales ledger): owners + ticked people, not whoever entered it. Bell only. */
+export function paymentNotification(user: OcUser, p: { id: string; number: string; amount: string; customer: string; mode: string; bills: string[]; advance: string }): NotificationInput {
+  const paid = p.bills.length ? `Paid ${p.bills.join(", ")}` : "Kept as advance";
+  return {
+    kind: "order_capture.payment",
+    title: title(`Payment ${money(p.amount)} from ${p.customer}`),
+    body: body(`${p.number}, ${p.mode}. ${paid}${p.bills.length && p.advance !== "0.00" ? `; ${money(p.advance)} advance` : ""} (by ${user.name})`),
+    link: `/payments?q=${encodeURIComponent(p.number)}`,
+    level: "bell",
+    dedupe_key: `payment:${p.id}`,
+    exclude_user_id: user.userId,
+  };
+}
+
+/** 7. A bill or a payment cancelled (owner only acts): the other owners + ticked people. Bell only. */
+export function ledgerCancelNotification(user: OcUser, what: "bill" | "payment", id: string, x: { number: string; customer: string; amount: string; reason: string }): NotificationInput {
+  return {
+    kind: what === "bill" ? "order_capture.bill_cancelled" : "order_capture.payment_cancelled",
+    title: title(`${what === "bill" ? "Bill" : "Payment"} ${x.number} cancelled: ${money(x.amount)}`),
+    body: body(`${x.customer}. ${x.reason} (by ${user.name})`),
+    link: what === "bill" ? `/bills/${id}` : `/payments?q=${encodeURIComponent(x.number)}`,
+    level: "bell",
+    dedupe_key: `${what}_cancelled:${id}`,
+    exclude_user_id: user.userId,
+  };
+}
+
 /**
  * 5. "Customer called" (docs/CALLS_PHASE_PLAN.md "Notifications"): the plant's Delivery staff only, never owners (their
  * phone already rang) or Order desk. The one Order Capture alert with a phone number: a new caller's number is all

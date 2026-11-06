@@ -53,6 +53,8 @@ export interface ListRow {
   total: string | null;
   created_at: string;
   status_changed_at: string;
+  /** delivered orders whose bill is fully paid show "Closed" (sales ledger); only for people who see amounts */
+  closed?: boolean;
   /** pending only: "Today", "1 day", "3 days" and amber from 2 days */
   age: { days: number; amber: boolean; text: string } | null;
 }
@@ -127,6 +129,17 @@ export async function listOrders(user: OcUser, f: ListFilters = {}, now = Date.n
           .where(and(eq(orderLines.tenantId, user.tenantId), inArray(orderLines.orderId, shown.map((o) => o.id))))
           .orderBy(asc(orderLines.lineNo))
       : [];
+    // delivered orders whose bill (not cancelled) is fully paid: "Closed"
+    const closedIds = new Set<string>();
+    if (amounts && tab === "delivered" && shown.length) {
+      const ids = shown.map((o) => sql`${o.id}::uuid`);
+      const r = await tx.execute<{ order_id: string }>(sql`
+        select b.order_id from order_capture.bills b
+         where b.tenant_id = ${user.tenantId} and b.cancelled_at is null and b.order_id in (${sql.join(ids, sql`, `)})
+           and b.total - coalesce((select sum(a.amount) from order_capture.payment_allocations a where a.bill_id = b.id), 0)
+                       - coalesce((select sum(x.amount) from order_capture.bill_adjustments x where x.bill_id = b.id), 0) <= 0`);
+      for (const x of r.rows) closedIds.add(x.order_id);
+    }
     const list: ListRow[] = shown.map((o) => {
       const current: LineView[] = lines
         .filter((x) => x.orderId === o.id && x.version === o.version)
@@ -146,6 +159,7 @@ export async function listOrders(user: OcUser, f: ListFilters = {}, now = Date.n
         created_at: o.createdAt.toISOString(),
         status_changed_at: o.statusChangedAt.toISOString(),
         age: o.status === "pending" ? ageOf(o.createdAt, now) : null,
+        ...(closedIds.has(o.id) ? { closed: true } : {}),
       };
     });
     return { orders: list, more: rows.length > limit, brands: brandList(bySku) };

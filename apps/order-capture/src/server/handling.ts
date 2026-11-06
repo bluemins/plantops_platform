@@ -19,6 +19,7 @@ import { formatRef } from "@/lib/ref";
 import { can, requireAccess, type Action } from "./access";
 import { schema, withTenant, type OcTx } from "./db";
 import { badRequest, conflict, notFound } from "./http";
+import { openBillNumber } from "./ledger";
 import { LinesInput } from "./orders";
 import { activeProducts, effectiveRates } from "./rates";
 import type { OrderStatus } from "./schema";
@@ -235,6 +236,8 @@ export async function cancelOrder(user: OcUser, id: string, input: z.infer<typeo
 export async function undoDelivered(user: OcUser, id: string, input: z.infer<typeof ReasonInput>) {
   return act(user, "undo_delivered", async (tx) => {
     const o = await lockAsSeen(tx, user, id, input.expected, "delivered");
+    const bill = await openBillNumber(tx, user.tenantId, id);
+    if (bill) throw conflict(`This order has bill ${bill}. Cancel the bill first, then undo the delivery.`);
     await tx
       .update(orders)
       .set({ status: "pending", statusChangedAt: new Date(), deliveredBy: null, deliveredByName: null, deliveredAt: null, deliveryNote: null, invoiceNo: null })

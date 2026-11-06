@@ -5,11 +5,13 @@ import { eventText, thanksText } from "@/lib/history";
 import { money } from "@/lib/money";
 import { can } from "@/server/access";
 import { getOrder } from "@/server/handling";
+import { billOfOrder, istToday } from "@/server/ledger";
 import { kit } from "@/server/kit";
 import { orNotFound } from "@/server/pages";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../../header";
-import { BackLink, PhoneLink, StatusBadge } from "../../parts";
+import { MakeBill } from "../../ledger-forms";
+import { BackLink, BillBadge, PhoneLink, StatusBadge } from "../../parts";
 import { OrderActions } from "./actions";
 import { AddNote } from "./add-note";
 
@@ -22,6 +24,8 @@ export default async function OrderPage({ params }: { params: Params }) {
   if (!UUID.test(id)) notFound();
   const user = await requirePageUser(`/o/${id}`);
   const [plant, o] = await Promise.all([kit.branding(user.tenantId), orNotFound(getOrder(user, id))]);
+  const bill = can(user, "ledger_view") && o.status === "delivered" ? await billOfOrder(user, id) : null;
+  const closed = bill && bill.status === "paid";
   const pending = o.status === "pending";
   const may = {
     deliver: pending && can(user, "deliver"),
@@ -45,7 +49,7 @@ export default async function OrderPage({ params }: { params: Params }) {
       <BackLink href={`/?tab=${o.status}`}>← Orders</BackLink>
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Order {o.ref}</h1>
-        <StatusBadge status={o.status} />
+        {closed ? <BillBadge status="closed" /> : <StatusBadge status={o.status} />}
       </div>
 
       <Card className="space-y-1">
@@ -113,6 +117,17 @@ export default async function OrderPage({ params }: { params: Params }) {
         )}
         {o.status === "cancelled" && <p className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700">Cancelled is final. Enter a new order if needed.</p>}
       </Card>
+
+      {bill && (
+        <a href={`/bills/${bill.id}`} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
+          <span>
+            <span className="block font-semibold">Bill {bill.number}</span>
+            <span className="block text-sm text-slate-500">{money(bill.total)}{bill.gst_invoice_no ? ` · GST ${bill.gst_invoice_no}` : ""}</span>
+          </span>
+          <BillBadge status={bill.status} due={money(bill.due)} />
+        </a>
+      )}
+      {!bill && o.status === "delivered" && o.total !== null && can(user, "bill_make") && <MakeBill orderId={o.id} total={o.total} today={istToday()} />}
 
       {user.who === "viewer" && pending && (
         <p className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">You can view orders. Order desk or the owner marks them delivered.</p>

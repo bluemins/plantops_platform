@@ -36,6 +36,12 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["calls_ignore", true, false, false, false, false],
   ["zoho_import", true, false, false, false, false],
   ["zoho_match", true, false, false, false, false],
+  ["ledger_view", true, true, false, false, true],
+  ["bill_make", true, true, false, false, false],
+  ["bill_cancel", true, false, false, false, false],
+  ["payment_receive", true, true, false, false, false],
+  ["payment_cancel", true, false, false, false, false],
+  ["ledger_export", true, false, false, false, false],
 ];
 
 describe("who is who", () => {

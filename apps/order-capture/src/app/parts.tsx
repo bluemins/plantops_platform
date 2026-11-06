@@ -54,22 +54,49 @@ export function LinkRow({ href, children, note }: { href: string; children: Reac
   );
 }
 
-/** "Orders | Calls" under the header for people who use both (owner, Order desk, support); Calls shows the waiting count. */
-export function SectionTabs({ current, waiting }: { current: "orders" | "calls"; waiting: number }) {
-  const tab = (key: "orders" | "calls", href: string, label: string) => (
-    <a
-      href={href}
-      aria-current={key === current ? "page" : undefined}
-      className={`flex min-h-11 items-center justify-center gap-2 rounded-lg text-sm font-semibold ${key === current ? "bg-(--brand) text-(--brand-contrast)" : "text-slate-600"}`}
-    >
-      {label}
-      {key === "calls" && waiting > 0 && <span className="rounded-full bg-red-600 px-2 text-xs text-white">{waiting}</span>}
-    </a>
-  );
+/**
+ * "Orders | Bills | Calls" under the header for people who use more than one (owner, Order desk, support); Bills needs
+ * the ledger (amounts), Calls the Calls tab; Calls shows the waiting count.
+ */
+export function SectionTabs({ current, waiting, bills = false, calls = true }: { current: "orders" | "bills" | "calls"; waiting: number; bills?: boolean; calls?: boolean }) {
+  const tabs: ["orders" | "bills" | "calls", string, string][] = [["orders", "/", "Orders"]];
+  if (bills) tabs.push(["bills", "/bills", "Bills"]);
+  if (calls) tabs.push(["calls", "/calls", "📞 Calls"]);
+  if (tabs.length < 2) return null;
   return (
-    <nav aria-label="Orders or calls" className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-white p-1">
-      {tab("orders", "/", "Orders")}
-      {tab("calls", "/calls", "📞 Calls")}
+    <nav aria-label="Orders, bills or calls" className={`grid gap-1 rounded-xl border border-slate-200 bg-white p-1 ${tabs.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+      {tabs.map(([key, href, label]) => (
+        <a
+          key={key}
+          href={href}
+          aria-current={key === current ? "page" : undefined}
+          className={`flex min-h-11 items-center justify-center gap-2 rounded-lg text-sm font-semibold ${key === current ? "bg-(--brand) text-(--brand-contrast)" : "text-slate-600"}`}
+        >
+          {label}
+          {key === "calls" && waiting > 0 && <span className="rounded-full bg-red-600 px-2 text-xs text-white">{waiting}</span>}
+        </a>
+      ))}
     </nav>
+  );
+}
+
+const BILL_BADGE: Record<string, string> = {
+  paid: "bg-green-100 text-green-800",
+  due: "bg-amber-100 text-amber-900",
+  part_paid: "bg-amber-100 text-amber-900",
+  overdue: "bg-red-100 text-red-800",
+  cancelled: "bg-slate-200 text-slate-700",
+  closed: "bg-green-100 text-green-800",
+};
+const BILL_LABEL: Record<string, string> = { paid: "Paid", due: "Due", part_paid: "Partly paid", overdue: "Overdue", cancelled: "Cancelled", closed: "Closed" };
+
+/** A bill's status (Paid / Due / Partly paid / Overdue / Cancelled), or an order's "Closed". */
+export function BillBadge({ status, due }: { status: string; due?: string }) {
+  const showDue = due && (status === "due" || status === "part_paid" || status === "overdue");
+  return (
+    <span className={`inline-block shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${BILL_BADGE[status] ?? ""}`}>
+      {BILL_LABEL[status] ?? status}
+      {showDue ? ` ${due}` : ""}
+    </span>
   );
 }

@@ -201,3 +201,19 @@ index); numbers unique per plant; a bill / payment belongs to exactly one custom
   suggestions (titles and punctuation dropped, place in brackets compared separately, score ≥ 0.5), link / unlink /
   new customer (409 when the mobile is already a customer). Mock-ups: https://claude.ai/artifact/31f4BLeKyxsT6azMdE62CQ
 - Tests: Order Capture `ledger.test.ts`, `ledger-db.test.ts`, `zoho-import.test.ts`, `zoho-match.test.ts`, guards.
+
+### 2026-11-06 — Bills and payments in daily use (L4 + L5, v0.39.0)
+`src/server/ledger.ts` (account, lists, bill, makeBill, receivePayment, cancelBill / cancelPayment with reversing
+allocation rows, setGstInvoice, CSV rows, `openBillNumber` for the Undo-delivered guard); pages `/bills`, `/bills/[id]`,
+`/payments`, `/customers/[id]`, `/customers/z/[id]` (shared `src/app/account-view.tsx`), forms in
+`src/app/ledger-forms.tsx`; order page bill box + Make bill; Delivered list "Closed" (`ListRow.closed`, only for people
+who see amounts). Access rows `ledger_view` (owner, desk, support), `bill_make` / `payment_receive` (owner, desk),
+`bill_cancel` / `payment_cancel` / `ledger_export` (owner). Notifications `order_capture.payment`,
+`order_capture.bill_cancelled`, `order_capture.payment_cancelled` (bell). Tests `ledger-actions.test.ts` (12).
+- **Made while building:** a bill's date is the day it is made; due date defaults to the same day (owner can pick later);
+  bills keep the order's lines at its current version (HSN from the product); an advance is used by the next bill
+  automatically, oldest payment first; a cancelled bill frees its payments as advance (it is not re-applied to other
+  bills automatically: the next payment / bill does that).
+- **Next Zoho Books features (owner to order):** credit notes; receivables aging (0–30 / 31–60 / 61–90 / 90+ days) and
+  sales by customer / product; payment reminders (WhatsApp / bell for overdue bills); a bill without an order (walk-in);
+  recurring bills; sending bills to Zoho for GST (send queue, decision 4.9).

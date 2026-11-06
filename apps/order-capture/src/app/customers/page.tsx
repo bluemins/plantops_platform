@@ -38,7 +38,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
           Match Zoho customers
         </LinkRow>
       )}
-      <CustomersEditor list={list} q={q} showOff={showOff} canEdit={can(user, "customers")} plainPhones={user.isSupport} />
+      <CustomersEditor list={list} q={q} showOff={showOff} canEdit={can(user, "customers")} plainPhones={user.isSupport} accounts={can(user, "ledger_view")} />
     </div>
   );
 }

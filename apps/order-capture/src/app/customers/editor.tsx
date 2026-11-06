@@ -15,7 +15,7 @@ const reload = () => window.location.reload();
 const fmt = (p: string) => `${p.slice(0, 5)} ${p.slice(5)}`;
 
 /** Search, add, edit name / place, switch off / on. PlantOps support gets the same list without buttons. */
-export function CustomersEditor({ list, q, showOff, canEdit, plainPhones }: { list: List; q: string; showOff: boolean; canEdit: boolean; plainPhones: boolean }) {
+export function CustomersEditor({ list, q, showOff, canEdit, plainPhones, accounts = false }: { list: List; q: string; showOff: boolean; canEdit: boolean; plainPhones: boolean; accounts?: boolean }) {
   const [editing, setEditing] = useState<Editing>(null);
   const [error, setError] = useState<string>();
   const close = () => setEditing(null);
@@ -74,6 +74,11 @@ export function CustomersEditor({ list, q, showOff, canEdit, plainPhones }: { li
                       <p className="text-sm text-slate-600">{c.place}</p>
                       <p className="text-sm">
                         <PhoneLink phone={c.phone} plain={plainPhones || !c.active} />
+                        {accounts && (
+                          <a href={`/customers/${c.id}`} className="ml-3 inline-flex min-h-11 items-center font-semibold text-(--brand)">
+                            Account ›
+                          </a>
+                        )}
                       </p>
                     </div>
                     {canEdit && (
