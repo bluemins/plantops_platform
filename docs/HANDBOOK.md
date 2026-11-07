@@ -625,6 +625,23 @@ tab. Design and rules: `docs/CALLS_PHASE_PLAN.md`. The order phone is the owner'
 `orders.bluemins.life/health` shows no `ORDER_CALL_KEYS` warning, and the macro's HTTP log (MacroDroid → Macro →
 Log): 401 = wrong key, 429 = too many sends, 403 = Order Capture switched off for the plant.
 
+### Sales: customer page, GST details and shop locations (v0.44.0–v0.45.0)
+Design and decisions: `docs/CUSTOMER_PAGE_PHASE_PLAN.md`.
+- **Open it:** owner's dashboard → **Customers** (customers, money due, Zoho contacts to match) → a customer. Tabs:
+  Overview (details, shop location, GST details, contact persons, Zoho contact, timeline), Transactions (Bills and
+  Payments), Orders, Comments, Statement (This month / Previous month / This quarter, print, CSV).
+- **Two names:** the **calling name** is what Sales shows everywhere (order form, lists, ordinary bills). The **GST
+  details** (legal name as on the GST registration / in Zoho, GSTIN, billing address) are only for GST bills and the
+  Zoho file. Change either with **Edit customer** (owner only); a new mobile needs a reason.
+- **GST bill:** Make bill → tick "Needs GST invoice". The GST details fill in from the customer; the first time, type
+  the legal name and (for a business with a GSTIN) the billing address, city and PIN. They are saved for the next GST
+  bill. The Zoho file sends the legal name, so Zoho matches its own contact.
+- **Shop location:** stand at the shop, open the customer (Delivery staff: **Calls → Shop locations**; Order desk: the
+  customer list's **📍 Location**) and tap **📍 Save my location here**. Allow location for the site; it waits up to
+  20 s for a good fix and refuses worse than ±150 m (step outside and try again). The owner can also **Paste a Maps
+  link** (in Google Maps press and hold the spot, copy the numbers or the share link). A wrong pin: **Clear** with a
+  reason (owner, Order desk); it stays on record. Needs https, so it works on the live address, not the LAN one.
+
 ### Job applications: public page, Turnstile, QR poster, removal (v0.25.0)
 - **Switching it on for a plant:** super_admin → the plant → plan → tick Job applications (optionally set "Job
   applications storage (MB)"). Give the person who calls applicants the **HR desk** role on Manage users; tick "Gets

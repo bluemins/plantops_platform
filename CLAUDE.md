@@ -2029,14 +2029,15 @@ Owner 2026-11-07; plan + mock-up `docs/CUSTOMER_PAGE_PHASE_PLAN.md`. Owner-only 
 beside Reports (summary view `customers`: customers, money due, Zoho contacts to match). Sales customer page tabs
 **Overview** (contact, Billing & GST, Zoho contacts, timeline) / **Transactions** (Bills + Payments tables with filters
 and totals) / Orders / **Statement** (quick ranges, plant name + GSTIN). Sales header says "Sales". No migration; SSO
-token unchanged. Tests: Sales 656, platform 425. **Next: Part 2** (owner edits all fields incl. mobile with a reason,
+token unchanged. Tests: Sales 656, platform 425. **Then Part 2** (v0.45.0, below: owner edits all fields incl. mobile with a reason,
 comments, contact persons, shop location "📍 Save my location here" incl. Delivery staff, Zoho Contacts fill): Sales
 migration `0010` to show the owner first.
 
-### 2026-11-07 — Customer page Part 2 + GST details (v0.45.0, built)
+### 2026-11-07 — Customer page Part 2 + GST details (v0.45.0, live 2026-11-07, `56610a8`)
 Owner approved migration `0010` (Sales). **Rule D8:** in Sales the customer's name is the calling name everywhere; the
 GST details (legal name, GSTIN, treatment, billing address, state) are separate and used only by GST bills and the Zoho
 file ("Customer Name" = legal name). Owner Edit of every field (mobile with a reason), Comments, Contact persons, shop
 location ("Save my location here" for owner / Order desk / Accounts / Delivery staff; pasted Maps link by the owner;
 Shop locations screen without money). Make bill's GST details saved on the customer; GST bills keep a bill-to copy.
-SSO token unchanged. Tests: Sales 693, platform 425. **Next:** deploy (migration first); Part 3 = Zoho Contacts fill.
+SSO token unchanged. Tests: Sales 693, platform 425. Migration `0010` applied on the shared copy before the deploy.
+**Next:** the owner tries 📍 on a phone and one GST bill → Zoho import; Part 3 = Zoho Contacts fill (empty fields only).

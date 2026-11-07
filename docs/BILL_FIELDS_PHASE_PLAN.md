@@ -98,6 +98,11 @@ read-only. Order desk and plant staff: no change (they don't see bills).
    GSTIN / state; bill page and print show the new fields. Tests.
 4. **B4 Send to Zoho** (built 2026-11-07, v0.42.0: `/bills/gst`, `POST /api/bills/zoho` with `which` new / again; columns from the plant's own Zoho invoice export: place of supply "OD", GST Treatment business_gst / consumer, Item Tax GST5 / IGST5, status Draft): list, CSV in Zoho's layout, mark sent, INV number back. Tests; one real import into Zoho by the
    owner with one bill.
+   **Changed 2026-11-07 (v0.45.0, `docs/CUSTOMER_PAGE_PHASE_PLAN.md` D8):** a GST bill has **GST details** (legal name,
+   GST treatment, billing address), filled from the customer (else the linked Zoho contact's name) and saved back; a
+   registered business (has a GSTIN) needs the address. The Zoho file's "Customer Name" is now the **legal name** (was
+   the calling name), GST Treatment business_gst / business_none / consumer, plus Billing Address / City / State / Code
+   / Country at the end (whether Zoho's import takes these: to confirm with the owner's next import).
 5. **B5 Reports (later, owner to order):** sales by salesperson / area / vehicle / product / HSN, GST vs non-GST,
    discounts, days to pay.
 

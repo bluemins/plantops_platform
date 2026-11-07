@@ -110,6 +110,12 @@ carries one map link per shop.
   answering (3 s) → "Customer list unavailable, type the shop name".
 
 ### Shop location on the customer (owner, 2026-10-19)
+> **Update 2026-11-07 (v0.45.0):** the shop location now exists in Sales, built first through the customer page
+> (`docs/CUSTOMER_PAGE_PHASE_PLAN.md` D6): table `customer_locations` (set / clear rows, `source` phone / map_link /
+> **field_visit**), "📍 Save my location here" for owner, Order desk, Accounts and Delivery staff, ±150 m limit, clear
+> with a reason, the Google Maps link. When the field day log is built, its visit saves into that same table with
+> `source = 'field_visit'` through the endpoint below, instead of a new one; the 📍 Map link on the order page and in
+> "Copy as WhatsApp message" is still to build.
 The first time Attendance **writes** to another module, so it is its own scope with its own checks.
 - **Visit screen:** when a customer is picked from the list, a tick box "Save this location as the shop's location".
   - Customer has no location yet → ticked by default.
