@@ -17,6 +17,7 @@ import {
   useAdvances,
   type BillTerms,
 } from "@/lib/ledger";
+import { billToAddress, billToParts, ZOHO_TREATMENT } from "@/lib/customer-page";
 import { formatRef } from "@/lib/ref";
 import { requireAccess } from "./access";
 import { audit } from "./audit";
@@ -26,7 +27,9 @@ import { kit } from "./kit";
 import { customerAdvances, istToday } from "./ledger";
 import type { OcUser } from "./session";
 
-const { billLines, billSettings, bills, customers, orderLines, orders, paymentAllocations } = schema;
+const { billLines, billSettings, bills, customers, orderLines, orders, paymentAllocations, zohoContacts } = schema;
+const { GST_TREATMENTS } = schema;
+type GstTreatment = (typeof GST_TREATMENTS)[number];
 
 const Money = z.string().trim().regex(/^\d{1,9}(\.\d{1,2})?$/, "Amount: rupees, up to 2 decimals");
 const SignedMoney = z.string().trim().regex(/^-?\d{1,7}(\.\d{1,2})?$/, "Adjustment: rupees, e.g. -0.40 or 2");
@@ -102,6 +105,7 @@ export async function billForm(user: OcUser, orderId: string) {
       .where(and(eq(orderLines.tenantId, user.tenantId), eq(orderLines.orderId, o.id), eq(orderLines.version, o.version)))
       .orderBy(orderLines.lineNo);
     const [c] = await tx.select().from(customers).where(and(eq(customers.tenantId, user.tenantId), eq(customers.id, o.customerId)));
+    const zohoName = await linkedZohoName(tx, user.tenantId, o.customerId);
     const [last] = await tx
       .select({ salespersonId: bills.salespersonId, vehicle: bills.vehicle })
       .from(bills)
@@ -118,7 +122,18 @@ export async function billForm(user: OcUser, orderId: string) {
       today,
       settings,
       plant_state: gst?.state ?? null,
-      customer: { name: o.customerName, gstin: c?.gstin ?? null, state_code: c?.stateCode ?? null },
+      customer: {
+        name: o.customerName,
+        gstin: c?.gstin ?? null,
+        state_code: c?.stateCode ?? null,
+        // GST details (D8): saved on the customer by the last GST bill or the owner's Edit; the legal name falls back to
+        // the linked Zoho contact's name (what Zoho knows the customer as), then the calling name
+        legal_name: c?.legalName ?? zohoName ?? o.customerName,
+        gst_treatment: c?.gstTreatment ?? null,
+        billing_address: c?.billingAddress ?? null,
+        billing_city: c?.billingCity ?? null,
+        billing_pin: c?.billingPin ?? null,
+      },
       salespeople: people,
       last: { salesperson_id: last?.salespersonId && people.some((p) => p.id === last.salespersonId) ? last.salespersonId : null, vehicle: last?.vehicle ?? null },
       vehicles: vehicles.rows.map((v) => v.vehicle),
@@ -137,6 +152,12 @@ export async function billForm(user: OcUser, orderId: string) {
   });
 }
 export type BillForm = Awaited<ReturnType<typeof billForm>>;
+
+/** The name Zoho knows a customer by: a linked Zoho contact's (one with a GSTIN first). */
+async function linkedZohoName(tx: OcTx, tenantId: string, customerId: string) {
+  const rows = await tx.select({ name: zohoContacts.name, gstin: zohoContacts.gstin }).from(zohoContacts).where(and(eq(zohoContacts.tenantId, tenantId), eq(zohoContacts.customerId, customerId)));
+  return (rows.find((r) => r.gstin) ?? rows[0])?.name ?? null;
+}
 
 // ---------- Make bill ----------
 
@@ -166,6 +187,12 @@ export const MakeBillInput = z.object({
   gstin: z.string().max(30).optional(),
   place_of_supply: z.string().regex(/^\d{2}$/, "Place of supply: a GST state code").optional(),
   tax_inclusive: z.boolean().optional(),
+  /** GST bills only (D8): who the GST invoice is for; saved on the customer for the next one */
+  legal_name: text(200),
+  gst_treatment: z.enum(GST_TREATMENTS).optional(),
+  billing_address: text(300),
+  billing_city: text(80),
+  billing_pin: z.string().trim().regex(/^([1-9]\d{5})?$/, "PIN code: 6 digits").optional(),
   lines: z.array(LineIn).max(500).default([]),
   zoho_gst_invoice_no: text(40),
 });
@@ -216,6 +243,17 @@ export async function makeBill(user: OcUser, raw: z.input<typeof MakeBillInput>)
     const place = input.needs_gst ? (input.place_of_supply ?? (gstin ? gstinState(gstin) : null) ?? c?.stateCode ?? gst!.state) : null;
     if (place && !GST_STATES[place]) throw badRequest("Place of supply: not a GST state code.");
     const inclusive = input.needs_gst ? (input.tax_inclusive ?? settings.rates_include_gst) : null;
+    // GST details (D8): typed on the form, else the customer's saved ones; a registered business needs name + address
+    let billTo: { name: string; treatment: GstTreatment; address: string | null; city: string | null; pin: string | null } | null = null;
+    if (input.needs_gst) {
+      const pick = (typed: string | undefined, saved: string | null | undefined) => (typed !== undefined ? typed.trim() || null : (saved ?? null));
+      const treatment: GstTreatment = gstin ? "registered" : input.gst_treatment && input.gst_treatment !== "registered" ? input.gst_treatment : c?.gstTreatment && c.gstTreatment !== "registered" ? c.gstTreatment : "consumer";
+      const name = pick(input.legal_name, c?.legalName) ?? (await linkedZohoName(tx, user.tenantId, o.customerId)) ?? o.customerName;
+      if (name.length < 2) throw badRequest("Legal name: at least 2 characters.");
+      billTo = { name, treatment, address: pick(input.billing_address, c?.billingAddress), city: pick(input.billing_city, c?.billingCity), pin: pick(input.billing_pin, c?.billingPin) };
+      if (treatment === "registered" && (!billTo.address || !billTo.city || !billTo.pin))
+        throw badRequest("A GST bill for a registered business needs the billing address, city and PIN code (as on their GST registration).");
+    }
 
     let amounts;
     try {
@@ -266,6 +304,9 @@ export async function makeBill(user: OcUser, raw: z.input<typeof MakeBillInput>)
         needsGst: input.needs_gst,
         gstin: input.needs_gst ? gstin : null,
         placeOfSupply: place,
+        billToName: billTo?.name ?? null,
+        billToAddress: billTo ? billToAddress(billTo) : null,
+        gstTreatment: billTo?.treatment ?? null,
         taxInclusive: inclusive,
         zohoGstInvoiceNo: input.zoho_gst_invoice_no || null,
         createdBy: user.userId,
@@ -297,9 +338,20 @@ export async function makeBill(user: OcUser, raw: z.input<typeof MakeBillInput>)
         };
       }),
     );
-    // the customer keeps the GSTIN / state of their latest GST bill, so the next one is filled in
-    if (input.needs_gst && c && ((gstin && gstin !== c.gstin) || place !== c.stateCode)) {
-      await tx.update(customers).set({ gstin: gstin ?? c.gstin, stateCode: place }).where(and(eq(customers.tenantId, user.tenantId), eq(customers.id, c.id)));
+    // the customer keeps the GST details of their latest GST bill (GSTIN, state, legal name, address), so the next one
+    // is filled in; the calling name never changes here
+    if (billTo && c) {
+      const next = {
+        gstin: gstin ?? c.gstin,
+        stateCode: place,
+        legalName: billTo.name,
+        gstTreatment: billTo.treatment,
+        billingAddress: billTo.address,
+        billingCity: billTo.city,
+        billingPin: billTo.pin,
+      };
+      const changed = (Object.keys(next) as (keyof typeof next)[]).filter((k) => next[k] !== c[k]);
+      if (changed.length) await tx.update(customers).set(next).where(and(eq(customers.tenantId, user.tenantId), eq(customers.id, c.id)));
     }
     // the customer's advances (money paid before, not used yet) pay the new bill first, oldest payment first
     const advances = await customerAdvances(tx, user.tenantId, o.customerId);
@@ -314,7 +366,7 @@ export async function makeBill(user: OcUser, raw: z.input<typeof MakeBillInput>)
       total: b!.total,
       discount: b!.discount,
       tax: b!.taxTotal,
-      gst: input.needs_gst ? { gstin, place, inclusive } : null,
+      gst: input.needs_gst ? { gstin, place, inclusive, bill_to: billTo?.name, treatment: billTo?.treatment } : null,
       salesperson: b!.salesperson,
       vehicle: b!.vehicle,
       advance_used: advanceUsed,
@@ -347,6 +399,7 @@ export async function gstQueue(user: OcUser) {
       number: b.number,
       bill_date: b.billDate,
       customer: b.customerName,
+      bill_to: b.billToName,
       gstin: b.gstin,
       place: b.placeOfSupply ? `${GST_STATES[b.placeOfSupply] ?? ""} (${b.placeOfSupply})` : null,
       inclusive: b.taxInclusive,
@@ -375,6 +428,8 @@ export const ZOHO_COLUMNS = [
   "Is Inclusive Tax", "Discount Type", "Is Discount Before Tax", "Entity Discount Amount", "Adjustment", "Notes",
   "Currency Code", "Item Name", "SKU", "Item Desc", "HSN/SAC", "Quantity", "Usage unit", "Item Price", "Discount Amount",
   "Item Tax", "Item Tax %", "Item Tax Type", "Item Type",
+  // the GST details' address (D8, v0.45.0); Zoho also keeps the address on its contact
+  "Billing Address", "Billing City", "Billing State", "Billing Code", "Billing Country",
 ] as const;
 
 /**
@@ -402,14 +457,17 @@ export async function zohoCsvRows(user: OcUser, which: "new" | "again") {
     for (const b of list) {
       const lines = await tx.select().from(billLines).where(and(eq(billLines.tenantId, user.tenantId), eq(billLines.billId, b.id))).orderBy(billLines.lineNo);
       const terms = (b.terms ?? "receipt") as BillTerms;
+      const addr = billToParts(b.billToAddress);
       for (const l of lines) {
         rows.push([
-          b.billDate, b.number, "Draft", b.customerName, b.gstin ? "business_gst" : "consumer", b.gstin ?? "",
+          // "Customer Name" = the legal name (Zoho finds its contact by it); bills before v0.45.0 had only the calling name
+          b.billDate, b.number, "Draft", b.billToName ?? b.customerName, b.gstTreatment ? ZOHO_TREATMENT[b.gstTreatment] : b.gstin ? "business_gst" : "consumer", b.gstin ?? "",
           ZOHO_STATE[b.placeOfSupply ?? ""] ?? "", ZOHO_TERMS[terms], TERMS_LABEL[terms], b.dueDate ?? b.billDate, b.salesperson ?? "",
           b.referenceNo ?? "", `PlantOps ${b.number}`,
           b.taxInclusive ? "true" : "false", "entity_level", "true", b.discount, b.adjustment, b.notes ?? "",
           "INR", l.itemName, l.skuCode ?? "", l.description ?? "", l.hsn ?? "", l.quantity, l.unit ?? "", l.rate, l.discount,
           l.taxName ?? "", l.taxPercent ?? "", l.taxName?.startsWith("IGST") ? "Tax" : "Tax Group", "goods",
+          addr.address, addr.city, b.placeOfSupply ? (GST_STATES[b.placeOfSupply] ?? "") : "", addr.pin, b.billToAddress ? "India" : "",
         ]);
       }
     }

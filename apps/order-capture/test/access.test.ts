@@ -44,6 +44,13 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["ledger_export", true, false, false, false, false],
   ["ledger_totals", true, false, false, false, true],
   ["reports", true, false, false, false, true],
+  // customer page Part 2 (docs/CUSTOMER_PAGE_PHASE_PLAN.md): edit / comments owner only; shop location for the people
+  // who stand at the shop (Order desk, Accounts, Delivery staff too); plant staff / viewers never
+  ["customer_edit", true, false, false, false, false],
+  ["customer_comment", true, false, false, false, false],
+  ["location_view", true, true, false, false, true],
+  ["location_save", true, true, false, false, false],
+  ["location_clear", true, true, false, false, false],
 ];
 
 describe("who is who", () => {
@@ -84,8 +91,8 @@ describe("the access table", () => {
     expect(Object.values(people).map((u) => can(u, action))).toEqual(expected);
   });
 
-  it.each(TABLE)("%s: Delivery staff may only see Calls and mark attended", (action) => {
-    expect(can(ocUser(p.owner.tenantId, ["delivery_staff"], "Raju"), action)).toBe(action === "calls_view" || action === "calls_attend");
+  it.each(TABLE)("%s: Delivery staff may only see Calls, mark attended and see / save a shop's location", (action) => {
+    expect(can(ocUser(p.owner.tenantId, ["delivery_staff"], "Raju"), action)).toBe(["calls_view", "calls_attend", "location_view", "location_save"].includes(action));
   });
 
   it("Delivery staff are told they work in Calls only; the header says Delivery staff", async () => {
@@ -124,7 +131,7 @@ describe("the access table", () => {
 describe("Accounts", () => {
   const acc = ocUser(p.owner.tenantId, ["accounts"], "Kedar");
   const both = ocUser(p.owner.tenantId, ["order_desk", "accounts"], "Kedar");
-  const ACCOUNTS_MAY = ["read", "see_amounts", "view_customers", "ledger_view", "bill_make", "payment_receive"];
+  const ACCOUNTS_MAY = ["read", "see_amounts", "view_customers", "ledger_view", "bill_make", "payment_receive", "location_view", "location_save"];
   it.each(TABLE)("%s: Accounts may only read orders and work on bills / payments", (action) => {
     expect(can(acc, action)).toBe(ACCOUNTS_MAY.includes(action));
   });

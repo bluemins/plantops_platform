@@ -44,9 +44,15 @@ export default async function BillPage({ params }: { params: Params }) {
         {partyHref ? <a href={partyHref} className="text-lg font-semibold text-(--brand)">{b.party!.name}</a> : <p className="text-lg font-semibold">{b.customer_name}</p>}
         {b.party?.kind === "contact" && <p className="text-xs text-amber-800">Zoho contact not matched to a customer yet.</p>}
         {b.order && <p className="text-sm">Order <a href={`/o/${b.order.id}`} className="font-semibold text-(--brand)">{b.order.ref}</a></p>}
+        {b.gst?.bill_to_name && (
+          <p className="text-sm">
+            GST invoice to <b>{b.gst.bill_to_name}</b>
+            {b.gst.bill_to_address ? <span className="text-slate-600">, {b.gst.bill_to_address}</span> : null}
+          </p>
+        )}
         {b.gst && (
           <p className="text-sm text-slate-600">
-            {b.gst.gstin ? `GSTIN ${b.gst.gstin}` : "No GSTIN (consumer)"}{b.gst.place ? ` · Place of supply: ${GST_STATES[b.gst.place] ?? ""} (${b.gst.place})` : ""}
+            {b.gst.gstin ? `GSTIN ${b.gst.gstin}` : b.gst.treatment === "unregistered" ? "No GSTIN (unregistered business)" : "No GSTIN (consumer)"}{b.gst.place ? ` · Place of supply: ${GST_STATES[b.gst.place] ?? ""} (${b.gst.place})` : ""}
           </p>
         )}
         {(b.salesperson || b.vehicle || b.reference_no) && (

@@ -33,10 +33,68 @@ export const customers = oc.table("customers", {
   /** GSTIN and GST state code (migration 0009); saved with the first GST bill */
   gstin: text("gstin"),
   stateCode: text("state_code"),
+  /** GST details (migration 0010): only GST bills and the Zoho file use them; the name above is the calling name */
+  legalName: text("legal_name"),
+  gstTreatment: text("gst_treatment").$type<GstTreatment>(),
+  billingAddress: text("billing_address"),
+  billingCity: text("billing_city"),
+  billingPin: text("billing_pin"),
+  email: text("email"),
+  otherPhone: text("other_phone"),
+  customerType: text("customer_type").$type<CustomerType>(),
+  deliveryAddress: text("delivery_address"),
+  deliveryLandmark: text("delivery_landmark"),
+  paymentTerms: text("payment_terms").$type<BillTerms>(),
   createdBy: uuid("created_by").notNull(),
   createdByName: text("created_by_name").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+export const GST_TREATMENTS = ["registered", "unregistered", "consumer"] as const;
+export type GstTreatment = (typeof GST_TREATMENTS)[number];
+export const CUSTOMER_TYPES = ["shop", "household", "office", "institution", "individual"] as const;
+export type CustomerType = (typeof CUSTOMER_TYPES)[number];
+
+/** Comments on a customer (migration 0010): owner writes, never changed. */
+export const customerComments = oc.table("customer_comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  customerId: uuid("customer_id").notNull(),
+  body: text("body").notNull(),
+  byUser: uuid("by_user").notNull(),
+  byName: text("by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+/** Contact persons (migration 0010): switched off, never deleted. */
+export const customerPersons = oc.table("customer_persons", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  customerId: uuid("customer_id").notNull(),
+  name: text("name").notNull(),
+  phone: text("phone"),
+  role: text("role"),
+  active: boolean("active").notNull().default(true),
+  byUser: uuid("by_user").notNull(),
+  byName: text("by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+/** Shop location (migration 0010): every save / clear is a row; the newest is the customer's location. */
+export const customerLocations = oc.table("customer_locations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  customerId: uuid("customer_id").notNull(),
+  kind: text("kind").$type<"set" | "clear">().notNull(),
+  lat: numeric("lat", { precision: 9, scale: 6 }),
+  lng: numeric("lng", { precision: 9, scale: 6 }),
+  accuracyM: integer("accuracy_m"),
+  source: text("source").$type<"phone" | "map_link" | "field_visit">(),
+  reason: text("reason"),
+  byUser: uuid("by_user").notNull(),
+  byName: text("by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
 });
 
 export const orders = oc.table("orders", {
@@ -276,6 +334,10 @@ export const bills = oc.table("bills", {
   needsGst: boolean("needs_gst").notNull().default(false),
   gstin: text("gstin"),
   placeOfSupply: text("place_of_supply"),
+  /** GST bills only (migration 0010): who it was billed to on that day (legal name + address), never changed */
+  billToName: text("bill_to_name"),
+  billToAddress: text("bill_to_address"),
+  gstTreatment: text("gst_treatment").$type<GstTreatment>(),
   taxInclusive: boolean("tax_inclusive"),
   cgst: numeric("cgst", { precision: 18, scale: 2 }).notNull().default("0"),
   sgst: numeric("sgst", { precision: 18, scale: 2 }).notNull().default("0"),

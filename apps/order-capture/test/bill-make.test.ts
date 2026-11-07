@@ -76,15 +76,26 @@ describe("make bill: the fields", () => {
 describe("make bill: GST", () => {
   it("the owner's L&T invoice: GST on top, same state → CGST + SGST, ₹5,313; the customer keeps the GSTIN", async () => {
     const o = await delivered([[jar, 92, "55"]], "9000000003", "LARSEN & TOUBRO LIMITED");
-    const made = await makeBill(acct, { order_id: o.id, needs_gst: true, gstin: "21aaacl0140p4zs", tax_inclusive: false, lines: [{ line_no: 1, description: "Oct month" }] });
+    const gst = { needs_gst: true, gstin: "21aaacl0140p4zs", tax_inclusive: false, lines: [{ line_no: 1, description: "Oct month" }] };
+    // a registered business (has a GSTIN) needs its billing address (D8, v0.45.0)
+    expect((await refused(() => makeBill(acct, { order_id: o.id, ...gst }))).message).toMatch(/needs the billing address, city and PIN code/);
+    const made = await makeBill(acct, { order_id: o.id, ...gst, legal_name: "Larsen & Toubro Ltd", billing_address: "ECC Division, Bijepur Road", billing_city: "Bargarh", billing_pin: "768032" });
     expect(made.total).toBe("5313.00");
+    const [bt] = (await asApp(a.tenantId, `select customer_name, bill_to_name, bill_to_address, gst_treatment from order_capture.bills where id = '${made.id}'`)).rows;
+    expect(bt).toEqual({ customer_name: "LARSEN & TOUBRO LIMITED", bill_to_name: "Larsen & Toubro Ltd", bill_to_address: "ECC Division, Bijepur Road\nBargarh\n768032", gst_treatment: "registered" });
     const [row] = (await asApp(a.tenantId, `select gstin, place_of_supply, tax_inclusive, cgst::text, sgst::text, igst::text, tax_total::text, sub_total::text from order_capture.bills where id = '${made.id}'`)).rows;
     expect(row).toEqual({ gstin: "21AAACL0140P4ZS", place_of_supply: "21", tax_inclusive: false, cgst: "126.50", sgst: "126.50", igst: "0.00", tax_total: "253.00", sub_total: "5060.00" });
     const [line] = (await asApp(a.tenantId, `select tax_name, tax_percent::text, tax_amount::text, taxable::text, line_total::text from order_capture.bill_lines where bill_id = '${made.id}'`)).rows;
     expect(line).toEqual({ tax_name: "GST5", tax_percent: "5.00", tax_amount: "253.00", taxable: "5060.00", line_total: "5060.00" });
     // the next bill for L&T has the tick, the GSTIN and Odisha filled in
     const next = await billForm(acct, (await delivered([[jar, 1, "55"]], "9000000003", "LARSEN & TOUBRO LIMITED")).id);
-    expect(next.customer).toMatchObject({ gstin: "21AAACL0140P4ZS", state_code: "21" });
+    expect(next.customer).toMatchObject({ name: "LARSEN & TOUBRO LIMITED", gstin: "21AAACL0140P4ZS", state_code: "21", legal_name: "Larsen & Toubro Ltd", gst_treatment: "registered", billing_city: "Bargarh", billing_pin: "768032" });
+    // …so the next GST bill needs nothing typed: the saved GST details are used
+    const again = await makeBill(acct, { order_id: (await delivered([[jar, 1, "55"]], "9000000003", "LARSEN & TOUBRO LIMITED")).id, needs_gst: true, gstin: "21AAACL0140P4ZS" });
+    const [bt2] = (await asApp(a.tenantId, `select bill_to_name, gst_treatment from order_capture.bills where id = '${again.id}'`)).rows;
+    expect(bt2).toEqual({ bill_to_name: "Larsen & Toubro Ltd", gst_treatment: "registered" });
+    // the calling name on the customer never changed
+    expect((await asApp(a.tenantId, `select name from order_capture.customers where phone = '9000000003'`)).rows[0]).toEqual({ name: "LARSEN & TOUBRO LIMITED" });
     expect(next.plant_state).toBe("21");
   });
 
@@ -93,6 +104,9 @@ describe("make bill: GST", () => {
     expect(inside.total).toBe("2500.00");
     const [r1] = (await asApp(a.tenantId, `select cgst::text, sgst::text, tax_inclusive, gstin from order_capture.bills where id = '${inside.id}'`)).rows;
     expect(r1).toEqual({ cgst: "59.52", sgst: "59.53", tax_inclusive: true, gstin: null });
+    // no GSTIN: a consumer; the legal name defaults to the calling name and the address may stay empty
+    const [r1b] = (await asApp(a.tenantId, `select bill_to_name, bill_to_address, gst_treatment from order_capture.bills where id = '${inside.id}'`)).rows;
+    expect(r1b).toEqual({ bill_to_name: "Rocky", bill_to_address: null, gst_treatment: "consumer" });
 
     const other = await makeBill(acct, { order_id: (await delivered([[jar, 92, "55"]], "9000000005", "Raipur buyer")).id, needs_gst: true, gstin: "22AAACL0140P4ZQ".slice(0, 14) + "Z", tax_inclusive: false }).catch((e) => e);
     // a GSTIN with a wrong last character is refused before anything is saved
@@ -101,7 +115,7 @@ describe("make bill: GST", () => {
 
   it("IGST when the place of supply is another state", async () => {
     const o = await delivered([[jar, 92, "55"]], "9000000006", "Raipur buyer");
-    const made = await makeBill(acct, { order_id: o.id, needs_gst: true, place_of_supply: "22", tax_inclusive: false });
+    const made = await makeBill(acct, { order_id: o.id, needs_gst: true, place_of_supply: "22", tax_inclusive: false, gst_treatment: "unregistered" });
     const [row] = (await asApp(a.tenantId, `select cgst::text, sgst::text, igst::text, total::text from order_capture.bills where id = '${made.id}'`)).rows;
     expect(row).toEqual({ cgst: "0.00", sgst: "0.00", igst: "253.00", total: "5313.00" });
   });
@@ -120,42 +134,47 @@ describe("make bill: GST", () => {
 describe("GST invoices to make → Zoho", () => {
   it("lists the ticked bills; the file has Zoho's columns, one row per line; download marks them sent once", async () => {
     const q = await gstQueue(acct);
-    expect(q.not_sent.map((x) => x.customer)).toEqual(["LARSEN & TOUBRO LIMITED", "Rocky", "Raipur buyer"]);
+    expect(q.not_sent.map((x) => x.customer)).toEqual(["LARSEN & TOUBRO LIMITED", "LARSEN & TOUBRO LIMITED", "Rocky", "Raipur buyer"]);
+    expect(q.not_sent[0]!.bill_to).toBe("Larsen & Toubro Ltd");
     expect(q.not_sent[0]).toMatchObject({ gstin: "21AAACL0140P4ZS", taxable: "5060.00", tax: "253.00", total: "5313.00", place: "Odisha (21)" });
-    expect(q.not_sent[1]).toMatchObject({ taxable: "2380.95", tax: "119.05", total: "2500.00", inclusive: true });
+    expect(q.not_sent[2]).toMatchObject({ taxable: "2380.95", tax: "119.05", total: "2500.00", inclusive: true });
 
     const file = await zohoCsvRows(acct, "new");
-    expect(file.count).toBe(3);
+    expect(file.count).toBe(4);
     const [head, lt] = file.rows as [string[], string[]];
     const col = (n: string) => lt[head.indexOf(n)];
-    expect(col("Customer Name")).toBe("LARSEN & TOUBRO LIMITED");
+    // Zoho finds its contact by the legal name; the address goes with it
+    expect(col("Customer Name")).toBe("Larsen & Toubro Ltd");
+    expect([col("Billing Address"), col("Billing City"), col("Billing State"), col("Billing Code"), col("Billing Country")]).toEqual(["ECC Division, Bijepur Road", "Bargarh", "Odisha", "768032", "India"]);
     expect(col("GST Treatment")).toBe("business_gst");
     expect(col("Place of Supply")).toBe("OD");
     expect(col("Is Inclusive Tax")).toBe("false");
     expect([col("Item Name"), col("Item Desc"), col("Quantity"), col("Item Price"), col("Item Tax"), col("Item Tax %"), col("HSN/SAC")]).toEqual(["Jar (20 L)", "Oct month", "92.000", "55.00", "GST5", "5.00", "002201"]);
     expect(col("Invoice Status")).toBe("Draft");
-    expect((file.rows[2] as string[])[head.indexOf("GST Treatment")]).toBe("consumer");
-    expect((file.rows[3] as string[])[head.indexOf("Item Tax")]).toBe("IGST5");
+    expect((file.rows[3] as string[])[head.indexOf("GST Treatment")]).toBe("consumer");
+    expect((file.rows[3] as string[])[head.indexOf("Billing Address")]).toBe("");
+    expect((file.rows[4] as string[])[head.indexOf("Item Tax")]).toBe("IGST5");
+    expect((file.rows[4] as string[])[head.indexOf("GST Treatment")]).toBe("business_none");
 
     const after = await gstQueue(acct);
     expect(after.not_sent).toEqual([]);
-    expect(after.sent).toHaveLength(3);
+    expect(after.sent).toHaveLength(4);
     expect(after.sent[0]!.sent_by).toBe("Kedar");
     expect((await zohoCsvRows(acct, "new")).count).toBe(0); // nothing sent twice by "new"
-    expect((await zohoCsvRows(acct, "again")).count).toBe(3);
+    expect((await zohoCsvRows(acct, "again")).count).toBe(4);
 
     // the INV number typed on a bill moves it to Done
     await setGstInvoice(acct, after.sent.find((x) => x.customer === "Rocky")!.id, { zoho_gst_invoice_no: "INV-001901" });
     const done = await gstQueue(acct);
-    expect(done.sent).toHaveLength(2);
+    expect(done.sent).toHaveLength(3);
     expect(done.done.map((x) => x.invoice_no)).toEqual(["INV-001901"]);
     expect((await auditRows(a.tenantId)).filter((r) => r.action === "bill.zoho_send")).toHaveLength(2);
   });
 
   it("who may: owner + Accounts download; support sees the list only; Order desk and plant staff nothing; plant B sees none", async () => {
-    expect((await zohoCsvRows(a.owner, "again")).count).toBe(2);
+    expect((await zohoCsvRows(a.owner, "again")).count).toBe(3);
     expect((await refused(() => zohoCsvRows(a.support, "again"))).status).toBe(403);
-    expect((await gstQueue(a.support)).sent).toHaveLength(2);
+    expect((await gstQueue(a.support)).sent).toHaveLength(3);
     expect((await refused(() => gstQueue(a.desk))).status).toBe(403);
     expect((await refused(() => zohoCsvRows(a.desk, "new"))).status).toBe(403);
     expect((await refused(() => zohoCsvRows(a.staff, "new"))).status).toBe(403);

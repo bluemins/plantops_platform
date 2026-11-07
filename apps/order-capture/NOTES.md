@@ -281,3 +281,29 @@ Plan `docs/CUSTOMER_PAGE_PHASE_PLAN.md`; mock-up https://claude.ai/artifact/NcJt
 - Verified on `pnpm dev` (plant 002 with Sales switched on for the check, one example customer with two Zoho invoices +
   payments and one PlantOps bill; headless Chromium at 390 / 1280 px; all removed afterwards): Overview, Transactions,
   Statement, the dashboard's Customers card with live numbers.
+
+### 2026-11-07 — Customer page Part 2 + GST details (v0.45.0)
+Migration `0010_customer_details.sql` (owner approved): customers + 11 optional columns (GST details, contact, delivery,
+terms) with column UPDATE (+ `phone`, `phone_typed`, D3); bills + `bill_to_name` / `bill_to_address` / `gst_treatment`
+(GST bills only, check; no UPDATE); `customer_comments`, `customer_persons` (UPDATE `active` only), `customer_locations`
+(set / clear rows; accuracy ≤ 150 m; source phone / map_link / field_visit).
+- `src/server/customer-details.ts`: Edit (`updateCustomerDetails`: a GSTIN fills the state + "registered" when empty; new
+  mobile needs a reason, 409 if another customer has it), comments, persons, `saveLocation` / `clearLocation`,
+  `shopSearch` / `shopView`. Access rows: `customer_edit`, `customer_comment` (owner); `location_view` / `location_save`
+  (owner, Order desk, Accounts, Delivery staff; support views); `location_clear` (owner, Order desk).
+- A pasted Maps link: numbers, `?q=` / `query=` / `ll=`, `@lat,lng`, `!3d!4d` (`parseMapPosition`); a
+  `maps.app.goo.gl` / `goo.gl` short link is opened by the server (redirect header only, 3 s, those hosts only).
+- Make bill (`bill-make.ts`): GST details from the form or the customer (else the linked Zoho contact's name, one with a
+  GSTIN first); registered business = GSTIN; needs address, city, PIN; saved back on the customer; bill-to copy on the
+  bill (address on lines: street / city / PIN). Zoho CSV: Customer Name = bill-to name (older bills: calling name),
+  billing columns at the end.
+- `/shops`, `/shops/[id]` for Order desk / Accounts / Delivery staff (Calls → Shop locations; customer list "📍 Location"
+  for Order desk). Delivery staff still can't open the customer page (redirect to Calls).
+- **Made while building:** the Edit form spans the full width above the Overview boxes; the comment count on the tab;
+  changed-field names in the timeline in the form's order; validation errors from these functions are plain 400s.
+- **Not yet confirmed:** that Zoho's invoice import takes the Billing columns (check with one import; Zoho also keeps the
+  address on its contact).
+- Verified on `pnpm dev` (plant 002 with Sales on for the check; a customer linked to a Zoho contact and a delivered
+  order; headless Chromium with a faked GPS fix; all removed afterwards): Edit + save, Save my location here (±18 m),
+  Comments, Make bill's GST details filled from the customer, Delivery staff's Shop locations at 390 px and refused on
+  the customer page.

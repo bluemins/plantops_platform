@@ -4,6 +4,30 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.45.0 — 2026-11-07 — Customer page Part 2: Edit, GST details, comments, contact persons, shop location
+
+Owner, 2026-11-07 (`docs/CUSTOMER_PAGE_PHASE_PLAN.md`, decisions D2–D8). **Migrations:** Sales `0010_customer_details.sql`
+(approved by the owner): new optional customer columns, a GST bill's "billed to" copy on bills, and three new tables
+(`customer_comments`, `customer_persons`, `customer_locations`; FORCE RLS, no DELETE). Run
+`./scripts/railway-migrate.sh shared` before deploying.
+- **Calling name vs GST details (D8):** in Sales the name is the calling name everywhere (order form, lists, ordinary
+  bills). A separate **GST details** block (legal name, GST treatment, GSTIN, GST state, billing address) is used only
+  by GST bills and the Zoho file.
+- **Edit customer** (owner only): calling name, place, mobile (with a reason; refused if another customer has the
+  number), other phone, email, customer type, payment terms, delivery address + landmark, GST details. Every change in
+  the timeline.
+- **Comments** tab (owner writes; never changed) and **Contact persons** (switched off, never deleted).
+- **Shop location:** "📍 Save my location here" (waits for good GPS; worse than ±150 m refused) for owner, Order desk,
+  Accounts and **Delivery staff**; the owner can paste a Google Maps link; Order desk / owner clear a wrong pin with a
+  reason. "📍 Open in Google Maps" on the customer page. New **Shop locations** screen (Calls → Shop locations;
+  customer list "📍 Location" for Order desk): search, the pin, no money.
+- **Make bill → GST:** the GST details block (legal name, address; consumer / unregistered without a GSTIN), filled
+  from the customer (else the linked Zoho contact's name); a registered business needs the billing address; saved on
+  the customer for the next GST bill; the bill keeps a copy. **Zoho file:** "Customer Name" = the legal name (Zoho
+  finds its contact), GST treatment business_gst / business_none / consumer, Billing Address / City / State / Code /
+  Country columns.
+- Platform: Delivery staff described as "Calls + shop locations". SSO token unchanged.
+
 ## v0.44.0 — 2026-11-07 — Customers card + customer page like Zoho (Part 1)
 
 Owner, 2026-11-07: "a customer tile on the main dashboard … customer details visible there", one page per customer

@@ -27,6 +27,7 @@ import {
   type LedgerPayment,
 } from "@/lib/ledger";
 import { shiftMonths } from "@/lib/customer-page";
+import { customerExtras, FIELD_WORDS } from "./customer-details";
 import { formatRef } from "@/lib/ref";
 import { can, requireAccess } from "./access";
 import { audit } from "./audit";
@@ -102,7 +103,6 @@ export interface TimelineItem {
   href: string | null;
 }
 
-const FIELD_WORDS: Record<string, string> = { name: "name", place: "place", active: "on / off" };
 
 /** The Overview timeline: bills, payments, cancellations, details changed, Zoho links. Newest first, at most 50. */
 function timeline(
@@ -131,10 +131,15 @@ function timeline(
     let text: string;
     if (a.action === "customer.add") text = "Customer added";
     else if (a.action === "customer.reminders") text = d.reminders ? "Agreed to WhatsApp reminders" : "WhatsApp reminders stopped";
-    else if (a.action === "customer.update") {
-      const keys = Object.keys((d.changes as Record<string, unknown>) ?? {});
-      text = `Details changed: ${keys.map((k) => FIELD_WORDS[k] ?? k).join(", ") || "—"}`;
-    } else if (a.action === "zoho.match") text = `Zoho contact "${String(d.contact ?? "")}" linked`;
+    else if (a.action === "customer.update" || a.action === "customer.details") {
+      // in the Edit form's order (the database keeps json keys in its own order)
+      const order = Object.keys(FIELD_WORDS);
+      const keys = Object.keys((d.changes as Record<string, unknown>) ?? {}).sort((x, y) => (order.indexOf(x) + 1 || 99) - (order.indexOf(y) + 1 || 99));
+      text = `Details changed: ${keys.map((k) => FIELD_WORDS[k] ?? k).join(", ") || "—"}${typeof d.reason === "string" ? ` (${d.reason})` : ""}`;
+    } else if (a.action === "customer.location")
+      text = d.kind === "clear" ? `Shop location cleared: ${String(d.reason ?? "")}` : `Shop location saved${d.source === "map_link" ? " from a Maps link" : typeof d.accuracy_m === "number" ? ` (±${d.accuracy_m} m)` : ""}`;
+    else if (a.action === "customer.person") text = d.active === undefined ? `Contact person added: ${String(d.person ?? "")}` : `Contact person ${String(d.person ?? "")} switched ${d.active ? "on" : "off"}`;
+    else if (a.action === "zoho.match") text = `Zoho contact "${String(d.contact ?? "")}" linked`;
     else text = `Zoho contact "${String(d.contact ?? "")}" unlinked`;
     out.push({ at: a.at.toISOString(), text, by, href: null });
   }
@@ -224,7 +229,7 @@ export async function account(user: OcUser, party: Party, range: { from?: string
         and(
           eq(schema.auditLog.tenantId, user.tenantId),
           or(
-            c ? and(eq(schema.auditLog.target, c.id), inArray(schema.auditLog.action, ["customer.add", "customer.update", "customer.reminders"])) : sql`false`,
+            c ? and(eq(schema.auditLog.target, c.id), inArray(schema.auditLog.action, ["customer.add", "customer.update", "customer.reminders", "customer.details", "customer.location", "customer.person"])) : sql`false`,
             scope.contactIds.length ? and(inArray(schema.auditLog.target, scope.contactIds), inArray(schema.auditLog.action, ["zoho.match", "zoho.unmatch"])) : sql`false`,
           ),
         ),
@@ -233,6 +238,23 @@ export async function account(user: OcUser, party: Party, range: { from?: string
       party: c
         ? { kind: "customer" as const, id: c.id, name: c.name, phone: c.phone, place: c.place, active: c.active, gstin: c.gstin, state_code: c.stateCode, created_at: c.createdAt.toISOString(), created_by_name: c.createdByName }
         : { kind: "contact" as const, id: scope.contact!.id, name: scope.contact!.name, phone: scope.contact!.mobile, place: null, active: true, gstin: scope.contact!.gstin, state_code: null, created_at: null, created_by_name: null },
+      /** the customer's other fields (Part 2): GST details, contact, delivery, terms; null for an unmatched Zoho contact */
+      details: c
+        ? {
+            legal_name: c.legalName,
+            gst_treatment: c.gstTreatment,
+            billing_address: c.billingAddress,
+            billing_city: c.billingCity,
+            billing_pin: c.billingPin,
+            email: c.email,
+            other_phone: c.otherPhone,
+            customer_type: c.customerType,
+            delivery_address: c.deliveryAddress,
+            delivery_landmark: c.deliveryLandmark,
+            payment_terms: c.paymentTerms,
+          }
+        : null,
+      ...(c ? await customerExtras(tx, user.tenantId, c.id) : { comments: [], persons: [], location: null }),
       zoho_names: scope.contacts.map((c) => c.name),
       contacts: scope.contacts.map((z) => ({ id: z.id, name: z.name, company: z.company, mobile: z.mobile, gstin: z.gstin, status: z.zohoStatus })),
       billed_6m: rupees(billed6m),
@@ -409,7 +431,7 @@ export async function billDetail(user: OcUser, id: string) {
       reference_no: b.referenceNo,
       private_note: b.privateNote,
       gst: b.needsGst
-        ? { gstin: b.gstin, place: b.placeOfSupply, inclusive: b.taxInclusive, cgst: b.cgst, sgst: b.sgst, igst: b.igst, sent_at: b.sentToZohoAt?.toISOString() ?? null, sent_by: b.sentToZohoByName }
+        ? { gstin: b.gstin, place: b.placeOfSupply, inclusive: b.taxInclusive, cgst: b.cgst, sgst: b.sgst, igst: b.igst, sent_at: b.sentToZohoAt?.toISOString() ?? null, sent_by: b.sentToZohoByName, bill_to_name: b.billToName, bill_to_address: b.billToAddress?.replace(/\n/g, ", ") ?? null, treatment: b.gstTreatment }
         : null,
       created_by: b.createdByName,
       cancelled: b.cancelledAt ? { at: b.cancelledAt.toISOString(), by: b.cancelledByName, reason: b.cancelReason } : null,

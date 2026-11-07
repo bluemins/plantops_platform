@@ -38,7 +38,7 @@ export function cellFor(roles: readonly string[], alertModules: readonly string[
   let working = rs.filter((r) => roleWorksIn(r, moduleId));
   if (working.includes("lab_lead")) working = working.filter((r) => r !== "lab_technician"); // a lead is a technician too
   if (working.length > 1) working = working.filter((r) => r !== "plant_staff"); // the module's own role says more
-  const labelOf = (r: RoleId) => (r === "delivery_staff" ? "Delivery staff · Calls only" : (ROLE_LABELS[r] ?? r));
+  const labelOf = (r: RoleId) => (r === "delivery_staff" ? "Delivery staff · Calls + shop locations" : (ROLE_LABELS[r] ?? r));
   if (working.length) return { kind: working.includes("lab_lead") ? "lead" : "work", label: working.map(labelOf).join(", "), alerts };
   if (viewOnlyIn(rs, moduleId)) return { kind: "view", label: VIEW_LABELS[moduleId] ?? "View only", alerts: alerts && rs.some((r) => getsAlertsIn(r, moduleId)) };
   return null;
@@ -55,7 +55,7 @@ const ROLE_HINTS: Partial<Record<RoleId, string>> = {
   stock_viewer: "Floor Stock, view only: the sections the owner picks",
   document_viewer: "Document Store, view only",
   order_viewer: "Sales, view only: no amounts",
-  delivery_staff: "Sales · Calls only",
+  delivery_staff: "Sales · Calls + shop locations",
   accounts: "Sales: bills and payments, after delivery",
 };
 
@@ -114,7 +114,7 @@ export const ROLE_MEANINGS: { kind: CellKind; label: string; text: string }[] = 
   { kind: "work", label: "Plant staff", text: "Employee: own attendance and overtime (Attendance & Salary)." },
   { kind: "work", label: "Office staff", text: "Attendance: marks for people without a phone, fixes times, gives advances. Never salaries." },
   { kind: "work", label: "Supervisor", text: "Attendance: the Today board (read-only) and an alert for every IN / OUT." },
-  { kind: "work", label: "Delivery staff", text: "Sales, Calls only: calls customers back and marks them attended. No orders, no amounts." },
+  { kind: "work", label: "Delivery staff", text: "Sales, Calls and shop locations: calls customers back, marks them attended, saves a shop's map pin. No orders, no amounts." },
   { kind: "work", label: "HR desk", text: "Job applications: sees applicants, calls them, changes status, adds notes." },
   { kind: "view", label: "View only, no amounts", text: "Plant staff or Order viewer in Sales: sees orders, never prices." },
   { kind: "view", label: "View only, chosen sections", text: "Stock viewer: sees the stock of the sections the owner picks in Floor Stock." },

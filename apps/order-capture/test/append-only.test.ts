@@ -48,9 +48,7 @@ describe("append-only for order_app", () => {
       `update order_capture.orders set created_at = now() ${order}`,
       `update order_capture.orders set tenant_id = gen_random_uuid() ${order}`,
       `update order_capture.orders set order_note = 'changed' ${order}`,
-      // a customer's phone is their identity; who added them is fixed
-      `update order_capture.customers set phone = '9000000000' ${customer}`,
-      `update order_capture.customers set phone_typed = '9000000000' ${customer}`,
+      // who added a customer is fixed (the phone is no longer: the owner may change it with a reason, D3)
       `update order_capture.customers set created_by = gen_random_uuid() ${customer}`,
       `update order_capture.customers set created_by_name = 'X' ${customer}`,
       `update order_capture.customers set created_at = now() ${customer}`,
@@ -128,12 +126,23 @@ describe("append-only for order_app", () => {
       `update order_capture.bills set salesperson_id = null where id = '${ids.bill}'`,
       `update order_capture.bill_lines set taxable = 1 where id = '${ids.billLine}'`,
       `update order_capture.bill_settings set tenant_id = gen_random_uuid()`,
+      // customer page Part 2 (0010): comments and locations never change; a contact person only switches on / off; a
+      // GST bill's "billed to" copy never changes; a customer's created-by stays
+      `update order_capture.customer_comments set body = 'X' where id = '${ids.comment}'`,
+      `update order_capture.customer_locations set lat = 1 where id = '${ids.location}'`,
+      `update order_capture.customer_locations set kind = 'clear' where id = '${ids.location}'`,
+      `update order_capture.customer_persons set name = 'X' where id = '${ids.person}'`,
+      `update order_capture.customer_persons set customer_id = gen_random_uuid() where id = '${ids.person}'`,
+      `update order_capture.bills set bill_to_name = 'X' where id = '${ids.bill}'`,
+      `update order_capture.bills set bill_to_address = 'X' where id = '${ids.bill}'`,
+      `update order_capture.bills set gst_treatment = 'consumer' where id = '${ids.bill}'`,
+      `update order_capture.customers set created_by_name = 'X' where id = '${ids.customer}'`,
     ];
   };
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(89 + 14 + 19 + 2 + 11); // + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008); bill_settings (delete, truncate) and 11 locked bill-field updates (0009)
+    expect(list.length).toBe(87 + 14 + 19 + 2 + 11 + 6 + 9); // + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008); bill_settings (delete, truncate) and 11 locked bill-field updates (0009); the three customer tables (delete, truncate) and 9 locked updates (0010), and the customer's phone is no longer locked (the owner may change it, D3)
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 
@@ -149,6 +158,18 @@ describe("append-only for order_app", () => {
     ).toBe(1);
     expect((await asApp(t, `update order_capture.notification_outbox set attempts = 1, last_error = 'x', sent_at = now() where id = '${ids.outbox}'`)).rowCount).toBe(1);
     expect((await asApp(t, `update order_capture.customer_messages set status = 'sent', provider_sid = 'SM123', error = null, attempts = 1, sent_at = now() where id = '${ids.message}'`)).rowCount).toBe(1);
+  });
+
+  it("customer page Part 2: every customer field and the mobile can change; a contact person switches off", async () => {
+    expect(
+      (await asApp(t, `update order_capture.customers set legal_name = 'Sri Ram Hotel Pvt Ltd', gst_treatment = 'registered', billing_address = 'Main Road', billing_city = 'Bijepur', billing_pin = '768032', email = 'a@b.in', other_phone = '06642222', customer_type = 'shop', delivery_address = 'Back gate', delivery_landmark = 'Near bus stand', payment_terms = 'net15', phone = '9123400001', phone_typed = '91234 00001' where id = '${ids.customer}'`)).rowCount,
+    ).toBe(1);
+    expect((await asApp(t, `update order_capture.customers set phone = '9876543210', phone_typed = '+91 9876543210' where id = '${ids.customer}'`)).rowCount).toBe(1); // back, for the tests below
+    expect((await asApp(t, `update order_capture.customer_persons set active = false where id = '${ids.person}'`)).rowCount).toBe(1);
+    expect(await dbError(asApp(t, `update order_capture.customers set billing_pin = '012345' where id = '${ids.customer}'`))).toMatch(/check constraint/);
+    expect(await dbError(asApp(t, `insert into order_capture.customer_locations (tenant_id, customer_id, kind, lat, lng, accuracy_m, source, by_user, by_name) values ('${t}', '${ids.customer}', 'set', 21, 83, 400, 'phone', gen_random_uuid(), 'X')`))).toMatch(/check constraint/);
+    expect(await dbError(asApp(t, `insert into order_capture.customer_locations (tenant_id, customer_id, kind, by_user, by_name) values ('${t}', '${ids.customer}', 'clear', gen_random_uuid(), 'X')`))).toMatch(/check constraint/);
+    expect(await dbError(asApp(t, `insert into order_capture.bills (tenant_id, source, number, ref_no, bill_date, customer_id, customer_name, sub_total, total, bill_to_name, created_by, created_by_name) values ('${t}', 'plantops', 'B-0077', 77, '2026-11-07', '${ids.customer}', 'x', 1, 1, 'Not a GST bill', gen_random_uuid(), 'S')`))).toMatch(/check constraint/);
   });
 
   it("ledger: a bill gets its order / GST invoice no. or is cancelled; a payment is cancelled; a contact gets its customer / phone", async () => {

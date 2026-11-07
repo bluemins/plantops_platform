@@ -45,7 +45,13 @@ export type Action =
   | "payment_cancel" // cancel a payment, with a reason
   | "ledger_export" // bills / payments CSV
   | "ledger_totals" // the plant's totals: still due, overdue bills, received (owner 2026-11-06: owner only)
-  | "reports"; // Reports: sales by item / customer (owner 2026-11-07: owner only; support reads)
+  | "reports" // Reports: sales by item / customer (owner 2026-11-07: owner only; support reads)
+  // customer page Part 2 (docs/CUSTOMER_PAGE_PHASE_PLAN.md, owner 2026-11-07)
+  | "customer_edit" // every customer field incl. GST details and the mobile (with a reason); contact persons
+  | "customer_comment" // add a comment on a customer (read with ledger_view)
+  | "location_view" // a customer's shop location and the Shop locations search (no amounts)
+  | "location_save" // "Save my location here" (standing at the shop)
+  | "location_clear"; // clear a wrong pin, with a reason
 
 export const ACCESS: Record<Action, readonly Who[]> = {
   read: ["owner", "desk", "viewer", "accounts", "support"],
@@ -82,6 +88,11 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   ledger_export: ["owner"],
   ledger_totals: ["owner", "support"],
   reports: ["owner", "support"],
+  customer_edit: ["owner"],
+  customer_comment: ["owner"],
+  location_view: ["owner", "desk", "accounts", "delivery", "support"],
+  location_save: ["owner", "desk", "accounts", "delivery"],
+  location_clear: ["owner", "desk"],
 };
 
 /** What the user is, for this table. null = no Order Capture rights at all (e.g. a store keeper). */

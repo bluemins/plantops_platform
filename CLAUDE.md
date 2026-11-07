@@ -2032,3 +2032,11 @@ and totals) / Orders / **Statement** (quick ranges, plant name + GSTIN). Sales h
 token unchanged. Tests: Sales 656, platform 425. **Next: Part 2** (owner edits all fields incl. mobile with a reason,
 comments, contact persons, shop location "📍 Save my location here" incl. Delivery staff, Zoho Contacts fill): Sales
 migration `0010` to show the owner first.
+
+### 2026-11-07 — Customer page Part 2 + GST details (v0.45.0, built)
+Owner approved migration `0010` (Sales). **Rule D8:** in Sales the customer's name is the calling name everywhere; the
+GST details (legal name, GSTIN, treatment, billing address, state) are separate and used only by GST bills and the Zoho
+file ("Customer Name" = legal name). Owner Edit of every field (mobile with a reason), Comments, Contact persons, shop
+location ("Save my location here" for owner / Order desk / Accounts / Delivery staff; pasted Maps link by the owner;
+Shop locations screen without money). Make bill's GST details saved on the customer; GST bills keep a bill-to copy.
+SSO token unchanged. Tests: Sales 693, platform 425. **Next:** deploy (migration first); Part 3 = Zoho Contacts fill.

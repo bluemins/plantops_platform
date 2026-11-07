@@ -74,9 +74,13 @@ export function CustomersEditor({ list, q, showOff, canEdit, plainPhones, accoun
                       <p className="text-sm text-slate-600">{c.place}</p>
                       <p className="text-sm">
                         <PhoneLink phone={c.phone} plain={plainPhones || !c.active} />
-                        {accounts && (
+                        {accounts ? (
                           <a href={`/customers/${c.id}`} className="ml-3 inline-flex min-h-11 items-center font-semibold text-(--brand)">
                             Account ›
+                          </a>
+                        ) : (
+                          <a href={`/shops/${c.id}`} className="ml-3 inline-flex min-h-11 items-center font-semibold text-(--brand)">
+                            📍 Location
                           </a>
                         )}
                       </p>

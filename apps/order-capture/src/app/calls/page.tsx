@@ -61,8 +61,13 @@ export default async function CallsPage() {
         ))
       )}
 
-      {(can(user, "calls_numbers") || can(user, "view_ignored")) && (
+      {(can(user, "calls_numbers") || can(user, "view_ignored") || can(user, "location_view")) && (
         <nav className="space-y-3 pt-2" aria-label="More">
+          {can(user, "location_view") && (
+            <LinkRow href="/shops" note="Find a customer, save or open their shop's pin">
+              Shop locations
+            </LinkRow>
+          )}
           {can(user, "calls_numbers") && (
             <LinkRow href="/calls/numbers" note="Calls, missed, attended and waiting by day">
               Calls numbers

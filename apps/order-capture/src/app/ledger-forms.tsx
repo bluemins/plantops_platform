@@ -129,6 +129,12 @@ export function MakeBill({ form }: { form: BillForm }) {
     notes: form.settings.default_notes ?? "",
     private_note: "",
     zoho_no: "",
+    // GST details (D8): the legal name and address Zoho bills to; the calling name stays on everything else
+    legal_name: form.customer.legal_name ?? form.customer.name,
+    gst_treatment: (form.customer.gst_treatment ?? "") as string,
+    billing_address: form.customer.billing_address ?? "",
+    billing_city: form.customer.billing_city ?? "",
+    billing_pin: form.customer.billing_pin ?? "",
   });
   const [lines, setLines] = useState(form.lines.map((l) => ({ line_no: l.line_no, description: "", discount: "", pct: false })));
   const [error, setError] = useState<string>();
@@ -175,7 +181,18 @@ export function MakeBill({ form }: { form: BillForm }) {
         discount: f.discount.trim() || undefined,
         adjustment: f.adjustment.trim() || undefined,
         needs_gst: f.needs_gst,
-        ...(f.needs_gst ? { gstin: f.gstin.trim() || undefined, place_of_supply: f.place, tax_inclusive: f.inclusive } : {}),
+        ...(f.needs_gst
+          ? {
+              gstin: f.gstin.trim() || undefined,
+              place_of_supply: f.place,
+              tax_inclusive: f.inclusive,
+              legal_name: f.legal_name.trim(),
+              ...(f.gstin.trim() ? {} : { gst_treatment: f.gst_treatment === "unregistered" ? "unregistered" : "consumer" }),
+              billing_address: f.billing_address.trim(),
+              billing_city: f.billing_city.trim(),
+              billing_pin: f.billing_pin.trim(),
+            }
+          : {}),
         lines: lines
           .filter((x) => x.description.trim() || x.discount.trim())
           .map((x) => ({
@@ -247,6 +264,34 @@ export function MakeBill({ form }: { form: BillForm }) {
                 onChange={(e) => { const g = e.target.value.toUpperCase(); const st = g.replace(/\s+/g, "").slice(0, 2); setF({ ...f, gstin: g, place: /^\d{2}$/.test(st) && form.states.some((s) => s.code === st) ? st : f.place }); }}
                 placeholder="21AAACL0140P4ZS" />
             </label>
+            <label className="block">
+              <span className={label}>Legal name (as on the GST registration / in Zoho)</span>
+              <input className={field} value={f.legal_name} maxLength={200} onChange={set("legal_name")} />
+              {f.legal_name.trim() !== form.customer.name && <span className="mt-1 block text-xs text-slate-500">Calling name stays “{form.customer.name}” on orders and lists.</span>}
+            </label>
+            {!f.gstin.trim() && (
+              <label className="block">
+                <span className={label}>Without a GSTIN, the buyer is</span>
+                <select className={field} value={f.gst_treatment === "unregistered" ? "unregistered" : "consumer"} onChange={set("gst_treatment")}>
+                  <option value="consumer">A consumer</option>
+                  <option value="unregistered">An unregistered business</option>
+                </select>
+              </label>
+            )}
+            <label className="block">
+              <span className={label}>Billing address{f.gstin.trim() ? "" : " (optional)"}</span>
+              <input className={field} value={f.billing_address} maxLength={300} onChange={set("billing_address")} placeholder="Street, area" />
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className={label}>City{f.gstin.trim() ? "" : " (optional)"}</span>
+                <input className={field} value={f.billing_city} maxLength={80} onChange={set("billing_city")} />
+              </label>
+              <label className="block">
+                <span className={label}>PIN code{f.gstin.trim() ? "" : " (optional)"}</span>
+                <input className={field} value={f.billing_pin} inputMode="numeric" maxLength={6} onChange={set("billing_pin")} />
+              </label>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
                 <span className={label}>Place of supply</span>

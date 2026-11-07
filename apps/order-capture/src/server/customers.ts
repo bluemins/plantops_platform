@@ -2,7 +2,7 @@
 // checked here on the server through the access table:
 //   * owner and Order desk add, edit name / place and switch customers off / on; PlantOps support only reads
 //   * the phone (normalised Indian mobile) is the customer's identity: one customer per phone per plant (the
-//     database's unique index is the final guard) and it can never be changed - a different number is a new customer
+//     database's unique index is the final guard); only the owner may change it, with a reason (customer-details.ts, D3)
 //   * customers are switched off, never deleted; old orders keep their own copy of name / phone / place
 //   * every change goes into the audit log ("Recent changes")
 import { and, asc, eq, ilike, like, or, sql } from "drizzle-orm";

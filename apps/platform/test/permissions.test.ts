@@ -88,10 +88,10 @@ describe("launcher tile line for view-only people (v0.27.0)", () => {
 });
 
 describe("Delivery staff (docs/CALLS_PHASE_PLAN.md Phase 1)", () => {
-  it("the role button says Calls only; the grid says Delivery staff · Calls only, with 🔔 (they get Customer called)", () => {
-    expect(roleChoices(["order_capture"], []).find((x) => x.role === "delivery_staff")).toMatchObject({ label: "Delivery staff", hint: "Sales · Calls only", off: false });
+  it("the role button says Calls + shop locations; the grid says Delivery staff · Calls + shop locations, with 🔔 (they get Customer called)", () => {
+    expect(roleChoices(["order_capture"], []).find((x) => x.role === "delivery_staff")).toMatchObject({ label: "Delivery staff", hint: "Sales · Calls + shop locations", off: false });
     expect(roleChoices(["floor_stock"], []).some((x) => x.role === "delivery_staff")).toBe(false); // Order Capture not on
-    expect(cellFor(["delivery_staff"], [], "order_capture")).toEqual({ kind: "work", label: "Delivery staff · Calls only", alerts: true });
+    expect(cellFor(["delivery_staff"], [], "order_capture")).toEqual({ kind: "work", label: "Delivery staff · Calls + shop locations", alerts: true });
     expect(cellFor(["delivery_staff"], [], "floor_stock")).toBeNull();
   });
 

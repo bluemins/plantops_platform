@@ -24,6 +24,7 @@ function BillRow({ b, children }: { b: Row; children?: React.ReactNode }) {
       <a href={`/bills/${b.id}`} className="flex items-start justify-between gap-3">
         <span className="min-w-0">
           <span className="block font-semibold break-words">{b.number} · {b.customer}</span>
+          {b.bill_to && b.bill_to !== b.customer && <span className="block text-sm text-slate-600">Zoho: {b.bill_to}</span>}
           <span className="block text-sm text-slate-500">{day(b.bill_date)}{b.gstin ? ` · GSTIN ${b.gstin}` : " · no GSTIN (consumer)"}</span>
         </span>
         <span className="shrink-0 text-right font-semibold">{money(b.total)}</span>

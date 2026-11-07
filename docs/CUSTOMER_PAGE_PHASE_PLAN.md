@@ -1,6 +1,6 @@
 # Customer page (Sales): Phase Plan
 
-**Status:** Asked by the owner 2026-11-07; design and mock-up agreed the same day. **Part 1 built (v0.44.0).** Part 1 needs no
+**Status:** Asked by the owner 2026-11-07; design and mock-up agreed the same day. **Part 1 live (v0.44.0); Part 2 + GST details built (v0.45.0).** Part 1 needs no
 database change; Part 2's migration is listed in section 5 (owner agreed to the fields and permissions, migration text
 to be shown before it is applied).
 
@@ -23,6 +23,7 @@ Comments, Transactions, Statement).
 | D4 | Only the **owner** edits customer details (Order desk keeps today's add / name / place / on-off). |
 | D5 | Fill from Zoho once: Contacts.csv uploaded again fills **empty** fields only; never bills or payments. Contact persons from Zoho's separate contact-persons export if available. |
 | D6 | Shop location, quick path: **"📍 Save my location here"** on the customer page, for whoever stands at the shop. **Delivery staff** may open a customer page with the location box only (no amounts, no bills, no edit). Rough fixes (worse than ±150 m) refused. The owner may also paste a Google Maps link. |
+| D8 | **Calling name vs GST details** (owner, 2026-11-07): in Sales a customer's name is the **calling name** everywhere (the order form's phone lookup, lists, ordinary bills). The **GST details** (legal name, GSTIN, GST treatment, billing address, GST state) are a separate block on the same customer (Overview "Billing & GST"), used only by GST bills and the Zoho file ("Customer Name" = legal name, so Zoho matches its contact). The first GST bill saves them on the customer; a GST bill keeps a copy (bill-to name + address). Example: calling name "Ajit kirana store", Zoho contact "Ashu battle shop(BPL)". |
 | D7 | Never editable: money due, the copies on past orders / bills, Zoho contact id, created by / when. |
 
 **Proposed (made while planning, owner may change):**

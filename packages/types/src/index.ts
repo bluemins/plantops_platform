@@ -60,7 +60,7 @@ export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin" | "plant_staff" 
   supervisor: "attendance_salary",
   /** Job applications: sees and calls applicants, changes status, adds notes (openings, CSV and Remove now are owner-only) */
   hr_desk: "job_applications",
-  /** Order Capture's Calls tab only: calls customers back, marks Attended, saves new callers; no orders, no amounts */
+  /** Order Capture's Calls tab (calls customers back, marks Attended, saves new callers) + Shop locations (v0.45.0); no orders, no amounts */
   delivery_staff: "order_capture",
   /** Order Capture after delivery (owner, 2026-11-06): bills, Make bill, Receive payment, a customer's account; orders read-only */
   accounts: "order_capture",

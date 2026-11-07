@@ -4,10 +4,13 @@
 import { Card } from "@plantops/ui";
 import { money } from "@/lib/money";
 import { can } from "@/server/access";
+import { GST_STATES } from "@plantops/types";
 import { ACCOUNT_TABS, quickRanges, type AccountTab } from "@/lib/customer-page";
+import { TERMS_LABEL, type BillTerms } from "@/lib/ledger";
 export { pickTab } from "@/lib/customer-page";
 import type { Account } from "@/server/ledger";
 import type { OcUser } from "@/server/session";
+import { AddComment, EditCustomer, LocationBox, PersonsEditor } from "./customer-forms";
 import { CancelWithReason, PrintButton, ReceivePayment } from "./ledger-forms";
 import { BillBadge, PhoneLink, StatusBadge } from "./parts";
 
@@ -52,6 +55,8 @@ function Row({ k, children }: { k: string; children: React.ReactNode }) {
     </div>
   );
 }
+const TYPE_LABEL: Record<string, string> = { shop: "Shop", household: "Household", office: "Office", institution: "Institution", individual: "Individual" };
+const TREATMENT_LABEL: Record<string, string> = { registered: "Registered business", unregistered: "Unregistered business", consumer: "Consumer" };
 const Dash = () => <span className="text-slate-400">—</span>;
 
 function Chips<T extends string>({ items, on, href }: { items: readonly (readonly [T, string])[]; on: T; href: (t: T) => string }) {
@@ -94,6 +99,7 @@ export function AccountView({
   const billsShown = a.bills.filter((b) => billShows(bShow, b.status));
   const paysShown = a.payments.filter((p) => payShows(pShow, p.cancelled));
   const payCancel = can(user, "payment_cancel");
+  const d = a.details;
   return (
     <div className="space-y-4">
       <div className="print:hidden">
@@ -135,32 +141,69 @@ export function AccountView({
         </div>
       )}
 
-      <nav aria-label="Customer" className="grid grid-cols-4 gap-1 rounded-xl border border-slate-200 bg-white p-1 print:hidden">
-        {ACCOUNT_TABS.map(([t, l]) => (
-          <a key={t} href={qs(t)} aria-current={t === tab ? "page" : undefined} className={`flex min-h-11 items-center justify-center rounded-lg px-1 text-center text-sm font-semibold ${t === tab ? "bg-(--brand-soft) text-(--brand)" : "text-slate-600"}`}>
+      <nav aria-label="Customer" className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 print:hidden">
+        {ACCOUNT_TABS.filter(([t]) => t !== "comments" || isCustomer).map(([t, l]) => (
+          <a key={t} href={qs(t)} aria-current={t === tab ? "page" : undefined} className={`flex min-h-11 flex-1 items-center justify-center rounded-lg px-3 text-center text-sm font-semibold whitespace-nowrap ${t === tab ? "bg-(--brand-soft) text-(--brand)" : "text-slate-600"}`}>
             {l}
+            {t === "comments" && a.comments.length ? <span className="ml-1 text-xs text-slate-500">({a.comments.length})</span> : null}
           </a>
         ))}
       </nav>
+
+      {tab === "overview" && d && can(user, "customer_edit") && (
+        <EditCustomer
+          customerId={a.party.id}
+          values={{ name: a.party.name, place: a.party.place ?? "", phone: a.party.phone ?? "", gstin: a.party.gstin, state_code: a.party.state_code, ...d }}
+        />
+      )}
 
       {tab === "overview" && (
         <div className="grid gap-4 md:grid-cols-[19rem_1fr]">
           <div className="space-y-3">
             <Section title="Contact">
               <dl className="space-y-1.5">
-                <Row k="Name">{a.party.name}</Row>
+                <Row k="Calling name">{a.party.name}</Row>
                 <Row k="Mobile">{a.party.phone ? a.party.phone.replace(/^(\d{5})(\d{5})$/, "$1 $2") : <Dash />}</Row>
+                {d?.other_phone && <Row k="Other phone">{d.other_phone}</Row>}
+                {d?.email && <Row k="Email">{d.email}</Row>}
                 <Row k="Place">{a.party.place ?? <Dash />}</Row>
+                {d?.customer_type && <Row k="Type">{TYPE_LABEL[d.customer_type] ?? d.customer_type}</Row>}
+                {d && <Row k="Payment terms">{d.payment_terms ? TERMS_LABEL[d.payment_terms as BillTerms] : "Plant default"}</Row>}
                 {isCustomer && <Row k="Status">{a.party.active ? "On" : "Switched off"}</Row>}
                 {a.party.created_at && <Row k="Added">{when(a.party.created_at)}{a.party.created_by_name ? ` by ${a.party.created_by_name}` : ""}</Row>}
               </dl>
             </Section>
-            <Section title="Billing & GST">
+            {isCustomer && (
+              <Section title="Shop location">
+                <LocationBox customerId={a.party.id} location={a.location} canSave={can(user, "location_save")} canClear={can(user, "location_clear")} canPaste={can(user, "customer_edit")} />
+                {(d?.delivery_address || d?.delivery_landmark) && (
+                  <dl className="space-y-1.5 pt-1">
+                    {d.delivery_address && <Row k="Deliver to">{d.delivery_address}</Row>}
+                    {d.delivery_landmark && <Row k="Landmark">{d.delivery_landmark}</Row>}
+                  </dl>
+                )}
+              </Section>
+            )}
+            <Section title="GST details (for GST bills)">
               <dl className="space-y-1.5">
+                {d && <Row k="Legal name">{d.legal_name ?? <Dash />}</Row>}
+                {d && <Row k="Treatment">{d.gst_treatment ? TREATMENT_LABEL[d.gst_treatment] : <Dash />}</Row>}
                 <Row k="GSTIN">{a.party.gstin ?? <Dash />}</Row>
-                {isCustomer && <Row k="GST state">{a.party.state_code ?? <Dash />}</Row>}
+                {isCustomer && <Row k="GST state">{a.party.state_code ? `${GST_STATES[a.party.state_code] ?? ""} (${a.party.state_code})` : <Dash />}</Row>}
+                {d && <Row k="Billing address">{[d.billing_address, d.billing_city, d.billing_pin].filter(Boolean).join(", ") || <Dash />}</Row>}
               </dl>
             </Section>
+            {isCustomer && (a.persons.length > 0 || can(user, "customer_edit")) && (
+              <Section title="Contact persons">
+                {can(user, "customer_edit") ? (
+                  <PersonsEditor customerId={a.party.id} persons={a.persons} />
+                ) : (
+                  <ul className="space-y-1 text-sm">
+                    {a.persons.filter((x) => x.active).map((x) => <li key={x.id}>{x.name}{x.role ? ` · ${x.role}` : ""}{x.phone ? ` · ${x.phone}` : ""}</li>)}
+                  </ul>
+                )}
+              </Section>
+            )}
             <Section title={a.contacts.length === 1 ? "Zoho contact" : `Zoho contacts (${a.contacts.length})`}>
               {a.contacts.length === 0 && <p className="text-sm text-slate-500">None linked.{isCustomer && can(user, "zoho_match") ? <> <a href="/customers/match" className="font-semibold text-(--brand)">Match Zoho customers</a></> : null}</p>}
               <ul className="space-y-2">
@@ -355,6 +398,22 @@ export function AccountView({
             </li>
           ))}
         </ul>
+      )}
+
+      {tab === "comments" && isCustomer && (
+        <div className="max-w-2xl space-y-4">
+          {can(user, "customer_comment") && <AddComment customerId={a.party.id} />}
+          <h2 className="font-semibold">All comments</h2>
+          {a.comments.length === 0 && <p className="text-sm text-slate-500">No comments yet.</p>}
+          <ul className="space-y-2">
+            {a.comments.map((c) => (
+              <li key={c.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-sm whitespace-pre-wrap">{c.body}</p>
+                <p className="mt-1 text-xs text-slate-500">{when(c.at)} · {c.by}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {tab === "statement" && (
