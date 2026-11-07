@@ -168,7 +168,8 @@ type Key = keyof EditValues;
 const TYPES = [["", "—"], ["shop", "Shop"], ["household", "Household"], ["office", "Office"], ["institution", "Institution"], ["individual", "Individual"]] as const;
 const TREATMENTS = [["", "—"], ["registered", "Registered business (has GSTIN)"], ["unregistered", "Unregistered business"], ["consumer", "Consumer"]] as const;
 
-export function EditCustomer({ customerId, values }: { customerId: string; values: EditValues }) {
+/** `gst` = may change the GST details and payment terms (the owner); Marketing staff edit the rest, the mobile included. */
+export function EditCustomer({ customerId, values, gst = true }: { customerId: string; values: EditValues; gst?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [v, setV] = useState<Record<Key, string>>(() => Object.fromEntries(Object.entries(values).map(([k, x]) => [k, x ?? ""])) as Record<Key, string>);
@@ -228,19 +229,23 @@ export function EditCustomer({ customerId, values }: { customerId: string; value
             {TYPES.map(([x, l]) => <option key={x} value={x}>{l}</option>)}
           </select>
         </label>
-        <label className="block space-y-1 text-sm font-semibold">
-          <span>Payment terms</span>
-          <select className={field} value={v.payment_terms} onChange={set("payment_terms")}>
-            <option value="">Plant default (Bill settings)</option>
-            {BILL_TERMS.map((t) => <option key={t} value={t}>{TERMS_LABEL[t]}</option>)}
-          </select>
-        </label>
+        {gst && (
+          <label className="block space-y-1 text-sm font-semibold">
+            <span>Payment terms</span>
+            <select className={field} value={v.payment_terms} onChange={set("payment_terms")}>
+              <option value="">Plant default (Bill settings)</option>
+              {BILL_TERMS.map((t) => <option key={t} value={t}>{TERMS_LABEL[t]}</option>)}
+            </select>
+          </label>
+        )}
       </fieldset>
       <fieldset className="grid gap-3 sm:grid-cols-2">
         <legend className="mb-2 font-semibold text-slate-700">Delivery</legend>
         {input("delivery_address", "Delivery address (if not the place)", { maxLength: 300 })}
         {input("delivery_landmark", "Landmark", { maxLength: 150 })}
       </fieldset>
+      {!gst && <p className="text-sm text-slate-600">GST details and payment terms are changed by the plant owner.</p>}
+      {gst && (
       <fieldset className="grid gap-3 sm:grid-cols-2">
         <legend className="mb-2 font-semibold text-slate-700">GST details (only for GST bills and Zoho)</legend>
         {input("legal_name", "Legal name (as on the GST registration / in Zoho)", { maxLength: 200 })}
@@ -262,6 +267,7 @@ export function EditCustomer({ customerId, values }: { customerId: string; value
         {input("billing_city", "City", { maxLength: 80 })}
         {input("billing_pin", "PIN code", { inputMode: "numeric", maxLength: 6 })}
       </fieldset>
+      )}
       <ErrorText>{error}</ErrorText>
       <div className="flex gap-2">
         <Button disabled={busy} onClick={save}>{busy ? "Saving..." : "Save"}</Button>

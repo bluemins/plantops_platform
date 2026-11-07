@@ -37,6 +37,7 @@ export const ROLE_IDS = [
   "order_viewer",
   "delivery_staff",
   "accounts",
+  "marketing_staff",
 ] as const;
 export const RoleId = z.enum(ROLE_IDS);
 export type RoleId = z.infer<typeof RoleId>;
@@ -64,6 +65,12 @@ export const ROLE_MODULE: Record<Exclude<RoleId, "tenant_admin" | "plant_staff" 
   delivery_staff: "order_capture",
   /** Order Capture after delivery (owner, 2026-11-06): bills, Make bill, Receive payment, a customer's account; orders read-only */
   accounts: "order_capture",
+  /**
+   * Sales customers (owner, 2026-11-07): the customer list and pages, adds customers, edits their details incl. the
+   * mobile (GST details and payment terms stay owner-only), comments, contact persons, shop location; sees a customer's
+   * bills / payments / statement read-only; never orders
+   */
+  marketing_staff: "order_capture",
 };
 
 /**
@@ -90,9 +97,10 @@ export const VIEWER_ALERTS: readonly ModuleId[] = ["floor_stock", "document_stor
 
 /**
  * Roles that work in a module but never get its alerts by a tick (owner, 2026-11-04; docs/CALLS_PHASE_PLAN.md): Order
- * Capture's other alerts carry amounts, so Delivery staff get only "Customer called", sent to them by name.
+ * Capture's other alerts carry amounts, so Delivery staff get only "Customer called", sent to them by name. Marketing staff
+ * (owner, 2026-11-07) don't work on orders, so Sales' order alerts are not for them.
  */
-export const NO_ALERT_TICK_ROLES: readonly RoleId[] = ["delivery_staff"];
+export const NO_ALERT_TICK_ROLES: readonly RoleId[] = ["delivery_staff", "marketing_staff"];
 
 /**
  * May someone with this role be ticked for (and receive) this module's alerts? A role that works there, or the module's
@@ -234,8 +242,8 @@ export const SUMMARY_TOKEN_SECONDS = 60;
  * treats it like "staff".
  */
 /** "reports" (v0.43.0) / "customers" (v0.44.0): the owner's Reports and Customers cards on the dashboard; only Order Capture
- * (Sales) is asked for them */
-export const SummaryView = z.enum(["owner", "staff", "desk", "viewer", "reports", "customers"]);
+ * (Sales) is asked for them. "marketing" (v0.46.0): a Marketing staff tile in Sales (customer numbers, no plant money) */
+export const SummaryView = z.enum(["owner", "staff", "desk", "viewer", "reports", "customers", "marketing"]);
 export type SummaryView = z.infer<typeof SummaryView>;
 export const SummaryRequestPayload = z.object({
   iss: z.literal(TOKEN_ISSUER),

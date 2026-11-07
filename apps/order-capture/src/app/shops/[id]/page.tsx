@@ -32,7 +32,7 @@ export default async function ShopPage({ params }: { params: Params }) {
         <h2 className="text-xs font-semibold tracking-wider text-slate-500 uppercase">Shop location</h2>
         <LocationBox customerId={s.id} location={s.location} canSave={s.can_save} canClear={s.can_clear} canPaste={s.can_paste} />
       </section>
-      {can(user, "ledger_view") && <a href={`/customers/${s.id}`} className="inline-flex min-h-11 items-center font-semibold text-(--brand)">Customer page ›</a>}
+      {can(user, "account_view") && <a href={`/customers/${s.id}`} className="inline-flex min-h-11 items-center font-semibold text-(--brand)">Customer page ›</a>}
     </div>
   );
 }

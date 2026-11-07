@@ -4,6 +4,21 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.46.0 — 2026-11-07 — New role Marketing staff (Sales customers)
+
+Owner, 2026-11-07: "a role Marketing staff who will have access to Contacts + edit customer details … they see the
+amount … because they interact with customers". **Migration:** platform `0027_marketing_staff.sql` (one role row).
+SSO token unchanged.
+- **Marketing staff** (Sales): the Customers list (lands there), a customer's page with bills, payments and the
+  statement (read-only, with amounts), Edit customer for every field **incl. the mobile** (with a reason), add customers,
+  comments, contact persons, Shop locations and "📍 Save my location here".
+- **Owner only, refused on the server:** GST details (legal name, treatment, GSTIN, state, billing address) and payment
+  terms; clearing a pin or pasting a Maps link stays owner / Order desk as before.
+- **Never:** orders (no list, no Orders tab, order numbers on bills as plain text), the plant-wide Bills / Payments
+  lists, plant totals, Reports, CSV, Rates, Zoho import / match. Never ticked for alerts.
+- Tile "Customers": N customers · N added this week · N without shop location (new summary view `marketing`).
+- With Order desk or Accounts: both sets of rights; with Delivery staff: Calls too.
+
 ## v0.45.3 — 2026-11-07 — "Link by mobile" brings in every contact with a mobile
 
 Owner, 2026-11-07: "first take all to PlantOps, then a strategy to merge". **No migration.**

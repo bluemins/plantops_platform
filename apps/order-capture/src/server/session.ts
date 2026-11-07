@@ -14,7 +14,8 @@ export interface OcUser {
   roles: RoleId[];
   /** the row of the access table this person uses; null = no Order Capture rights */
   who: Who | null;
-  /** Order desk who also holds Accounts: ["accounts"] (bills and payments on top of order work) */
+  /** other capacities held: Order desk + Accounts → ["accounts"]; + Marketing staff → ["marketing"]; Marketing staff +
+   * Delivery staff → ["delivery"] */
   also?: Who[];
   isOwner: boolean;
   /** PlantOps support (super_admin) looking read-only: every write is refused */
@@ -23,12 +24,14 @@ export interface OcUser {
 
 /**
  * Owner wins over a staff role; desk = Order desk; delivery = Delivery staff without Order desk (Calls only); viewer =
- * plant staff / Order viewer without either (read-only, no amounts).
+ * plant staff / Order viewer without either (read-only, no amounts). Marketing staff come before Delivery staff and the
+ * viewers: customers, never orders (an Order viewer who is also Marketing staff sees no orders).
  */
 export function whoFor(roles: RoleId[]): Who | null {
   if (roles.includes("tenant_admin")) return "owner";
   if (roles.includes("order_desk")) return "desk";
   if (roles.includes("accounts")) return "accounts";
+  if (roles.includes("marketing_staff")) return "marketing";
   // Calls only, also with Plant staff / Order viewer (owner, 2026-11-04)
   if (roles.includes("delivery_staff")) return "delivery";
   return viewOnlyIn(roles, "order_capture") ? "viewer" : null;
@@ -36,7 +39,10 @@ export function whoFor(roles: RoleId[]): Who | null {
 
 export function toOcUser(s: ModuleSession): OcUser {
   const who = whoFor(s.roles);
-  const also: Who[] = who === "desk" && s.roles.includes("accounts") ? ["accounts"] : [];
+  const also: Who[] = [];
+  if (who === "desk" && s.roles.includes("accounts")) also.push("accounts");
+  if ((who === "desk" || who === "accounts") && s.roles.includes("marketing_staff")) also.push("marketing");
+  if (who === "marketing" && s.roles.includes("delivery_staff")) also.push("delivery");
   return { tenantId: s.tenant_id, userId: s.user_id, name: s.display_name ?? "Sales user", roles: s.roles, who, also, isOwner: who === "owner", isSupport: false };
 }
 
@@ -55,8 +61,10 @@ export function roleLabel(user: OcUser) {
   if (user.isSupport) return "Read-only";
   if (user.who === "viewer") return "View only";
   if (user.who === "delivery") return "Delivery staff";
-  if (user.who === "accounts") return "Accounts";
-  if (user.also?.includes("accounts")) return "Order desk + Accounts";
+  if (user.who === "marketing") return user.also?.includes("delivery") ? "Marketing + Delivery" : "Marketing staff";
+  if (user.who === "accounts") return user.also?.includes("marketing") ? "Accounts + Marketing" : "Accounts";
+  if (user.also?.includes("accounts")) return user.also.includes("marketing") ? "Order desk + Accounts + Marketing" : "Order desk + Accounts";
+  if (user.also?.includes("marketing")) return "Order desk + Marketing";
   return user.isOwner ? "Owner" : "Order desk";
 }
 

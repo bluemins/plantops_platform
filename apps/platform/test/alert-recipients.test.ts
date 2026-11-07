@@ -236,5 +236,11 @@ describe("view roles in contacts and tiles", () => {
     expect(summaryViewFor(["stock_viewer", "store_keeper"], "floor_stock")).toBe("staff");
     expect(summaryViewFor(["plant_staff"], "order_capture")).toBe("viewer");
     expect(summaryViewFor(["tenant_admin", "stock_viewer"], "floor_stock")).toBe("owner");
+    // Marketing staff: customer numbers, never order counts or the plant's money (owner, 2026-11-07)
+    expect(summaryViewFor(["marketing_staff"], "order_capture")).toBe("marketing");
+    expect(summaryViewFor(["marketing_staff", "plant_staff"], "order_capture")).toBe("marketing");
+    expect(summaryViewFor(["marketing_staff", "order_desk"], "order_capture")).toBe("staff");
+    expect(summaryViewFor(["marketing_staff", "delivery_staff"], "order_capture")).toBe("desk");
+    expect(summaryViewFor(["tenant_admin", "marketing_staff"], "order_capture")).toBe("owner");
   });
 });

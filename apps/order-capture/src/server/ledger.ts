@@ -149,7 +149,7 @@ function timeline(
 }
 
 export async function account(user: OcUser, party: Party, range: { from?: string; to?: string } = {}) {
-  requireAccess(user, "ledger_view");
+  requireAccess(user, "account_view");
   return withTenant(user.tenantId, async (tx) => {
     const scope = await partyScope(tx, user.tenantId, party);
     const { rows, L } = await partyFacts(tx, user.tenantId, scope.customer?.id ?? null, scope.contactIds);
@@ -264,7 +264,8 @@ export async function account(user: OcUser, party: Party, range: { from?: string
       bills: billViews,
       open_bills: billViews.filter((b) => b.status !== "paid" && b.status !== "cancelled"),
       payments: paymentViews,
-      orders: orderViews,
+      // Marketing staff never see orders (the order refs on bills stay, as plain text)
+      orders: can(user, "read") ? orderViews : [],
       statement: {
         opening: rupees(st.opening),
         closing: rupees(st.closing),
@@ -389,7 +390,7 @@ export async function paymentsList(user: OcUser, f: { q?: string; from?: string;
 // ---------- one bill ----------
 
 export async function billDetail(user: OcUser, id: string) {
-  requireAccess(user, "ledger_view");
+  requireAccess(user, "account_view");
   return withTenant(user.tenantId, async (tx) => {
     const [b] = await tx.select().from(bills).where(and(eq(bills.tenantId, user.tenantId), eq(bills.id, id)));
     if (!b) throw notFound("Bill not found");

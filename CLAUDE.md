@@ -82,6 +82,10 @@ through the Lab Records API.
   amounts (`Who = "delivery"` in Order Capture's access table). Never ticked for alerts (`NO_ALERT_TICK_ROLES`,
   `getsAlertsIn` false); they get only "Customer called" (`order_capture.call`, sent to them by name). Their tile gets the
   `desk` view. With Plant staff too: still Calls only.
+- **Marketing staff** (`marketing_staff`), Sales only (owner, 2026-11-07; v0.46.0): the customer list and pages with
+  amounts (a customer's bills / payments / statement read-only), add customers, edit every customer field incl. the mobile
+  (GST details and payment terms owner-only), comments, contact persons, shop location. Never orders, the Bills section,
+  plant totals, Reports or CSV; never ticked for alerts. Tile view `marketing` (customer numbers, no plant money).
 - A user can hold **more than one role** (e.g. lab technician AND store keeper in a small plant). tenant_admin
   is a role in `users`/`user_roles`, not a separate account type.
 - Login: plant users log in with **plant code + username + secret**. Staff use a 6-digit **PIN**; anyone holding

@@ -30,4 +30,5 @@ export const ROLE_LABELS: Record<string, string> = {
   order_viewer: "Order viewer",
   delivery_staff: "Delivery staff",
   accounts: "Accounts",
+  marketing_staff: "Marketing staff",
 };

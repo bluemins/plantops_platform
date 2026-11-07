@@ -135,3 +135,55 @@ describe("shop location", () => {
     expect((await refused(() => saveLocation(b.owner, id, { source: "phone", lat: 1, lng: 1, accuracy_m: 5 }))).status).toBe(404);
   });
 });
+
+// Marketing staff (owner, 2026-11-07): edit every field but the GST details and payment terms, the mobile included (with a
+// reason); comments and contact persons; a customer's page with bills / payments, never its orders; another plant's
+// Marketing staff reach nothing.
+describe("Marketing staff", () => {
+  const mitu = ocUser(a.tenantId, ["marketing_staff"], "Mitu");
+  let mid = "";
+  beforeAll(async () => {
+    mid = String((await asApp(a.tenantId, `select id from order_capture.customers where tenant_id = '${a.tenantId}' and name = 'Maa Tarini'`)).rows[0]!.id);
+  });
+
+  it("edits name, place, email, landmark and the mobile (with a reason); recorded under their name", async () => {
+    const r = await updateCustomerDetails(mitu, mid, { name: "Maa Tarini Stores", place: "Bargarh town", email: "tarini@shop.in", delivery_landmark: "Opp. temple" });
+    expect(r.changed).toEqual(expect.arrayContaining(["name", "place", "email", "delivery_landmark"]));
+    expect((await refused(() => updateCustomerDetails(mitu, mid, { phone: "98765 22222" }))).message).toMatch(/needs a reason/);
+    expect((await updateCustomerDetails(mitu, mid, { phone: "98765 22222", phone_reason: "shop's new number" })).changed).toEqual(["phone"]);
+    const rows = (await auditRows(a.tenantId)).filter((r) => r.action === "customer.details");
+    expect(rows.at(-1)!.details).toMatchObject({ by: "Mitu", reason: "shop's new number" });
+  });
+
+  it("GST details and payment terms: refused when changed, fine when sent back unchanged", async () => {
+    for (const patch of [{ gstin: "21AAACL0140P4ZS" }, { legal_name: "Tarini Pvt Ltd" }, { billing_city: "Sambalpur" }, { state_code: "21" }, { gst_treatment: "registered" as const }, { payment_terms: "net7" as const }])
+      expect(await refused(() => updateCustomerDetails(mitu, mid, patch)), JSON.stringify(patch)).toEqual({ status: 403, message: "Only the plant owner changes GST details and payment terms." });
+    await updateCustomerDetails(a.owner, mid, { legal_name: "Tarini Pvt Ltd", payment_terms: "net7" });
+    expect((await updateCustomerDetails(mitu, mid, { legal_name: "Tarini Pvt Ltd", payment_terms: "net7", other_phone: "0664 111" })).changed).toEqual(["other_phone"]);
+  });
+
+  it("adds comments and contact persons; sees the customer's page with amounts but no orders", async () => {
+    await addComment(mitu, mid, { body: "Wants a dispenser on trial." });
+    const p = await addPerson(mitu, mid, { name: "Rina Das", role: "manager" });
+    await setPersonActive(mitu, mid, p.id, false);
+    const seeded = await account(mitu, { kind: "customer", id });
+    expect(seeded.orders).toEqual([]); // Marketing staff never see orders
+    expect((await account(a.owner, { kind: "customer", id })).orders.length).toBeGreaterThan(0);
+    expect(seeded.totals).toHaveProperty("due");
+    const acc = await account(mitu, { kind: "customer", id: mid });
+    expect(acc.comments[0]).toMatchObject({ body: "Wants a dispenser on trial.", by: "Mitu" });
+  });
+
+  it("saves a shop location; can't clear one or paste a Maps link", async () => {
+    await saveLocation(mitu, mid, { source: "phone", lat: 21.33, lng: 83.62, accuracy_m: 12 });
+    expect((await refused(() => clearLocation(mitu, mid, { reason: "wrong shop" }))).status).toBe(403);
+    expect((await refused(() => saveLocation(mitu, mid, { source: "map_link", link: "21.03, 83.79" }))).status).toBe(403);
+  });
+
+  it("another plant's Marketing staff reach nothing", async () => {
+    const other = ocUser(b.tenantId, ["marketing_staff"], "Other");
+    expect((await refused(() => updateCustomerDetails(other, mid, { email: "x@y.in" }))).status).toBe(404);
+    expect((await refused(() => account(other, { kind: "customer", id: mid }))).status).toBe(404);
+    expect((await refused(() => addComment(other, mid, { body: "x" }))).status).toBe(404);
+  });
+});

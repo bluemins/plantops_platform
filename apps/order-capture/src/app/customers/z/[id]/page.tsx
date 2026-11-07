@@ -13,12 +13,12 @@ type Search = Promise<Record<string, string | string[] | undefined>>;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
-/** A Zoho contact not matched yet: its bills, payments and statement (owner, Order desk, support read-only). */
+/** A Zoho contact not matched yet: its bills, payments and statement (owner, Accounts, Marketing staff; support read-only). */
 export default async function ZohoContactAccountPage({ params, searchParams }: { params: Params; searchParams: Search }) {
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const user = await requirePageUser(`/customers/z/${id}`);
-  if (!can(user, "ledger_view")) redirect("/customers");
+  if (!can(user, "account_view")) redirect("/customers");
   const sp = await searchParams;
   const tab = pickTab(one(sp.tab));
   const range = { from: one(sp.from) || undefined, to: one(sp.to) || undefined };

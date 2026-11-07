@@ -10,7 +10,7 @@ import { CustomersEditor } from "./editor";
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
-/** The plant's customers: owner and Order desk add / edit / switch off; PlantOps support reads. */
+/** The plant's customers: owner, Order desk and Marketing staff add / edit / switch off; PlantOps support reads. */
 export default async function CustomersPage({ searchParams }: { searchParams: Search }) {
   const user = await requirePageUser("/customers");
   if (!can(user, "view_customers")) redirect("/");
@@ -21,8 +21,13 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
   return (
     <div className="space-y-5">
       <Header user={user} plant={plant} />
-      <BackLink />
+      {can(user, "read") && <BackLink />}
       <h1 className="text-2xl font-bold">Customers</h1>
+      {!can(user, "read") && can(user, "location_view") && (
+        <LinkRow href="/shops" note="Find a shop and its saved pin">
+          Shop locations
+        </LinkRow>
+      )}
       {can(user, "customer_upload") && (
         <LinkRow href="/customers/upload" note="From Google Sheets, Excel or Zoho (CSV)">
           Upload a customer list
@@ -38,7 +43,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
           Match Zoho customers
         </LinkRow>
       )}
-      <CustomersEditor list={list} q={q} showOff={showOff} canEdit={can(user, "customers")} plainPhones={user.isSupport} accounts={can(user, "ledger_view")} />
+      <CustomersEditor list={list} q={q} showOff={showOff} canEdit={can(user, "customers")} plainPhones={user.isSupport} accounts={can(user, "account_view")} />
     </div>
   );
 }

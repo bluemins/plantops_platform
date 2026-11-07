@@ -13,7 +13,7 @@ import { NAME_MAX, NAME_MIN, PLACE_MAX, PLACE_MIN } from "@/lib/upload";
 import { can, requireAccess } from "./access";
 import { audit } from "./audit";
 import { schema, withTenant, type OcTx } from "./db";
-import { badRequest, conflict, notFound } from "./http";
+import { badRequest, conflict, forbidden, notFound } from "./http";
 import type { OcUser } from "./session";
 
 const { customers, customerComments, customerPersons, customerLocations } = schema;
@@ -94,14 +94,19 @@ const FIELDS = [
 ] as const satisfies readonly (readonly [keyof CustomerRow, keyof z.infer<typeof CustomerDetailsInput>, string])[];
 export const FIELD_WORDS: Record<string, string> = Object.fromEntries([...FIELDS.map(([, k, w]) => [k, w]), ["phone", "mobile"], ["active", "on / off"]]);
 
+/** GST details and payment terms: the owner only (customer_edit); Marketing staff edit the other fields (owner, 2026-11-07). */
+const OWNER_ONLY_FIELDS = ["legal_name", "gst_treatment", "gstin", "state_code", "billing_address", "billing_city", "billing_pin", "payment_terms"] as const;
+
 /**
- * The owner's Edit: every field at once (fields not sent stay as they are). GSTIN is checked (shape + check
- * character); it sets the GST state and "registered" when those are empty. A new mobile needs a reason and must not
- * belong to another customer. Nothing changed = nothing written.
+ * Edit: every field at once (fields not sent stay as they are). GSTIN is checked (shape + check character); it sets the
+ * GST state and "registered" when those are empty. A new mobile needs a reason and must not belong to another customer.
+ * Nothing changed = nothing written. The owner edits everything; Marketing staff everything but OWNER_ONLY_FIELDS (a
+ * changed one is refused, the same value sent back is fine).
  */
 export async function updateCustomerDetails(user: OcUser, id: string, raw: CustomerDetailsInput) {
-  requireAccess(user, "customer_edit");
+  if (!can(user, "customer_edit")) requireAccess(user, "customer_details");
   const input = check(CustomerDetailsInput, raw);
+  const gstAllowed = can(user, "customer_edit");
   let gstin = input.gstin;
   if (gstin) {
     gstin = normaliseGstin(gstin);
@@ -112,6 +117,12 @@ export async function updateCustomerDetails(user: OcUser, id: string, raw: Custo
   return withTenant(user.tenantId, async (tx) => {
     const [c] = await tx.select().from(customers).where(and(eq(customers.tenantId, user.tenantId), eq(customers.id, id))).for("update");
     if (!c) throw notFound("Customer not found");
+    if (!gstAllowed) {
+      const colOf = Object.fromEntries(FIELDS.map(([col, key]) => [key, col])) as Record<string, keyof CustomerRow>;
+      const sent = { ...input, ...(gstin !== undefined ? { gstin } : {}) };
+      const touched = OWNER_ONLY_FIELDS.filter((k) => sent[k] !== undefined && sent[k] !== c[colOf[k]!]);
+      if (touched.length) throw forbidden("Only the plant owner changes GST details and payment terms.");
+    }
     const next: Partial<CustomerRow> = {};
     const changes: Record<string, { from: unknown; to: unknown }> = {};
     const values = { ...input, ...(gstin !== undefined ? { gstin } : {}) } as Record<string, unknown>;
@@ -177,7 +188,7 @@ export const PersonInput = z.object({
 });
 
 export async function addPerson(user: OcUser, customerId: string, raw: z.input<typeof PersonInput>) {
-  requireAccess(user, "customer_edit");
+  requireAccess(user, "customer_details");
   const p = check(PersonInput, raw);
   return withTenant(user.tenantId, async (tx) => {
     await mustExist(tx, user.tenantId, customerId);
@@ -191,7 +202,7 @@ export async function addPerson(user: OcUser, customerId: string, raw: z.input<t
 }
 
 export async function setPersonActive(user: OcUser, customerId: string, personId: string, active: boolean) {
-  requireAccess(user, "customer_edit");
+  requireAccess(user, "customer_details");
   return withTenant(user.tenantId, async (tx) => {
     const [p] = await tx
       .update(customerPersons)

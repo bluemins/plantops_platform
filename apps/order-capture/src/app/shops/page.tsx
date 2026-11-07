@@ -18,7 +18,7 @@ export default async function ShopsPage({ searchParams }: { searchParams: Search
   return (
     <div className="space-y-4 pb-8">
       <Header user={user} plant={plant} />
-      <BackLink href={user.who === "delivery" ? "/calls" : "/"}>{user.who === "delivery" ? "← Calls" : "← Sales"}</BackLink>
+      <BackLink href={user.who === "delivery" ? "/calls" : user.who === "marketing" ? "/customers" : "/"}>{user.who === "delivery" ? "← Calls" : user.who === "marketing" ? "← Customers" : "← Sales"}</BackLink>
       <h1 className="text-2xl font-bold">Shop locations</h1>
       <form method="get" className="flex gap-2">
         <label htmlFor="shop-q" className="sr-only">Name, place or phone</label>

@@ -345,3 +345,20 @@ Bluemins + Mr.Charge order still gets it. Other orders show "No WhatsApp thank-y
 for Bluemins orders."; `send_thanks` on them is refused (400). Left out = every order (as before). A broken list
 (not a list of brand names) turns the thank-you off for every order and is named on the order page and `/health`.
 Reminders are unchanged. Tests: `test/thanks.test.ts` (+4).
+
+## 2026-11-07 — v0.46.0: Marketing staff
+Owner 2026-11-07: Marketing staff see customers with amounts and edit their details (the mobile too, after "allow the
+marketing staff to update the mobile number"); GST details and payment terms stay owner-only; no orders.
+- Platform migration `0027_marketing_staff.sql`; `marketing_staff` in `ROLE_MODULE` and `NO_ALERT_TICK_ROLES`.
+- Access table: `Who = "marketing"`; new actions `account_view` (one customer's / Zoho contact's page, a bill's page,
+  statement CSV; `ledger_view` is now only the Bills section) and `customer_details` (every field but GST details and
+  payment terms, incl. the mobile; contact persons); `customer_edit` (owner) = GST details, payment terms, pasted Maps link.
+  `updateCustomerDetails` refuses a changed owner-only field (403) and accepts it sent back unchanged.
+- `whoFor`: owner > Order desk > Accounts > Marketing staff > Delivery staff > viewers; `also` adds marketing to Order
+  desk / Accounts and delivery to Marketing staff. Marketing staff + Order viewer sees no orders.
+- `account()` returns no orders to anyone without `read`; the Orders tab and order links are hidden for them.
+- Home `/` redirects Marketing staff to `/customers` (with a Shop locations link); a bill's back link goes to the customer.
+- Tile: summary view `marketing` (`summaryViewFor` on the platform when they hold no order role): customers, added in 7
+  days, without a saved shop location. Not `customers`: that has the plant's money due (plant totals are owner-only).
+- Made while building: Marketing staff can't tick "Agreed to WhatsApp reminders" (consent stays owner / Order desk).
+- Tests: access (+ Marketing staff), customer-details (+5), summary (+1); platform permissions / tile view.

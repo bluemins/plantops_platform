@@ -7,9 +7,11 @@ import { forbidden } from "./http";
  * desk (viewOnlyIn: sees the orders, never amounts, never writes; owner 2026-10-14); delivery = Delivery staff (the
  * Calls tab only, never orders, customers or amounts; docs/CALLS_PHASE_PLAN.md); accounts = Accounts (bills and payments
  * after delivery; orders read-only with amounts; owner 2026-11-06: "only users with Accounts see the Bills section");
- * support = PlantOps, read-only. A person can hold Order desk AND Accounts: `also` adds the second set of rights.
+ * support = PlantOps, read-only; marketing = Marketing staff (owner, 2026-11-07: customers and their details incl. the
+ * mobile, a customer's bills / payments / statement read-only; never orders; GST details and payment terms owner-only).
+ * A person can hold Order desk AND Accounts (or Marketing staff): `also` adds the other sets of rights.
  */
-export type Who = "owner" | "desk" | "viewer" | "delivery" | "accounts" | "support";
+export type Who = "owner" | "desk" | "viewer" | "delivery" | "accounts" | "marketing" | "support";
 
 export type Action =
   | "read" // the order list, an order
@@ -38,7 +40,8 @@ export type Action =
   | "calls_ignore" // add / remove a number on that list
   | "zoho_import" // bring Zoho's contacts, invoices and payments into the sales ledger (docs/ZOHO_IMPORT_PHASE_PLAN.md)
   | "zoho_match" // the Match screen: link Zoho contacts to customers, or add them as customers
-  | "ledger_view" // bills, payments, a customer's account and statement (amounts)
+  | "ledger_view" // the Bills section: the plant's Bills / Payments lists, GST invoices to make (amounts)
+  | "account_view" // one customer's (or Zoho contact's) page with bills, payments and statement; a bill's page
   | "bill_make" // make a delivered order's bill; the Zoho GST invoice no. on a bill
   | "bill_cancel" // cancel a bill, with a reason
   | "payment_receive" // receive a payment from a customer
@@ -47,7 +50,8 @@ export type Action =
   | "ledger_totals" // the plant's totals: still due, overdue bills, received (owner 2026-11-06: owner only)
   | "reports" // Reports: sales by item / customer (owner 2026-11-07: owner only; support reads)
   // customer page Part 2 (docs/CUSTOMER_PAGE_PHASE_PLAN.md, owner 2026-11-07)
-  | "customer_edit" // every customer field incl. GST details and the mobile (with a reason); contact persons
+  | "customer_edit" // GST details (legal name, treatment, GSTIN, state, billing address) and payment terms; a pasted Maps link
+  | "customer_details" // the other customer fields incl. the mobile (with a reason); contact persons
   | "customer_comment" // add a comment on a customer (read with ledger_view)
   | "location_view" // a customer's shop location and the Shop locations search (no amounts)
   | "location_save" // "Save my location here" (standing at the shop)
@@ -57,9 +61,9 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   read: ["owner", "desk", "viewer", "accounts", "support"],
   see_amounts: ["owner", "desk", "accounts", "support"],
   copy_list: ["owner", "desk", "viewer"],
-  view_customers: ["owner", "desk", "accounts", "support"],
+  view_customers: ["owner", "desk", "accounts", "marketing", "support"],
   enter: ["owner", "desk"],
-  customers: ["owner", "desk"],
+  customers: ["owner", "desk", "marketing"],
   deliver: ["owner", "desk"],
   cancel: ["owner", "desk"],
   undo_delivered: ["owner"],
@@ -81,6 +85,7 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   zoho_import: ["owner"],
   zoho_match: ["owner"],
   ledger_view: ["owner", "accounts", "support"],
+  account_view: ["owner", "accounts", "marketing", "support"],
   bill_make: ["owner", "accounts"],
   bill_cancel: ["owner"],
   payment_receive: ["owner", "accounts"],
@@ -89,16 +94,17 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   ledger_totals: ["owner", "support"],
   reports: ["owner", "support"],
   customer_edit: ["owner"],
-  customer_comment: ["owner"],
-  location_view: ["owner", "desk", "accounts", "delivery", "support"],
-  location_save: ["owner", "desk", "accounts", "delivery"],
+  customer_details: ["owner", "marketing"],
+  customer_comment: ["owner", "marketing"],
+  location_view: ["owner", "desk", "accounts", "delivery", "marketing", "support"],
+  location_save: ["owner", "desk", "accounts", "delivery", "marketing"],
   location_clear: ["owner", "desk"],
 };
 
 /** What the user is, for this table. null = no Order Capture rights at all (e.g. a store keeper). */
 export interface Actor {
   who: Who | null;
-  /** a second set of rights (Order desk + Accounts) */
+  /** other sets of rights (Order desk + Accounts, + Marketing staff) */
   also?: Who[];
 }
 
@@ -116,5 +122,6 @@ export function requireAccess(user: Actor, action: Action) {
   if (user.who === "viewer") throw forbidden("You can view orders only. Order desk or the owner does this.");
   if (user.who === "delivery") throw forbidden("Delivery staff work in Calls only.");
   if (user.who === "accounts") throw forbidden("Accounts works on bills and payments. Order desk or the owner does this.");
+  if (user.who === "marketing") throw forbidden("Marketing staff work on customers. Order desk or the owner does this.");
   throw forbidden("You don't have access to Sales");
 }

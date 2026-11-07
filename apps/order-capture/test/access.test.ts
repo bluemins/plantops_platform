@@ -37,6 +37,7 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["zoho_import", true, false, false, false, false],
   ["zoho_match", true, false, false, false, false],
   ["ledger_view", true, false, false, false, true],
+  ["account_view", true, false, false, false, true],
   ["bill_make", true, false, false, false, false],
   ["bill_cancel", true, false, false, false, false],
   ["payment_receive", true, false, false, false, false],
@@ -47,6 +48,7 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   // customer page Part 2 (docs/CUSTOMER_PAGE_PHASE_PLAN.md): edit / comments owner only; shop location for the people
   // who stand at the shop (Order desk, Accounts, Delivery staff too); plant staff / viewers never
   ["customer_edit", true, false, false, false, false],
+  ["customer_details", true, false, false, false, false],
   ["customer_comment", true, false, false, false, false],
   ["location_view", true, true, false, false, true],
   ["location_save", true, true, false, false, false],
@@ -131,7 +133,7 @@ describe("the access table", () => {
 describe("Accounts", () => {
   const acc = ocUser(p.owner.tenantId, ["accounts"], "Kedar");
   const both = ocUser(p.owner.tenantId, ["order_desk", "accounts"], "Kedar");
-  const ACCOUNTS_MAY = ["read", "see_amounts", "view_customers", "ledger_view", "bill_make", "payment_receive", "location_view", "location_save"];
+  const ACCOUNTS_MAY = ["read", "see_amounts", "view_customers", "ledger_view", "account_view", "bill_make", "payment_receive", "location_view", "location_save"];
   it.each(TABLE)("%s: Accounts may only read orders and work on bills / payments", (action) => {
     expect(can(acc, action)).toBe(ACCOUNTS_MAY.includes(action));
   });
@@ -143,5 +145,40 @@ describe("Accounts", () => {
     expect(await refused(() => requireAccess(acc, "enter"))).toEqual({ status: 403, message: "Accounts works on bills and payments. Order desk or the owner does this." });
     expect(await refused(() => requireAccess(p.desk, "ledger_view"))).toEqual({ status: 403, message: "Bills and payments need the Accounts role. Ask the owner." });
     expect(can(both, "bill_cancel") || can(both, "ledger_totals") || can(both, "ledger_export")).toBe(false);
+  });
+});
+
+// Marketing staff (owner, 2026-11-07): customers and their details incl. the mobile (GST details and payment terms stay
+// owner-only), comments, contact persons, shop location; a customer's bills / payments / statement read-only; never orders,
+// never the Bills section, plant totals or CSV.
+describe("Marketing staff", () => {
+  const t = p.owner.tenantId;
+  const mkt = ocUser(t, ["marketing_staff"], "Mitu");
+  const MARKETING_MAY = ["view_customers", "customers", "account_view", "customer_details", "customer_comment", "location_view", "location_save"];
+  it("is marketing; owner and the order roles come first, and add Marketing staff's rights", () => {
+    expect(whoFor(["marketing_staff"])).toBe("marketing");
+    expect(whoFor(["marketing_staff", "plant_staff"])).toBe("marketing");
+    expect(whoFor(["marketing_staff", "order_viewer"])).toBe("marketing"); // customers, never orders
+    expect(whoFor(["marketing_staff", "delivery_staff"])).toBe("marketing");
+    expect(whoFor(["marketing_staff", "order_desk"])).toBe("desk");
+    expect(whoFor(["marketing_staff", "accounts"])).toBe("accounts");
+    expect(whoFor(["marketing_staff", "tenant_admin"])).toBe("owner");
+  });
+  it.each(TABLE)("%s: Marketing staff may only work on customers", (action) => {
+    expect(can(mkt, action)).toBe(MARKETING_MAY.includes(action));
+  });
+  it.each(TABLE)("%s: Order desk + Marketing staff = Order desk's rights plus Marketing staff's", (action, _o, desk) => {
+    expect(can(ocUser(t, ["order_desk", "marketing_staff"]), action)).toBe(desk || MARKETING_MAY.includes(action));
+  });
+  it.each(TABLE)("%s: Marketing staff + Delivery staff = both, still no orders", (action) => {
+    expect(can(ocUser(t, ["marketing_staff", "delivery_staff"]), action)).toBe(MARKETING_MAY.includes(action) || ["calls_view", "calls_attend"].includes(action));
+  });
+  it("labels and plain refusals", async () => {
+    expect(roleLabel(mkt)).toBe("Marketing staff");
+    expect(roleLabel(ocUser(t, ["order_desk", "marketing_staff"]))).toBe("Order desk + Marketing");
+    expect(roleLabel(ocUser(t, ["marketing_staff", "delivery_staff"]))).toBe("Marketing + Delivery");
+    expect(await refused(() => requireAccess(mkt, "read"))).toEqual({ status: 403, message: "Marketing staff work on customers. Order desk or the owner does this." });
+    for (const action of ["read", "enter", "ledger_view", "ledger_totals", "ledger_export", "customer_edit", "bill_make", "payment_receive", "export", "reports"] as Action[])
+      expect((await refused(() => requireAccess(mkt, action))).status, action).toBe(403);
   });
 });

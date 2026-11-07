@@ -18,18 +18,19 @@ const day = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("en-IN"
 const qty = (q: string) => Number(q).toLocaleString("en-IN", { maximumFractionDigits: 3 });
 const MODE: Record<string, string> = { cash: "Cash", upi: "UPI", bank: "Bank", cheque: "Cheque", other: "Other" };
 
-/** One bill: lines, totals, what was paid on it, its order and Zoho GST invoice no. (owner, Order desk, support). */
+/** One bill: lines, totals, what was paid on it, its order and Zoho GST invoice no. (owner, Accounts, support; Marketing staff
+ * read it from a customer's page). */
 export default async function BillPage({ params }: { params: Params }) {
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const user = await requirePageUser(`/bills/${id}`);
-  if (!can(user, "ledger_view")) redirect("/");
+  if (!can(user, "account_view")) redirect("/");
   const [plant, b] = await Promise.all([kit.branding(user.tenantId), orNotFound(billDetail(user, id))]);
   const partyHref = b.party ? (b.party.kind === "customer" ? `/customers/${b.party.id}` : `/customers/z/${b.party.id}`) : null;
   return (
     <div className="space-y-4 pb-8">
       <div className="print:hidden"><Header user={user} plant={plant} /></div>
-      <div className="print:hidden"><BackLink href="/bills">← Bills</BackLink></div>
+      <div className="print:hidden">{can(user, "ledger_view") || !partyHref ? <BackLink href="/bills">← Bills</BackLink> : <BackLink href={partyHref}>← {b.party!.name}</BackLink>}</div>
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Bill {b.number}</h1>
         <BillBadge status={b.status} due={money(b.due)} />
@@ -43,7 +44,7 @@ export default async function BillPage({ params }: { params: Params }) {
         <p className="text-sm text-slate-500">Bill to</p>
         {partyHref ? <a href={partyHref} className="text-lg font-semibold text-(--brand)">{b.party!.name}</a> : <p className="text-lg font-semibold">{b.customer_name}</p>}
         {b.party?.kind === "contact" && <p className="text-xs text-amber-800">Zoho contact not matched to a customer yet.</p>}
-        {b.order && <p className="text-sm">Order <a href={`/o/${b.order.id}`} className="font-semibold text-(--brand)">{b.order.ref}</a></p>}
+        {b.order && <p className="text-sm">Order {can(user, "read") ? <a href={`/o/${b.order.id}`} className="font-semibold text-(--brand)">{b.order.ref}</a> : <b>{b.order.ref}</b>}</p>}
         {b.gst?.bill_to_name && (
           <p className="text-sm">
             GST invoice to <b>{b.gst.bill_to_name}</b>

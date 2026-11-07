@@ -122,3 +122,21 @@ describe("tile numbers with calls", () => {
     expect((await summaryFor(p.tenantId, "owner")).badges).toEqual([{ text: "No pending orders", tone: "ok" }]);
   });
 });
+
+// Marketing staff's tile (owner, 2026-11-07): customers, added this week, without a shop location; never orders or money.
+describe("Marketing staff tile", () => {
+  it("N customers · N added this week · N without shop location", async () => {
+    const p = plant();
+    expect(await summaryFor(p.tenantId, "marketing")).toEqual({ badges: [{ text: "0 customers", tone: "info" }] });
+    await add(p, "9000000001");
+    const o = await add(p, "9000000002");
+    await asOwner("update order_capture.customers set created_at = now() - interval '10 days' where id = (select customer_id from order_capture.orders where id = $1)", [o.id]);
+    await asOwner(
+      "insert into order_capture.customer_locations (tenant_id, customer_id, kind, lat, lng, accuracy_m, source, by_user, by_name) select tenant_id, customer_id, 'set', 21, 83, 10, 'phone', gen_random_uuid(), 'X' from order_capture.orders where id = $1",
+      [o.id],
+    );
+    expect(await summaryFor(p.tenantId, "marketing")).toEqual({
+      badges: [{ text: "2 customers", tone: "info" }, { text: "1 added this week", tone: "ok" }, { text: "1 without shop location", tone: "info" }],
+    });
+  });
+});

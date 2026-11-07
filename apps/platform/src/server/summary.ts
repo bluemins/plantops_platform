@@ -44,6 +44,9 @@ export async function fetchModuleSummary(moduleId: ModuleId, tenantId: string, v
  */
 export function summaryViewFor(roles: readonly RoleId[], moduleId: ModuleId): SummaryView {
   if (roles.includes("tenant_admin")) return "owner";
+  // Marketing staff without an order role: customer numbers, never order counts or the plant's money
+  if (moduleId === "order_capture" && roles.includes("marketing_staff") && !roles.some((r) => r === "order_desk" || r === "accounts" || r === "delivery_staff"))
+    return "marketing";
   if (viewOnlyIn(roles, moduleId)) return "viewer";
   return DESK_ROLES[moduleId]?.some((r) => roles.includes(r)) ? "desk" : "staff";
 }

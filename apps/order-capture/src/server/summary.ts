@@ -3,6 +3,8 @@
 //   Order desk, viewers: "3 pending" (info; "No pending orders" ok)  ·  "1 pending over 2 days" (warn)  ·  "2 new today" (ok)
 //   owner: the same, but "12 calls today · 1 waiting" instead of "new today" once the plant has any call recorded
 //   Delivery staff ("desk"): "2 waiting" (warn; "Nobody waiting" ok)  ·  "7 calls today" (info); never orders or money
+//   Marketing staff ("marketing"): "766 customers" (info)  ·  "3 added this week" (ok)  ·  "120 without shop location"
+//   (info); never orders or the plant's money (its totals stay owner-only)
 import { sql } from "drizzle-orm";
 import type { ModuleSummary, SummaryView } from "@plantops/types";
 import { AMBER_AFTER_DAYS } from "@/lib/history";
@@ -39,6 +41,28 @@ async function reportsSummary(tenantId: string, now: Date): Promise<ModuleSummar
   return { badges };
 }
 
+/** A Marketing staff tile: customers switched on, added in the last 7 days, and without a saved shop location. */
+async function marketingSummary(tenantId: string, now: Date): Promise<ModuleSummary> {
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  return withTenant(tenantId, async (tx) => {
+    const { rows } = await tx.execute<{ customers: number; recent: number; no_pin: number }>(sql`
+      with pin as (
+        select distinct on (customer_id) customer_id, kind from order_capture.customer_locations
+         where tenant_id = ${tenantId} order by customer_id, created_at desc)
+      select count(*)::int as customers,
+             count(*) filter (where c.created_at >= ${weekAgo.toISOString()}::timestamptz)::int as recent,
+             count(*) filter (where pin.kind is distinct from 'set')::int as no_pin
+        from order_capture.customers c
+        left join pin on pin.customer_id = c.id
+       where c.tenant_id = ${tenantId} and c.active`);
+    const r = rows[0] ?? { customers: 0, recent: 0, no_pin: 0 };
+    const badges: ModuleSummary["badges"] = [{ text: `${r.customers.toLocaleString("en-IN")} customer${r.customers === 1 ? "" : "s"}`, tone: "info" }];
+    if (r.recent) badges.push({ text: `${r.recent} added this week`, tone: "ok" });
+    if (r.no_pin) badges.push({ text: `${r.no_pin.toLocaleString("en-IN")} without shop location`, tone: "info" });
+    return { badges };
+  });
+}
+
 /**
  * The owner's Customers card (docs/CUSTOMER_PAGE_PHASE_PLAN.md): customers switched on · money due and from how many
  * (a Zoho contact counts with the customer it is linked to) · Zoho contacts not matched to a customer yet.
@@ -72,6 +96,7 @@ async function customersSummary(tenantId: string): Promise<ModuleSummary> {
 export function summaryFor(tenantId: string, view: SummaryView, now = new Date()): Promise<ModuleSummary> {
   if (view === "reports") return reportsSummary(tenantId, now);
   if (view === "customers") return customersSummary(tenantId);
+  if (view === "marketing") return marketingSummary(tenantId, now);
   // "over 2 days" = the same rule as the amber cards: entered 2 whole days ago or more
   const amberFrom = new Date(now.getTime() - AMBER_AFTER_DAYS * 24 * 60 * 60 * 1000);
   const todayStart = new Date(`${istDay(now)}T00:00:00+05:30`);

@@ -142,7 +142,7 @@ export function AccountView({
       )}
 
       <nav aria-label="Customer" className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 print:hidden">
-        {ACCOUNT_TABS.filter(([t]) => t !== "comments" || isCustomer).map(([t, l]) => (
+        {ACCOUNT_TABS.filter(([t]) => (t !== "comments" || isCustomer) && (t !== "orders" || can(user, "read"))).map(([t, l]) => (
           <a key={t} href={qs(t)} aria-current={t === tab ? "page" : undefined} className={`flex min-h-11 flex-1 items-center justify-center rounded-lg px-3 text-center text-sm font-semibold whitespace-nowrap ${t === tab ? "bg-(--brand-soft) text-(--brand)" : "text-slate-600"}`}>
             {l}
             {t === "comments" && a.comments.length ? <span className="ml-1 text-xs text-slate-500">({a.comments.length})</span> : null}
@@ -150,9 +150,10 @@ export function AccountView({
         ))}
       </nav>
 
-      {tab === "overview" && d && can(user, "customer_edit") && (
+      {tab === "overview" && d && (can(user, "customer_details") || can(user, "customer_edit")) && (
         <EditCustomer
           customerId={a.party.id}
+          gst={can(user, "customer_edit")}
           values={{ name: a.party.name, place: a.party.place ?? "", phone: a.party.phone ?? "", gstin: a.party.gstin, state_code: a.party.state_code, ...d }}
         />
       )}
@@ -193,9 +194,9 @@ export function AccountView({
                 {d && <Row k="Billing address">{[d.billing_address, d.billing_city, d.billing_pin].filter(Boolean).join(", ") || <Dash />}</Row>}
               </dl>
             </Section>
-            {isCustomer && (a.persons.length > 0 || can(user, "customer_edit")) && (
+            {isCustomer && (a.persons.length > 0 || can(user, "customer_details")) && (
               <Section title="Contact persons">
-                {can(user, "customer_edit") ? (
+                {can(user, "customer_details") ? (
                   <PersonsEditor customerId={a.party.id} persons={a.persons} />
                 ) : (
                   <ul className="space-y-1 text-sm">
@@ -282,7 +283,7 @@ export function AccountView({
                         <tr key={b.id} className="border-b border-slate-100">
                           <td className="px-3 py-2 whitespace-nowrap">{day(b.bill_date)}</td>
                           <td className="px-3 py-2 whitespace-nowrap"><a href={`/bills/${b.id}`} className="font-semibold text-(--brand) hover:underline">{b.number}</a>{b.gst_invoice_no ? <span className="block text-xs text-slate-500">GST {b.gst_invoice_no}</span> : null}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{b.order ? <a href={`/o/${b.order.id}`} className="text-(--brand) hover:underline">{b.order.ref}</a> : <Dash />}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{b.order ? (can(user, "read") ? <a href={`/o/${b.order.id}`} className="text-(--brand) hover:underline">{b.order.ref}</a> : b.order.ref) : <Dash />}</td>
                           <td className="px-3 py-2 whitespace-nowrap">{b.opening_balance ? "Zoho (opening)" : b.source === "zoho" ? "Zoho" : "PlantOps"}</td>
                           <td className="px-3 py-2 text-right whitespace-nowrap">{money(b.total)}</td>
                           <td className="px-3 py-2 text-right whitespace-nowrap">{b.status === "cancelled" ? <Dash /> : money(b.due)}</td>
@@ -380,7 +381,7 @@ export function AccountView({
         </div>
       )}
 
-      {tab === "orders" && (
+      {tab === "orders" && can(user, "read") && (
         <ul className="space-y-2">
           {a.orders.length === 0 && <p className="text-sm text-slate-500">No orders.</p>}
           {a.orders.map((o) => (
