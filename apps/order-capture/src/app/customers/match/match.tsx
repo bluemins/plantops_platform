@@ -94,22 +94,25 @@ export function MatchScreen({ data }: { data: MatchData }) {
   );
 }
 
-/** Same mobile = same person: link to the customer with it, or add the contact as a new customer. */
+/** Same mobile = same customer: link to the customer with it, or one new customer per mobile. Merging names comes later. */
 function ByMobileBulk({ plan, busy, act }: { plan: ReturnType<typeof byMobilePlan>; busy?: string; act: (key: string, body: object) => Promise<void> }) {
-  const a = plan.toCustomer.length;
-  const b = plan.toNew.length;
-  if (!a && !b) return null;
+  const { toCustomer, toNew, sharedContacts, sharedMobiles } = plan;
+  const total = toCustomer + toNew + sharedContacts;
+  if (!total) return null;
+  const lines = [
+    toCustomer ? `• ${toCustomer} contacts → the customer with the same mobile` : "",
+    toNew ? `• ${toNew} contacts → ${toNew} new customers` : "",
+    sharedContacts ? `• ${sharedContacts} contacts sharing ${sharedMobiles} mobiles → ${sharedMobiles} new customers (one per mobile, named after the contact billed last)` : "",
+  ].filter(Boolean);
   const go = async () => {
-    if (!window.confirm(`Link by mobile?\n\n• ${a} contacts → the customer with the same mobile\n• ${b} contacts → added as new customers (Zoho name, place from the brackets)\n\n${plan.shared ? `${plan.shared} contacts sharing a mobile stay for you to match. ` : ""}Each link can be undone later.`)) return;
+    if (!window.confirm(`Link by mobile?\n\n${lines.join("\n")}\n\nNew customers get the Zoho name and the place from the brackets. Each link can be undone later.`)) return;
     await act("by-mobile", { action: "link_by_mobile" });
   };
   return (
     <Card>
-      <p className="text-sm text-slate-700">
-        <b>{a}</b> contacts have the mobile of one of your customers; <b>{b}</b> have a mobile no customer has yet.
-        {plan.shared ? <> <b>{plan.shared}</b> share a mobile with another contact and stay for you.</> : null}
-      </p>
-      <Button className={`mt-2 ${small}`} disabled={!!busy} onClick={go}>{busy === "by-mobile" ? "Linking…" : `Link by mobile (${a + b})`}</Button>
+      <p className="text-sm text-slate-700"><b>{total}</b> contacts to match have a mobile. The same mobile is the same customer:</p>
+      <ul className="mt-1 text-sm text-slate-600">{lines.map((l) => <li key={l}>{l}</li>)}</ul>
+      <Button className={`mt-2 ${small}`} disabled={!!busy} onClick={go}>{busy === "by-mobile" ? "Linking…" : `Link by mobile (${total})`}</Button>
     </Card>
   );
 }

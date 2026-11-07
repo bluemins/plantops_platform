@@ -2,6 +2,7 @@
 // and name, link / unlink / add as new customer; owner only; another plant sees none of it.
 import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
+import { byMobilePlan, newestFirst } from "@/lib/by-mobile";
 import { nameParts, nameScore, suggest } from "@/lib/name-match";
 import { matchAction, matchData } from "@/server/zoho-match";
 import { asApp, asOwner, auditRows, plant, refused } from "./helpers";
@@ -106,30 +107,46 @@ describe("matching", () => {
     expect((await auditRows(a.tenantId)).filter((x) => x.action === "zoho.match" && x.details?.no_mobile_bulk).length).toBe(4);
   });
 
-  it("link by mobile: to the customer with that mobile, a new customer for a mobile only one contact has, shared ones stay", async () => {
+  it("link by mobile: to the customer with that mobile, else one new customer per mobile named after the newest bill", async () => {
     const one = async (text: string) => ((await asApp(a.tenantId, text)).rows[0] as { id: string }).id;
     const imp = await one(`select id from order_capture.zoho_imports where tenant_id = '${a.tenantId}' limit 1`);
     const contact = (name: string, mobile: string) =>
       one(`insert into order_capture.zoho_contacts (tenant_id, zoho_contact_id, name, mobile_typed, mobile, import_id)
         values ('${a.tenantId}', 'zc-${randomUUID()}', '${name}', '${mobile}', '${mobile}', '${imp}') returning id`);
+    const bill = (contactId: string, date: string) =>
+      asApp(a.tenantId, `insert into order_capture.bills (tenant_id, source, number, zoho_invoice_id, bill_date, zoho_contact_id, customer_name, sub_total, total, import_id, created_by, created_by_name)
+        values ('${a.tenantId}', 'zoho', 'INV-${randomUUID().slice(0, 8)}', 'zi-${randomUUID()}', '${date}', '${contactId}', 'x', 100, 100, '${imp}', gen_random_uuid(), 'Sujata')`);
     const toSahu = await contact("Sahu Hotel Bijepur", "9437000001"); // Sahu Hotel's mobile
     const fresh = await contact("Maa Durga Store (Attabira)", "9437000111");
-    const shared1 = await contact("Raju Dhaba", "9437000222");
-    const shared2 = await contact("Raju Dhaba (Sohela)", "9437000222");
+    const older = await contact("DM Sankruti Enterprises (Pada)", "9437000222");
+    const newer = await contact("DM Sanskruti Enterprises(Pada)", "9437000222");
+    const never = await contact("DM Pada", "9437000222");
+    await bill(older, "2026-07-06");
+    await bill(newer, "2026-09-29");
     expect((await refused(() => matchAction(a.desk, { action: "link_by_mobile" }))).status).toBe(403);
 
+    const before = await matchData(a.owner);
+    expect(byMobilePlan(before.contacts, new Set(before.customers.map((c) => c.phone)))).toEqual({ toCustomer: 2, toNew: 2, sharedContacts: 3, sharedMobiles: 1 });
+
     const r = await matchAction(a.owner, { action: "link_by_mobile" });
-    // + from the tests before: "Has Mobile" 9437000088 (a new customer too) and "Ajit K" (unlinked; Ajit Kirana's mobile)
-    expect(r).toMatchObject({ linked: 4, new_customers: 2, left: 2 });
+    // + from the tests before: "Has Mobile" 9437000088 (new) and "Ajit K" (unlinked; Ajit Kirana's mobile)
+    expect(r).toMatchObject({ linked: 7, new_customers: 3 });
     const d = await matchData(a.owner);
     const of = (id: string) => d.contacts.find((x) => x.id === id)!.customer;
     expect(of(toSahu)!.id).toBe(ids.sahu);
     expect(of(ids.zLinked!)!.id).toBe(ids.ajit);
     expect(of(fresh)).toMatchObject({ name: "Maa Durga Store (Attabira)", phone: "9437000111" });
     expect(d.customers.find((c) => c.phone === "9437000111")!.place).toBe("Attabira");
-    expect([of(shared1), of(shared2)]).toEqual([null, null]);
+    const dm = of(newer)!;
+    expect(dm).toMatchObject({ name: "DM Sanskruti Enterprises(Pada)", phone: "9437000222" });
+    expect([of(older)!.id, of(never)!.id]).toEqual([dm.id, dm.id]);
+    expect(d.contacts.filter((c) => !c.customer && c.mobile)).toEqual([]);
     // nothing left to do: a second press changes nothing
-    expect(await matchAction(a.owner, { action: "link_by_mobile" })).toMatchObject({ linked: 0, new_customers: 0, left: 2 });
+    expect(await matchAction(a.owner, { action: "link_by_mobile" })).toMatchObject({ linked: 0, new_customers: 0 });
+  });
+
+  it("newest bill first; never billed last", () => {
+    expect(newestFirst([{ name: "b", last_bill: null }, { name: "a", last_bill: "2026-05-01" }, { name: "c", last_bill: "2026-09-01" }]).map((x) => x.name)).toEqual(["c", "a", "b"]);
   });
 
   it("another plant sees none of it, and can't link plant A's contact", async () => {

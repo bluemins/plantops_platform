@@ -4,6 +4,14 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.45.3 — 2026-11-07 — "Link by mobile" brings in every contact with a mobile
+
+Owner, 2026-11-07: "first take all to PlantOps, then a strategy to merge". **No migration.**
+- Contacts that share a mobile (no customer has it) now become **one new customer per mobile**, named after the contact
+  billed most recently; every contact with that mobile is linked to it. So "To match" ends empty of contacts with a
+  mobile. Names are merged / tidied later (Edit customer, unlink / link).
+- Plant 001: the 80 left by v0.45.2 → 34 customers.
+
 ## v0.45.2 — 2026-11-07 — Match Zoho customers: "Link by mobile"
 
 Owner, 2026-11-07: Zoho contacts not tied to a customer can't take payments; the same mobile is the same person.

@@ -326,3 +326,12 @@ terms) with column UPDATE (+ `phone`, `phone_typed`, D3); bills + `bill_to_name`
   (`by_mobile_bulk: true`). No migration.
 - Plant 001 before the press (live, read-only): 525 to match = 102 + 343 + 80 shared.
 - Tests: Sales 695 (+1).
+
+## 2026-11-07 — v0.45.3: Link by mobile takes shared mobiles too
+- Owner: "first take all to PlantOps and then have a strategy to merge the contacts". `linkByMobile` links every
+  unmatched contact with a mobile, newest bill first (`newestFirst` in `src/lib/by-mobile.ts`): the first contact of a
+  mobile no customer has becomes the customer (its name, place from the brackets), the rest with that mobile are linked
+  to it. `byMobilePlan` now counts toCustomer / toNew / sharedContacts / sharedMobiles for the confirm box.
+- Plant 001 (live, read-only, before the press): 80 contacts on 34 mobiles (71 billed; e.g. DM Sanskruti / DM Sankruti
+  (Pada), Mohini / Maheswari Hotel on one phone). Merge strategy still to agree with the owner.
+- Tests: Sales 696.

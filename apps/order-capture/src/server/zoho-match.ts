@@ -5,7 +5,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { normalisePhone } from "@plantops/module-kit/phone";
 import { z } from "zod";
-import { byMobilePlan } from "@/lib/by-mobile";
+import { newestFirst } from "@/lib/by-mobile";
 import { suggest } from "@/lib/name-match";
 import { customerName, placeFromName } from "@/lib/zoho-import";
 import { requireAccess } from "./access";
@@ -125,43 +125,44 @@ export const MatchAction = z.discriminatedUnion("action", [
     phone: z.string().trim().min(1, "Mobile is needed for a customer").max(30),
     place: z.string().trim().min(2, "Place: at least 2 letters").max(200),
   }),
-  // every contact not matched yet whose mobile is a customer's → that customer; a mobile no customer has and only this
-  // one unmatched contact has → a new customer from the contact. Mobiles shared by several unmatched contacts stay.
+  // every contact not matched yet with a mobile → the customer with that mobile, else one new customer per mobile
   z.object({ action: z.literal("link_by_mobile") }),
 ]);
 
 /**
- * "Link by mobile" (owner): the same mobile is the same person. A contact whose mobile is already a customer's is linked
- * to that customer; a contact with a mobile nobody else has becomes a new customer (Zoho name, place from the brackets)
- * and is linked. One audit row per contact, as for a single link, so each can be unlinked on its own.
+ * "Link by mobile" (owner): the same mobile is the same customer. A contact whose mobile is already a customer's is
+ * linked to that customer; otherwise the first contact with that mobile (billed most recently) becomes a new customer
+ * (Zoho name, place from the brackets) and every contact with that mobile is linked to it, so all of them come into
+ * PlantOps; merging names comes later (owner, 2026-11-07). One audit row per contact, so each can be unlinked alone.
  */
 async function linkByMobile(user: OcUser) {
   return withTenant(user.tenantId, async (tx) => {
-    const open = await tx.select().from(zohoContacts).where(and(eq(zohoContacts.tenantId, user.tenantId), isNull(zohoContacts.customerId)));
+    const rows = await tx.execute<{ id: string; name: string; mobile: string; mobile_typed: string | null; last_bill: string | null }>(sql`
+      select c.id, c.name, c.mobile, c.mobile_typed, (select max(b.bill_date)::text from order_capture.bills b
+              where b.tenant_id = c.tenant_id and b.zoho_contact_id = c.id and b.cancelled_at is null) as last_bill
+        from order_capture.zoho_contacts c
+       where c.tenant_id = ${user.tenantId} and c.customer_id is null and c.mobile is not null`);
     const cust = await tx.select({ id: customers.id, name: customers.name, phone: customers.phone }).from(customers).where(eq(customers.tenantId, user.tenantId));
     const byPhone = new Map(cust.map((c) => [c.phone, c]));
-    const plan = byMobilePlan(open.map((c) => ({ id: c.id, mobile: c.mobile, customer: null })), new Set(byPhone.keys()));
-    const want = new Set([...plan.toCustomer, ...plan.toNew]);
     let linked = 0;
     let added = 0;
-    for (const c of open) {
-      if (!want.has(c.id) || !c.mobile) continue;
+    for (const c of newestFirst(rows.rows)) {
       let target = byPhone.get(c.mobile);
       let isNew = false;
       if (!target) {
         const phone = normalisePhone(c.mobile);
         if (!phone) continue;
-        const made = await insertCustomer(tx, user, { name: customerName(c.name), phoneTyped: c.mobileTyped ?? c.mobile, phone, place: placeFromName(c.name) }, { from_zoho: c.name, by_mobile_bulk: true });
+        const made = await insertCustomer(tx, user, { name: customerName(c.name), phoneTyped: c.mobile_typed ?? c.mobile, phone, place: placeFromName(c.name) }, { from_zoho: c.name, by_mobile_bulk: true });
         target = made.customer;
         isNew = made.created;
-        byPhone.set(target.phone, target);
+        byPhone.set(c.mobile, target);
         if (isNew) added++;
       }
       await tx.update(zohoContacts).set({ customerId: target.id, updatedAt: new Date() }).where(and(eq(zohoContacts.tenantId, user.tenantId), eq(zohoContacts.id, c.id)));
       await audit(tx, user, "zoho.match", c.id, { contact: c.name, customer: target.name, phone: target.phone, new_customer: isNew, by_mobile_bulk: true, was: null });
       linked++;
     }
-    return { ok: true, linked, new_customers: added, left: plan.shared };
+    return { ok: true, linked, new_customers: added };
   });
 }
 
