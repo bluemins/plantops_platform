@@ -204,6 +204,10 @@ prompt to add to a module phase is in `docs/notifications.md` ("N5+").
 
 ## Stack
 - Next.js (React) + Tailwind, mobile-first PWA. No native app, no offline mode in v1.
+- **Exception: the customer app **"Drop"** (name decided by the owner 2026-11-07) is a native Android app built with Capacitor** (owner,
+  2026-11-07; React + Tailwind screens shipped inside the app, Play Store). For customers only: the platform and every
+  staff module stay web apps / PWA, unchanged. It gets data only through a narrow customer API (never the database,
+  plant login or SSO token). Plan: `docs/CUSTOMER_APP_PLAN.md`.
 - Node.js + TypeScript backend, clean REST API per app (platform + each module).
 - PostgreSQL, managed hosting. Hosting: Railway, Singapore region, one project (decided 2026-10-04 for low
   cost); India hosting later if a plant needs it. Public addresses: `app.bluemins.life` (platform),
