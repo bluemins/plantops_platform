@@ -4,6 +4,15 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.45.1 — 2026-11-07 — Match Zoho customers: link all contacts with no mobile to one customer
+
+Owner, 2026-11-07: staff couldn't take payments on Zoho contacts that aren't linked to a customer; the ~346 Zoho
+contacts with no mobile go to one "Retail Customer" (7999293831). **No migration.**
+- Match Zoho customers → To match: a card "N contacts to match have no mobile → Link all N to one customer…" (owner
+  only). Mobile + name + place; the customer with that mobile is used if there is one (its name kept), else added.
+  Only unlinked contacts without a mobile move; each gets its own "linked" history row and can be unlinked later.
+- Their bills and payments then sit on that customer's account; on Receive payment tick the bill being paid.
+
 ## v0.45.0 — 2026-11-07 — Customer page Part 2: Edit, GST details, comments, contact persons, shop location
 
 Owner, 2026-11-07 (`docs/CUSTOMER_PAGE_PHASE_PLAN.md`, decisions D2–D8). **Migrations:** Sales `0010_customer_details.sql`

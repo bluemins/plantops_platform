@@ -2,7 +2,7 @@
 // plant's customers, so nothing is missed. The import links only exact, unique mobiles; here the owner links the rest
 // (suggestions by mobile and by name), changes a link, or adds a contact as a new customer. A contact's bills and
 // payments follow its link (bills point at the contact, the contact at the customer).
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { normalisePhone } from "@plantops/module-kit/phone";
 import { z } from "zod";
 import { suggest } from "@/lib/name-match";
@@ -117,10 +117,39 @@ export const MatchAction = z.discriminatedUnion("action", [
     phone: z.string().trim().min(1, "Mobile is needed for a customer").max(30),
     place: z.string().trim().min(2, "Place: at least 2 letters").max(200),
   }),
+  // every contact not matched yet that has no mobile → one customer (found by this mobile, or added with this name)
+  z.object({
+    action: z.literal("link_no_mobile"),
+    name: z.string().trim().min(2, "Name: at least 2 letters").max(100),
+    phone: z.string().trim().min(1, "Mobile is needed for a customer").max(30),
+    place: z.string().trim().min(2, "Place: at least 2 letters").max(200),
+  }),
 ]);
+
+/**
+ * "Link all with no mobile" (owner): the Zoho contacts not matched yet and without a mobile all go to one customer,
+ * e.g. a walk-in "Retail Customer". That customer is the one with this mobile if there is one (its name and place are
+ * kept), else a new customer. One audit row per contact, so each can still be unlinked on its own.
+ */
+async function linkNoMobile(user: OcUser, input: { name: string; phone: string; place: string }) {
+  const phone = normalisePhone(input.phone.replace(/^'+/, ""));
+  if (!phone) throw badRequest("Mobile: a 10-digit Indian mobile number");
+  return withTenant(user.tenantId, async (tx) => {
+    const made = await insertCustomer(tx, user, { name: input.name, phoneTyped: input.phone, phone, place: input.place }, { for_zoho_without_mobile: true });
+    const target = made.customer;
+    const linked = await tx
+      .update(zohoContacts)
+      .set({ customerId: target.id, updatedAt: new Date() })
+      .where(and(eq(zohoContacts.tenantId, user.tenantId), isNull(zohoContacts.customerId), isNull(zohoContacts.mobile)))
+      .returning({ id: zohoContacts.id, name: zohoContacts.name });
+    for (const c of linked) await audit(tx, user, "zoho.match", c.id, { contact: c.name, customer: target.name, phone: target.phone, no_mobile_bulk: true, was: null });
+    return { ok: true, customer_id: target.id, customer_name: target.name, new_customer: made.created, linked: linked.length };
+  });
+}
 
 export async function matchAction(user: OcUser, input: z.infer<typeof MatchAction>) {
   requireAccess(user, "zoho_match");
+  if (input.action === "link_no_mobile") return linkNoMobile(user, input);
   return withTenant(user.tenantId, async (tx) => {
     const [contact] = await tx.select().from(zohoContacts).where(and(eq(zohoContacts.tenantId, user.tenantId), eq(zohoContacts.id, input.contact_id)));
     if (!contact) throw notFound("Zoho contact not found");

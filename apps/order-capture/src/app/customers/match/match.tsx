@@ -63,6 +63,7 @@ export function MatchScreen({ data }: { data: MatchData }) {
       {/* one list of every customer for the "link to …" boxes */}
       <datalist id="all-customers">{[...byLabel.keys()].map((l) => <option key={l} value={l} />)}</datalist>
 
+      {tab === "todo" && <NoMobileBulk count={data.contacts.filter((c) => !c.customer && !c.mobile).length} busy={busy} act={act} />}
       {list.length === 0 && <p className="text-sm text-slate-500">{needle ? "Nothing found." : tab === "todo" ? "Everything is matched. ✓" : "None."}</p>}
       {tab === "todo" && todo.slice(0, shown).map((c) => <ToMatch key={c.id} c={c} byLabel={byLabel} busy={busy} act={act} />)}
       {tab === "linked" && linked.slice(0, shown).map((c) => (
@@ -88,6 +89,37 @@ export function MatchScreen({ data }: { data: MatchData }) {
       ))}
       {list.length > shown && <Button variant="secondary" className="w-full" onClick={() => setShown(shown + PAGE)}>Show more ({list.length - shown} left)</Button>}
     </div>
+  );
+}
+
+/** All contacts to match that have no mobile → one customer (e.g. "Retail Customer"), in one step. */
+function NoMobileBulk({ count, busy, act }: { count: number; busy?: string; act: (key: string, body: object) => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", phone: "", place: "" });
+  if (!count) return null;
+  const go = async () => {
+    if (!window.confirm(`Link all ${count} Zoho contacts with no mobile to ${form.name || "this customer"} (${form.phone})? Their bills and payments move to that customer's account. Each can be unlinked later.`)) return;
+    await act("no-mobile", { action: "link_no_mobile", ...form });
+    setOpen(false);
+  };
+  return (
+    <Card>
+      <p className="text-sm text-slate-700"><b>{count}</b> contacts to match have no mobile.</p>
+      {!open ? (
+        <button className="mt-1 text-sm font-medium text-(--brand)" onClick={() => setOpen(true)}>Link all {count} to one customer…</button>
+      ) : (
+        <div className="mt-2 grid gap-2">
+          <p className="text-xs text-slate-500">The customer with this mobile is used if you have one (its name stays); otherwise it is added with this name and place.</p>
+          <input className={input} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Mobile" inputMode="tel" maxLength={30} />
+          <input className={input} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name, e.g. Retail Customer" maxLength={100} />
+          <input className={input} value={form.place} onChange={(e) => setForm({ ...form, place: e.target.value })} placeholder="Place" maxLength={200} />
+          <div className="flex gap-2">
+            <Button className={small} disabled={!!busy || !form.phone.trim()} onClick={go}>{busy === "no-mobile" ? "Linking…" : `Link all ${count}`}</Button>
+            <Button variant="secondary" className={small} onClick={() => setOpen(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 

@@ -78,6 +78,34 @@ describe("matching", () => {
     expect((await auditRows(a.tenantId)).map((r) => r.action).filter((x) => x.startsWith("zoho."))).toEqual(["zoho.match", "zoho.match", "zoho.unmatch", "zoho.match"]);
   });
 
+  it("link all with no mobile: to one customer (added once, then reused), only unmatched no-mobile contacts", async () => {
+    const one = async (text: string) => ((await asApp(a.tenantId, text)).rows[0] as { id: string }).id;
+    const imp = await one(`select id from order_capture.zoho_imports where tenant_id = '${a.tenantId}' limit 1`);
+    const contact = (name: string, mobile: string | null) =>
+      one(`insert into order_capture.zoho_contacts (tenant_id, zoho_contact_id, name, mobile_typed, mobile, import_id)
+        values ('${a.tenantId}', 'zc-${randomUUID()}', '${name}', ${mobile ? `'${mobile}'` : "null"}, ${mobile ? `'${mobile}'` : "null"}, '${imp}') returning id`);
+    const n1 = await contact("Walk in 1", null);
+    const n2 = await contact("Walk in 2", null);
+    const withMobile = await contact("Has Mobile", "9437000088");
+    expect((await refused(() => matchAction(a.desk, { action: "link_no_mobile", name: "Retail Customer", phone: "7999293831", place: "Plant" }))).status).toBe(403);
+    expect((await refused(() => matchAction(a.owner, { action: "link_no_mobile", name: "Retail Customer", phone: "123", place: "Plant" }))).status).toBe(400);
+
+    const r = await matchAction(a.owner, { action: "link_no_mobile", name: "Retail Customer", phone: "7999293831", place: "Plant" });
+    // zNoPhone ("Ghens") from the test before + the two new ones; "Has Mobile" stays to match
+    expect(r).toMatchObject({ new_customer: true, linked: 3, customer_name: "Retail Customer" });
+    const d = await matchData(a.owner);
+    const of = (id: string) => d.contacts.find((x) => x.id === id)!.customer?.id ?? null;
+    expect([of(n1), of(n2), of(ids.zNoPhone!)]).toEqual([r.customer_id, r.customer_id, r.customer_id]);
+    expect(of(withMobile)).toBeNull();
+
+    // again later: the same customer is reused, already linked contacts are left alone
+    const n3 = await contact("Walk in 3", null);
+    const again = await matchAction(a.owner, { action: "link_no_mobile", name: "Other name", phone: "+91 79992 93831", place: "Bargarh" });
+    expect(again).toMatchObject({ new_customer: false, linked: 1, customer_id: r.customer_id, customer_name: "Retail Customer" });
+    expect((await matchData(a.owner)).contacts.find((x) => x.id === n3)!.customer?.id).toBe(r.customer_id);
+    expect((await auditRows(a.tenantId)).filter((x) => x.action === "zoho.match" && x.details?.no_mobile_bulk).length).toBe(4);
+  });
+
   it("another plant sees none of it, and can't link plant A's contact", async () => {
     expect((await matchData(b.owner)).counts.contacts).toBe(0);
     expect((await refused(() => matchAction(b.owner, { action: "unlink", contact_id: ids.zAjit! }))).status).toBe(404);

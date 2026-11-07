@@ -307,3 +307,13 @@ terms) with column UPDATE (+ `phone`, `phone_typed`, D3); bills + `bill_to_name`
   order; headless Chromium with a faked GPS fix; all removed afterwards): Edit + save, Save my location here (±18 m),
   Comments, Make bill's GST details filled from the customer, Delivery staff's Shop locations at 390 px and refused on
   the customer page.
+
+## 2026-11-07 — v0.45.1: link all Zoho contacts with no mobile to one customer
+- Owner: staff can't take a payment on an unlinked Zoho contact (Receive payment is per customer). Plant 001's contacts
+  without a usable mobile (~346) all go to "Retail Customer" 7999293831.
+- `link_no_mobile` in `src/server/zoho-match.ts` (access `zoho_match`, owner): `insertCustomer` finds the customer by
+  mobile or adds it; one UPDATE links every contact with `customer_id` and `mobile` both null; one `zoho.match` audit
+  row per contact (`no_mobile_bulk: true`) so the customer timeline lists each and each can be unlinked alone.
+  Contacts with a mobile (incl. shared mobiles) are left to match by hand. No migration.
+- Card on Match → To match with a confirm. Not plant-specific: the owner types the mobile / name / place.
+- Tests: `test/zoho-match.test.ts` (+1: owner only, bad mobile, new then reused customer, only no-mobile unlinked).
