@@ -72,8 +72,11 @@ export async function summaryForSuper(tenantId: string, moduleId: ModuleId) {
  */
 export async function reportsSummaryForUser(user: CurrentUser, view: "reports" | "customers" = "reports") {
   const what = view === "reports" ? "Reports" : "Customers";
-  if (!user.roles.includes("tenant_admin")) throw forbidden(`${what} are for the plant's owners`);
+  const owner = user.roles.includes("tenant_admin");
+  // Marketing staff get the Customers card too, with their own numbers (no plant money; owner, 2026-11-07)
+  const marketing = !owner && view === "customers" && user.roles.includes("marketing_staff");
+  if (!owner && !marketing) throw forbidden(`${what} are for the plant's owners`);
   const enabled = await withTenant(user.tenantId, (tx) => enabledModules(tx, user.tenantId));
   if (!enabled.includes("order_capture")) throw forbidden(`${what} need Sales`);
-  return fetchModuleSummary("order_capture", user.tenantId, view);
+  return fetchModuleSummary("order_capture", user.tenantId, marketing ? "marketing" : view);
 }

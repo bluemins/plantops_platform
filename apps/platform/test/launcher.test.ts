@@ -444,4 +444,12 @@ describe("Reports card (owner only; docs/REPORTS_PHASE_PLAN.md)", () => {
     const noOrders = await makePlant({ modules: ["lab_records"] });
     expect((await card(noOrders.adminCookie)).status).toBe(403);
   });
+
+  it("Marketing staff get the Customers card too (v0.46.1); never the Reports card", async () => {
+    const P = await makePlant({ modules: ["order_capture"] });
+    const mkt = await makeStaff(P, "mitu", ["order_desk", "marketing_staff"]);
+    await asOwner("update platform.modules set base_url = null, client_secret_hash = null where id = 'order_capture'");
+    expect((await call(customersRoute.GET as Handler, { cookie: mkt.cookie })).body).toEqual({ state: "unavailable" });
+    expect((await call(reportsRoute.GET as Handler, { cookie: mkt.cookie })).status).toBe(403);
+  });
 });

@@ -65,6 +65,10 @@ export default function HomePage() {
 
   if (!data) return null;
   const owner = data.user.roles.includes("tenant_admin");
+  // Marketing staff who also hold an order role (their Sales tile shows the order work): a Customers card as well
+  const salesOpen = data.tiles.some((t) => t.module === "order_capture" && t.state === "open");
+  const marketingCard =
+    !owner && salesOpen && data.user.roles.includes("marketing_staff") && data.user.roles.some((r) => r === "order_desk" || r === "accounts" || r === "delivery_staff");
   return (
     <div className="space-y-5">
       <header className="flex items-center justify-between">
@@ -94,7 +98,13 @@ export default function HomePage() {
 
       {data.user.gets_alerts && <PushCard />}
 
-      {owner && data.tiles.some((t) => t.module === "order_capture" && t.state === "open") && (
+      {marketingCard && (
+        <div className="grid gap-3 md:grid-cols-2">
+          <CustomersCard summaryUrl="/api/launcher/customers" openHref={`/sso/start?module=order_capture&next=${encodeURIComponent("/customers")}`} />
+        </div>
+      )}
+
+      {owner && salesOpen && (
         <div className="grid gap-3 md:grid-cols-2">
           <ReportsCard summaryUrl="/api/launcher/reports" openHref={`/sso/start?module=order_capture&next=${encodeURIComponent("/reports")}`} />
           <CustomersCard summaryUrl="/api/launcher/customers" openHref={`/sso/start?module=order_capture&next=${encodeURIComponent("/customers")}`} />

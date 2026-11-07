@@ -4,6 +4,13 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.46.1 — 2026-11-07 — Customers tile for Marketing staff with an order role
+
+Owner, 2026-11-07: Dillip (Order desk + Accounts + Marketing staff) saw only his Sales "Bills" tile. **No migration.**
+- Marketing staff who also hold Order desk, Accounts or Delivery staff get a **Customers** card on the launcher (opens
+  Sales → Customers): N customers · N added this week · N without shop location. No plant money; never the Reports card.
+- Marketing staff only (e.g. Kedar): unchanged, their Sales tile is already "Customers".
+
 ## v0.46.0 — 2026-11-07 — New role Marketing staff (Sales customers)
 
 Owner, 2026-11-07: "a role Marketing staff who will have access to Contacts + edit customer details … they see the

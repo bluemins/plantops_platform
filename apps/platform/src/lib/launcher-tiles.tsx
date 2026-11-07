@@ -194,7 +194,8 @@ export function ReportsCard({ summaryUrl, openHref }: { summaryUrl: string; open
 
 /**
  * The owner's Customers card (docs/CUSTOMER_PAGE_PHASE_PLAN.md): customers, money due and Zoho contacts to match, from
- * Sales; it opens the customer list there through the normal handoff.
+ * Sales; it opens the customer list there through the normal handoff. Marketing staff with an order role get it too
+ * (v0.46.1), with their numbers: customers, added this week, without shop location.
  */
 export function CustomersCard({ summaryUrl, openHref }: { summaryUrl: string; openHref: string }) {
   return <OwnerCard icon="👥" title="Customers" text="Details, bills, payments and statement for each customer" summaryUrl={summaryUrl} openHref={openHref} />;
