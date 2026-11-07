@@ -32,6 +32,7 @@ it; Claude adds to it when asked ("add this to the bugs") or when something is f
 | B-21 | P3 | Twilio console | 2026-10-24: Twilio Debugger error **93101** "Error delivering event to webhook: 404 Not Found" at 17:50, 18:35 and 22:38 IST. Neither the bot nor Order Capture sets a callback, so a console setting (Event Streams webhook or the sender's status callback URL) points at an address that doesn't exist. Messages still deliver (22:38 test order worked) | open. Owner: click one 93101 entry in the Debugger, note the webhook URL; recommended fix: remove that webhook / status callback if nothing uses it |
 | B-23 | P3 | Timed jobs | A GitHub "Daily jobs" run with a (!) icon next to #31 on 2026-10-17: cancelled duplicate or a failure? | open: Claude checks the run (GitHub is only a safety net since cron-job.org) |
 | B-25 | P3 | Floor Stock | Store keepers can correct only today / yesterday; an older wrong count can't be fixed by anyone (one of the 5 "Decisions to confirm") | open: owner decides with the other four (`apps/floor-stock/NOTES.md`) |
+| B-26 | P2 | Sales (Order Capture) | 2026-11-07: the owner's one-bill test of "GST invoices to make → Download for Zoho" → Zoho Books "Import invoices" (v0.42.0) has issues (not described yet). Columns follow plant 001's own Zoho invoice export; unverified: the Invoice Number column (B-number), other states' place-of-supply codes, IGST "Item Tax Type" | open, **owner: "fix it later"**. Next: owner sends Zoho's import error / a screenshot of the mapping step; Claude fixes `zohoCsvRows` (`src/server/bill-make.ts`) |
 | B-18 | P3 | Bot | "Redis error:" log lines are empty (the bot prints only the error text, which is blank for connection failures), so the cause can't be read | fixed in bot 3.5.0 (2026-10-25, not live yet): the line prints the error code |
 
 ## Closed / accepted
@@ -49,5 +50,5 @@ it; Claude adds to it when asked ("add this to the bugs") or when something is f
 
 ## How to add one
 
-Next free ID: **B-26**. Add a row under Open with the date in the issue text, where it happens, what goes wrong and
+Next free ID: **B-27**. Add a row under Open with the date in the issue text, where it happens, what goes wrong and
 what is known so far. Claude sets the priority with a reason; the owner can change it.

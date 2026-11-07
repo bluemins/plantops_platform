@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { phoneDisplay } from "@plantops/module-kit/phone";
 import { brandColour } from "@/lib/brand";
 
-export function BackLink({ href = "/", children = "← Order Capture" }: { href?: string; children?: ReactNode }) {
+export function BackLink({ href = "/", children = "← Sales" }: { href?: string; children?: ReactNode }) {
   return (
     <a href={href} className="text-sm font-semibold text-(--brand)">
       {children}

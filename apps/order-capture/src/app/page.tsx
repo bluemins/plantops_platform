@@ -27,7 +27,7 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
     return (
       <div className="space-y-5">
         <Header user={user} plant={plant} />
-        <Card>You don&apos;t have access to Order Capture. Ask the plant owner.</Card>
+        <Card>You don&apos;t have access to Sales. Ask the plant owner.</Card>
       </div>
     );
   }

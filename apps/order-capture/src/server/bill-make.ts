@@ -191,7 +191,7 @@ export async function makeBill(user: OcUser, raw: z.input<typeof MakeBillInput>)
   ]);
   if (input.needs_gst && !gst) throw badRequest("A GST bill needs your GSTIN: add it on PlantOps → Business details first.");
   const salesperson = input.salesperson_id ? people.find((p) => p.id === input.salesperson_id) : null;
-  if (input.salesperson_id && !salesperson) throw badRequest("That salesperson isn't one of the plant's Order Capture people. Pick again or choose None.");
+  if (input.salesperson_id && !salesperson) throw badRequest("That salesperson isn't one of the plant's Sales people. Pick again or choose None.");
   const sku = new Map(products.map((p) => [p.id, p]));
 
   return withTenant(user.tenantId, async (tx) => {

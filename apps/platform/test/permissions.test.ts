@@ -40,7 +40,7 @@ describe("role buttons on Add / Edit user", () => {
   });
 
   it("Plant staff says what it opens here, from the servers' rules", () => {
-    expect(roleChoices(plant, []).find((x) => x.role === "plant_staff")?.hint).toBe("Employee · Order Capture (view only, no amounts)");
+    expect(roleChoices(plant, []).find((x) => x.role === "plant_staff")?.hint).toBe("Employee · Sales (view only, no amounts)");
     expect(roleChoices(["document_store", "complaint_box"], []).find((x) => x.role === "plant_staff")?.hint).toBe("Employee · opens no module here yet");
     expect(roleChoices(["floor_stock", "attendance_salary"], []).find((x) => x.role === "plant_staff")?.hint).toBe("Employee · Attendance & Salary");
   });
@@ -89,7 +89,7 @@ describe("launcher tile line for view-only people (v0.27.0)", () => {
 
 describe("Delivery staff (docs/CALLS_PHASE_PLAN.md Phase 1)", () => {
   it("the role button says Calls only; the grid says Delivery staff · Calls only, with 🔔 (they get Customer called)", () => {
-    expect(roleChoices(["order_capture"], []).find((x) => x.role === "delivery_staff")).toMatchObject({ label: "Delivery staff", hint: "Order Capture · Calls only", off: false });
+    expect(roleChoices(["order_capture"], []).find((x) => x.role === "delivery_staff")).toMatchObject({ label: "Delivery staff", hint: "Sales · Calls only", off: false });
     expect(roleChoices(["floor_stock"], []).some((x) => x.role === "delivery_staff")).toBe(false); // Order Capture not on
     expect(cellFor(["delivery_staff"], [], "order_capture")).toEqual({ kind: "work", label: "Delivery staff · Calls only", alerts: true });
     expect(cellFor(["delivery_staff"], [], "floor_stock")).toBeNull();

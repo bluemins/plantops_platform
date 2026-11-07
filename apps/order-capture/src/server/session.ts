@@ -37,7 +37,7 @@ export function whoFor(roles: RoleId[]): Who | null {
 export function toOcUser(s: ModuleSession): OcUser {
   const who = whoFor(s.roles);
   const also: Who[] = who === "desk" && s.roles.includes("accounts") ? ["accounts"] : [];
-  return { tenantId: s.tenant_id, userId: s.user_id, name: s.display_name ?? "Order Capture user", roles: s.roles, who, also, isOwner: who === "owner", isSupport: false };
+  return { tenantId: s.tenant_id, userId: s.user_id, name: s.display_name ?? "Sales user", roles: s.roles, who, also, isOwner: who === "owner", isSupport: false };
 }
 
 export const supportUser = (tenantId: string, superAdminId: string): OcUser => ({

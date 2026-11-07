@@ -4,6 +4,13 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.43.1 — 2026-11-07 — "Order Capture" is now called "Sales"
+
+Owner, 2026-11-07: rename "Order Capture" to "Sales". Only the name people see changes: the dashboard tile, the
+module's header and browser tab, the back link, role descriptions on Manage users and Permissions, and on-screen
+messages. The module id (`order_capture`), its address `orders.bluemins.life`, data, roles and logins are unchanged;
+machine-facing messages (WhatsApp bot and phone-call APIs) keep their wording. No migration; SSO token unchanged.
+
 ## v0.43.0 — 2026-11-07 — Reports: Sales by Item and Sales by Customer (B5, R1 + card)
 
 Owner, 2026-11-07: "a report tile on the main dashboard … the sales report first … later different sections";

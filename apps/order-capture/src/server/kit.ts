@@ -5,7 +5,7 @@ import { outboxStore } from "./outbox";
 
 export const kit = createModule({
   moduleId: "order_capture",
-  label: "Order Capture",
+  label: "Sales",
   outbox: outboxStore,
   env: {
     platformUrl: () => env.platformUrl,

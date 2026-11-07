@@ -102,7 +102,7 @@ describe("the access table", () => {
     expect(await refused(() => requireAccess(p.support, "enter"))).toEqual({ status: 403, message: "PlantOps support view is read-only" });
     expect(await refused(() => requireAccess(p.desk, "undo_delivered"))).toEqual({ status: 403, message: "Only the plant owner can do this" });
     expect(await refused(() => requireAccess(p.staff, "deliver"))).toEqual({ status: 403, message: "You can view orders only. Order desk or the owner does this." });
-    expect(await refused(() => requireAccess(p.keeper, "read"))).toEqual({ status: 403, message: "You don't have access to Order Capture" });
+    expect(await refused(() => requireAccess(p.keeper, "read"))).toEqual({ status: 403, message: "You don't have access to Sales" });
     expect(() => requireAccess(p.owner, "export")).not.toThrow();
   });
 

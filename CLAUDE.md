@@ -2020,5 +2020,6 @@ Owner 2026-11-07: a Reports card on the dashboard (**owner only**), Sales first;
 `/reports/sales/item|customer` (filters, CSV, print; PlantOps + Zoho bills; `src/lib/report.ts`); platform dashboard
 card (`ReportsCard`, `/api/launcher/reports`, summary view `reports`). No migration; SSO token unchanged.
 **Every future report goes into this Reports section** (owner). Next: the owner checks Oct 2026 against Zoho;
-later sections (Receivables, Payments, GST, Stock, Attendance) when the owner orders them. Owner is thinking of
-renaming "Order Capture" to "Sales" (display name only; asked 2026-11-07).
+later sections (Receivables, Payments, GST, Stock, Attendance) when the owner orders them. **Renamed "Order Capture" →
+"Sales" on screen (owner, 2026-11-07; v0.43.1):** the module id `order_capture`, `apps/order-capture`,
+`orders.bluemins.life`, roles and data keep their names; docs may still say Order Capture (= the Sales module).

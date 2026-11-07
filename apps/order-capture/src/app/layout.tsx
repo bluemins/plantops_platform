@@ -5,7 +5,7 @@ import { kit } from "@/server/kit";
 import { currentUser } from "@/server/session";
 import "./globals.css";
 
-export const metadata: Metadata = { title: "Order Capture · PlantOps", description: "Customer orders: take, deliver, follow up" };
+export const metadata: Metadata = { title: "Sales · PlantOps", description: "Orders, bills, payments and sales reports" };
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
 // Every screen uses the plant's brand colour and logo (Business details on the platform).

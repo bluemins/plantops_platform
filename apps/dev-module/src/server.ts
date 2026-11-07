@@ -36,7 +36,7 @@ const LABELS: Record<ModuleId, string> = {
   document_store: "Document Store",
   floor_stock: "Floor Stock",
   complaint_box: "Complaint Box",
-  order_capture: "Order Capture",
+  order_capture: "Sales",
   preventive_mgmt: "Preventive Mgmt",
   amc: "AMC",
   attendance_salary: "Attendance & Salary",

@@ -54,9 +54,9 @@ const ROLE_HINTS: Partial<Record<RoleId, string>> = {
   hr_desk: "Job applications: see and call applicants",
   stock_viewer: "Floor Stock, view only: the sections the owner picks",
   document_viewer: "Document Store, view only",
-  order_viewer: "Order Capture, view only: no amounts",
-  delivery_staff: "Order Capture · Calls only",
-  accounts: "Order Capture: bills and payments, after delivery",
+  order_viewer: "Sales, view only: no amounts",
+  delivery_staff: "Sales · Calls only",
+  accounts: "Sales: bills and payments, after delivery",
 };
 
 /** A role button on Add / Edit user: what it opens, and whether its module is switched off for the plant. */
@@ -114,9 +114,9 @@ export const ROLE_MEANINGS: { kind: CellKind; label: string; text: string }[] = 
   { kind: "work", label: "Plant staff", text: "Employee: own attendance and overtime (Attendance & Salary)." },
   { kind: "work", label: "Office staff", text: "Attendance: marks for people without a phone, fixes times, gives advances. Never salaries." },
   { kind: "work", label: "Supervisor", text: "Attendance: the Today board (read-only) and an alert for every IN / OUT." },
-  { kind: "work", label: "Delivery staff", text: "Order Capture, Calls only: calls customers back and marks them attended. No orders, no amounts." },
+  { kind: "work", label: "Delivery staff", text: "Sales, Calls only: calls customers back and marks them attended. No orders, no amounts." },
   { kind: "work", label: "HR desk", text: "Job applications: sees applicants, calls them, changes status, adds notes." },
-  { kind: "view", label: "View only, no amounts", text: "Plant staff or Order viewer in Order Capture: sees orders, never prices." },
+  { kind: "view", label: "View only, no amounts", text: "Plant staff or Order viewer in Sales: sees orders, never prices." },
   { kind: "view", label: "View only, chosen sections", text: "Stock viewer: sees the stock of the sections the owner picks in Floor Stock." },
   { kind: "view", label: "View only", text: "Document viewer: sees documents and opens their files, never changes them." },
 ];

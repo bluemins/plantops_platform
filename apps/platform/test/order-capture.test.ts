@@ -39,7 +39,7 @@ beforeAll(async () => {
 describe("module and role", () => {
   it("the Order desk role and the tile text exist", () => {
     expect(ROLE_LABELS.order_desk).toBe("Order desk");
-    expect(MODULES.order_capture).toMatchObject({ label: "Order Capture", staff: "Take an order", setup: { path: "/rates" } });
+    expect(MODULES.order_capture).toMatchObject({ label: "Sales", staff: "Take an order", setup: { path: "/rates" } });
   });
 
   it("Order desk opens Order Capture; plant staff open it view-only; a store keeper doesn't", async () => {

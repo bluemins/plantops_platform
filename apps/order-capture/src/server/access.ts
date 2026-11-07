@@ -105,5 +105,5 @@ export function requireAccess(user: Actor, action: Action) {
   if (user.who === "viewer") throw forbidden("You can view orders only. Order desk or the owner does this.");
   if (user.who === "delivery") throw forbidden("Delivery staff work in Calls only.");
   if (user.who === "accounts") throw forbidden("Accounts works on bills and payments. Order desk or the owner does this.");
-  throw forbidden("You don't have access to Order Capture");
+  throw forbidden("You don't have access to Sales");
 }

@@ -18,9 +18,9 @@ export default async function SupportAccessPage() {
       <Header user={user} plant={plant} />
       <BackLink />
       <h1 className="text-2xl font-bold">Support access</h1>
-      <p className="text-slate-600">Each time PlantOps support opened your Order Capture (read-only, they cannot change anything).</p>
+      <p className="text-slate-600">Each time PlantOps support opened your Sales (read-only, they cannot change anything).</p>
       {views.length === 0 ? (
-        <Card>PlantOps support has never opened your Order Capture.</Card>
+        <Card>PlantOps support has never opened your Sales.</Card>
       ) : (
         <Card>
           <ul className="divide-y divide-slate-100">

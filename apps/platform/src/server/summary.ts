@@ -69,6 +69,6 @@ export async function summaryForSuper(tenantId: string, moduleId: ModuleId) {
 export async function reportsSummaryForUser(user: CurrentUser) {
   if (!user.roles.includes("tenant_admin")) throw forbidden("Reports are for the plant's owners");
   const enabled = await withTenant(user.tenantId, (tx) => enabledModules(tx, user.tenantId));
-  if (!enabled.includes("order_capture")) throw forbidden("Reports need Order Capture");
+  if (!enabled.includes("order_capture")) throw forbidden("Reports need Sales");
   return fetchModuleSummary("order_capture", user.tenantId, "reports");
 }
