@@ -2052,3 +2052,8 @@ Customer 7999293831; staff tick the bill on Receive payment. No migration; SSO t
 Owner button on Match → To match: a contact whose mobile is a customer's is linked to it; a contact with a mobile no
 customer and no other unmatched contact has becomes a new customer (Zoho name, place from the brackets) and is linked;
 mobiles shared by several contacts stay for the owner. Plant 001: 102 + 343 linked, 80 left. No migration.
+
+### 2026-11-07 — Link by mobile: one customer per shared mobile (v0.45.3, live 2026-11-07, `cdda2ca`)
+Owner: "first take all to PlantOps, then a strategy to merge". Contacts sharing a mobile no customer has → one new
+customer per mobile (named after the contact billed last), all linked. Plant 001 before the press: 1,056 of 1,104
+linked, 48 left on 21 mobiles; 766 customers. No migration. Next: the merge strategy with the owner.
