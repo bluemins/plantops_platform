@@ -2047,3 +2047,8 @@ Owner 2026-11-07: staff couldn't take payments on unlinked Zoho contacts (Receiv
 To match gets "Link all N to one customer" (owner): the customer with the typed mobile (or a new one); every unlinked
 contact without a mobile is linked, one `zoho.match` audit row each (unlink one by one later). Plant 001: ~346 → Retail
 Customer 7999293831; staff tick the bill on Receive payment. No migration; SSO token unchanged.
+
+### 2026-11-07 — Match Zoho: "Link by mobile" (v0.45.2, live 2026-11-07, `6a1ac31`)
+Owner button on Match → To match: a contact whose mobile is a customer's is linked to it; a contact with a mobile no
+customer and no other unmatched contact has becomes a new customer (Zoho name, place from the brackets) and is linked;
+mobiles shared by several contacts stay for the owner. Plant 001: 102 + 343 linked, 80 left. No migration.
