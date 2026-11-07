@@ -2062,7 +2062,7 @@ Owner: "first take all to PlantOps, then a strategy to merge". Contacts sharing 
 customer per mobile (named after the contact billed last), all linked. Plant 001 before the press: 1,056 of 1,104
 linked, 48 left on 21 mobiles; 766 customers. No migration. Next: the merge strategy with the owner.
 
-### 2026-11-07 — Sales: WhatsApp thank-you only for chosen brands (v0.45.4, built)
+### 2026-11-07 — Sales: WhatsApp thank-you only for chosen brands (v0.45.4, live 2026-11-07, `05eb98b`)
 Owner: no thank-you tick for Mr.Charge orders, only Bluemins. Optional `"thanks_brands": ["Bluemins"]` in the plant's
 `TWILIO_WHATSAPP_SENDERS` entry: the tick shows only when the order has a product of those brands (Rates brand, else the
-name's guess); else a plain note, and the server refuses. No migration; SSO token unchanged. Tests: Sales 700. Not deployed.
+name's guess); else a plain note, and the server refuses. No migration; SSO token unchanged. Tests: Sales 700. Owner to add `thanks_brands` on Railway.

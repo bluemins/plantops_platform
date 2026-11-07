@@ -27,7 +27,7 @@ Set up and updated with [`../DEPLOY.md`](../DEPLOY.md). **Never write secrets in
 | WhatsApp | not set up (waiting for Meta approval) |
 | File storage | Railway volume (move to S3-compatible storage + backups before real plant documents) |
 | Backups | nightly 02:00 IST, encrypted (`age`), to Cloudflare R2 bucket `plantops-backup` (`backup.yml`): database dump (30 days, read-only login `plantops_backup`) + Document Store files. Private key in the password manager. Practice restore done 2026-10-11 |
-| Runs release | v0.45.3 (`production` = commit `cdda2ca`, 2026-11-07) |
+| Runs release | v0.45.4 (`production` = commit `05eb98b`, 2026-11-07) |
 
 ## History
 | Date | What |
@@ -158,3 +158,4 @@ From `docs/SALARY_EXTRAS_PHASE_PLAN.md` Phase B6; how-to in `docs/HANDBOOK.md` (
 | 2026-11-07 | v0.45.1 live (Match Zoho customers → "Link all N to one customer" for contacts with no mobile). No migration (`railway-migrate.sh shared`: all up to date); `git push origin v0.45.1:production` (`13d4537`; owner: "go ahead"). Sales `/health` OK no warnings, JWKS 200. **Pending:** the owner links the no-mobile contacts to Retail Customer 7999293831; staff tick the bill on Receive payment. |
 | 2026-11-07 | v0.45.2 live (Match Zoho customers → "Link by mobile"). No migration; `git push origin v0.45.2:production` (`6a1ac31`; owner: "put v0.45.2 live now"). Sales `/health` OK, JWKS 200. **Pending:** the owner presses Link by mobile (plant 001: 102 to existing customers, 343 new, 80 shared left to match by hand). |
 | 2026-11-07 | v0.45.3 live (Link by mobile: one new customer per shared mobile). No migration; `git push origin v0.45.3:production` (`cdda2ca`; owner: "put v0.45.3 live now"). Plant 001 before (read-only): 1,104 Zoho contacts, 1,056 linked, 48 to match (all with a mobile, on 21 mobiles); 766 customers, 632 with a Zoho contact. **Pending:** the owner presses Link by mobile once more (48 → 21 customers); then the merge strategy. |
+| 2026-11-07 | v0.45.4 live (Sales: WhatsApp thank-you only for chosen brands; no migration). `git push origin v0.45.4:production` (`05eb98b`; owner: "deploy v0.45.4 to production"). Checks: `orders` `/health` database OK, no warnings; login redirect 307; JWKS + Lab / Docs / Stock / Complaints / Attendance / Jobs health 200. **Pending:** the owner adds `"thanks_brands": ["Bluemins"]` to plant 001's `TWILIO_WHATSAPP_SENDERS` entry (until then every order keeps the tick box), then checks a Mr.Charge order (no tick) and a Bluemins one (tick). |
