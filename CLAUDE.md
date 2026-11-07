@@ -2007,9 +2007,9 @@ Asked by the owner 2026-11-07 ("no difference between delivered and bill"; "a ti
   details (shape + state + check character, `packages/types/src/gst.ts`) and GST rate per product (0/5/12/18/28/40, set
   by the owner; the Zoho items import never touches it because Zoho's item rates were out of date). Modules get
   `gst_rate` with products, `gstin` with branding.
-- **v0.42.0 (B2–B4, built, not deployed):** Order Capture migration `0009_bill_fields.sql`; Make bill with bill date,
+- **v0.42.0 (B2–B4, live 2026-11-07, `4c9116e`):** Order Capture migration `0009_bill_fields.sql`; Make bill with bill date,
   terms, salesperson + vehicle (separate, from the last bill), line descriptions, discounts, adjustment, notes, private
   note; the GST tick (auto with a GSTIN; CGST + SGST / IGST; rates incl. GST or on top); Bills → GST invoices to make
   (one screen, Download for Zoho as a Zoho-import CSV, sent / done); Rates → Bill settings. SSO token unchanged.
   Tests: platform 423, Order Capture 626. Notes: `apps/order-capture/NOTES.md`.
-- **Next:** deploy v0.42.0 when the owner says; the owner tries one GST bill and imports the file into Zoho once.
+- **Next:** the owner tries one GST bill and imports the file into Zoho once. Then B5: Reports (owner: a Reports tile on the dashboard, Sales reports first, like Zoho's Reports Center).
