@@ -143,7 +143,7 @@ export default async function OrderPage({ params }: { params: Params }) {
       <OrderActions
         order={{ id: o.id, ref: o.ref, status: o.status, version: o.version, summary: o.lines.map((l) => `${l.product} ${l.quantity.toLocaleString("en-IN")} ${l.unit}`).join(", ") }}
         may={may}
-        thanks={{ available: o.thanks.available, already: o.thanks.message ? (o.thanks.message.sent_at ?? o.thanks.message.at) : null, name: o.customer.name, phone: o.customer.phone }}
+        thanks={{ available: o.thanks.available, onlyBrands: o.thanks.only_brands, already: o.thanks.message ? (o.thanks.message.sent_at ?? o.thanks.message.at) : null, name: o.customer.name, phone: o.customer.phone }}
       />
 
       {can(user, "add_note") && <AddNote orderId={o.id} />}

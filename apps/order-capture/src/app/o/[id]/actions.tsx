@@ -9,7 +9,7 @@ type Order = { id: string; ref: string; status: "pending" | "delivered" | "cance
 type May = { deliver: boolean; change: boolean; cancel: boolean; undo: boolean };
 type Open = "deliver" | "cancel" | "undo" | null;
 /** The WhatsApp thank-you: offered when the plant has a Twilio sender; `already` = this order had one (never twice). */
-type Thanks = { available: boolean; already: string | null; name: string; phone: string };
+type Thanks = { available: boolean; onlyBrands: string[] | null; already: string | null; name: string; phone: string };
 
 const area = "w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)";
 const input = "min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-base focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)";
@@ -67,7 +67,8 @@ export function OrderActions({ order, may, thanks }: { order: Order; may: May; t
             </span>
           </label>
         )}
-        {thanks.available && thanks.already && <p className="text-sm text-slate-600">This order already had its WhatsApp thank-you ({fmtDateTime(thanks.already)}, see History). It is never sent twice.</p>}
+        {thanks.onlyBrands && <p className="text-sm text-slate-600">No WhatsApp thank-you for this order: it is sent only for {thanks.onlyBrands.join(" / ")} orders.</p>}
+        {thanks.available && thanks.already &&<p className="text-sm text-slate-600">This order already had its WhatsApp thank-you ({fmtDateTime(thanks.already)}, see History). It is never sent twice.</p>}
         <ErrorText>{error}</ErrorText>
         <Button
           className="w-full min-h-14 text-lg"

@@ -24,7 +24,7 @@ import { LinesInput } from "./orders";
 import { activeProducts, effectiveRates } from "./rates";
 import type { OrderStatus } from "./schema";
 import type { OcUser } from "./session";
-import { queueThanks, senderFor, thanksOf, type ThanksView } from "./thanks";
+import { orderBrands, queueThanks, senderFor, thanksFits, thanksOf, type ThanksView } from "./thanks";
 
 const { orders, orderLines, orderEvents } = schema;
 
@@ -113,7 +113,7 @@ export async function getOrder(user: OcUser, id: string): Promise<OrderDetail> {
       delivered: o.deliveredAt ? { by: o.deliveredByName!, at: o.deliveredAt.toISOString(), note: o.deliveryNote, invoice_no: o.invoiceNo } : null,
       versions,
       events: events.map((e) => ({ kind: e.kind as EventKind, version: e.version, text: e.text, invoice_no: e.invoiceNo, by: e.createdByName, at: e.createdAt.toISOString() })),
-      thanks: await thanksOf(tx, user.tenantId, id),
+      thanks: await thanksOf(tx, user.tenantId, id, o.version),
     };
   });
 }
@@ -206,9 +206,12 @@ export async function changeOrder(user: OcUser, id: string, input: z.infer<typeo
  */
 export async function deliverOrder(user: OcUser, id: string, input: z.infer<typeof DeliverInput>) {
   if (input.send_thanks) requireAccess(user, "deliver");
-  if (input.send_thanks && !senderFor(user.tenantId)) throw badRequest("WhatsApp isn't set up for this plant. Untick the thank-you and try again.");
+  const sender = input.send_thanks ? senderFor(user.tenantId) : null;
+  if (input.send_thanks && !sender) throw badRequest("WhatsApp isn't set up for this plant. Untick the thank-you and try again.");
   return act(user, "deliver", async (tx) => {
     const o = await lockAsSeen(tx, user, id, input.expected, "pending");
+    if (sender && !thanksFits(sender, await orderBrands(tx, user.tenantId, id, o.version)))
+      throw badRequest(`The WhatsApp thank-you is only for ${sender.thanksBrands!.join(" / ")} orders. Untick it and try again.`);
     const note = input.note || null;
     const invoice = input.invoice_no || null;
     const now = new Date();

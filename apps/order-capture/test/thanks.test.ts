@@ -9,6 +9,7 @@ import { DeliverInput, deliverOrder, getOrder, ReasonInput, undoDelivered } from
 import { createOrder, OrderInput } from "@/server/orders";
 import { MAX_AGE_MS, retryThanks, sendPending, senderFor, whatsappProblem, whatsappSettingsProblem } from "@/server/thanks";
 import { thanksText } from "@/lib/history";
+import { schema, withTenant } from "@/server/db";
 import { SKUS, startFakePlatform, type FakePlatform } from "./fake-platform";
 import { asApp, asOwner, dbError, jsonReq, plant, refused, signInAs } from "./helpers";
 
@@ -119,7 +120,7 @@ describe("sending on Delivered", () => {
     expect((await deliverVia(p.desk, o.id, {})).status).toBe(200);
     expect(calls).toEqual([]);
     expect(await rows(o.id)).toEqual([]);
-    expect((await getOrder(p.desk, o.id)).thanks).toEqual({ available: true, problem: null, message: null });
+    expect((await getOrder(p.desk, o.id)).thanks).toEqual({ available: true, only_brands: null, problem: null, message: null });
   });
 
   it("a plant without a sender: no tick box, and send_thanks is refused (400) with nothing saved", async () => {
@@ -136,7 +137,7 @@ describe("sending on Delivered", () => {
   it("off without the Twilio account, and when the settings are broken or invalid", () => {
     const t = randomUUID();
     withSender(t);
-    expect(senderFor(t)).toEqual({ from: FROM, contentSid: CONTENT, reminderContentSid: null });
+    expect(senderFor(t)).toEqual({ from: FROM, contentSid: CONTENT, reminderContentSid: null, thanksBrands: null });
     vi.spyOn(console, "error").mockImplementation(() => {});
     process.env.TWILIO_WHATSAPP_SENDERS = "{not json";
     expect(senderFor(t)).toBeNull();
@@ -175,7 +176,7 @@ describe("sending on Delivered", () => {
     it("a broken reminder template, or the same template twice: the thank-you keeps working, the problem is named", () => {
       const t = randomUUID();
       set({ [t]: { from: FROM, content_sid: CONTENT, reminder_content_sid: "reorder" } });
-      expect(senderFor(t)).toEqual({ from: FROM, contentSid: CONTENT, reminderContentSid: null });
+      expect(senderFor(t)).toEqual({ from: FROM, contentSid: CONTENT, reminderContentSid: null, thanksBrands: null });
       expect(whatsappProblem(t)).toMatch(/"reminder_content_sid" is not HX/);
       set({ [t]: { from: FROM, content_sid: CONTENT, reminder_content_sid: CONTENT } });
       expect(whatsappProblem(t)).toMatch(/same template/);
@@ -219,6 +220,55 @@ describe("sending on Delivered", () => {
       expect(view.problem).toMatch(/not valid JSON/);
       withSender(p.tenantId);
       expect((await getOrder(p.desk, o.id)).thanks).toMatchObject({ available: true, problem: null });
+    });
+  });
+
+  describe("only for some brands (thanks_brands, owner 2026-11-07)", () => {
+    const jar = SKUS[2]!;
+    const brands = (t: string, list: unknown) => (process.env.TWILIO_WHATSAPP_SENDERS = JSON.stringify({ [t]: { from: FROM, content_sid: CONTENT, thanks_brands: list } }));
+    const order = (p: ReturnType<typeof plant>, skus: string[]) =>
+      createOrder(p.desk, OrderInput.parse({ request_key: `thanks-b-${Date.now()}-${++k}`, customer: { phone: "9876543210", name: "Gayatri shop", place: "bhatli" }, lines: skus.map((sku_id) => ({ sku_id, quantity: 2, rate: "100" })) }));
+
+    it("a Bluemins order gets the tick box (any letter case); a Jar-only order doesn't and says why; a mixed order does", async () => {
+      const p = plant();
+      brands(p.tenantId, ["bluemins"]);
+      const b = await order(p, [b1l.id]);
+      expect((await getOrder(p.desk, b.id)).thanks).toMatchObject({ available: true, only_brands: null });
+      const j = await order(p, [jar.id]);
+      expect((await getOrder(p.desk, j.id)).thanks).toMatchObject({ available: false, only_brands: ["bluemins"], problem: null });
+      const mixed = await order(p, [jar.id, b1l.id]);
+      expect((await getOrder(p.desk, mixed.id)).thanks.available).toBe(true);
+    });
+
+    it("send_thanks on an order without the brand is refused (400), nothing saved or sent", async () => {
+      const p = plant();
+      brands(p.tenantId, ["Bluemins"]);
+      const j = await order(p, [jar.id]);
+      const res = await deliverVia(p.desk, j.id, { send_thanks: true });
+      expect([res.status, (await res.json()).error]).toEqual([400, "The WhatsApp thank-you is only for Bluemins orders. Untick it and try again."]);
+      expect((await getOrder(p.desk, j.id)).status).toBe("pending");
+      expect(calls).toEqual([]);
+      expect((await deliverVia(p.desk, j.id, {})).status).toBe(200);
+    });
+
+    it("the brand set on Rates counts, not only the name", async () => {
+      const p = plant();
+      brands(p.tenantId, ["Hemex"]);
+      const j = await order(p, [jar.id]);
+      expect((await getOrder(p.desk, j.id)).thanks.available).toBe(false);
+      await withTenant(p.tenantId, (tx) => tx.insert(schema.productRates).values({ tenantId: p.tenantId, skuId: jar.id, unit: "jar", brand: "Hemex", updatedBy: p.owner.userId }));
+      expect((await getOrder(p.desk, j.id)).thanks.available).toBe(true);
+    });
+
+    it("a broken list: no order gets the tick box and the problem is named", async () => {
+      const p = plant();
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      for (const bad of ["Bluemins", [], [""], [3]]) {
+        brands(p.tenantId, bad);
+        const o = await order(p, [b1l.id]);
+        expect((await getOrder(p.desk, o.id)).thanks).toMatchObject({ available: false, problem: expect.stringMatching(/"thanks_brands"/) });
+        expect(whatsappSettingsProblem()).toMatch(/"thanks_brands"/);
+      }
     });
   });
 

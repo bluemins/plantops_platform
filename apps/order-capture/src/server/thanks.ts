@@ -3,17 +3,21 @@
 // customer's reply goes to that Twilio number, outside PlantOps.
 //   * Config (environment only): TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN, and TWILIO_WHATSAPP_SENDERS = JSON
 //     {"<plant id>": {"from": "whatsapp:+91…", "content_sid": "HX…"}}. A plant not listed has no tick box.
+//   * Optional "thanks_brands": ["Bluemins"] in the plant's entry (owner, 2026-11-07): the tick box only on orders with
+//     at least one product of those brands (the brand on Rates, else guessed from the name; any letter case). Left
+//     out = every order, as before. A broken list turns the thank-you off loudly (never every order by mistake).
 //   * deliverOrder writes the 'pending' row in its own transaction (queueThanks); the route sends it after the answer,
 //     so a delivery never waits for or fails because of WhatsApp.
 //   * Twilio refuses (4xx) → 'failed' with its reason, not retried. Unreachable / 5xx → stays 'pending' and the daily
 //     job tries again; given up after MAX_TRIES tries or MAX_AGE (a late thank-you is worse than none).
 //   * One thank-you per order ever (unique in the database).
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { BRAND_MAX, effectiveBrand } from "@/lib/brand";
 import { orderDb, schema, withTenant, type OcTx } from "./db";
 import { env } from "./env";
 import type { MessageStatus } from "./schema";
 
-const { customerMessages: messages, orders } = schema;
+const { customerMessages: messages, orders, orderLines, productRates } = schema;
 
 export const MAX_TRIES = 3;
 export const MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -23,6 +27,8 @@ export interface Sender {
   contentSid: string;
   /** the plant's approved reorder-reminder template (WhatsApp Step 4); null = no reminders for this plant */
   reminderContentSid?: string | null;
+  /** the thank-you only for orders with a product of one of these brands; null = every order */
+  thanksBrands?: string[] | null;
 }
 
 const FROM_RE = /^(whatsapp:\+\d{8,15}|MG[0-9a-f]{32})$/i;
@@ -43,7 +49,7 @@ function readSender(tenantId: string): { sender: Sender | null; problem: string 
     return { sender: null, problem: 'TWILIO_WHATSAPP_SENDERS is not valid JSON (it must look like {"<plant id>": {"from": …, "content_sid": …}})' };
   }
   if (!all || typeof all !== "object" || Array.isArray(all)) return { sender: null, problem: 'TWILIO_WHATSAPP_SENDERS must look like {"<plant id>": {"from": …, "content_sid": …}}' };
-  const s = (all as Record<string, unknown>)[tenantId] as { from?: unknown; content_sid?: unknown; reminder_content_sid?: unknown } | null | undefined;
+  const s = (all as Record<string, unknown>)[tenantId] as { from?: unknown; content_sid?: unknown; reminder_content_sid?: unknown; thanks_brands?: unknown } | null | undefined;
   if (s === undefined) return { sender: null, problem: null };
   const at = "TWILIO_WHATSAPP_SENDERS, this plant's entry:";
   if (!s || typeof s !== "object") return { sender: null, problem: `${at} not {"from": …, "content_sid": …}` };
@@ -52,7 +58,12 @@ function readSender(tenantId: string): { sender: Sender | null; problem: string 
   if (!env.twilioAccountSid || !env.twilioAuthToken) return { sender: null, problem: "TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN is missing" };
   const r = s.reminder_content_sid;
   const reminder = typeof r === "string" && TEMPLATE_RE.test(r) ? r : null;
-  const sender = { from: s.from, contentSid: s.content_sid, reminderContentSid: reminder };
+  const b = s.thanks_brands;
+  const brandsOk = b === undefined || (Array.isArray(b) && b.length > 0 && b.every((x) => typeof x === "string" && x.trim() !== "" && x.trim().length <= BRAND_MAX));
+  // a broken list: no order gets the tick box (never every order by mistake), and the problem is named
+  const thanksBrands = b === undefined ? null : brandsOk ? (b as string[]).map((x) => x.trim()) : [];
+  const sender = { from: s.from, contentSid: s.content_sid, reminderContentSid: reminder, thanksBrands };
+  if (!brandsOk) return { sender, problem: `${at} "thanks_brands" must look like ["Bluemins"] (brand names as on Rates), so the thank-you is off` };
   if (r !== undefined && !reminder) return { sender, problem: `${at} "reminder_content_sid" is not HX…, so reminders are off` };
   if (reminder && reminder.toLowerCase() === s.content_sid.toLowerCase())
     return { sender, problem: `${at} "content_sid" and "reminder_content_sid" are the same template (the thank-you needs its own)` };
@@ -87,19 +98,41 @@ export function whatsappSettingsProblem(): string | null {
   return null;
 }
 
+/** Whether this order may get the thank-you: any of its products has one of the sender's brands (or no list is set). */
+export const thanksFits = (sender: Sender, brands: string[]) =>
+  !sender.thanksBrands || brands.some((b) => sender.thanksBrands!.some((t) => t.toLowerCase() === b.toLowerCase()));
+
+/** The brands of an order's lines in one version (the brand on Rates, else guessed from the product name). */
+export async function orderBrands(tx: OcTx, tenantId: string, orderId: string, version: number): Promise<string[]> {
+  const lines = await tx
+    .select({ skuId: orderLines.skuId, name: orderLines.productName })
+    .from(orderLines)
+    .where(and(eq(orderLines.tenantId, tenantId), eq(orderLines.orderId, orderId), eq(orderLines.version, version)));
+  if (!lines.length) return [];
+  const saved = new Map(
+    (await tx.select({ skuId: productRates.skuId, brand: productRates.brand }).from(productRates).where(and(eq(productRates.tenantId, tenantId), inArray(productRates.skuId, lines.map((l) => l.skuId))))).map((r) => [r.skuId, r.brand]),
+  );
+  return [...new Set(lines.map((l) => effectiveBrand(saved.get(l.skuId), l.name)).filter(Boolean))];
+}
+
 /** What the order page shows about this order's thank-you. */
 export interface ThanksView {
-  /** the plant has a Twilio sender (the "Delivered" panel shows the tick box) */
+  /** the plant has a Twilio sender and this order has one of its brands (the "Delivered" panel shows the tick box) */
   available: boolean;
+  /** the plant sends the thank-you only for these brands and this order has none of them; null otherwise */
+  only_brands: string[] | null;
   /** the plant's WhatsApp settings are broken: shown as a red note instead of a silently missing tick box */
   problem: string | null;
   message: { status: Exclude<MessageStatus, "skipped">; error: string | null; at: string; sent_at: string | null; by: string } | null;
 }
 
-export async function thanksOf(tx: OcTx, tenantId: string, orderId: string): Promise<ThanksView> {
+export async function thanksOf(tx: OcTx, tenantId: string, orderId: string, version: number): Promise<ThanksView> {
   const [m] = await tx.select().from(messages).where(and(eq(messages.tenantId, tenantId), eq(messages.orderId, orderId), eq(messages.kind, "delivery_thanks")));
+  const sender = senderFor(tenantId);
+  const fits = sender ? thanksFits(sender, await orderBrands(tx, tenantId, orderId, version)) : false;
   return {
-    available: senderFor(tenantId) !== null,
+    available: fits,
+    only_brands: sender && !fits && sender.thanksBrands?.length ? sender.thanksBrands : null,
     problem: whatsappProblem(tenantId),
     message: m ? { status: m.status as Exclude<MessageStatus, "skipped">, error: m.error, at: m.createdAt.toISOString(), sent_at: m.sentAt?.toISOString() ?? null, by: m.requestedByName } : null,
   };

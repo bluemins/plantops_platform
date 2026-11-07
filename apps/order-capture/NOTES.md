@@ -335,3 +335,13 @@ terms) with column UPDATE (+ `phone`, `phone_typed`, D3); bills + `bill_to_name`
 - Plant 001 (live, read-only, before the press): 80 contacts on 34 mobiles (71 billed; e.g. DM Sanskruti / DM Sankruti
   (Pada), Mohini / Maheswari Hotel on one phone). Merge strategy still to agree with the owner.
 - Tests: Sales 696.
+
+## 2026-11-07 — v0.45.4: WhatsApp thank-you only for chosen brands
+Owner 2026-11-07: no "Send a WhatsApp thank-you" tick for Mr.Charge orders, only Bluemins (1 L / 500 ml / 250 ml).
+Generic, config only (no migration, no plant name in code): the plant's `TWILIO_WHATSAPP_SENDERS` entry takes an
+optional `"thanks_brands": ["Bluemins"]`. The tick box shows only when at least one product of the order's current
+lines has one of those brands (the brand on Rates, else guessed from the name; any letter case), so a mixed
+Bluemins + Mr.Charge order still gets it. Other orders show "No WhatsApp thank-you for this order: it is sent only
+for Bluemins orders."; `send_thanks` on them is refused (400). Left out = every order (as before). A broken list
+(not a list of brand names) turns the thank-you off for every order and is named on the order page and `/health`.
+Reminders are unchanged. Tests: `test/thanks.test.ts` (+4).
