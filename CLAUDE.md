@@ -2012,4 +2012,13 @@ Asked by the owner 2026-11-07 ("no difference between delivered and bill"; "a ti
   note; the GST tick (auto with a GSTIN; CGST + SGST / IGST; rates incl. GST or on top); Bills → GST invoices to make
   (one screen, Download for Zoho as a Zoho-import CSV, sent / done); Rates → Bill settings. SSO token unchanged.
   Tests: platform 423, Order Capture 626. Notes: `apps/order-capture/NOTES.md`.
-- **Next:** the owner tries one GST bill and imports the file into Zoho once. Then B5: Reports (owner: a Reports tile on the dashboard, Sales reports first, like Zoho's Reports Center).
+- **Next:** the owner tries one GST bill and imports the file into Zoho once.
+
+### 2026-11-07 — Reports (B5): Sales by Item / Customer (v0.43.0, built)
+Owner 2026-11-07: a Reports card on the dashboard (**owner only**), Sales first; month / quarter / salesperson are
+**filters**, not separate reports. Plan + mock-ups: `docs/REPORTS_PHASE_PLAN.md`. Order Capture `/reports` +
+`/reports/sales/item|customer` (filters, CSV, print; PlantOps + Zoho bills; `src/lib/report.ts`); platform dashboard
+card (`ReportsCard`, `/api/launcher/reports`, summary view `reports`). No migration; SSO token unchanged.
+**Every future report goes into this Reports section** (owner). Next: deploy, the owner checks Oct 2026 against Zoho;
+later sections (Receivables, Payments, GST, Stock, Attendance) when the owner orders them. Owner is thinking of
+renaming "Order Capture" to "Sales" (display name only; asked 2026-11-07).

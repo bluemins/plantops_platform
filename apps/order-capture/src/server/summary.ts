@@ -8,6 +8,7 @@ import type { ModuleSummary, SummaryView } from "@plantops/types";
 import { AMBER_AFTER_DAYS } from "@/lib/history";
 import { LAST_UPTO, LISTED, RING } from "./calls-tab";
 import { withTenant, type OcTx } from "./db";
+import { reportsTile } from "./reports";
 
 const istDay = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(d);
 
@@ -22,7 +23,24 @@ async function callCounts(tx: OcTx, tenantId: string, todayStart: Date) {
   return rows[0] ?? { any: false, today: 0, waiting: 0 };
 }
 
+const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const wholeRupees = (p: bigint) => `₹${((p + 50n) / 100n).toLocaleString("en-IN")}`;
+
+/** The owner's Reports card (dashboard): last month's sales before GST and the change on the month before. */
+async function reportsSummary(tenantId: string, now: Date): Promise<ModuleSummary> {
+  const t = await reportsTile(tenantId, istDay(now));
+  const m = Number(t.month.slice(5)) - 1;
+  const badges: ModuleSummary["badges"] = [{ text: `${MONTH[m]} sales ${wholeRupees(t.sales)}`, tone: "info" }];
+  if (t.previous > 0n) {
+    const pct = Number(((t.sales - t.previous) * 1000n) / t.previous) / 10;
+    const r = Math.round(pct);
+    badges.push({ text: `${r >= 0 ? "+" : "−"}${Math.abs(r)}% on ${MONTH[(m + 11) % 12]}`, tone: r >= 0 ? "ok" : "warn" });
+  }
+  return { badges };
+}
+
 export function summaryFor(tenantId: string, view: SummaryView, now = new Date()): Promise<ModuleSummary> {
+  if (view === "reports") return reportsSummary(tenantId, now);
   // "over 2 days" = the same rule as the amber cards: entered 2 whole days ago or more
   const amberFrom = new Date(now.getTime() - AMBER_AFTER_DAYS * 24 * 60 * 60 * 1000);
   const todayStart = new Date(`${istDay(now)}T00:00:00+05:30`);

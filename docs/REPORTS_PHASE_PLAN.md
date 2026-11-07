@@ -4,7 +4,9 @@ Asked by the owner 2026-11-07: "a report tile on the main dashboard; the sales r
 Reference: the owner's Zoho Books Reports Center (sections on the left; Sales: by Customer, by Item, by Salesperson,
 Summary) and their Zoho "Sales by Item, grouped by salesperson, Oct 2026".
 Mock-ups (real Oct 2026 figures from plant 001's Zoho export): https://claude.ai/artifact/CmaHReL3fE5gALSh9DVZXb
-Status: **plan + mock-ups, waiting for the owner's approval.**
+Status: **built 2026-11-07 (v0.43.0)**: the owner said "build it". Changed with the owner before building: monthly /
+quarterly / salesperson are **filters** on two reports (Sales by Item, Sales by Customer), not separate reports; the
+Reports card is owner only.
 
 ## 1. Decisions (owner, 2026-11-07)
 1. **Own "Reports" tile on the PlantOps dashboard** (not only a link inside Order Capture). Later report sections (stock,

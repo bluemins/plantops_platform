@@ -247,3 +247,18 @@ no DELETE). Code: `src/server/bill-make.ts` (form data, makeBill, settings, gstQ
 - Tests: Order Capture 626 (+23: `bill-amounts.test.ts` 13, `bill-make.test.ts` 10; guards extended for the new table
   and 11 locked bill columns).
 - **Not yet verified:** on screen; a real Zoho import of the file (Invoice Number column and other states' codes).
+
+### 2026-11-07 — Reports: Sales by Item / Customer (v0.43.0)
+Owner 2026-11-07 (`docs/REPORTS_PHASE_PLAN.md`, mock-ups linked there). `/reports` (sections; Sales now) and
+`/reports/sales/item|customer` with one filter bar (period, break down by month / quarter, salesperson, place,
+vehicle, group by, before / with GST), CSV `/api/reports/sales/<kind>?…` and print. Rules: `src/lib/report.ts` (pure);
+data: `src/server/reports.ts` (bill lines of the period; PlantOps + Zoho bills; cancelled and `ob:` bills left out;
+row per `sku_id`, else Zoho's name). Access row `reports` = owner + support. Summary view `reports` = the owner's
+dashboard card (last month's sales, change on the month before).
+- **Made while building:** salesperson names compared without case or spaces ("Anmol " = "anmol"), first spelling
+  shown; "Not mentioned" / "No …" groups first, then by name, like Zoho; rows biggest first; quarters are Indian FY
+  quarters (Q1 Apr–Jun); a month without sales shows 0; group by customer isn't offered on Sales by Customer; place =
+  the PlantOps customer's place (an unmatched Zoho contact: "No place (Zoho contact not matched)"); "with GST" = the
+  line before GST + its GST; a salesperson name on Sales by Customer (grouped by salesperson) opens Sales by Item.
+- Tests: Order Capture 651 (+21: `report-lib.test.ts` 16, `reports.test.ts` 4, access row 1), platform 424.
+- **Not yet verified:** on screen; the owner's check against Zoho's Oct 2026 Sales by Item by salesperson.

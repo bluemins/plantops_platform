@@ -44,7 +44,8 @@ export type Action =
   | "payment_receive" // receive a payment from a customer
   | "payment_cancel" // cancel a payment, with a reason
   | "ledger_export" // bills / payments CSV
-  | "ledger_totals"; // the plant's totals: still due, overdue bills, received (owner 2026-11-06: owner only)
+  | "ledger_totals" // the plant's totals: still due, overdue bills, received (owner 2026-11-06: owner only)
+  | "reports"; // Reports: sales by item / customer (owner 2026-11-07: owner only; support reads)
 
 export const ACCESS: Record<Action, readonly Who[]> = {
   read: ["owner", "desk", "viewer", "accounts", "support"],
@@ -80,6 +81,7 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   payment_cancel: ["owner"],
   ledger_export: ["owner"],
   ledger_totals: ["owner", "support"],
+  reports: ["owner", "support"],
 };
 
 /** What the user is, for this table. null = no Order Capture rights at all (e.g. a store keeper). */

@@ -61,3 +61,14 @@ export async function summaryForSuper(tenantId: string, moduleId: ModuleId) {
   if (!enabled.includes(moduleId)) throw forbidden("This module is not in the plant's plan");
   return fetchModuleSummary(moduleId, tenantId, "owner");
 }
+
+/**
+ * GET /api/launcher/reports - the owner's Reports card (docs/REPORTS_PHASE_PLAN.md): last month's sales from Order
+ * Capture ("reports" view). Owners only, and only when Order Capture is in the plant's plan.
+ */
+export async function reportsSummaryForUser(user: CurrentUser) {
+  if (!user.roles.includes("tenant_admin")) throw forbidden("Reports are for the plant's owners");
+  const enabled = await withTenant(user.tenantId, (tx) => enabledModules(tx, user.tenantId));
+  if (!enabled.includes("order_capture")) throw forbidden("Reports need Order Capture");
+  return fetchModuleSummary("order_capture", user.tenantId, "reports");
+}

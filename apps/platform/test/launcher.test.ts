@@ -8,6 +8,7 @@ import type { SummaryRequestPayload } from "@plantops/types";
 import * as launcherRoute from "@/app/api/launcher/route";
 import * as orderRoute from "@/app/api/launcher/order/route";
 import * as summaryRoute from "@/app/api/launcher/summary/[module]/route";
+import * as reportsRoute from "@/app/api/launcher/reports/route";
 import * as superLauncherRoute from "@/app/api/super/tenants/[id]/launcher/route";
 import * as superSummaryRoute from "@/app/api/super/tenants/[id]/summary/[module]/route";
 import * as modulesRoute from "@/app/api/super/modules/route";
@@ -417,5 +418,18 @@ describe("tile order", () => {
   it("one plant can never see another plant's saved order (RLS)", async () => {
     const rows = await withTenant(B.tenantId, (tx) => tx.select().from(schema.tileOrder));
     expect(rows).toEqual([]);
+  });
+});
+
+describe("Reports card (owner only; docs/REPORTS_PHASE_PLAN.md)", () => {
+  it("owners of a plant with Order Capture get its number; staff, and plants without Order Capture, are refused", async () => {
+    const P = await makePlant({ modules: ["order_capture"] });
+    const desk = await makeStaff(P, "desk", ["order_desk"]);
+    const reports = (cookie: string) => call(reportsRoute.GET as Handler, { cookie });
+    await asOwner("update platform.modules set base_url = null, client_secret_hash = null where id = 'order_capture'");
+    expect((await reports(P.adminCookie)).body).toEqual({ state: "unavailable" }); // Order Capture not set up here
+    expect((await reports(desk.cookie)).status).toBe(403);
+    const noOrders = await makePlant({ modules: ["lab_records"] });
+    expect((await reports(noOrders.adminCookie)).status).toBe(403);
   });
 });

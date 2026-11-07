@@ -4,6 +4,22 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.43.0 — 2026-11-07 — Reports: Sales by Item and Sales by Customer (B5, R1 + card)
+
+Owner, 2026-11-07: "a report tile on the main dashboard … the sales report first … later different sections";
+"monthly / quarterly / salesperson-wise: those are all filters"; "the report tile is only for the owner". Plan and
+mock-ups: `docs/REPORTS_PHASE_PLAN.md`.
+- **Dashboard → Reports** card, **owners only**, when Order Capture is on: last month's sales and the change on the
+  month before. Opens the Reports page (sections on the left: Sales now; Receivables, Payments received, GST, Stock,
+  Attendance & salary later).
+- **Sales by Item** and **Sales by Customer**, one set of filters on both: period (this / previous month, quarter,
+  financial year, custom dates), break down by month or quarter (Indian FY quarters), salesperson, place, vehicle,
+  group by (salesperson, customer, place, vehicle, brand), before / with GST. CSV with the same filters; Print / PDF.
+- Sales = bills: PlantOps bills + the imported Zoho history; cancelled and opening-balance bills left out; one row per
+  PlantOps product (Zoho's different names for one product count as one); amounts before GST like Zoho's report.
+- Owner only on both servers (PlantOps support reads, logged). No migration; SSO token unchanged (summary request view
+  `reports`, sent for owners only).
+
 ## v0.42.0 — 2026-11-07 — Make bill with Zoho-like fields, GST bills and "GST invoices to make" (steps B2–B4)
 
 Owner, 2026-11-07: "capture all the fields like Zoho … a tick mark … so that it will be sent / imported to Zoho … see it

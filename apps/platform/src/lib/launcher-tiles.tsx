@@ -183,3 +183,24 @@ export function PlanCard({ plan }: { plan: PlanSummary }) {
     </Card>
   );
 }
+
+/**
+ * The owner's Reports card (docs/REPORTS_PHASE_PLAN.md): every report lives behind it (Sales now; more sections later).
+ * Its number is last month's sales from Order Capture; it opens the Reports page there through the normal handoff.
+ */
+export function ReportsCard({ summaryUrl, openHref }: { summaryUrl: string; openHref: string }) {
+  return (
+    <a href={openHref} className="block">
+      <Card className="flex items-center justify-between gap-3 border-(--brand) hover:bg-slate-50">
+        <span className="min-w-0 space-y-1">
+          <span className="flex items-center gap-2 text-lg font-semibold">
+            <span aria-hidden="true">📊</span> Reports
+          </span>
+          <span className="block text-sm text-slate-500">Sales by item and customer · by month, quarter, salesperson</span>
+          <TileNumbers url={summaryUrl} />
+        </span>
+        <span aria-hidden="true" className="text-xl text-(--brand)">→</span>
+      </Card>
+    </a>
+  );
+}
