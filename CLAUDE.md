@@ -2041,3 +2041,9 @@ location ("Save my location here" for owner / Order desk / Accounts / Delivery s
 Shop locations screen without money). Make bill's GST details saved on the customer; GST bills keep a bill-to copy.
 SSO token unchanged. Tests: Sales 693, platform 425. Migration `0010` applied on the shared copy before the deploy.
 **Next:** the owner tries 📍 on a phone and one GST bill → Zoho import; Part 3 = Zoho Contacts fill (empty fields only).
+
+### 2026-11-07 — Match Zoho: link all contacts with no mobile to one customer (v0.45.1, live 2026-11-07, `13d4537`)
+Owner 2026-11-07: staff couldn't take payments on unlinked Zoho contacts (Receive payment is per customer). Match →
+To match gets "Link all N to one customer" (owner): the customer with the typed mobile (or a new one); every unlinked
+contact without a mobile is linked, one `zoho.match` audit row each (unlink one by one later). Plant 001: ~346 → Retail
+Customer 7999293831; staff tick the bill on Receive payment. No migration; SSO token unchanged.
