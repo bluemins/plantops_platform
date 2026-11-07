@@ -73,6 +73,8 @@ export const tenantProfiles = platform.table("tenant_profiles", {
   phone: text("phone"),
   supportPhone: text("support_phone"),
   supportHours: text("support_hours"),
+  /** the plant's GSTIN (migration 0026); its first two digits = the plant's GST state */
+  gstin: text("gstin"),
   updatedAt: ts("updated_at").notNull().defaultNow(),
   updatedBy: text("updated_by").notNull(),
 });
@@ -89,6 +91,8 @@ export const tenantSkus = platform.table("tenant_skus", {
   hsn: text("hsn"),
   /** purchase rate in rupees, as text ("105.00"); owner only, never sent to modules */
   costRate: numeric("cost_rate", { precision: 12, scale: 2 }),
+  /** GST rate in percent, as text ("5.00"); set by the owner (migration 0026), never by the Zoho import */
+  gstRate: numeric("gst_rate", { precision: 5, scale: 2 }),
   createdAt: ts("created_at").notNull().defaultNow(),
   createdBy: text("created_by").notNull(),
   updatedAt: ts("updated_at").notNull().defaultNow(),

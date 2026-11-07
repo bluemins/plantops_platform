@@ -14,6 +14,7 @@ import * as superSkusRoute from "@/app/api/super/tenants/[id]/skus/route";
 import * as superUserRoute from "@/app/api/super/tenants/[id]/users/[userId]/route";
 import * as brandingRoute from "@/app/api/m/tenants/[tid]/branding/route";
 import * as moduleLogoRoute from "@/app/api/m/tenants/[tid]/logo/route";
+import * as moduleSkusRoute from "@/app/api/m/tenants/[tid]/skus/route";
 import * as adminUserRoute from "@/app/api/admin/users/[id]/route";
 import * as meRoute from "@/app/api/auth/me/route";
 import { sha256 } from "@/server/crypto";
@@ -77,6 +78,7 @@ describe("owner edits business details", () => {
       phone: "+91 98765 43210",
       support_phone: "7090443303",
       support_hours: " 10 am – 6 pm, Mon–Sat ",
+      gstin: " 21nwsps 1732j1zx ",
       logo: { data_base64: PNG },
     });
     expect(res.status).toBe(200);
@@ -88,6 +90,7 @@ describe("owner edits business details", () => {
       pincode: "753010",
       support_phone: "7090443303",
       support_hours: "10 am – 6 pm, Mon–Sat",
+      gstin: "21NWSPS1732J1ZX", // spaces removed, upper case
     });
     expect(res.body.logo_url).toMatch(/^\/api\/business\/logo\?v=\d+$/);
 
@@ -98,6 +101,15 @@ describe("owner edits business details", () => {
     const noSupport = await patchBusiness(A.adminCookie, { support_phone: "", support_hours: "" });
     expect(noSupport.body).toMatchObject({ support_phone: null, support_hours: null });
     expect(cleared.body.logo_url).not.toBeNull();
+    expect(cleared.body.gstin).toBe("21NWSPS1732J1ZX");
+  });
+
+  it("GSTIN: blank clears it; the database refuses one that isn't GSTIN-shaped", async () => {
+    expect((await patchBusiness(A.adminCookie, { gstin: "" })).body.gstin).toBeNull();
+    await expect(
+      withTenant(A.tenantId, (tx) => tx.execute(sql`update platform.tenant_profiles set gstin = 'NOT-A-GSTIN' where tenant_id = ${A.tenantId}`)),
+    ).rejects.toThrow();
+    expect((await patchBusiness(A.adminCookie, { gstin: "21NWSPS1732J1ZX" })).body.gstin).toBe("21NWSPS1732J1ZX");
   });
 
   it("any logged-in user of the plant can load its logo, as an image", async () => {
@@ -128,6 +140,9 @@ describe("owner edits business details", () => {
     ["phone with letters", { phone: "call me" }],
     ["support phone with letters", { support_phone: "call me" }],
     ["support hours over 60 characters", { support_hours: "x".repeat(61) }],
+    ["GSTIN with a typo (wrong check character)", { gstin: "21NWSPS1732J1ZY" }],
+    ["GSTIN with an unknown state code", { gstin: "00NWSPS1732J1ZX" }],
+    ["GSTIN that is too short", { gstin: "21NWSPS1732" }],
     ["empty plant name", { name: "" }],
   ])("rejects %s", async (_name, body) => {
     expect((await patchBusiness(A.adminCookie, body)).status).toBe(400);
@@ -164,6 +179,28 @@ describe("products (SKUs)", () => {
 
     const list = await call(skusRoute.GET as Handler, { cookie: A.adminCookie });
     expect(list.body.map((s: { name: string }) => s.name)).toEqual(["20L jar", "Aqua 1L", "Pouch"]);
+  });
+
+  it("GST rate: the owner sets it (5%), changes it, clears it; modules get it; other rates are refused", async () => {
+    const made = await addSku(A.adminCookie, { name: "GST jar", sku_code: "GST-20L", volume_ml: 20000, pack_type: "jar", gst_rate: 5 });
+    expect(made.status).toBe(201);
+    expect(made.body.gst_rate).toBe(5);
+    const patch = (body: unknown) => call(skuRoute.PATCH as Handler, { cookie: A.adminCookie, method: "PATCH", body, params: { id: made.body.id } });
+    expect((await patch({ gst_rate: 18 })).body.gst_rate).toBe(18);
+    expect((await patch({ name: "GST jar 20 L" })).body.gst_rate).toBe(18); // not sent = kept
+    expect((await patch({ gst_rate: null })).body.gst_rate).toBeNull();
+    expect((await patch({ gst_rate: 7 })).status).toBe(400);
+    expect((await addSku(A.adminCookie, { name: "Bad", volume_ml: 500, pack_type: "bottle", gst_rate: 2.5 })).status).toBe(400);
+    expect((await patch({ gst_rate: 5 })).body.gst_rate).toBe(5);
+
+    const mod = await call(moduleSkusRoute.GET as Handler, { headers: LAB, params: { tid: A.tenantId } });
+    const one = (mod.body as Record<string, unknown>[]).find((s) => s.sku_code === "GST-20L")!;
+    expect(one.gst_rate).toBe(5);
+    expect(one).not.toHaveProperty("cost_rate");
+
+    await expect(
+      withTenant(A.tenantId, (tx) => tx.execute(sql`update platform.tenant_skus set gst_rate = 7 where id = ${made.body.id}`)),
+    ).rejects.toThrow();
   });
 
   it("a case holds several units: size is per bottle, units_per_pack says how many (default 1)", async () => {
@@ -345,7 +382,8 @@ describe("branding for modules", () => {
     const res = await call(brandingRoute.GET as Handler, { headers: LAB, params: { tid: A.tenantId } });
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ tenant_id: A.tenantId, name: "Aqua Pure Odisha", brand_color: "#1d4ed8", code: A.code });
-    expect(Object.keys(res.body).sort()).toEqual(["brand_color", "code", "logo_url", "name", "support_hours", "support_phone", "tenant_id"]);
+    expect(Object.keys(res.body).sort()).toEqual(["brand_color", "code", "gstin", "logo_url", "name", "support_hours", "support_phone", "tenant_id"]);
+    expect(res.body.gstin).toBe("21NWSPS1732J1ZX");
     expect(res.body.logo_url).toMatch(new RegExp(`^/api/m/tenants/${A.tenantId}/logo\\?v=\\d+$`));
     expect((await getRaw(moduleLogoRoute.GET, { headers: LAB, params: { tid: A.tenantId } })).type).toBe("image/png");
   });

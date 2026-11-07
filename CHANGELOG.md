@@ -4,6 +4,18 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.41.0 — 2026-11-07 — Plant GSTIN and GST rate per product (step B1 of GST bills)
+
+Owner, 2026-11-07: Make bill gets Zoho-like fields and a "Needs GST invoice" tick (plan `docs/BILL_FIELDS_PHASE_PLAN.md`,
+mock-ups linked there). This first step adds what GST bills need from the platform:
+- **Business details → GSTIN** (optional; spaces / lower case fine). Checked on the server: shape, state code and the
+  GSTIN's check character (a one-letter typo is refused). The screen shows the state read from it ("Odisha (21)").
+- **Products → GST rate** (Not set / 0 / 5 / 12 / 18 / 28 / 40 %), shown in the list ("GST 5%"). **Set by the owner;
+  the Zoho items import never changes it** (owner's choice: Zoho's item rates were out of date).
+- Modules get `gst_rate` with the products and `gstin` with the branding (never the purchase rate).
+- **Migrations:** platform `0026_gst_fields.sql` (two optional columns, no grant change). SSO token unchanged.
+- **After deploying:** owner fills the GSTIN on Business details and sets 5% on each water product.
+
 ## v0.40.0 — 2026-11-06 — New role: Accounts (bills and payments after delivery)
 
 Owner, 2026-11-06: "Accounts is the new role … only users with Accounts will see the Bills section."

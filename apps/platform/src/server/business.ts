@@ -1,5 +1,6 @@
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
+import { GST_RATES, gstinProblem, normaliseGstin } from "@plantops/types";
 import { audit, type Actor } from "./audit";
 import { schema, superDb, withTenant, type PlatformTx } from "./db";
 import { badRequest, conflict, notFound } from "./http";
@@ -15,6 +16,21 @@ export const PACK_TYPES = ["bottle", "jar", "pouch", "cup", "case", "other"] as 
 const optional = <T extends z.ZodType>(inner: T) =>
   z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? null : v), inner.nullable());
 
+/** A GSTIN as typed ("21nwsps 1732j1zx" is fine): spaces removed, upper case, shape + state + check character. */
+const Gstin = z
+  .string()
+  .transform(normaliseGstin)
+  .superRefine((g, ctx) => {
+    const problem = gstinProblem(g);
+    if (problem) ctx.addIssue({ code: "custom", message: problem });
+  });
+
+/** GST rate in percent: one of GST_RATES, or null for "not set". */
+const GstRate = z
+  .number()
+  .refine((n) => (GST_RATES as readonly number[]).includes(n), `GST rate: one of ${GST_RATES.join(", ")} %`)
+  .nullable();
+
 const Logo = z.object({ data_base64: z.string().max(Math.ceil((MAX_LOGO_BYTES * 4) / 3) + 4) });
 
 /** Everything except the plant name: what super_admin can also fill in when creating a plant. */
@@ -29,6 +45,7 @@ export const ProfileInput = z
     phone: optional(z.string().trim().regex(/^\+?[0-9][0-9 -]{6,18}$/, "Phone: digits only, e.g. +91 98765 43210")),
     support_phone: optional(z.string().trim().regex(/^\+?[0-9][0-9 -]{6,18}$/, "Support phone: digits only, e.g. +91 98765 43210")),
     support_hours: optional(z.string().trim().max(60, "Support hours: max 60 characters")),
+    gstin: optional(Gstin),
     logo: Logo.nullable(), // null removes the logo; leave out to keep it
   })
   .partial();
@@ -46,6 +63,7 @@ export const SkuInput = z.object({
   hsn: optional(z.string().trim().regex(/^[0-9]{4,8}$/, "HSN: 4 to 8 digits")).optional(),
   /** purchase rate in rupees (owner only; never sent to modules) */
   cost_rate: z.number().min(0).max(10_000_000).multipleOf(0.01).nullable().optional(),
+  gst_rate: GstRate.optional(),
 });
 // No defaults when editing: a field that isn't sent stays as it is.
 export const UpdateSkuInput = SkuInput.extend({
@@ -89,6 +107,7 @@ async function readBusiness(tx: PlatformTx, tenantId: string, logoPath: string) 
       phone: tenantProfiles.phone,
       supportPhone: tenantProfiles.supportPhone,
       supportHours: tenantProfiles.supportHours,
+      gstin: tenantProfiles.gstin,
     })
     .from(tenants)
     .leftJoin(tenantProfiles, eq(tenantProfiles.tenantId, tenants.id))
@@ -108,6 +127,7 @@ async function readBusiness(tx: PlatformTx, tenantId: string, logoPath: string) 
     phone: row.phone,
     support_phone: row.supportPhone,
     support_hours: row.supportHours,
+    gstin: row.gstin,
   };
 }
 
@@ -124,6 +144,7 @@ export async function writeProfile(tx: PlatformTx, tenantId: string, input: Prof
   if (fields.phone !== undefined) changes.phone = fields.phone;
   if (fields.support_phone !== undefined) changes.supportPhone = fields.support_phone;
   if (fields.support_hours !== undefined) changes.supportHours = fields.support_hours;
+  if (fields.gstin !== undefined) changes.gstin = fields.gstin;
   if (logo === null) Object.assign(changes, { logo: null, logoType: null, logoUpdatedAt: null });
   if (logo) {
     const decoded = decodeLogo(logo.data_base64);
@@ -167,6 +188,7 @@ function skuView(s: typeof tenantSkus.$inferSelect) {
     status: s.status,
     hsn: s.hsn,
     cost_rate: s.costRate === null ? null : Number(s.costRate),
+    gst_rate: s.gstRate === null ? null : Number(s.gstRate),
   };
 }
 
@@ -200,6 +222,7 @@ async function addSku(tx: PlatformTx, tenantId: string, input: z.infer<typeof Sk
         packType: input.pack_type,
         hsn: input.hsn ?? null,
         costRate: costText(input.cost_rate) ?? null,
+        gstRate: costText(input.gst_rate) ?? null,
         createdBy: actor,
       })
       .returning();
@@ -221,6 +244,7 @@ async function editSku(tx: PlatformTx, tenantId: string, skuId: string, input: z
   if (input.status !== undefined) changes.status = input.status;
   if (input.hsn !== undefined) changes.hsn = input.hsn;
   if (input.cost_rate !== undefined) changes.costRate = costText(input.cost_rate);
+  if (input.gst_rate !== undefined) changes.gstRate = costText(input.gst_rate);
   try {
     const [row] = await tx
       .update(tenantSkus)
@@ -287,12 +311,13 @@ export const superUpdateSku = (admin: CurrentSuperAdmin, tenantId: string, skuId
 
 /**
  * Name, brand color and logo link a module uses to brand its screens, plus the customer support phone / hours (Order
- * Capture passes them to the WhatsApp bot). The SSO token never carries these.
+ * Capture passes them to the WhatsApp bot), and the plant's GSTIN (Order Capture's GST bills). The SSO token never
+ * carries these.
  */
 export const getBranding = (tenantId: string) =>
   withTenant(tenantId, async (tx) => {
     const b = await readBusiness(tx, tenantId, `/api/m/tenants/${tenantId}/logo`);
-    return { tenant_id: tenantId, name: b.name, brand_color: b.brand_color, logo_url: b.logo_url, code: b.code, support_phone: b.support_phone, support_hours: b.support_hours };
+    return { tenant_id: tenantId, name: b.name, brand_color: b.brand_color, logo_url: b.logo_url, code: b.code, support_phone: b.support_phone, support_hours: b.support_hours, gstin: b.gstin };
   });
 
 export const getLogoForModule = (tenantId: string) => withTenant(tenantId, (tx) => readLogo(tx, tenantId));

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Button, Card, ErrorText, TextField } from "@plantops/ui";
+import { GST_RATES, gstStateLabel } from "@plantops/types";
 import { api } from "@/lib/api";
 
 const MAX_LOGO_BYTES = 300 * 1024;
@@ -19,6 +20,7 @@ export type ProfileValue = {
   phone: string;
   support_phone: string;
   support_hours: string;
+  gstin: string;
 };
 export const emptyProfile: ProfileValue = {
   brand_color: "",
@@ -30,6 +32,7 @@ export const emptyProfile: ProfileValue = {
   phone: "",
   support_phone: "",
   support_hours: "",
+  gstin: "",
 };
 
 /** undefined = keep the current logo, null = remove it, otherwise the new image. */
@@ -131,6 +134,19 @@ export function ProfileFields({
         <TextField label="Support hours" value={value.support_hours} onChange={set("support_hours")} placeholder="10 am – 6 pm, Mon–Sat" maxLength={60} />
       </div>
       <p className="text-sm text-slate-500">Customers who ask for a person on WhatsApp are told to call this number in these hours.</p>
+      <TextField
+        label="GSTIN (optional)"
+        value={value.gstin}
+        onChange={(e) => onChange({ ...value, gstin: e.target.value.toUpperCase() })}
+        placeholder="21AAAAA0000A1Z5"
+        autoCapitalize="characters"
+        maxLength={20}
+      />
+      <p className="text-sm text-slate-500">
+        {gstStateLabel(value.gstin.replace(/\s+/g, "").slice(0, 2))
+          ? `State: ${gstStateLabel(value.gstin.replace(/\s+/g, "").slice(0, 2))}, read from the GSTIN. Customers in this state get CGST + SGST on GST bills; other states get IGST.`
+          : "Needed for GST bills: its first two digits say your state."}
+      </p>
     </div>
   );
 }
@@ -194,6 +210,7 @@ type Sku = {
   status: "active" | "inactive";
   hsn: string | null;
   cost_rate: number | null;
+  gst_rate: number | null;
 };
 
 export const sizeLabel = (ml: number) => (ml >= 1000 ? `${ml / 1000} L` : `${ml} ml`);
@@ -201,7 +218,7 @@ export const sizeLabel = (ml: number) => (ml >= 1000 ? `${ml / 1000} L` : `${ml}
 const packLabel = (s: Sku) =>
   s.units_per_pack > 1 ? `${s.pack_type} of ${s.units_per_pack} × ${sizeLabel(s.volume_ml)}` : `${sizeLabel(s.volume_ml)} ${s.pack_type}`;
 
-const emptySku = { name: "", sku_code: "", size: "", unit: "L" as "ml" | "L", units: "1", pack_type: "bottle" as string, hsn: "", cost: "" };
+const emptySku = { name: "", sku_code: "", size: "", unit: "L" as "ml" | "L", units: "1", pack_type: "bottle" as string, hsn: "", cost: "", gst: "" };
 const rupees = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** Product list (SKUs) at `url`. Products are made inactive, never deleted. */
@@ -235,6 +252,7 @@ export function SkuEditor({ url, zohoImportHref }: { url: string; zohoImportHref
       pack_type: form.pack_type,
       hsn: form.hsn,
       cost_rate: cost === null ? null : Math.round(cost * 100) / 100,
+      gst_rate: form.gst === "" ? null : Number(form.gst),
     };
     const r = editing ? await api(`${url}/${editing}`, { method: "PATCH", body }) : await api(url, { body });
     if (!r.ok) return setError(r.error);
@@ -255,6 +273,7 @@ export function SkuEditor({ url, zohoImportHref }: { url: string; zohoImportHref
       pack_type: s.pack_type,
       hsn: s.hsn ?? "",
       cost: s.cost_rate === null ? "" : String(s.cost_rate),
+      gst: s.gst_rate === null ? "" : String(s.gst_rate),
     });
   }
 
@@ -278,7 +297,7 @@ export function SkuEditor({ url, zohoImportHref }: { url: string; zohoImportHref
             <p className="font-medium">{s.name}{s.status === "inactive" && " (inactive)"}</p>
             <p className="text-sm text-slate-500">
               <span className="capitalize">{packLabel(s)}</span>{s.sku_code ? ` · ${s.sku_code}` : ""}
-              {s.hsn ? ` · HSN ${s.hsn}` : ""}{s.cost_rate !== null ? ` · purchase ${rupees(s.cost_rate)}` : ""}
+              {s.hsn ? ` · HSN ${s.hsn}` : ""}{s.gst_rate !== null ? ` · GST ${s.gst_rate}%` : ""}{s.cost_rate !== null ? ` · purchase ${rupees(s.cost_rate)}` : ""}
             </p>
           </div>
           <div className="flex gap-2">
@@ -325,6 +344,17 @@ export function SkuEditor({ url, zohoImportHref }: { url: string; zohoImportHref
           />
           <TextField label="HSN (optional)" inputMode="numeric" value={form.hsn} onChange={(e) => setForm({ ...form, hsn: e.target.value })} maxLength={8} />
           <TextField label="Purchase rate ₹ (optional)" inputMode="decimal" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-slate-700">GST rate (for GST bills)</span>
+            <select
+              value={form.gst}
+              onChange={(e) => setForm({ ...form, gst: e.target.value })}
+              className="min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-base"
+            >
+              <option value="">Not set</option>
+              {GST_RATES.map((r) => <option key={r} value={String(r)}>{r}%</option>)}
+            </select>
+          </label>
         </div>
         <ErrorText>{error}</ErrorText>
         <div className="flex gap-2">

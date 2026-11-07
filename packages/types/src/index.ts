@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export * from "./gst";
+
 /** Every PlantOps module. Adding a module = add it here + a row in platform.modules (seed). */
 export const MODULE_IDS = [
   "lab_records",
@@ -265,6 +267,8 @@ export const TenantBranding = z.object({
   /** Business details → customer support phone / hours (v0.28.1); null until filled, absent from an older platform */
   support_phone: z.string().nullable().optional(),
   support_hours: z.string().nullable().optional(),
+  /** Business details → the plant's GSTIN (v0.41.0; its first two digits = the plant's GST state); null until filled */
+  gstin: z.string().nullable().optional(),
 });
 export type TenantBranding = z.infer<typeof TenantBranding>;
 
@@ -422,6 +426,8 @@ export const TenantSku = z.object({
   status: z.enum(["active", "inactive"]),
   /** HSN code (from Zoho Items, v0.37.0); optional so modules still read older answers */
   hsn: z.string().nullable().optional(),
+  /** GST rate in percent, set by the owner on Products (v0.41.0); null = not set; absent from an older platform */
+  gst_rate: z.number().nullable().optional(),
 });
 export type TenantSku = z.infer<typeof TenantSku>;
 
