@@ -233,8 +233,9 @@ export const SUMMARY_TOKEN_SECONDS = 60;
  * "desk" treats it like "staff". "viewer" = a view-only person (viewOnlyIn, v0.27.0); a module that doesn't know it
  * treats it like "staff".
  */
-/** "reports" (v0.43.0): the owner's Reports card on the dashboard; only Order Capture is asked for it */
-export const SummaryView = z.enum(["owner", "staff", "desk", "viewer", "reports"]);
+/** "reports" (v0.43.0) / "customers" (v0.44.0): the owner's Reports and Customers cards on the dashboard; only Order Capture
+ * (Sales) is asked for them */
+export const SummaryView = z.enum(["owner", "staff", "desk", "viewer", "reports", "customers"]);
 export type SummaryView = z.infer<typeof SummaryView>;
 export const SummaryRequestPayload = z.object({
   iss: z.literal(TOKEN_ISSUER),

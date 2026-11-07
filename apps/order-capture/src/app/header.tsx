@@ -34,7 +34,7 @@ export async function Header({ user, plant }: { user: OcUser; plant: TenantBrand
           ) : null}
           <span className="min-w-0">
             <span className="block truncate text-lg font-bold">
-              Order <span className="text-(--brand)">Capture</span>
+              <span className="text-(--brand)">Sales</span>
             </span>
             <span className="block truncate text-sm text-slate-500">{plant?.name ?? ""}</span>
           </span>

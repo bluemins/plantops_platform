@@ -262,3 +262,22 @@ dashboard card (last month's sales, change on the month before).
   line before GST + its GST; a salesperson name on Sales by Customer (grouped by salesperson) opens Sales by Item.
 - Tests: Order Capture 651 (+21: `report-lib.test.ts` 16, `reports.test.ts` 4, access row 1), platform 424.
 - **Not yet verified:** on screen; the owner's check against Zoho's Oct 2026 Sales by Item by salesperson.
+
+### 2026-11-07 — Customer page like Zoho + owner's Customers card (Part 1, v0.44.0)
+Plan `docs/CUSTOMER_PAGE_PHASE_PLAN.md`; mock-up https://claude.ai/artifact/NcJtuLX74cmspbpZU5vgzx.
+- `src/app/account-view.tsx`: tabs Overview / Transactions / Orders / Statement (`pickTab` in `src/lib/customer-page.ts`;
+  old `bills` / `payments` links → Transactions; no tab → Overview). Same page for an unmatched Zoho contact.
+- `account()` (`src/server/ledger.ts`) also returns the customer's GSTIN / state / added by, the linked Zoho contacts'
+  details, `billed_6m`, each payment's `for_bills` and `timeline` (bills, Zoho invoices dated by their bill date,
+  payments, cancellations, `customer.add/update/reminders`, `zoho.match/unmatch` audit rows; newest 50).
+- Transactions filters are links (`bs` = all / due / paid / cancelled, `ps` = all / received / cancelled); "Due" = due,
+  partly paid and overdue. Tables on PC, the old cards on phones (payment Cancel stays on both).
+- Statement quick ranges: this month, previous month, this quarter (Apr–Jun …); plant name + GSTIN from branding (the
+  plant's address isn't in the branding answer yet).
+- Summary view `customers` (`src/server/summary.ts`): active customers · due (> 0) and how many owe (a Zoho contact
+  counts with its customer) · Zoho contacts not matched.
+- **Made while building:** Contact box shows the mobile as text (the tap-to-call is in the heading); the card says
+  "Zoho contacts to match" rather than "no phone yet" (unmatched contacts are what the owner can act on).
+- Verified on `pnpm dev` (plant 002 with Sales switched on for the check, one example customer with two Zoho invoices +
+  payments and one PlantOps bill; headless Chromium at 390 / 1280 px; all removed afterwards): Overview, Transactions,
+  Statement, the dashboard's Customers card with live numbers.

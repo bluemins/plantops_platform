@@ -26,6 +26,7 @@ import {
   type LedgerBill,
   type LedgerPayment,
 } from "@/lib/ledger";
+import { shiftMonths } from "@/lib/customer-page";
 import { formatRef } from "@/lib/ref";
 import { can, requireAccess } from "./access";
 import { audit } from "./audit";
@@ -93,6 +94,55 @@ async function partyFacts(tx: OcTx, tenantId: string, customerId: string | null,
 
 // ---------- a customer's (or an unmatched Zoho contact's) account ----------
 
+export interface TimelineItem {
+  /** ISO time, or "YYYY-MM-DD" when only the date is known (rows imported from Zoho) */
+  at: string;
+  text: string;
+  by: string | null;
+  href: string | null;
+}
+
+const FIELD_WORDS: Record<string, string> = { name: "name", place: "place", active: "on / off" };
+
+/** The Overview timeline: bills, payments, cancellations, details changed, Zoho links. Newest first, at most 50. */
+function timeline(
+  rows: { bills: (typeof bills.$inferSelect)[]; payments: (typeof payments.$inferSelect)[] },
+  auditRows: (typeof schema.auditLog.$inferSelect)[],
+  refOf: Map<string, string>,
+): TimelineItem[] {
+  const rs = (s: string) => `₹${Number(s).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const out: TimelineItem[] = [];
+  for (const b of rows.bills) {
+    const ob = b.zohoInvoiceId?.startsWith("ob:") ?? false;
+    const order = b.orderId && refOf.get(b.orderId) ? ` (${refOf.get(b.orderId)})` : "";
+    if (b.source === "zoho") out.push({ at: b.billDate, text: ob ? `Opening balance ${rs(b.total)}` : `Invoice ${b.number}, ${rs(b.total)}${order}`, by: "from Zoho", href: `/bills/${b.id}` });
+    else out.push({ at: b.createdAt.toISOString(), text: `Bill ${b.number} made, ${rs(b.total)}${order}`, by: b.createdByName, href: `/bills/${b.id}` });
+    if (b.cancelledAt) out.push({ at: b.cancelledAt.toISOString(), text: `Bill ${b.number} cancelled: ${b.cancelReason ?? ""}`, by: b.cancelledByName, href: `/bills/${b.id}` });
+  }
+  for (const p of rows.payments) {
+    const label = p.number.startsWith("P-") ? p.number : `Payment ${p.number}`;
+    if (p.source === "zoho") out.push({ at: p.paymentDate, text: `${label} received, ${rs(p.amount)}`, by: "from Zoho", href: null });
+    else out.push({ at: p.createdAt.toISOString(), text: `${label} received, ${rs(p.amount)}`, by: p.createdByName, href: null });
+    if (p.cancelledAt) out.push({ at: p.cancelledAt.toISOString(), text: `${label} cancelled: ${p.cancelReason ?? ""}`, by: p.cancelledByName, href: null });
+  }
+  for (const a of auditRows) {
+    const d = a.details as Record<string, unknown>;
+    const by = typeof d.by === "string" ? d.by : null;
+    let text: string;
+    if (a.action === "customer.add") text = "Customer added";
+    else if (a.action === "customer.reminders") text = d.reminders ? "Agreed to WhatsApp reminders" : "WhatsApp reminders stopped";
+    else if (a.action === "customer.update") {
+      const keys = Object.keys((d.changes as Record<string, unknown>) ?? {});
+      text = `Details changed: ${keys.map((k) => FIELD_WORDS[k] ?? k).join(", ") || "—"}`;
+    } else if (a.action === "zoho.match") text = `Zoho contact "${String(d.contact ?? "")}" linked`;
+    else text = `Zoho contact "${String(d.contact ?? "")}" unlinked`;
+    out.push({ at: a.at.toISOString(), text, by, href: null });
+  }
+  // a date-only row sorts as the end of that day in India, so it lands after that day's timed rows
+  const key = (t: TimelineItem) => (t.at.length === 10 ? `${t.at}T18:29:59.999Z` : t.at);
+  return out.sort((x, y) => key(y).localeCompare(key(x))).slice(0, 50);
+}
+
 export async function account(user: OcUser, party: Party, range: { from?: string; to?: string } = {}) {
   requireAccess(user, "ledger_view");
   return withTenant(user.tenantId, async (tx) => {
@@ -125,6 +175,7 @@ export async function account(user: OcUser, party: Party, range: { from?: string
         };
       })
       .sort((a, b) => b.bill_date.localeCompare(a.bill_date) || b.number.localeCompare(a.number, "en", { numeric: true }));
+    const billNumber = new Map(L.bills.map((b) => [b.id, b.number]));
     const paymentViews = L.payments
       .map((p) => {
         const r = rows.payments.find((x) => x.id === p.id)!;
@@ -140,6 +191,7 @@ export async function account(user: OcUser, party: Party, range: { from?: string
           unused: rupees(unused > 0n ? unused : 0n),
           cancelled: p.cancelled,
           cancel_reason: r.cancelReason,
+          for_bills: [...new Set(L.allocations.filter((a) => a.payment_id === p.id).map((a) => billNumber.get(a.bill_id)).filter(Boolean) as string[])],
         };
       })
       .sort((a, b) => b.payment_date.localeCompare(a.payment_date) || b.number.localeCompare(a.number, "en", { numeric: true }));
@@ -162,11 +214,29 @@ export async function account(user: OcUser, party: Party, range: { from?: string
     const st = statement(L.bills, L.payments, L.adjustments, { from: range.from && YMD.test(range.from) ? range.from : undefined, to: range.to && YMD.test(range.to) ? range.to : undefined });
     const payNumber = new Map(rows.payments.map((p) => [p.number, p]));
     const lastPayment = paymentViews.find((p) => !p.cancelled) ?? null;
+    const sixMonthsAgo = shiftMonths(today, -6);
+    const billed6m = L.bills.filter((b) => !b.cancelled && b.bill_date > sixMonthsAgo).reduce((s, b) => s + b.total, 0n);
+    const c = scope.customer;
+    const auditRows = await tx
+      .select()
+      .from(schema.auditLog)
+      .where(
+        and(
+          eq(schema.auditLog.tenantId, user.tenantId),
+          or(
+            c ? and(eq(schema.auditLog.target, c.id), inArray(schema.auditLog.action, ["customer.add", "customer.update", "customer.reminders"])) : sql`false`,
+            scope.contactIds.length ? and(inArray(schema.auditLog.target, scope.contactIds), inArray(schema.auditLog.action, ["zoho.match", "zoho.unmatch"])) : sql`false`,
+          ),
+        ),
+      );
     return {
-      party: scope.customer
-        ? { kind: "customer" as const, id: scope.customer.id, name: scope.customer.name, phone: scope.customer.phone, place: scope.customer.place, active: scope.customer.active }
-        : { kind: "contact" as const, id: scope.contact!.id, name: scope.contact!.name, phone: scope.contact!.mobile, place: null, active: true },
+      party: c
+        ? { kind: "customer" as const, id: c.id, name: c.name, phone: c.phone, place: c.place, active: c.active, gstin: c.gstin, state_code: c.stateCode, created_at: c.createdAt.toISOString(), created_by_name: c.createdByName }
+        : { kind: "contact" as const, id: scope.contact!.id, name: scope.contact!.name, phone: scope.contact!.mobile, place: null, active: true, gstin: scope.contact!.gstin, state_code: null, created_at: null, created_by_name: null },
       zoho_names: scope.contacts.map((c) => c.name),
+      contacts: scope.contacts.map((z) => ({ id: z.id, name: z.name, company: z.company, mobile: z.mobile, gstin: z.gstin, status: z.zohoStatus })),
+      billed_6m: rupees(billed6m),
+      timeline: timeline(rows, auditRows, refOf),
       totals: { billed: rupees(t.billed), received: rupees(t.received), adjusted: rupees(t.adjusted), due: rupees(t.due), advance: rupees(t.advance), balance: rupees(t.balance) },
       last_payment: lastPayment,
       bills: billViews,

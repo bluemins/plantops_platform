@@ -189,14 +189,26 @@ export function PlanCard({ plan }: { plan: PlanSummary }) {
  * Its number is last month's sales from Order Capture; it opens the Reports page there through the normal handoff.
  */
 export function ReportsCard({ summaryUrl, openHref }: { summaryUrl: string; openHref: string }) {
+  return <OwnerCard icon="📊" title="Reports" text="Sales by item and customer · by month, quarter, salesperson" summaryUrl={summaryUrl} openHref={openHref} />;
+}
+
+/**
+ * The owner's Customers card (docs/CUSTOMER_PAGE_PHASE_PLAN.md): customers, money due and Zoho contacts to match, from
+ * Sales; it opens the customer list there through the normal handoff.
+ */
+export function CustomersCard({ summaryUrl, openHref }: { summaryUrl: string; openHref: string }) {
+  return <OwnerCard icon="👥" title="Customers" text="Details, bills, payments and statement for each customer" summaryUrl={summaryUrl} openHref={openHref} />;
+}
+
+function OwnerCard({ icon, title, text, summaryUrl, openHref }: { icon: string; title: string; text: string; summaryUrl: string; openHref: string }) {
   return (
-    <a href={openHref} className="block">
-      <Card className="flex items-center justify-between gap-3 border-(--brand) hover:bg-slate-50">
+    <a href={openHref} className="block h-full">
+      <Card className="flex h-full items-center justify-between gap-3 border-(--brand) hover:bg-slate-50">
         <span className="min-w-0 space-y-1">
           <span className="flex items-center gap-2 text-lg font-semibold">
-            <span aria-hidden="true">📊</span> Reports
+            <span aria-hidden="true">{icon}</span> {title}
           </span>
-          <span className="block text-sm text-slate-500">Sales by item and customer · by month, quarter, salesperson</span>
+          <span className="block text-sm text-slate-500">{text}</span>
           <TileNumbers url={summaryUrl} />
         </span>
         <span aria-hidden="true" className="text-xl text-(--brand)">→</span>

@@ -1,6 +1,6 @@
 # Customer page (Sales): Phase Plan
 
-**Status:** Asked by the owner 2026-11-07; design and mock-up agreed the same day. **Plan only.** Part 1 needs no
+**Status:** Asked by the owner 2026-11-07; design and mock-up agreed the same day. **Part 1 built (v0.44.0).** Part 1 needs no
 database change; Part 2's migration is listed in section 5 (owner agreed to the fields and permissions, migration text
 to be shown before it is applied).
 

@@ -2023,3 +2023,12 @@ card (`ReportsCard`, `/api/launcher/reports`, summary view `reports`). No migrat
 later sections (Receivables, Payments, GST, Stock, Attendance) when the owner orders them. **Renamed "Order Capture" →
 "Sales" on screen (owner, 2026-11-07; v0.43.1):** the module id `order_capture`, `apps/order-capture`,
 `orders.bluemins.life`, roles and data keep their names; docs may still say Order Capture (= the Sales module).
+
+### 2026-11-07 — Customers card + customer page like Zoho, Part 1 (v0.44.0, built)
+Owner 2026-11-07; plan + mock-up `docs/CUSTOMER_PAGE_PHASE_PLAN.md`. Owner-only **Customers** card on the dashboard
+beside Reports (summary view `customers`: customers, money due, Zoho contacts to match). Sales customer page tabs
+**Overview** (contact, Billing & GST, Zoho contacts, timeline) / **Transactions** (Bills + Payments tables with filters
+and totals) / Orders / **Statement** (quick ranges, plant name + GSTIN). Sales header says "Sales". No migration; SSO
+token unchanged. Tests: Sales 656, platform 425. **Next: Part 2** (owner edits all fields incl. mobile with a reason,
+comments, contact persons, shop location "📍 Save my location here" incl. Delivery staff, Zoho Contacts fill): Sales
+migration `0010` to show the owner first.

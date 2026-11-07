@@ -4,6 +4,24 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.44.0 — 2026-11-07 — Customers card + customer page like Zoho (Part 1)
+
+Owner, 2026-11-07: "a customer tile on the main dashboard … customer details visible there", one page per customer
+combining Zoho and PlantOps, "Transactions … start with Bills and Payments". Plan and mock-up:
+`docs/CUSTOMER_PAGE_PHASE_PLAN.md`.
+- **Dashboard → Customers** card, **owners only**, when Sales is on, beside Reports: customers switched on, money due
+  (and from how many customers; a Zoho contact counts with its customer), Zoho contacts still to match. Opens Sales →
+  Customers.
+- **Customer page tabs: Overview / Transactions / Orders / Statement** (was Bills / Orders / Payments / Statement).
+  Overview: contact, Billing & GST, the linked Zoho contact(s) and a **timeline** (bills, invoices from Zoho, payments,
+  cancellations, details changed, Zoho links; newest 50). Transactions: **Bills** and **Payments** tables like Zoho
+  (balance due, status, "for bills", unused; All / Due / Paid / Cancelled filters; totals); cards on phones. Statement:
+  This month / Previous month / This quarter, the plant's name and GSTIN on top. New money box "Billed, last 6 months".
+  Old `?tab=bills|payments` links open Transactions.
+- Sales' own header now says **Sales** (missed by v0.43.1).
+- No migration; SSO token unchanged (summary request view `customers`, sent for owners only). Part 2 (owner edits all
+  fields, comments, contact persons, shop location, Zoho fill) needs a Sales migration and comes next.
+
 ## v0.43.1 — 2026-11-07 — "Order Capture" is now called "Sales"
 
 Owner, 2026-11-07: rename "Order Capture" to "Sales". Only the name people see changes: the dashboard tile, the

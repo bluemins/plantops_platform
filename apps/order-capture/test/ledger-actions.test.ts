@@ -18,6 +18,7 @@ import { makeBill } from "@/server/bill-make";
 import { listOrders } from "@/server/list";
 import { paymentNotification } from "@/server/notify";
 import { createOrder, OrderInput } from "@/server/orders";
+import { summaryFor } from "@/server/summary";
 import { SKUS, startFakePlatform, type FakePlatform } from "./fake-platform";
 import { asApp, auditRows, ocUser, plant, refused } from "./helpers";
 
@@ -158,6 +159,41 @@ describe("make bill, receive payment, advances, cancel", () => {
     expect(all.statement.closing).toBe(all.totals.balance);
     const later = await account(a.owner, { kind: "customer", id: customerId }, { from: "2026-10-02" });
     expect(later.statement.opening).toBe("500.00");
+  });
+
+  it("customer page (Part 1): details, Zoho contact, payments' bills, billed in 6 months, timeline", async () => {
+    const acc = await account(a.owner, { kind: "customer", id: customerId });
+    expect(acc.party).toMatchObject({ kind: "customer", name: "Sri ram hotel", phone: "9876543210", gstin: null, created_by_name: expect.any(String) });
+    expect(acc.contacts).toEqual([expect.objectContaining({ name: "Sriram Hotel (Bijepur)", mobile: null })]);
+    expect(acc.payments.find((x) => x.number === "P-0001")?.for_bills).toEqual(expect.arrayContaining(["INV-000500"]));
+    // billed in the last 6 months: bills not cancelled (B-0001 is) dated after today − 6 months
+    const sixAgo = (await import("@/lib/customer-page")).shiftMonths((await import("@/server/ledger")).istToday(), -6);
+    const expected = acc.bills.filter((x) => x.status !== "cancelled" && x.bill_date > sixAgo).reduce((s, x) => s + Number(x.total), 0);
+    expect(Number(acc.billed_6m)).toBeCloseTo(expected, 2);
+    const texts = acc.timeline.map((t) => t.text);
+    expect(texts).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^Bill B-0001 made, ₹350\.00/),
+      "Bill B-0001 cancelled: wrong customer",
+      "Invoice INV-000500, ₹500.00",
+      "P-0002 cancelled: typed twice",
+      "Customer added",
+    ]));
+    expect(acc.timeline.find((t) => t.text.startsWith("Invoice INV-000500"))).toMatchObject({ at: "2026-10-01", by: "from Zoho" });
+    // newest first
+    const keys = acc.timeline.map((t) => (t.at.length === 10 ? `${t.at}T18:29:59.999Z` : t.at));
+    expect([...keys].sort().reverse()).toEqual(keys);
+  });
+
+  it("the owner's Customers card: customers, money due and from how many, Zoho contacts to match", async () => {
+    const one = async (q: string) => ((await asApp(a.tenantId, q)).rows[0] as { id: string }).id;
+    const imp = await one(`insert into order_capture.zoho_imports (tenant_id, imported_by, imported_by_name) values ('${a.tenantId}', gen_random_uuid(), 'Sujata') returning id`);
+    await asApp(a.tenantId, `insert into order_capture.zoho_contacts (tenant_id, zoho_contact_id, name, import_id) values ('${a.tenantId}', 'zc-loose', 'Ajit Kirana', '${imp}')`);
+    const acc = await account(a.owner, { kind: "customer", id: customerId });
+    const s = await summaryFor(a.tenantId, "customers");
+    expect(s.badges[0]).toEqual({ text: "1 customer", tone: "info" });
+    expect(s.badges[1]).toEqual({ text: `₹${Math.round(Number(acc.totals.due)).toLocaleString("en-IN")} due · 1 customer`, tone: "warn" });
+    expect(s.badges[2]).toEqual({ text: "1 Zoho contact to match", tone: "info" });
+    expect((await summaryFor(b.tenantId, "customers")).badges).toEqual([{ text: "0 customers", tone: "info" }, { text: "Nothing due", tone: "ok" }]);
   });
 
   it("the plant's lists: due total, filters, search; payments with modes", async () => {

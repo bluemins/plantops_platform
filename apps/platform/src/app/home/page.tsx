@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@plantops/ui";
 import { api } from "@/lib/api";
-import { ArrangeTiles, LauncherTiles, PlanCard, ReportsCard, type PlanSummary, type Tile } from "@/lib/launcher-tiles";
+import { ArrangeTiles, CustomersCard, LauncherTiles, PlanCard, ReportsCard, type PlanSummary, type Tile } from "@/lib/launcher-tiles";
 import { NotificationBell, PushCard } from "@/lib/notifications-ui";
 import { turnOff } from "@/lib/push-client";
 
@@ -95,7 +95,10 @@ export default function HomePage() {
       {data.user.gets_alerts && <PushCard />}
 
       {owner && data.tiles.some((t) => t.module === "order_capture" && t.state === "open") && (
-        <ReportsCard summaryUrl="/api/launcher/reports" openHref={`/sso/start?module=order_capture&next=${encodeURIComponent("/reports")}`} />
+        <div className="grid gap-3 md:grid-cols-2">
+          <ReportsCard summaryUrl="/api/launcher/reports" openHref={`/sso/start?module=order_capture&next=${encodeURIComponent("/reports")}`} />
+          <CustomersCard summaryUrl="/api/launcher/customers" openHref={`/sso/start?module=order_capture&next=${encodeURIComponent("/customers")}`} />
+        </div>
       )}
 
       <section>

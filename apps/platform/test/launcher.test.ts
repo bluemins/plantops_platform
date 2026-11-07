@@ -9,6 +9,7 @@ import * as launcherRoute from "@/app/api/launcher/route";
 import * as orderRoute from "@/app/api/launcher/order/route";
 import * as summaryRoute from "@/app/api/launcher/summary/[module]/route";
 import * as reportsRoute from "@/app/api/launcher/reports/route";
+import * as customersRoute from "@/app/api/launcher/customers/route";
 import * as superLauncherRoute from "@/app/api/super/tenants/[id]/launcher/route";
 import * as superSummaryRoute from "@/app/api/super/tenants/[id]/summary/[module]/route";
 import * as modulesRoute from "@/app/api/super/modules/route";
@@ -431,5 +432,16 @@ describe("Reports card (owner only; docs/REPORTS_PHASE_PLAN.md)", () => {
     expect((await reports(desk.cookie)).status).toBe(403);
     const noOrders = await makePlant({ modules: ["lab_records"] });
     expect((await reports(noOrders.adminCookie)).status).toBe(403);
+  });
+
+  it("the Customers card follows the same rules (owners only, Sales in the plan)", async () => {
+    const P = await makePlant({ modules: ["order_capture"] });
+    const desk = await makeStaff(P, "desk", ["order_desk"]);
+    const card = (cookie: string) => call(customersRoute.GET as Handler, { cookie });
+    await asOwner("update platform.modules set base_url = null, client_secret_hash = null where id = 'order_capture'");
+    expect((await card(P.adminCookie)).body).toEqual({ state: "unavailable" });
+    expect((await card(desk.cookie)).status).toBe(403);
+    const noOrders = await makePlant({ modules: ["lab_records"] });
+    expect((await card(noOrders.adminCookie)).status).toBe(403);
   });
 });

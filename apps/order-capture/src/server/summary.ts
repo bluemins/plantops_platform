@@ -39,8 +39,39 @@ async function reportsSummary(tenantId: string, now: Date): Promise<ModuleSummar
   return { badges };
 }
 
+/**
+ * The owner's Customers card (docs/CUSTOMER_PAGE_PHASE_PLAN.md): customers switched on · money due and from how many
+ * (a Zoho contact counts with the customer it is linked to) · Zoho contacts not matched to a customer yet.
+ */
+async function customersSummary(tenantId: string): Promise<ModuleSummary> {
+  return withTenant(tenantId, async (tx) => {
+    const { rows } = await tx.execute<{ customers: number; due: string; owing: number; unmatched: number }>(sql`
+      with paid as (select bill_id, sum(amount) s from order_capture.payment_allocations where tenant_id = ${tenantId} group by bill_id),
+           adj as (select bill_id, sum(amount) s from order_capture.bill_adjustments where tenant_id = ${tenantId} group by bill_id),
+           d as (
+             select coalesce(b.customer_id, zc.customer_id, b.zoho_contact_id) as who,
+                    b.total - coalesce(p.s, 0) - coalesce(a.s, 0) as due
+               from order_capture.bills b
+               left join paid p on p.bill_id = b.id
+               left join adj a on a.bill_id = b.id
+               left join order_capture.zoho_contacts zc on zc.tenant_id = b.tenant_id and zc.id = b.zoho_contact_id
+              where b.tenant_id = ${tenantId} and b.cancelled_at is null)
+      select (select count(*)::int from order_capture.customers where tenant_id = ${tenantId} and active) as customers,
+             (select coalesce(sum(due), 0)::numeric(18, 2)::text from d where due > 0) as due,
+             (select count(distinct who)::int from d where due > 0) as owing,
+             (select count(*)::int from order_capture.zoho_contacts where tenant_id = ${tenantId} and customer_id is null) as unmatched`);
+    const r = rows[0] ?? { customers: 0, due: "0", owing: 0, unmatched: 0 };
+    const badges: ModuleSummary["badges"] = [{ text: `${r.customers.toLocaleString("en-IN")} customer${r.customers === 1 ? "" : "s"}`, tone: "info" }];
+    const due = BigInt(Math.round(Number(r.due) * 100));
+    badges.push(due > 0n ? { text: `${wholeRupees(due)} due · ${r.owing} ${r.owing === 1 ? "customer" : "customers"}`, tone: "warn" } : { text: "Nothing due", tone: "ok" });
+    if (r.unmatched) badges.push({ text: `${r.unmatched.toLocaleString("en-IN")} Zoho contact${r.unmatched === 1 ? "" : "s"} to match`, tone: "info" });
+    return { badges };
+  });
+}
+
 export function summaryFor(tenantId: string, view: SummaryView, now = new Date()): Promise<ModuleSummary> {
   if (view === "reports") return reportsSummary(tenantId, now);
+  if (view === "customers") return customersSummary(tenantId);
   // "over 2 days" = the same rule as the amber cards: entered 2 whole days ago or more
   const amberFrom = new Date(now.getTime() - AMBER_AFTER_DAYS * 24 * 60 * 60 * 1000);
   const todayStart = new Date(`${istDay(now)}T00:00:00+05:30`);
