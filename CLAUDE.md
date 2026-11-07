@@ -2068,7 +2068,7 @@ Owner: no thank-you tick for Mr.Charge orders, only Bluemins. Optional `"thanks_
 `TWILIO_WHATSAPP_SENDERS` entry: the tick shows only when the order has a product of those brands (Rates brand, else the
 name's guess); else a plain note, and the server refuses. No migration; SSO token unchanged. Tests: Sales 700. Owner to add `thanks_brands` on Railway.
 
-### 2026-11-07 — Sales: "Buying & paying" on a customer's page (v0.47.0) — built, not deployed
+### 2026-11-07 — Sales: "Buying & paying" on a customer's page (v0.47.0) — live 2026-11-07 (`f6cddcb`)
 Owner 2026-11-07. Top of a customer's Overview: average days to pay (+ "usually within", late bills, oldest unpaid,
 paying slower / faster lately), usual gap between orders, next order expected / late, usual order, products stopped,
 bills per month April–March with last year (year picker), this FY so far vs last year, customer since, average bill.
