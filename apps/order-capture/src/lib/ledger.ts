@@ -177,3 +177,124 @@ export function statement(
   }
   return { opening, rows, closing: rows.length ? balance : opening };
 }
+
+// ---------- bill amounts with GST (docs/BILL_FIELDS_PHASE_PLAN.md, owner 2026-11-07) ----------
+//
+// Per line: amount = quantity × rate − the line's discount; the bill's discount is shared over the lines by amount
+// (before GST), the last line taking the paise left over. Then, on a GST bill:
+//   rates exclude GST: taxable = amount, CGST = SGST = taxable × rate / 2 (each rounded), or IGST = taxable × rate
+//   rates include GST: taxable = amount ÷ (1 + rate) (rounded), GST = amount − taxable; CGST = taxable × rate / 2
+//                      (rounded), SGST = the rest, so taxable + GST is exactly the amount
+// Same state as the plant (place of supply = the plant's GSTIN state) → CGST + SGST; another state → IGST.
+// Total = sub-total − discount (+ GST when it is added on top) + adjustment. A bill without GST has no tax at all.
+
+export type BillTerms = "receipt" | "net7" | "net15" | "net30" | "eom";
+export const BILL_TERMS: BillTerms[] = ["receipt", "net7", "net15", "net30", "eom"];
+export const TERMS_LABEL: Record<BillTerms, string> = {
+  receipt: "Due on receipt",
+  net7: "Net 7",
+  net15: "Net 15",
+  net30: "Net 30",
+  eom: "Due end of the month",
+};
+
+/** The due date (YYYY-MM-DD) the terms give for a bill dated `billDate`. */
+export function dueFromTerms(billDate: string, terms: BillTerms): string {
+  const [y, m, d] = billDate.split("-").map(Number) as [number, number, number];
+  const days = { receipt: 0, net7: 7, net15: 15, net30: 30 } as Record<string, number>;
+  const date = terms === "eom" ? new Date(Date.UTC(y, m, 0)) : new Date(Date.UTC(y, m - 1, d + days[terms]!));
+  return date.toISOString().slice(0, 10);
+}
+
+/** n ÷ d rounded half up (n ≥ 0, d > 0). */
+const roundDiv = (n: bigint, d: bigint) => (2n * n + d) / (2n * d);
+
+/** GST rate in percent with up to 2 decimals (e.g. 5, 18, 0.25) → hundredths of a percent, so the maths stays whole. */
+const rateHundredths = (rate: number) => BigInt(Math.round(rate * 100));
+
+export type BillLineIn = {
+  /** quantity × rate, in paise */
+  amount: bigint;
+  /** the line's own discount, in paise */
+  discount: bigint;
+  /** GST rate in percent; null = not set on the product (a GST bill refuses it) */
+  gst_rate: number | null;
+};
+
+export type BillGst = { inclusive: boolean; intra: boolean };
+
+export type BillLineOut = { amount: bigint; taxable: bigint | null; tax: bigint; cgst: bigint; sgst: bigint; igst: bigint };
+
+export type BillAmounts = {
+  lines: BillLineOut[];
+  sub_total: bigint;
+  discount: bigint;
+  adjustment: bigint;
+  cgst: bigint;
+  sgst: bigint;
+  igst: bigint;
+  tax_total: bigint;
+  /** the total before GST (= sub-total − discount when GST is added on top; less when the rates include it) */
+  taxable_total: bigint | null;
+  total: bigint;
+};
+
+export class BillAmountError extends Error {}
+
+/** A bill's amounts from its lines. `gst` null = a bill without GST (statement of account). */
+export function billAmounts(lines: BillLineIn[], discount: bigint, adjustment: bigint, gst: BillGst | null): BillAmounts {
+  const amounts = lines.map((l, i) => {
+    if (l.discount < 0n) throw new BillAmountError("A discount can't be negative.");
+    if (l.discount > l.amount) throw new BillAmountError(`Line ${i + 1}: the discount is more than the line.`);
+    return l.amount - l.discount;
+  });
+  const sub = amounts.reduce((a, b) => a + b, 0n);
+  if (discount < 0n) throw new BillAmountError("A discount can't be negative.");
+  if (discount > sub) throw new BillAmountError("The discount can't be more than the bill.");
+
+  // the bill's discount shared over the lines by amount; the last line with an amount takes what rounding leaves
+  const shares = amounts.map((a) => (sub === 0n ? 0n : (discount * a) / sub));
+  const lastIdx = amounts.reduce((last, a, i) => (a > 0n ? i : last), -1);
+  if (lastIdx >= 0) shares[lastIdx]! += discount - shares.reduce((a, b) => a + b, 0n);
+
+  const out: BillLineOut[] = amounts.map((amount, i) => {
+    if (!gst) return { amount, taxable: null, tax: 0n, cgst: 0n, sgst: 0n, igst: 0n };
+    const rate = lines[i]!.gst_rate;
+    if (rate === null) throw new BillAmountError(`Line ${i + 1}: the product has no GST rate. Set it on PlantOps → Products.`);
+    const r = rateHundredths(rate); // 5% = 500
+    const net = amount - shares[i]!;
+    if (gst.inclusive) {
+      const taxable = roundDiv(net * 10000n, 10000n + r);
+      const tax = net - taxable;
+      if (!gst.intra) return { amount, taxable, tax, cgst: 0n, sgst: 0n, igst: tax };
+      const cgst = roundDiv(taxable * r, 20000n);
+      return { amount, taxable, tax, cgst, sgst: tax - cgst, igst: 0n };
+    }
+    if (!gst.intra) {
+      const igst = roundDiv(net * r, 10000n);
+      return { amount, taxable: net, tax: igst, cgst: 0n, sgst: 0n, igst };
+    }
+    const half = roundDiv(net * r, 20000n);
+    return { amount, taxable: net, tax: 2n * half, cgst: half, sgst: half, igst: 0n };
+  });
+
+  const add = (f: (l: BillLineOut) => bigint) => out.reduce((a, l) => a + f(l), 0n);
+  const cgst = add((l) => l.cgst);
+  const sgst = add((l) => l.sgst);
+  const igst = add((l) => l.igst);
+  const tax_total = cgst + sgst + igst;
+  const total = sub - discount + (gst && !gst.inclusive ? tax_total : 0n) + adjustment;
+  if (total < 0n) throw new BillAmountError("The bill total can't be below ₹0.");
+  return {
+    lines: out,
+    sub_total: sub,
+    discount,
+    adjustment,
+    cgst,
+    sgst,
+    igst,
+    tax_total,
+    taxable_total: gst ? add((l) => l.taxable ?? 0n) : null,
+    total,
+  };
+}

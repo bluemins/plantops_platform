@@ -5,7 +5,8 @@ import { eventText, thanksText } from "@/lib/history";
 import { money } from "@/lib/money";
 import { can } from "@/server/access";
 import { getOrder } from "@/server/handling";
-import { billOfOrder, istToday } from "@/server/ledger";
+import { billForm } from "@/server/bill-make";
+import { billOfOrder } from "@/server/ledger";
 import { kit } from "@/server/kit";
 import { orNotFound } from "@/server/pages";
 import { requirePageUser } from "@/server/session";
@@ -127,7 +128,7 @@ export default async function OrderPage({ params }: { params: Params }) {
           <BillBadge status={bill.status} due={money(bill.due)} />
         </a>
       )}
-      {!bill && o.status === "delivered" && o.total !== null && can(user, "bill_make") && <MakeBill orderId={o.id} total={o.total} today={istToday()} />}
+      {!bill && o.status === "delivered" && o.total !== null && can(user, "bill_make") && <MakeBill form={await billForm(user, o.id)} />}
 
       {user.who === "viewer" && pending && (
         <p className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-900">You can view orders. Order desk or the owner marks them delivered.</p>

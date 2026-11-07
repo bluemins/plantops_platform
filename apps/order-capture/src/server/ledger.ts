@@ -1,7 +1,7 @@
 // The sales ledger on screen and in use (docs/ZOHO_IMPORT_PHASE_PLAN.md sections 6–7, steps L4 + L5): a customer's
 // account (bills, orders, payments, statement), the plant's Bills and Payments lists, one bill, and the actions:
-// Make bill from a delivered order, Receive payment, cancel a bill / payment (owner, with a reason), the Zoho GST
-// invoice no. on a bill. Money rules: src/lib/ledger.ts (nothing about money is stored as a running figure).
+// Receive payment, cancel a bill / payment (owner, with a reason), the Zoho GST invoice no. on a bill. Make bill:
+// src/server/bill-make.ts. Money rules: src/lib/ledger.ts (nothing about money is stored as a running figure).
 //
 // A customer's account = rows of the customer plus rows of every Zoho contact linked to them (imported bills point at
 // the contact, so linking a contact on the Match screen moves its history here). A Zoho contact not matched yet has the
@@ -334,9 +334,16 @@ export async function billDetail(user: OcUser, id: string) {
       notes: b.notes,
       salesperson: b.salesperson,
       gst_invoice_no: b.zohoGstInvoiceNo,
+      terms: b.terms,
+      vehicle: b.vehicle,
+      reference_no: b.referenceNo,
+      private_note: b.privateNote,
+      gst: b.needsGst
+        ? { gstin: b.gstin, place: b.placeOfSupply, inclusive: b.taxInclusive, cgst: b.cgst, sgst: b.sgst, igst: b.igst, sent_at: b.sentToZohoAt?.toISOString() ?? null, sent_by: b.sentToZohoByName }
+        : null,
       created_by: b.createdByName,
       cancelled: b.cancelledAt ? { at: b.cancelledAt.toISOString(), by: b.cancelledByName, reason: b.cancelReason } : null,
-      lines: lines.map((l) => ({ line_no: l.lineNo, item: l.itemName, sku: l.skuCode, description: l.description, quantity: l.quantity, unit: l.unit, rate: l.rate, discount: l.discount, tax: l.taxName, tax_amount: l.taxAmount, hsn: l.hsn, total: l.lineTotal })),
+      lines: lines.map((l) => ({ line_no: l.lineNo, item: l.itemName, sku: l.skuCode, description: l.description, quantity: l.quantity, unit: l.unit, rate: l.rate, discount: l.discount, tax: l.taxName, tax_percent: l.taxPercent, tax_amount: l.taxAmount, taxable: l.taxable, hsn: l.hsn, total: l.lineTotal })),
       payments: allocs
         .map((x) => ({ payment_id: x.a.paymentId, number: x.number, mode: x.mode, date: x.a.allocatedOn, amount: x.a.amount }))
         .sort((a, c) => a.date.localeCompare(c.date)),
@@ -362,75 +369,11 @@ const Money = z
   .regex(/^\d{1,9}(\.\d{1,2})?$/, "Amount: rupees, up to 2 decimals");
 const Day = z.string().regex(YMD, "Date: YYYY-MM-DD");
 
-export const MakeBillInput = z.object({
-  order_id: z.uuid(),
-  discount: Money.optional(),
-  due_date: Day.optional(),
-  zoho_gst_invoice_no: z.string().trim().max(40).optional(),
-});
-
-/** Make the bill of a delivered order (owner, Order desk): its current lines; the customer's advances pay it first. */
-export async function makeBill(user: OcUser, input: z.infer<typeof MakeBillInput>) {
-  requireAccess(user, "bill_make");
-  return withTenant(user.tenantId, async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('order_capture.bill'), hashtext(${user.tenantId}))`);
-    const [o] = await tx.select().from(orders).where(and(eq(orders.tenantId, user.tenantId), eq(orders.id, input.order_id))).for("update");
-    if (!o) throw notFound("Order not found");
-    if (o.status !== "delivered") throw conflict("Only a delivered order gets a bill. Mark it delivered first.");
-    const [open] = await tx.select({ number: bills.number }).from(bills).where(and(eq(bills.tenantId, user.tenantId), eq(bills.orderId, o.id), isNull(bills.cancelledAt)));
-    if (open) throw conflict(`This order already has bill ${open.number}.`);
-    const lines = await tx.select().from(orderLines).where(and(eq(orderLines.tenantId, user.tenantId), eq(orderLines.orderId, o.id), eq(orderLines.version, o.version))).orderBy(orderLines.lineNo);
-    const sub = paise(o.total);
-    const discount = input.discount ? paise(input.discount) : 0n;
-    if (discount > sub) throw badRequest("The discount can't be more than the order total.");
-    const today = istToday();
-    const due = input.due_date ?? today;
-    if (due < o.deliveredAt!.toISOString().slice(0, 10) && due < today) throw badRequest("The due date can't be before the delivery.");
-    const hsn = new Map((await kit.products(user.tenantId)).map((p) => [p.id, p.hsn ?? null]));
-    const [{ next }] = (await tx.select({ next: sql<number>`coalesce(max(${bills.refNo}), 0)::int + 1` }).from(bills).where(eq(bills.tenantId, user.tenantId))) as [{ next: number }];
-    const [b] = await tx
-      .insert(bills)
-      .values({
-        tenantId: user.tenantId,
-        source: "plantops",
-        number: billRef(next),
-        refNo: next,
-        billDate: today,
-        dueDate: due,
-        customerId: o.customerId,
-        customerName: o.customerName,
-        orderId: o.id,
-        subTotal: rupees(sub),
-        discount: rupees(discount),
-        total: rupees(sub - discount),
-        zohoGstInvoiceNo: input.zoho_gst_invoice_no || null,
-        createdBy: user.userId,
-        createdByName: user.name,
-      })
-      .returning();
-    await tx.insert(billLines).values(
-      lines.map((l) => ({
-        tenantId: user.tenantId,
-        billId: b!.id,
-        lineNo: l.lineNo,
-        skuId: l.skuId,
-        itemName: l.productName,
-        quantity: String(l.quantity),
-        unit: l.unit,
-        rate: l.rate,
-        hsn: hsn.get(l.skuId) ?? null,
-        lineTotal: l.lineTotal,
-      })),
-    );
-    // the customer's advances (money paid before, not used yet) pay the new bill first, oldest payment first
-    const { L } = await partyFacts(tx, user.tenantId, o.customerId, (await partyScope(tx, user.tenantId, { kind: "customer", id: o.customerId })).contactIds);
-    const advances = L.payments.map((p) => ({ id: p.id, number: p.number, payment_date: p.payment_date, unused: paymentUnused(p, L.allocations) }));
-    const used = useAdvances(sub - discount, advances);
-    if (used.length)
-      await tx.insert(paymentAllocations).values(used.map((u) => ({ tenantId: user.tenantId, paymentId: u.payment_id, billId: b!.id, amount: rupees(u.amount), allocatedOn: today, createdBy: user.userId, createdByName: user.name })));
-    await audit(tx, user, "bill.make", b!.id, { number: b!.number, order: formatRef(o.refNo), customer: o.customerName, total: b!.total, discount: b!.discount, advance_used: rupees(used.reduce((s, u) => s + u.amount, 0n)) });
-    return { id: b!.id, number: b!.number, total: b!.total, advance_used: rupees(used.reduce((s, u) => s + u.amount, 0n)) };
-  });
+/** A customer's advances (money paid before, not used yet), for a new bill (src/server/bill-make.ts). */
+export async function customerAdvances(tx: OcTx, tenantId: string, customerId: string) {
+  const scope = await partyScope(tx, tenantId, { kind: "customer", id: customerId });
+  const { L } = await partyFacts(tx, tenantId, customerId, scope.contactIds);
+  return L.payments.map((p) => ({ id: p.id, number: p.number, payment_date: p.payment_date, unused: paymentUnused(p, L.allocations) }));
 }
 
 export const ReceivePaymentInput = z.object({

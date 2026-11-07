@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Card } from "@plantops/ui";
 import { money } from "@/lib/money";
 import { can } from "@/server/access";
+import { gstQueue } from "@/server/bill-make";
 import { waitingCount } from "@/server/calls-tab";
 import { kit } from "@/server/kit";
 import { BILL_FILTERS, billsList, type BillFilter } from "@/server/ledger";
@@ -22,7 +23,8 @@ export default async function BillsPage({ searchParams }: { searchParams: Search
   const sp = await searchParams;
   const show = (BILL_FILTERS.find((x) => x === one(sp.show)) ?? "open") as BillFilter;
   const f = { show, q: one(sp.q).slice(0, 100), from: one(sp.from), to: one(sp.to) };
-  const [plant, data, waiting] = await Promise.all([kit.branding(user.tenantId), billsList(user, f), waitingCount(user)]);
+  const [plant, data, waiting, gst] = await Promise.all([kit.branding(user.tenantId), billsList(user, f), waitingCount(user), gstQueue(user)]);
+  const gstWaiting = gst.not_sent.length + gst.sent.length;
   const link = (s: BillFilter) => `/bills?${new URLSearchParams({ show: s, ...(f.q ? { q: f.q } : {}) })}`;
   return (
     <div className="space-y-4">
@@ -31,6 +33,7 @@ export default async function BillsPage({ searchParams }: { searchParams: Search
       <nav aria-label="Bills or payments" className="flex gap-4 text-sm font-semibold">
         <span className="border-b-2 border-(--brand) pb-1">Bills</span>
         <a href="/payments" className="pb-1 text-slate-600">Payments</a>
+        <a href="/bills/gst" className="pb-1 text-slate-600">GST invoices to make{gstWaiting ? ` · ${gstWaiting}` : ""}</a>
         {can(user, "ledger_export") && <a href="/api/export/bills" className="ml-auto pb-1 text-(--brand)">CSV</a>}
       </nav>
 

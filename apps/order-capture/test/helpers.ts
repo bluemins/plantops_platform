@@ -114,12 +114,13 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
     values ('${tenantId}', '${payment}', '${zohoBill}', 300, '2026-11-06', '${who}', 'Sujata') returning id`);
   const adjustment = await one(`insert into order_capture.bill_adjustments (tenant_id, bill_id, kind, amount, reason, adjusted_on, import_id, created_by, created_by_name)
     values ('${tenantId}', '${zohoBill}', 'zoho_closed', 200, 'Closed in Zoho', '2026-11-05', '${imp}', '${who}', 'Sujata') returning id`);
+  await asApp(tenantId, `insert into order_capture.bill_settings (tenant_id, updated_by, updated_by_name) values ('${tenantId}', '${who}', 'Sujata') on conflict do nothing`);
   return { who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment };
 }
 
 /** The tables in the order_capture schema (the guard tests compare against this list). */
 export const TABLES = [
-  "audit_log", "bill_adjustments", "bill_lines", "bills", "call_attended", "call_events", "customer_consents", "customer_messages", "customers",
+  "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "customer_consents", "customer_messages", "customers",
   "ignored_number_changes", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "product_rates",
   "reminder_groups", "support_views", "zoho_contacts", "zoho_imports",
 ];

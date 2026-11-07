@@ -116,12 +116,24 @@ describe("append-only for order_app", () => {
       `update order_capture.zoho_imports set counts = '{}' where id = '${ids.imp}'`,
       `update order_capture.zoho_contacts set name = 'X' where id = '${ids.contact}'`,
       `update order_capture.zoho_contacts set zoho_contact_id = 'X' where id = '${ids.contact}'`,
+      // bill fields + GST (0009): a saved bill's GST, terms and extra fields never change; only "sent to Zoho" moves
+      `update order_capture.bills set cgst = 1 where id = '${ids.bill}'`,
+      `update order_capture.bills set igst = 1 where id = '${ids.bill}'`,
+      `update order_capture.bills set needs_gst = true where id = '${ids.bill}'`,
+      `update order_capture.bills set gstin = null where id = '${ids.bill}'`,
+      `update order_capture.bills set place_of_supply = '22' where id = '${ids.bill}'`,
+      `update order_capture.bills set tax_inclusive = false where id = '${ids.bill}'`,
+      `update order_capture.bills set terms = 'net7' where id = '${ids.bill}'`,
+      `update order_capture.bills set vehicle = 'X' where id = '${ids.bill}'`,
+      `update order_capture.bills set salesperson_id = null where id = '${ids.bill}'`,
+      `update order_capture.bill_lines set taxable = 1 where id = '${ids.billLine}'`,
+      `update order_capture.bill_settings set tenant_id = gen_random_uuid()`,
     ];
   };
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(89 + 14 + 19); // + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008)
+    expect(list.length).toBe(89 + 14 + 19 + 2 + 11); // + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008); bill_settings (delete, truncate) and 11 locked bill-field updates (0009)
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 

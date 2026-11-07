@@ -1,5 +1,6 @@
 // Drizzle table definitions mirroring db/migrations/*.sql (the SQL files are the source of truth).
 // Money and rates are numeric in the database and strings here ("140.00"), so no paisa is lost to rounding.
+import type { BillTerms } from "@/lib/ledger";
 import { bigint, boolean, date, integer, jsonb, numeric, pgSchema, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const oc = pgSchema("order_capture");
@@ -29,6 +30,9 @@ export const customers = oc.table("customers", {
   phone: text("phone").notNull(),
   place: text("place").notNull(),
   active: boolean("active").notNull().default(true),
+  /** GSTIN and GST state code (migration 0009); saved with the first GST bill */
+  gstin: text("gstin"),
+  stateCode: text("state_code"),
   createdBy: uuid("created_by").notNull(),
   createdByName: text("created_by_name").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
@@ -263,6 +267,22 @@ export const bills = oc.table("bills", {
   notes: text("notes"),
   salesperson: text("salesperson"),
   zohoGstInvoiceNo: text("zoho_gst_invoice_no"),
+  // migration 0009 (docs/BILL_FIELDS_PHASE_PLAN.md)
+  terms: text("terms").$type<BillTerms>(),
+  salespersonId: uuid("salesperson_id"),
+  vehicle: text("vehicle"),
+  referenceNo: text("reference_no"),
+  privateNote: text("private_note"),
+  needsGst: boolean("needs_gst").notNull().default(false),
+  gstin: text("gstin"),
+  placeOfSupply: text("place_of_supply"),
+  taxInclusive: boolean("tax_inclusive"),
+  cgst: numeric("cgst", { precision: 18, scale: 2 }).notNull().default("0"),
+  sgst: numeric("sgst", { precision: 18, scale: 2 }).notNull().default("0"),
+  igst: numeric("igst", { precision: 18, scale: 2 }).notNull().default("0"),
+  sentToZohoAt: ts("sent_to_zoho_at"),
+  sentToZohoBy: uuid("sent_to_zoho_by"),
+  sentToZohoByName: text("sent_to_zoho_by_name"),
   zohoStatus: text("zoho_status"),
   zohoBalance: numeric("zoho_balance", { precision: 18, scale: 2 }),
   importId: uuid("import_id"),
@@ -290,6 +310,19 @@ export const billLines = oc.table("bill_lines", {
   taxAmount: numeric("tax_amount", { precision: 14, scale: 2 }).notNull().default("0"),
   hsn: text("hsn"),
   lineTotal: numeric("line_total", { precision: 18, scale: 2 }).notNull(),
+  /** the amount before GST (migration 0009); null on bills without GST */
+  taxable: numeric("taxable", { precision: 18, scale: 2 }),
+});
+
+/** One row per plant (migration 0009); no row = rates include GST, due on receipt, no notes. */
+export const billSettings = oc.table("bill_settings", {
+  tenantId: uuid("tenant_id").primaryKey(),
+  ratesIncludeGst: boolean("rates_include_gst").notNull().default(true),
+  defaultTerms: text("default_terms").$type<BillTerms>().notNull().default("receipt"),
+  defaultNotes: text("default_notes"),
+  updatedBy: uuid("updated_by").notNull(),
+  updatedByName: text("updated_by_name").notNull(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
 });
 
 export const payments = oc.table("payments", {

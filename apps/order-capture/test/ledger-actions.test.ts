@@ -10,11 +10,11 @@ import {
   billsList,
   cancelBill,
   cancelPayment,
-  makeBill,
   paymentsList,
   receivePayment,
   setGstInvoice,
 } from "@/server/ledger";
+import { makeBill } from "@/server/bill-make";
 import { listOrders } from "@/server/list";
 import { paymentNotification } from "@/server/notify";
 import { createOrder, OrderInput } from "@/server/orders";

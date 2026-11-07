@@ -1999,3 +1999,17 @@ Receive payment); Zoho only for GST invoices (number typed on the bill). Zoho ho
 6 Nov). No more Zoho invoice / payment imports. 6 orders delivered on 6 Nov need PlantOps bills; orders delivered up
 to 5 Nov are billed in Zoho (42 linked, the rest to link by hand). Proposed guard (asked): Make bill refused before
 the Zoho export date; re-imports skip invoices / payments dated on or after it.
+
+### 2026-11-07 — Make bill like Zoho + "Needs GST invoice" → Zoho (v0.41.0 live, v0.42.0 built)
+Asked by the owner 2026-11-07 ("no difference between delivered and bill"; "a tick mark … sent / imported to Zoho";
+"see it in one screen and then export"). Plan, decisions, mock-ups: `docs/BILL_FIELDS_PHASE_PLAN.md`.
+- **v0.41.0 (B1, live 2026-11-07, `5b3e6e6`):** platform migration `0026_gst_fields.sql`: plant GSTIN on Business
+  details (shape + state + check character, `packages/types/src/gst.ts`) and GST rate per product (0/5/12/18/28/40, set
+  by the owner; the Zoho items import never touches it because Zoho's item rates were out of date). Modules get
+  `gst_rate` with products, `gstin` with branding.
+- **v0.42.0 (B2–B4, built, not deployed):** Order Capture migration `0009_bill_fields.sql`; Make bill with bill date,
+  terms, salesperson + vehicle (separate, from the last bill), line descriptions, discounts, adjustment, notes, private
+  note; the GST tick (auto with a GSTIN; CGST + SGST / IGST; rates incl. GST or on top); Bills → GST invoices to make
+  (one screen, Download for Zoho as a Zoho-import CSV, sent / done); Rates → Bill settings. SSO token unchanged.
+  Tests: platform 423, Order Capture 626. Notes: `apps/order-capture/NOTES.md`.
+- **Next:** deploy v0.42.0 when the owner says; the owner tries one GST bill and imports the file into Zoho once.

@@ -92,11 +92,11 @@ read-only. Order desk and plant staff: no change (they don't see bills).
    checked on 21NWSPS1732J1ZX and 21AAACL0140P4ZS); GSTIN on Business details (state shown from it), GST rate on
    Products; modules get `gst_rate` with the products and `gstin` with the branding (never the purchase rate). The Zoho
    items import is unchanged (owner: rates set by hand).
-2. **B2 Order Capture migration + rules:** tax arithmetic (inclusive / exclusive, CGST+SGST / IGST, rounding) in
+2. **B2 Order Capture migration + rules** (built 2026-11-07, v0.42.0: `0009_bill_fields.sql`, `billAmounts` / `dueFromTerms` in `src/lib/ledger.ts`, 13 tests incl. L&T ₹5,313 and ₹2,500 inclusive = 2,380.95 + 59.52 + 59.53): tax arithmetic (inclusive / exclusive, CGST+SGST / IGST, rounding) in
    `src/lib/ledger.ts` with the owner's L&T sample (₹5,313) and an inclusive example as tests.
-3. **B3 Make bill form:** important fields, Show all fields, GST tick auto from the customer's GSTIN, saved customer
+3. **B3 Make bill form** (built 2026-11-07, v0.42.0: `src/server/bill-make.ts`, `MakeBill` in `src/app/ledger-forms.tsx`, bill page, Rates → Bill settings; salespeople = owners + Order Capture people from alert-contacts): important fields, Show all fields, GST tick auto from the customer's GSTIN, saved customer
    GSTIN / state; bill page and print show the new fields. Tests.
-4. **B4 Send to Zoho:** list, CSV in Zoho's layout, mark sent, INV number back. Tests; one real import into Zoho by the
+4. **B4 Send to Zoho** (built 2026-11-07, v0.42.0: `/bills/gst`, `POST /api/bills/zoho` with `which` new / again; columns from the plant's own Zoho invoice export: place of supply "OD", GST Treatment business_gst / consumer, Item Tax GST5 / IGST5, status Draft): list, CSV in Zoho's layout, mark sent, INV number back. Tests; one real import into Zoho by the
    owner with one bill.
 5. **B5 Reports (later, owner to order):** sales by salesperson / area / vehicle / product / HSN, GST vs non-GST,
    discounts, days to pay.

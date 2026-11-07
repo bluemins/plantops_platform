@@ -4,6 +4,28 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.42.0 — 2026-11-07 — Make bill with Zoho-like fields, GST bills and "GST invoices to make" (steps B2–B4)
+
+Owner, 2026-11-07: "capture all the fields like Zoho … a tick mark … so that it will be sent / imported to Zoho … see it
+in one screen and then export." Plan and mock-ups: `docs/BILL_FIELDS_PHASE_PLAN.md`.
+- **Make bill** (owner, Accounts): bill date, terms (Due on receipt / Net 7 / 15 / 30 / end of month → due date),
+  **salesperson** (owners + Order Capture people) and **vehicle** (suggests earlier ones), both filled in from the
+  customer's last bill; a description per line; discount. **Show all fields:** reference / PO no., discount per line
+  (₹ or %), adjustment (round-off), customer notes, private note, Zoho GST invoice no.
+- **Needs GST invoice** tick (on by itself when the customer has a GSTIN): customer GSTIN (checked), place of supply,
+  rates include GST or GST on top (the plant's setting, changeable per bill). CGST + SGST in the plant's state, IGST
+  for another; the form shows taxable / CGST / SGST / IGST / total live. The owner's L&T invoice gives ₹5,313 exactly
+  like Zoho. The customer keeps the GSTIN / state of their latest GST bill.
+- **Bills → GST invoices to make:** every ticked bill on one screen (customer, GSTIN, taxable, GST, total, place),
+  totals, **Download for Zoho** (a CSV in Zoho Books' invoice-import columns, as drafts; the bills move to "Sent"),
+  "Download again", the INV no. typed per bill → Done.
+- **Rates → Bill settings** (owner): rates include GST (default yes), usual terms, usual customer notes.
+- The bill page shows terms, salesperson, vehicle, reference, GSTIN, place of supply and the GST split.
+- **Migrations:** Order Capture `0009_bill_fields.sql` (new bill / line / customer columns, table `bill_settings`; a
+  saved bill's amounts still never change; only "sent to Zoho" may be set). Platform unchanged; SSO token unchanged.
+- **Not yet checked:** a real Zoho import of the file (do one bill first; Zoho's place-of-supply codes for states other
+  than Odisha and the IGST tax type are from Zoho's usual format, not yet seen in this plant's files).
+
 ## v0.41.0 — 2026-11-07 — Plant GSTIN and GST rate per product (step B1 of GST bills)
 
 Owner, 2026-11-07: Make bill gets Zoho-like fields and a "Needs GST invoice" tick (plan `docs/BILL_FIELDS_PHASE_PLAN.md`,

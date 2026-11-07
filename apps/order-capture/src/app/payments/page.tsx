@@ -29,6 +29,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Sea
       <SectionTabs current="bills" waiting={waiting} bills calls={can(user, "calls_view")} />
       <nav aria-label="Bills or payments" className="flex gap-4 text-sm font-semibold">
         <a href="/bills" className="pb-1 text-slate-600">Bills</a>
+        <a href="/bills/gst" className="pb-1 text-slate-600">GST invoices</a>
         <span className="border-b-2 border-(--brand) pb-1">Payments</span>
         {can(user, "ledger_export") && <a href="/api/export/payments" className="ml-auto pb-1 text-(--brand)">CSV</a>}
       </nav>

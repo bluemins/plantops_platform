@@ -226,3 +226,24 @@ Owner: only people with **Accounts** see the Bills section. Platform migration `
 `accounts`; `OcUser.also` carries Accounts for someone who is also Order desk (`can()` checks both). Access:
 `read`, `see_amounts`, `view_customers`, `ledger_view`, `bill_make`, `payment_receive` for Accounts; Order desk loses
 `ledger_view`, `bill_make`, `payment_receive` (plain refusal "Bills and payments need the Accounts role. Ask the owner.").
+
+### 2026-11-07 — Make bill with Zoho-like fields, GST bills, GST invoices to make (B2–B4, v0.42.0)
+Owner 2026-11-07 (plan + mock-ups: `docs/BILL_FIELDS_PHASE_PLAN.md`). Migration `0009_bill_fields.sql` (approved):
+bills gain terms, salesperson_id, vehicle, reference_no, private_note, needs_gst, gstin, place_of_supply,
+tax_inclusive, cgst / sgst / igst (= tax_total for PlantOps bills), sent_to_zoho_at / by / by_name (the only new
+UPDATE); bill_lines.taxable; customers.gstin / state_code (UPDATE); new `bill_settings` (one row per plant, FORCE RLS,
+no DELETE). Code: `src/server/bill-make.ts` (form data, makeBill, settings, gstQueue, zohoCsvRows); money rules
+`billAmounts` / `dueFromTerms` in `src/lib/ledger.ts`.
+- **Decided by the owner:** salesperson and vehicle are separate fields on the main form (no "delivered by"); GST tick
+  on by itself when the customer has a GSTIN; rates include GST by default, changeable per bill; product GST rates set
+  by hand on PlantOps Products (never from Zoho items); one screen for the ticked bills, then export.
+- **Made while building:** salespeople = owners + people with an Order Capture role (the alert-contacts list; no
+  platform change), stored as id + name; the bill's discount is shared over the lines before GST (Zoho's "discount
+  before tax"), the last line taking left-over paise; inclusive GST: taxable = amount ÷ (1 + rate) rounded, CGST
+  rounded, SGST = the rest; bill date between the delivery and today; the customer's GSTIN / state follow their latest
+  GST bill; the Zoho file's rows are drafts with Invoice Number = the B-number and Subject "PlantOps B-…"; "new" marks
+  bills sent once (who / when), "again" re-downloads sent ones; support sees the list, can't download; Order desk
+  sees nothing (Bills are Accounts + owner since v0.40.0); private note shown only to people who make bills.
+- Tests: Order Capture 626 (+23: `bill-amounts.test.ts` 13, `bill-make.test.ts` 10; guards extended for the new table
+  and 11 locked bill columns).
+- **Not yet verified:** on screen; a real Zoho import of the file (Invoice Number column and other states' codes).

@@ -2,17 +2,19 @@ import { redirect } from "next/navigation";
 import { Card } from "@plantops/ui";
 import { can } from "@/server/access";
 import { kit } from "@/server/kit";
+import { getBillSettings } from "@/server/bill-make";
 import { listRates } from "@/server/rates";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../header";
 import { BackLink, LinkRow } from "../parts";
+import { BillSettingsCard } from "./bill-settings";
 import { RatesEditor } from "./editor";
 
 /** The owner's units and default rates per product (PlantOps support: read-only; Order desk: not here). */
 export default async function RatesPage() {
   const user = await requirePageUser("/rates");
   if (!can(user, "view_rates")) redirect("/");
-  const [plant, rates] = await Promise.all([kit.branding(user.tenantId), listRates(user)]);
+  const [plant, rates, billSettings] = await Promise.all([kit.branding(user.tenantId), listRates(user), getBillSettings(user)]);
   return (
     <div className="space-y-5">
       <Header user={user} plant={plant} />
@@ -31,6 +33,7 @@ export default async function RatesPage() {
       ) : (
         <RatesEditor rates={rates} canEdit={can(user, "rates")} />
       )}
+      <BillSettingsCard value={billSettings} canEdit={can(user, "rates")} />
       <nav className="space-y-3" aria-label="More">
         <LinkRow href="/customers">{can(user, "customer_upload") ? "Customers · upload a list" : "Customers"}</LinkRow>
         {can(user, "view_changes") && <LinkRow href="/changes">Recent changes</LinkRow>}

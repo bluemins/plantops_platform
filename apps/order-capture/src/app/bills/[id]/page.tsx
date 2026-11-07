@@ -1,5 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { Card } from "@plantops/ui";
+import { GST_STATES } from "@plantops/types";
+import { TERMS_LABEL, type BillTerms } from "@/lib/ledger";
 import { money } from "@/lib/money";
 import { can } from "@/server/access";
 import { kit } from "@/server/kit";
@@ -34,7 +36,7 @@ export default async function BillPage({ params }: { params: Params }) {
       </div>
       <p className="text-sm text-slate-600">
         {plant?.name} · {b.opening_balance ? "Opening balance from Zoho" : b.source === "zoho" ? "Imported from Zoho" : `Made by ${b.created_by}`} · {day(b.bill_date)}
-        {b.due_date ? ` · due ${day(b.due_date)}` : ""}
+        {b.due_date ? ` · due ${day(b.due_date)}` : ""}{b.terms ? ` (${TERMS_LABEL[b.terms as BillTerms]})` : ""}
       </p>
 
       <Card className="space-y-1">
@@ -42,6 +44,16 @@ export default async function BillPage({ params }: { params: Params }) {
         {partyHref ? <a href={partyHref} className="text-lg font-semibold text-(--brand)">{b.party!.name}</a> : <p className="text-lg font-semibold">{b.customer_name}</p>}
         {b.party?.kind === "contact" && <p className="text-xs text-amber-800">Zoho contact not matched to a customer yet.</p>}
         {b.order && <p className="text-sm">Order <a href={`/o/${b.order.id}`} className="font-semibold text-(--brand)">{b.order.ref}</a></p>}
+        {b.gst && (
+          <p className="text-sm text-slate-600">
+            {b.gst.gstin ? `GSTIN ${b.gst.gstin}` : "No GSTIN (consumer)"}{b.gst.place ? ` · Place of supply: ${GST_STATES[b.gst.place] ?? ""} (${b.gst.place})` : ""}
+          </p>
+        )}
+        {(b.salesperson || b.vehicle || b.reference_no) && (
+          <p className="text-sm text-slate-600">
+            {[b.salesperson && `Salesperson: ${b.salesperson}`, b.vehicle && `Vehicle: ${b.vehicle}`, b.reference_no && `Reference: ${b.reference_no}`].filter(Boolean).join(" · ")}
+          </p>
+        )}
       </Card>
 
       <Card className="space-y-2">
@@ -61,7 +73,16 @@ export default async function BillPage({ params }: { params: Params }) {
             <div className="flex justify-between"><span>Sub-total</span><span>{money(b.sub_total)}</span></div>
           )}
           {b.discount !== "0.00" && <div className="flex justify-between"><span>Discount</span><span>−{money(b.discount)}</span></div>}
-          {b.tax_total !== "0.00" && <div className="flex justify-between"><span>Tax</span><span>{money(b.tax_total)}</span></div>}
+          {b.gst ? (
+            <>
+              {b.gst.cgst !== "0.00" && <div className="flex justify-between"><span>CGST</span><span>{money(b.gst.cgst)}</span></div>}
+              {b.gst.sgst !== "0.00" && <div className="flex justify-between"><span>SGST</span><span>{money(b.gst.sgst)}</span></div>}
+              {b.gst.igst !== "0.00" && <div className="flex justify-between"><span>IGST</span><span>{money(b.gst.igst)}</span></div>}
+              {b.gst.inclusive && <p className="text-xs text-slate-500">Rates include GST: the GST above is inside the total.</p>}
+            </>
+          ) : (
+            b.tax_total !== "0.00" && <div className="flex justify-between"><span>Tax</span><span>{money(b.tax_total)}</span></div>
+          )}
           {b.adjustment !== "0.00" && <div className="flex justify-between"><span>Adjustment</span><span>{b.adjustment.startsWith("-") ? "−" : ""}{money(b.adjustment.replace("-", ""))}</span></div>}
           <div className="flex justify-between text-lg font-bold"><span>Total</span><span>{money(b.total)}</span></div>
           {b.payments.map((p, i) => (
@@ -76,8 +97,11 @@ export default async function BillPage({ params }: { params: Params }) {
           <div className="flex justify-between font-semibold"><span>Still due</span><span>{money(b.due)}</span></div>
         </div>
         {b.notes && <p className="text-sm text-slate-600 whitespace-pre-line">{b.notes}</p>}
-        {b.salesperson && <p className="text-xs text-slate-500">Salesperson: {b.salesperson}</p>}
-        <p className="text-xs text-slate-500">A bill (statement of account), not a tax invoice.{b.gst_invoice_no ? ` GST invoice in Zoho: ${b.gst_invoice_no}.` : ""}</p>
+        <p className="text-xs text-slate-500">
+          A bill (statement of account), not a tax invoice.
+          {b.gst_invoice_no ? ` GST invoice in Zoho: ${b.gst_invoice_no}.` : b.gst ? (b.gst.sent_at ? ` GST invoice: sent to Zoho by ${b.gst.sent_by}, waiting for the INV no.` : " GST invoice: waiting in Bills → GST invoices to make.") : ""}
+        </p>
+        {b.private_note && can(user, "bill_make") && <p className="text-xs text-slate-500 print:hidden">Private note: {b.private_note}</p>}
       </Card>
 
       {b.cancelled && (
