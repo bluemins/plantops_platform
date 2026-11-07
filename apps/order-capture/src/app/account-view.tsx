@@ -13,6 +13,7 @@ import type { OcUser } from "@/server/session";
 import { AddComment, EditCustomer, LocationBox, PersonsEditor } from "./customer-forms";
 import { CancelWithReason, PrintButton, ReceivePayment } from "./ledger-forms";
 import { BillBadge, PhoneLink, StatusBadge } from "./parts";
+import { BuyingPaying } from "./buying-paying";
 
 export const BILL_SHOW = [
   ["all", "All"],
@@ -149,6 +150,8 @@ export function AccountView({
           </a>
         ))}
       </nav>
+
+      {tab === "overview" && <BuyingPaying ins={a.insights} base={base} today={today} />}
 
       {tab === "overview" && d && (can(user, "customer_details") || can(user, "customer_edit")) && (
         <EditCustomer

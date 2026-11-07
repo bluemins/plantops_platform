@@ -22,7 +22,8 @@ export default async function CustomerAccountPage({ params, searchParams }: { pa
   const sp = await searchParams;
   const tab = pickTab(one(sp.tab));
   const range = { from: one(sp.from) || undefined, to: one(sp.to) || undefined };
-  const [plant, a] = await Promise.all([kit.branding(user.tenantId), orNotFound(account(user, { kind: "customer", id }, range))]);
+  const fy = /^\d{4}$/.test(one(sp.fy)) ? Number(one(sp.fy)) : undefined;
+  const [plant, a] = await Promise.all([kit.branding(user.tenantId), orNotFound(account(user, { kind: "customer", id }, { ...range, fy }))]);
   return (
     <div className="space-y-4 pb-8">
       <div className="print:hidden"><Header user={user} plant={plant} /></div>

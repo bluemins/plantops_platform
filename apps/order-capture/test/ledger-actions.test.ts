@@ -91,6 +91,9 @@ describe("make bill, receive payment, advances, cancel", () => {
     expect(acc.totals).toMatchObject({ billed: "850.00", received: "600.00", due: "250.00", advance: "0.00", balance: "250.00" });
     expect(acc.bills.map((x) => [x.number, x.status, x.due])).toEqual([["B-0001", "part_paid", "250.00"], ["INV-000500", "paid", "0.00"]]);
     expect(acc.zoho_names).toEqual(["Sriram Hotel (Bijepur)"]);
+    // Buying & paying: the Zoho bill (1 Oct, due 1 Oct) was settled by the 6 Nov payment = 36 days, after its due date;
+    // B-0001 is only part paid, so it doesn't count yet
+    expect(acc.insights.paying).toMatchObject({ bills: 1, all_time: true, avg_days: 36, within_days: 36, late: 1, with_due_date: 1 });
     const n = paymentNotification(acct, p);
     expect(n).toMatchObject({ kind: "order_capture.payment", title: "Payment ₹600 from Sri ram hotel", level: "bell", exclude_user_id: acct.userId });
     expect(n.body).toContain("Paid INV-000500, B-0001");

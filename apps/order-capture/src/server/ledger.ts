@@ -27,6 +27,7 @@ import {
   type LedgerPayment,
 } from "@/lib/ledger";
 import { shiftMonths } from "@/lib/customer-page";
+import { customerInsights, type InsightLine, type InsightPurchase } from "@/lib/customer-insights";
 import { customerExtras, FIELD_WORDS } from "./customer-details";
 import { formatRef } from "@/lib/ref";
 import { can, requireAccess } from "./access";
@@ -148,7 +149,7 @@ function timeline(
   return out.sort((x, y) => key(y).localeCompare(key(x))).slice(0, 50);
 }
 
-export async function account(user: OcUser, party: Party, range: { from?: string; to?: string } = {}) {
+export async function account(user: OcUser, party: Party, range: { from?: string; to?: string; fy?: number } = {}) {
   requireAccess(user, "account_view");
   return withTenant(user.tenantId, async (tx) => {
     const scope = await partyScope(tx, user.tenantId, party);
@@ -222,6 +223,7 @@ export async function account(user: OcUser, party: Party, range: { from?: string
     const sixMonthsAgo = shiftMonths(today, -6);
     const billed6m = L.bills.filter((b) => !b.cancelled && b.bill_date > sixMonthsAgo).reduce((s, b) => s + b.total, 0n);
     const c = scope.customer;
+    const insights = await buyingAndPaying(tx, user, rows, custOrders, billByOrder, today, range.fy);
     const auditRows = await tx
       .select()
       .from(schema.auditLog)
@@ -258,6 +260,7 @@ export async function account(user: OcUser, party: Party, range: { from?: string
       zoho_names: scope.contacts.map((c) => c.name),
       contacts: scope.contacts.map((z) => ({ id: z.id, name: z.name, company: z.company, mobile: z.mobile, gstin: z.gstin, status: z.zohoStatus })),
       billed_6m: rupees(billed6m),
+      insights,
       timeline: timeline(rows, auditRows, refOf),
       totals: { billed: rupees(t.billed), received: rupees(t.received), adjusted: rupees(t.adjusted), due: rupees(t.due), advance: rupees(t.advance), balance: rupees(t.balance) },
       last_payment: lastPayment,
@@ -283,6 +286,56 @@ export async function account(user: OcUser, party: Party, range: { from?: string
   });
 }
 export type Account = Awaited<ReturnType<typeof account>>;
+
+const istDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: IST }).format(d);
+
+/**
+ * "Buying & paying" (src/lib/customer-insights.ts): the facts it needs beyond the account's own rows: the lines of the
+ * latest bills, and orders not billed yet with their lines. Marketing staff never see orders, so for them only bills
+ * count.
+ */
+async function buyingAndPaying(
+  tx: OcTx,
+  user: OcUser,
+  rows: Awaited<ReturnType<typeof partyFacts>>["rows"],
+  custOrders: (typeof orders.$inferSelect)[],
+  billByOrder: Map<string, LedgerBill>,
+  today: string,
+  fy: number | undefined,
+) {
+  const real = rows.bills.filter((b) => !b.cancelledAt && !b.zohoInvoiceId?.startsWith("ob:") && P(b.total) > 0n);
+  // only the latest purchases need their lines (basket: 5, stopped buying: 13)
+  const lastDates = new Set([...new Set(real.map((b) => b.billDate))].sort().slice(-13));
+  const recentBills = real.filter((b) => lastDates.has(b.billDate));
+  const bl = recentBills.length
+    ? await tx.select().from(billLines).where(and(eq(billLines.tenantId, user.tenantId), inArray(billLines.billId, recentBills.map((b) => b.id))))
+    : [];
+  const unbilled = can(user, "read") ? custOrders.filter((o) => o.status !== "cancelled" && !billByOrder.has(o.id)) : [];
+  const ol = unbilled.length ? await tx.select().from(orderLines).where(and(eq(orderLines.tenantId, user.tenantId), inArray(orderLines.orderId, unbilled.map((o) => o.id)))) : [];
+  // a Zoho line not linked to a product counts as the product with the same name elsewhere on this customer's lines
+  const skuByName = new Map<string, string>();
+  for (const l of bl) if (l.skuId) skuByName.set(l.itemName.trim().toLowerCase(), l.skuId);
+  for (const l of ol) skuByName.set(l.productName.trim().toLowerCase(), l.skuId);
+  const keyOf = (skuId: string | null, name: string) => skuId ?? skuByName.get(name.trim().toLowerCase()) ?? `name:${name.trim().toLowerCase()}`;
+  const billLinesById = new Map<string, InsightLine[]>();
+  for (const l of bl.sort((a, b) => a.lineNo - b.lineNo))
+    billLinesById.set(l.billId, [...(billLinesById.get(l.billId) ?? []), { key: keyOf(l.skuId, l.itemName), name: l.itemName, unit: l.unit, quantity: Number(l.quantity) }]);
+  const unbilledOrders: InsightPurchase[] = unbilled.map((o) => ({
+    date: istDate(o.createdAt),
+    lines: ol.filter((l) => l.orderId === o.id && l.version === o.version).map((l) => ({ key: keyOf(l.skuId, l.productName), name: l.productName, unit: l.unit, quantity: l.quantity })),
+  }));
+  return customerInsights({
+    bills: rows.bills.map((b) => ({ id: b.id, bill_date: b.billDate, due_date: b.dueDate, total: P(b.total), cancelled: !!b.cancelledAt, opening: b.zohoInvoiceId?.startsWith("ob:") ?? false })),
+    settles: [
+      ...rows.allocations.map((a) => ({ bill_id: a.billId, amount: P(a.amount), on: a.allocatedOn })),
+      ...rows.adjustments.map((a) => ({ bill_id: a.billId, amount: P(a.amount), on: a.adjustedOn })),
+    ],
+    billLines: billLinesById,
+    unbilledOrders,
+    today,
+    fy,
+  });
+}
 
 // ---------- the plant's Bills and Payments lists ----------
 

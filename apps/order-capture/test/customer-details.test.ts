@@ -168,6 +168,11 @@ describe("Marketing staff", () => {
     await setPersonActive(mitu, mid, p.id, false);
     const seeded = await account(mitu, { kind: "customer", id });
     expect(seeded.orders).toEqual([]); // Marketing staff never see orders
+    // ... nor do orders count in their Buying & paying (only bills do): an unbilled order on a day without a bill
+    await asApp(a.tenantId, `insert into order_capture.orders (tenant_id, ref_no, request_key, customer_id, customer_name, customer_phone, customer_place, total, entered_by, entered_by_name, created_at)
+      values ('${a.tenantId}', 9001, 'insights-old', '${id}', 'Sri ram hotel', '9876565111', 'bijepur', 90, gen_random_uuid(), 'X', '2025-01-15T06:00:00Z')`);
+    const ownerSees = (await account(a.owner, { kind: "customer", id })).insights.ordering.purchases;
+    expect((await account(mitu, { kind: "customer", id })).insights.ordering.purchases).toBe(ownerSees - 1);
     expect((await account(a.owner, { kind: "customer", id })).orders.length).toBeGreaterThan(0);
     expect(seeded.totals).toHaveProperty("due");
     const acc = await account(mitu, { kind: "customer", id: mid });

@@ -362,3 +362,26 @@ marketing staff to update the mobile number"); GST details and payment terms sta
   days, without a saved shop location. Not `customers`: that has the plant's money due (plant totals are owner-only).
 - Made while building: Marketing staff can't tick "Agreed to WhatsApp reminders" (consent stays owner / Order desk).
 - Tests: access (+ Marketing staff), customer-details (+5), summary (+1); platform permissions / tile view.
+
+## 2026-11-07 — v0.47.0: "Buying & paying" on a customer's page
+Owner 2026-11-07 (plan agreed in chat; bill value for the chart; "Due to reorder" list = next release). A card at the top
+of a customer's (and an unmatched Zoho contact's) Overview tab. Rules in `src/lib/customer-insights.ts` (pure, worked out
+when the page opens, nothing stored); facts gathered by `buyingAndPaying` in `src/server/ledger.ts`; card
+`src/app/buying-paying.tsx`. No migration; SSO token unchanged.
+- **Pays in:** average days from bill date to the day allocations + adjustments reach the bill's total (an undone
+  payment re-opens it), last 12 months (all time with fewer than 3), "usually within" = 80th percentile; paid after the
+  due date count; oldest unpaid bill (opening balances count there). **Paying slower / faster:** the last 3 bills (paid,
+  or unpaid for longer than usual) against the others: ≥ 7 days and ≥ 1.5× (slower) / ≤ 0.67× (faster).
+- **Orders every:** a purchase = a day with a bill or an order not billed yet; the middle gap of the last 13. **Next
+  order** = last + gap (needs 3): ahead / due (within max(2, 30 %)) / late / "may have stopped" (> max(60, 3 × gap)).
+- **Usual order:** products in at least half of the last 5 purchases, middle quantity. **Stopped buying:** in ≥ 3 and
+  ≥ 40 % of the 10 purchases before the last 3, none in the last 3. Zoho lines without a product link count as the
+  product with the same name.
+- **Bills per month** April–March with last year's pale bars and a year picker (`?fy=2025`); this FY so far vs the same
+  days last year; customer since; average bill (whole rupees, last 12 months).
+- Left out everywhere: cancelled bills, Zoho opening balances (OB-…), ₹0 bills. Marketing staff: only bills count (they
+  never see orders).
+- Phones: the three boxes, the trend and the chart show; the rest is under "More". On a PC it's all open.
+- Tests: `test/customer-insights.test.ts` (13 new); new checks in ledger-actions (days to pay) and customer-details (Marketing staff: bills only). Checked on `pnpm dev` (plant
+  002 with Sales switched on for the check, a temporary customer with 77 sample bills; headless Chrome at 390 / 1280 px;
+  all removed afterwards). Not yet seen with plant 001's real Zoho history.
