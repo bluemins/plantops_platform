@@ -317,3 +317,12 @@ terms) with column UPDATE (+ `phone`, `phone_typed`, D3); bills + `bill_to_name`
   Contacts with a mobile (incl. shared mobiles) are left to match by hand. No migration.
 - Card on Match → To match with a confirm. Not plant-specific: the owner types the mobile / name / place.
 - Tests: `test/zoho-match.test.ts` (+1: owner only, bad mobile, new then reused customer, only no-mobile unlinked).
+
+## 2026-11-07 — v0.45.2: "Link by mobile" on the Match screen
+- Owner: "build the Link by mobile button" (unmatched contacts block payments). `link_by_mobile` in
+  `src/server/zoho-match.ts`; the rule in `src/lib/by-mobile.ts` (`byMobilePlan`, used by the card's counts and the
+  server): mobile = a customer's → link; mobile on only this one unmatched contact → `insertCustomer` (`customerName`,
+  `placeFromName`) + link; mobiles shared by several unmatched contacts stay. One `zoho.match` audit row per contact
+  (`by_mobile_bulk: true`). No migration.
+- Plant 001 before the press (live, read-only): 525 to match = 102 + 343 + 80 shared.
+- Tests: Sales 695 (+1).

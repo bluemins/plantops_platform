@@ -4,6 +4,16 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.45.2 — 2026-11-07 — Match Zoho customers: "Link by mobile"
+
+Owner, 2026-11-07: Zoho contacts not tied to a customer can't take payments; the same mobile is the same person.
+**No migration.**
+- Match Zoho customers → To match: "Link by mobile (N)" (owner only, counts shown and confirmed first). A contact whose
+  mobile is a customer's is linked to that customer; a contact with a mobile no customer and no other unmatched contact
+  has becomes a new customer (Zoho name, place from the brackets, else "Not set") and is linked. Contacts sharing a
+  mobile stay for the owner. One "linked" history row per contact; each can be unlinked later.
+- Plant 001 (live, 7 Nov): 102 to existing customers, 343 new customers, 80 left.
+
 ## v0.45.1 — 2026-11-07 — Match Zoho customers: link all contacts with no mobile to one customer
 
 Owner, 2026-11-07: staff couldn't take payments on Zoho contacts that aren't linked to a customer; the ~346 Zoho

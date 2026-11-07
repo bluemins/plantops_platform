@@ -65,7 +65,7 @@ describe("matching", () => {
     await matchAction(a.owner, { action: "link", contact_id: ids.zAjit!, customer_id: ids.ajit! });
     await matchAction(a.owner, { action: "link", contact_id: ids.zSahu!, customer_id: ids.sahu! });
     await matchAction(a.owner, { action: "unlink", contact_id: ids.zLinked! });
-    const made = await matchAction(a.owner, { action: "new_customer", contact_id: ids.zNew!, name: "Ghens Dhaba", phone: "+91 94370 00077", place: "Ghens" });
+    const made = (await matchAction(a.owner, { action: "new_customer", contact_id: ids.zNew!, name: "Ghens Dhaba", phone: "+91 94370 00077", place: "Ghens" })) as { customer_id?: string };
     expect(made.customer_id).toBeTruthy();
     expect(await refused(() => matchAction(a.owner, { action: "new_customer", contact_id: ids.zNoPhone!, name: "Ghens", phone: "9437000077", place: "Ghens" }))).toEqual({
       status: 409,
@@ -90,7 +90,7 @@ describe("matching", () => {
     expect((await refused(() => matchAction(a.desk, { action: "link_no_mobile", name: "Retail Customer", phone: "7999293831", place: "Plant" }))).status).toBe(403);
     expect((await refused(() => matchAction(a.owner, { action: "link_no_mobile", name: "Retail Customer", phone: "123", place: "Plant" }))).status).toBe(400);
 
-    const r = await matchAction(a.owner, { action: "link_no_mobile", name: "Retail Customer", phone: "7999293831", place: "Plant" });
+    const r = (await matchAction(a.owner, { action: "link_no_mobile", name: "Retail Customer", phone: "7999293831", place: "Plant" })) as { customer_id: string };
     // zNoPhone ("Ghens") from the test before + the two new ones; "Has Mobile" stays to match
     expect(r).toMatchObject({ new_customer: true, linked: 3, customer_name: "Retail Customer" });
     const d = await matchData(a.owner);
@@ -104,6 +104,32 @@ describe("matching", () => {
     expect(again).toMatchObject({ new_customer: false, linked: 1, customer_id: r.customer_id, customer_name: "Retail Customer" });
     expect((await matchData(a.owner)).contacts.find((x) => x.id === n3)!.customer?.id).toBe(r.customer_id);
     expect((await auditRows(a.tenantId)).filter((x) => x.action === "zoho.match" && x.details?.no_mobile_bulk).length).toBe(4);
+  });
+
+  it("link by mobile: to the customer with that mobile, a new customer for a mobile only one contact has, shared ones stay", async () => {
+    const one = async (text: string) => ((await asApp(a.tenantId, text)).rows[0] as { id: string }).id;
+    const imp = await one(`select id from order_capture.zoho_imports where tenant_id = '${a.tenantId}' limit 1`);
+    const contact = (name: string, mobile: string) =>
+      one(`insert into order_capture.zoho_contacts (tenant_id, zoho_contact_id, name, mobile_typed, mobile, import_id)
+        values ('${a.tenantId}', 'zc-${randomUUID()}', '${name}', '${mobile}', '${mobile}', '${imp}') returning id`);
+    const toSahu = await contact("Sahu Hotel Bijepur", "9437000001"); // Sahu Hotel's mobile
+    const fresh = await contact("Maa Durga Store (Attabira)", "9437000111");
+    const shared1 = await contact("Raju Dhaba", "9437000222");
+    const shared2 = await contact("Raju Dhaba (Sohela)", "9437000222");
+    expect((await refused(() => matchAction(a.desk, { action: "link_by_mobile" }))).status).toBe(403);
+
+    const r = await matchAction(a.owner, { action: "link_by_mobile" });
+    // + from the tests before: "Has Mobile" 9437000088 (a new customer too) and "Ajit K" (unlinked; Ajit Kirana's mobile)
+    expect(r).toMatchObject({ linked: 4, new_customers: 2, left: 2 });
+    const d = await matchData(a.owner);
+    const of = (id: string) => d.contacts.find((x) => x.id === id)!.customer;
+    expect(of(toSahu)!.id).toBe(ids.sahu);
+    expect(of(ids.zLinked!)!.id).toBe(ids.ajit);
+    expect(of(fresh)).toMatchObject({ name: "Maa Durga Store (Attabira)", phone: "9437000111" });
+    expect(d.customers.find((c) => c.phone === "9437000111")!.place).toBe("Attabira");
+    expect([of(shared1), of(shared2)]).toEqual([null, null]);
+    // nothing left to do: a second press changes nothing
+    expect(await matchAction(a.owner, { action: "link_by_mobile" })).toMatchObject({ linked: 0, new_customers: 0, left: 2 });
   });
 
   it("another plant sees none of it, and can't link plant A's contact", async () => {

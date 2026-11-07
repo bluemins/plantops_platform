@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, ErrorText } from "@plantops/ui";
 import { api } from "@/lib/api";
+import { byMobilePlan } from "@/lib/by-mobile";
 import { money } from "@/lib/money";
 import type { MatchContact, MatchData } from "@/server/zoho-match";
 
@@ -63,6 +64,7 @@ export function MatchScreen({ data }: { data: MatchData }) {
       {/* one list of every customer for the "link to …" boxes */}
       <datalist id="all-customers">{[...byLabel.keys()].map((l) => <option key={l} value={l} />)}</datalist>
 
+      {tab === "todo" && <ByMobileBulk plan={byMobilePlan(data.contacts, new Set(data.customers.map((c) => c.phone)))} busy={busy} act={act} />}
       {tab === "todo" && <NoMobileBulk count={data.contacts.filter((c) => !c.customer && !c.mobile).length} busy={busy} act={act} />}
       {list.length === 0 && <p className="text-sm text-slate-500">{needle ? "Nothing found." : tab === "todo" ? "Everything is matched. ✓" : "None."}</p>}
       {tab === "todo" && todo.slice(0, shown).map((c) => <ToMatch key={c.id} c={c} byLabel={byLabel} busy={busy} act={act} />)}
@@ -89,6 +91,26 @@ export function MatchScreen({ data }: { data: MatchData }) {
       ))}
       {list.length > shown && <Button variant="secondary" className="w-full" onClick={() => setShown(shown + PAGE)}>Show more ({list.length - shown} left)</Button>}
     </div>
+  );
+}
+
+/** Same mobile = same person: link to the customer with it, or add the contact as a new customer. */
+function ByMobileBulk({ plan, busy, act }: { plan: ReturnType<typeof byMobilePlan>; busy?: string; act: (key: string, body: object) => Promise<void> }) {
+  const a = plan.toCustomer.length;
+  const b = plan.toNew.length;
+  if (!a && !b) return null;
+  const go = async () => {
+    if (!window.confirm(`Link by mobile?\n\n• ${a} contacts → the customer with the same mobile\n• ${b} contacts → added as new customers (Zoho name, place from the brackets)\n\n${plan.shared ? `${plan.shared} contacts sharing a mobile stay for you to match. ` : ""}Each link can be undone later.`)) return;
+    await act("by-mobile", { action: "link_by_mobile" });
+  };
+  return (
+    <Card>
+      <p className="text-sm text-slate-700">
+        <b>{a}</b> contacts have the mobile of one of your customers; <b>{b}</b> have a mobile no customer has yet.
+        {plan.shared ? <> <b>{plan.shared}</b> share a mobile with another contact and stay for you.</> : null}
+      </p>
+      <Button className={`mt-2 ${small}`} disabled={!!busy} onClick={go}>{busy === "by-mobile" ? "Linking…" : `Link by mobile (${a + b})`}</Button>
+    </Card>
   );
 }
 
