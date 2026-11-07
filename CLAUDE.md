@@ -2024,7 +2024,7 @@ later sections (Receivables, Payments, GST, Stock, Attendance) when the owner or
 "Sales" on screen (owner, 2026-11-07; v0.43.1):** the module id `order_capture`, `apps/order-capture`,
 `orders.bluemins.life`, roles and data keep their names; docs may still say Order Capture (= the Sales module).
 
-### 2026-11-07 — Customers card + customer page like Zoho, Part 1 (v0.44.0, built)
+### 2026-11-07 — Customers card + customer page like Zoho, Part 1 (v0.44.0, live 2026-11-07, `1eed8f9`)
 Owner 2026-11-07; plan + mock-up `docs/CUSTOMER_PAGE_PHASE_PLAN.md`. Owner-only **Customers** card on the dashboard
 beside Reports (summary view `customers`: customers, money due, Zoho contacts to match). Sales customer page tabs
 **Overview** (contact, Billing & GST, Zoho contacts, timeline) / **Transactions** (Bills + Payments tables with filters
