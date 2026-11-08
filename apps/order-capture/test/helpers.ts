@@ -120,11 +120,17 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
   const person = await one(`insert into order_capture.customer_persons (tenant_id, customer_id, name, phone, role, by_user, by_name) values ('${tenantId}', '${customer}', 'Ramesh', '7008011223', 'shop boy', '${who}', 'Sujata') returning id`);
   const location = await one(`insert into order_capture.customer_locations (tenant_id, customer_id, kind, lat, lng, accuracy_m, source, by_user, by_name)
     values ('${tenantId}', '${customer}', 'set', 21.0234, 83.7841, 18, 'phone', '${who}', 'Raju') returning id`);
+  // Drop (0012): switched on, one extra phone, a login code and a session
+  await asApp(tenantId, `insert into order_capture.app_access_changes (tenant_id, customer_id, enabled, changed_by, changed_by_name) values ('${tenantId}', '${customer}', true, '${who}', 'Sujata')`);
+  await asApp(tenantId, `insert into order_capture.app_phone_changes (tenant_id, customer_id, phone, action, changed_by, changed_by_name) values ('${tenantId}', '${customer}', '7008099887', 'add', '${who}', 'Sujata')`);
+  await asApp(tenantId, `insert into order_capture.app_login_codes (tenant_id, customer_id, phone, code_hmac, expires_at) values ('${tenantId}', '${customer}', '${phone}', repeat('a', 64), now() + interval '10 minutes')`);
+  await asApp(tenantId, `insert into order_capture.app_sessions (tenant_id, customer_id, phone, token_sha256, expires_at) values ('${tenantId}', '${customer}', '${phone}', encode(sha256(gen_random_uuid()::text::bytea), 'hex'), now() + interval '90 days')`);
   return { who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
 }
 
 /** The tables in the order_capture schema (the guard tests compare against this list). */
 export const TABLES = [
+  "app_access_changes", "app_login_codes", "app_phone_changes", "app_sessions",
   "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
   "ignored_number_changes", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "product_rates",
   "reminder_groups", "support_views", "zoho_contacts", "zoho_imports",

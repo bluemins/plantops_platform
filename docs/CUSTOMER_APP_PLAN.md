@@ -24,8 +24,31 @@ owner can feel a Capacitor app on their phone.
 - **2026-11-07:** the owner's retailer feature list (directory, marketing kit, product / quality info, support,
   announcements, loyalty, rewards) mapped to PlantOps with a proposed first version: **section 18.2** (4 points to
   decide). **Decided the same day: shops see only the current order (no history, no amounts) + total due**
-  (section 18.3).
-- **Then:** turn this into a phase plan with mock-ups (`docs/CUSTOMER_APP_PHASE_PLAN.md`), with every schema change
+  (section 18.3). **Bluemins only at first; Mr.Charge switched on per customer** (section 18.4). App name **Drop**;
+  mock-up: https://claude.ai/artifact/AFWktvyoB2XEyXgihJXouQ
+- **2026-11-08 (owner):** Bluemins water-bottle customers also see their **box totals** (this month, last month, this
+  year vs last), never money or an order list (section 18.5, replaces part of 18.3).
+- **2026-11-08 (owner): Google Play account.** Business per GST certificate: proprietorship, legal name **Sujata Sahu**,
+  trade name **PureVibe Enterprises** (Bluemins and Mr.Charge are its brands). Recommended and being set up: **one
+  organisation account** named exactly as the D&B record (PureVibe Enterprises, proprietor Sujata Sahu) with a D-U-N-S
+  number; Sujata Sahu answers D&B / Google identity checks, Rocky can be an admin user.
+  **D-U-N-S requested 2026-11-08** (D&B India, free route, reason "Google Developer", contact Manas Ranjan Sahu,
+  `contact@bluemins.life`), reference **DR110820263662512338**; up to 30 business days. Next: Play Console sign-up
+  (Organisation, name exactly as D&B lists it) once the number arrives (no 12-tester / 14-day closed test needed; account type can't be changed later). One account publishes Drop
+  for both brands.
+- **2026-11-08: login-code template created** by the owner (section 19): `drop_login_code_v1` =
+  `HX701c5de329b39705cfa1c152c931c4b7`, WhatsApp Authentication, security note + 10-minute expiry + Copy code;
+  submitted to Meta 23:45 IST, **approved by Meta the same night** (business- and user-initiated).
+- **2026-11-08: Firebase project created** by the owner (push, Phase 6): project "Drop", id `drop-purevibe`, under the
+  `bluemins.life` Google organisation, free Spark plan, Analytics and Gemini off, Android app `life.bluemins.drop`
+  (permanent once on Play), FCM API (V1) enabled (legacy API disabled), sender id 823242107636;
+  `google-services.json` kept by the owner for Phase 3. The organisation may block service-account keys by default:
+  allow it for this project only in Phase 6. The **service-account key** (secret) is made only in Phase 6, straight into a Railway variable, never in
+  chat or git.
+- **2026-11-08: Phase 0 decisions 1–4 made** (section 20).
+- **2026-11-08: phase plan approved: `docs/CUSTOMER_APP_PHASE_PLAN.md`** (Phases 1–7, database, decisions D1–D6
+  approved incl. due per brand and free boxes not counted, build prompts). Next: Phase 1.
+- **Then (done above):** turn this into a phase plan with mock-ups (`docs/CUSTOMER_APP_PHASE_PLAN.md`), with every schema change
   listed for approval, like the earlier modules.
 
 ## 1. The idea (owner's words, 2026-11-06)
@@ -234,7 +257,8 @@ Staff side: Order Capture screens + Delivery staff on their phones (replaces Pur
 
 Re-ordered 2026-11-06 (owner: B2B first, decision 4.2).
 
-1. **"Drop" read-only for Bluemins + Mr.Charge shops** (screens 15.3 B): orders with brand tags and status,
+1. **"Drop" for Bluemins shops** (Mr.Charge per customer when switched on: decision 18.4; screens 15.3 B as changed
+   by 18.2 / 18.3): orders with brand tags and status,
    interactions, their own price list; GST invoice link once the Zoho queue exists (16.2). Pilot with 10–20 shops, then
    all ~300.
 2. **B2B bills and payments in PlantOps** (decision 4.9) for the Account tab (outstanding, statement), + the Zoho send
@@ -407,6 +431,8 @@ those sections:
 > **Changed by decision 18.3 (owner, 2026-11-07):** a shop sees only its **current order** (on the way / delivered
 > today: products and boxes, no rates or amounts), **no order history and no statement**; the account shows only the
 > **total due**. Points 2–4 below are superseded where they show history, invoices, statements or prices.
+> **Then decision 18.5 (owner, 2026-11-08):** Bluemins water-bottle shops also see **box totals** (this month, last
+> month, this year vs last), boxes only.
 
 **B. Bluemins / Mr.Charge shop (B2B).** Tabs: **Home · Orders · Account · Products · Help**
 1. **Home:** orders on the way, last delivered order, outstanding amount, an offer / scheme card
@@ -667,6 +693,10 @@ Box, and later the points ledger, rewards, shop profiles and directory opt-in. E
 
 ### 18.3 Decision: current order only, no history (owner, 2026-11-07)
 
+> **Partly replaced by decision 18.5 (owner, 2026-11-08):** Bluemins water-bottle customers also see their **box
+> totals** (this month, last month, this year vs last year), boxes only, never money or a per-order list. Everything
+> else below still holds.
+
 **Concern (owner):** a shop could show its order history in the app to a competing supplier and use it to bargain.
 
 **Decided: "Current order only".** For B2B shops the app shows:
@@ -680,3 +710,113 @@ plant staff today. Bills and GST invoices still reach the shop as today (paper /
 put the whole buying record on one screen. Section 6's Orders / Bill rows and 15.3 B's Orders / Account / Products tabs
 follow this decision. To revisit only if shops ask for history and the owner agrees (e.g. for their accountant, a
 statement on request through staff).
+
+### 18.4 Decision: Bluemins first; Mr.Charge switched on per customer (owner, 2026-11-07)
+
+- **Drop starts with Bluemins packaged drinking water only.** Mr.Charge products, orders, posters and rewards don't
+  appear by default.
+- **Mr.Charge can be switched on for a chosen customer** (by their mobile number, i.e. their Sales customer record).
+  That customer then also sees Mr.Charge in the same screens, with brand tags (decision 4b in 15.4).
+- *Proposed (to approve in the phase plan):* an owner-only setting on the customer's page in Sales, "Brands shown in
+  Drop" (Bluemins always; Mr.Charge ticked per customer), audited; the customer API filters on the server what it
+  sends, so an unticked brand never reaches the phone. Brands stay data, never code (rule 5.4.2), so a third brand
+  works the same way. **Schema change: ask.**
+- This replaces "Bluemins + Mr.Charge shops" in the first step of section 8.
+
+### 18.5 Decision: box totals for Bluemins water-bottle customers (owner, 2026-11-08)
+
+**Asked by the owner (2026-11-08):** customers should be able to see how much they have ordered. This replaces the
+"no history" part of 18.3 for one group of customers, in one limited form.
+
+**Decided:**
+- **Who:** for now, only **Bluemins water-bottle customers** (shops buying Bluemins packaged drinking water in boxes:
+  1 L, 500 ml, 250 ml, 2 L…). Not Mr.Charge customers, not 20 L jar customers. Others can be added later only when the
+  owner decides.
+- **What:** **box totals only.** Example:
+
+  | Shown | Example |
+  |---|---|
+  | This month | 120 boxes (1 L: 80 · 500 ml: 40) |
+  | Last month | 95 boxes |
+  | This year (April–March) | 1,050 boxes, against 870 last year |
+
+- **What is still never shown** (18.3 unchanged here): rates, amounts, bill values, a list of orders or bills, a
+  statement. The account still shows the total due only.
+- **Only Bluemins bottles count** in the totals, even for a customer switched on for Mr.Charge (18.4): no Mr.Charge
+  boxes, no 20 L jars, no empty bottles or connection charges.
+
+**Why (owner, 2026-11-07 / 08):** seeing their own buying helps a shop plan and buy more (section 18). Box counts
+without prices keep most of 18.3's protection: a rival learns how much the shop buys, never the Bluemins price. The
+totals can also carry the loyalty progress later ("150 boxes more to reach …"; points themselves stay on invoice value,
+section 18).
+
+**How it will work (for the phase plan):**
+- Worked out on the **server** when the app asks, never stored: the customer's bills that aren't cancelled (Zoho history
+  up to 5 Nov 2026 + PlantOps bills) plus delivered orders without a bill, each box counted once. The customer API sends
+  only the totals per period and size, never the lines they come from.
+- Same counting as the owner's 8 Nov 2026 customer box list (plant 001: 664 customers, 31,584 boxes up to 7 Nov 2026).
+- **To settle in the phase plan:** the Zoho-history items have no brand ("1L Water Bottle", "1 Litre Deionised Water"),
+  so the owner confirms which old Zoho items are Bluemins bottles; and what makes someone a "Bluemins water-bottle
+  customer" (recommended: has a delivered Bluemins bottle order or bill in the last 12 months).
+- **No schema change needed** for the totals themselves (the customer API's own needs are listed in the phase plan).
+
+## 19. WhatsApp login-code template (prepared 2026-11-08)
+
+Drop's login (Phase 1): the customer types their phone number, PlantOps makes a 6-digit code (stored only as a hash,
+single use, 10 minutes, rate-limited) and sends it with this template through the plant's existing Twilio WhatsApp
+sender. **Own template, not Twilio Verify** (recommended): Verify adds about $0.05 per login on top of WhatsApp's fee;
+PlantOps already does codes, hashes and limits for staff PINs.
+
+| Field (Twilio Content Template Builder) | Value |
+|---|---|
+| Template name | `drop_login_code_v1` |
+| Language | English |
+| Content type | **Authentication** (WhatsApp category Authentication) |
+| Body | Fixed by Meta: "{{1}} is your verification code." |
+| Add security recommendation | **On** ("For your security, do not share this code.") |
+| Code expiration | **10 minutes** (footer "This code expires in 10 minutes.") |
+| Button | **Copy code**, text "Copy code" |
+
+- Meta usually approves authentication templates within minutes to hours; no URLs, emojis or extra text are allowed.
+- **One-tap autofill** (Android fills the code by itself) needs Drop's package name and the Play signing key's hash,
+  known only after the Play account exists: then a `drop_login_code_v2` with a one-tap button.
+- Cost per code: Meta's India authentication rate + Twilio's per-message fee (well under ₹1; check Twilio's pricing
+  page). 90-day sessions keep the number of codes low (section 16.1 rule 3).
+- **Config (Phase 1, ask before changing):** the SID goes into the plant's `TWILIO_WHATSAPP_SENDERS` entry as
+  `login_content_sid`, given to the owner as the **complete** value with the existing `from`, `content_sid`,
+  `reminder_content_sid` and `thanks_brands` (rule: `docs/STABILITY_PLAN.md` section 6 item 5).
+
+## 20. Phase 0 decisions (owner, 2026-11-08)
+
+1. **First version = the full first set:** current order (products and boxes, no rates or amounts), total due (one
+   number), box totals (18.5), product information, quality certificates (unexpired, ticked in Document Store),
+   support and feedback with replies (Complaint Box), announcements, marketing kit. Loyalty, rewards, shop profile and
+   directory come later (18.2).
+2. **Only shops the owner switches on can log in:** an owner-only "Can use Drop" switch on the customer's page in
+   Sales, audited. Pilot with 10–20 shops, then everyone. A phone that isn't switched on gets "not available yet" and
+   **no login code is sent** (no WhatsApp charge).
+3. **Box totals for Bluemins water-bottle customers = a delivered Bluemins bottle order or bill in the last 12
+   months**, worked out automatically; a shop that stops buying stops seeing them.
+4. **Extra phones see exactly what the main phone sees** (total due included). Owner / Order desk add or remove them
+   on the customer's page; a phone belongs to one shop only; "Make main phone" is owner-only and audited.
+
+**Still open before the phase plan:**
+- Which old Zoho items are Bluemins bottles (they have no brand). **Owner, 2026-11-08:** "1L Water Bottle" = Bluemins,
+  "1 Litre Deionised Water" = Mr.Charge. Proposed rule for the rest: "… Water Bottle" = Bluemins, "Deionised" /
+  "Distilled" = Mr.Charge, anything else (20 L, empties, connection charges) not counted; checked against the full list
+  of Zoho item names when the phase plan is written, and any item that fits neither goes to the owner.
+  **Exact list (live data read-only, 2026-11-08; boxes = billed quantity, cancelled bills left out):**
+  - **Counted as Bluemins bottles:** Zoho "1L Water Bottle" (16,874), "500ml Water Bottle" (8,481), "250ml Water
+    Bottle" (811); PlantOps products "Bluemins 1L Water Bottle" (1 L × 12), "Bluemins 500ml Water Bottle" (500 ml × 24),
+    "Bluemins 250ml Water Bottle" (250 ml × 35).
+  - **Mr.Charge, not counted:** Zoho "1 Litre / 2 Litre / 5 Litre Deionised Water", "5 Litre Deionised Water Pro",
+    "1 Litre / 2 Litre Distilled Water"; PlantOps "Mr.Charge 1 / 2 / 5 Litre Deionised Water (Pro)".
+  - **Not counted:** "Bluemins Water - 20 Litre" and "Blumeins 20L Connection" (20 L, decision 18.5), "2L PV Empty
+    Bottle", the empty-bottle products.
+  - **Asked the owner:** "Hemex 1L" (65 boxes, third brand) and Zoho "Bluemins Water" (pcs, 72, Oct–Dec 2025).
+    **Hemex: separate brand, not counted (owner, 2026-11-08).** "Bluemins Water" (pcs): not counted, treated as the
+    20 L jar unless the owner says otherwise.
+  - **Owner confirmed the counted list (2026-11-08)** and that 6–7 Nov 2026 data is in PlantOps (bills from 6 Nov);
+    Zoho covers up to 5 Nov. Each box is counted once: from its bill, or from the delivered order when it has no bill.
+- Loyalty rules (18.2 point 2) and rewards (point 3): only when that later phase starts.
+- Directory (point 4): later.

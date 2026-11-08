@@ -55,7 +55,12 @@ export type Action =
   | "customer_comment" // add a comment on a customer (read with ledger_view)
   | "location_view" // a customer's shop location and the Shop locations search (no amounts)
   | "location_save" // "Save my location here" (standing at the shop)
-  | "location_clear"; // clear a wrong pin, with a reason
+  | "location_clear" // clear a wrong pin, with a reason
+  // Drop, the customer app (docs/CUSTOMER_APP_PHASE_PLAN.md Phase 1, owner 2026-11-08)
+  | "drop_view" // a customer's Drop card: switch, brands, phones, last login
+  | "drop_manage" // switch a shop on / off for Drop, brands shown, Make main phone
+  | "drop_phones" // add / remove a shop's extra phones
+  | "drop_shops"; // the Drop shops list (pilot numbers)
 
 export const ACCESS: Record<Action, readonly Who[]> = {
   read: ["owner", "desk", "viewer", "accounts", "support"],
@@ -99,6 +104,10 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   location_view: ["owner", "desk", "accounts", "delivery", "marketing", "support"],
   location_save: ["owner", "desk", "accounts", "delivery", "marketing"],
   location_clear: ["owner", "desk"],
+  drop_view: ["owner", "desk", "support"],
+  drop_manage: ["owner"],
+  drop_phones: ["owner", "desk"],
+  drop_shops: ["owner", "support"],
 };
 
 /** What the user is, for this table. null = no Order Capture rights at all (e.g. a store keeper). */

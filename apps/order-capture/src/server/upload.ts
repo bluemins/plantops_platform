@@ -8,6 +8,7 @@ import { z } from "zod";
 import { classifyUpload, planCounts, UPLOAD_MAX_ROWS, type ExistingCustomer, type UploadPlan } from "@/lib/upload";
 import { requireAccess } from "./access";
 import { audit } from "./audit";
+import { extraPhoneOwners } from "./drop/shops";
 import { schema, withTenant, type OcTx } from "./db";
 import { conflict } from "./http";
 import type { OcUser } from "./session";
@@ -30,6 +31,17 @@ async function existing(tx: OcTx, tenantId: string): Promise<ExistingCustomer[]>
   return tx.select({ id: customers.id, name: customers.name, phone: customers.phone, place: customers.place, active: customers.active }).from(customers).where(eq(customers.tenantId, tenantId));
 }
 
+/** Drop extra phones → their shop's name (an upload row with one is refused). */
+async function extraPhoneNames(tx: OcTx, tenantId: string, list: ExistingCustomer[]) {
+  const names = new Map(list.map((c) => [c.id, c.name]));
+  return new Map([...(await extraPhoneOwners(tx, tenantId))].map(([phone, id]) => [phone, names.get(id) ?? "another customer"]));
+}
+
+async function planFor(tx: OcTx, tenantId: string, rows: z.infer<typeof UploadInput>["rows"]) {
+  const list = await existing(tx, tenantId);
+  return classifyUpload(rows, list, await extraPhoneNames(tx, tenantId, list));
+}
+
 /** What confirm would do, as one hash: any change in the list or the file since the preview changes it. */
 export function fingerprint(plan: UploadPlan) {
   const what = {
@@ -44,7 +56,7 @@ const withPrint = (plan: UploadPlan): UploadPreview => ({ ...plan, counts: planC
 /** The preview: nothing is saved. */
 export async function previewUpload(user: OcUser, input: z.infer<typeof UploadInput>): Promise<UploadPreview> {
   requireAccess(user, "customer_upload");
-  return withTenant(user.tenantId, async (tx) => withPrint(classifyUpload(input.rows, await existing(tx, user.tenantId))));
+  return withTenant(user.tenantId, async (tx) => withPrint(await planFor(tx, user.tenantId, input.rows)));
 }
 
 const STALE = "The customer list changed since the preview. Please check the preview again.";
@@ -56,7 +68,7 @@ export async function confirmUpload(user: OcUser, input: z.infer<typeof ConfirmI
     return await withTenant(user.tenantId, async (tx) => {
       // one upload at a time per plant, so two confirms can't both pass the fingerprint check
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext('order_capture.customer_upload'), hashtext(${user.tenantId}))`);
-      const plan = classifyUpload(input.rows, await existing(tx, user.tenantId));
+      const plan = await planFor(tx, user.tenantId, input.rows);
       if (fingerprint(plan) !== input.fingerprint) throw conflict(STALE);
       if (plan.added.length) {
         await tx.insert(customers).values(

@@ -28,7 +28,12 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
           Shop locations
         </LinkRow>
       )}
-      <CustomersEditor list={list} q={q} showOff={showOff} canEdit={can(user, "customers")} plainPhones={user.isSupport} accounts={can(user, "account_view")} />
+      <CustomersEditor list={list} q={q} showOff={showOff} canEdit={can(user, "customers")} plainPhones={user.isSupport} accounts={can(user, "account_view")} dropPhones={can(user, "drop_phones")} />
+      {can(user, "drop_shops") && (
+        <LinkRow href="/customers/drop" note="Shops switched on for the Drop app, last logins">
+          Drop shops
+        </LinkRow>
+      )}
       {can(user, "customer_upload") && (
         <LinkRow href="/customers/upload" note="From Google Sheets, Excel or Zoho (CSV)">
           Upload a customer list

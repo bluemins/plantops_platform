@@ -10,7 +10,9 @@ import { recordCall, type CallKey } from "@/server/calls";
 import { listCustomers, updateCustomer } from "@/server/customers";
 import { asApp, asOwner, ocUser, plant, refused, seedPlant } from "./helpers";
 
-const T0 = Date.now() - 2 * 60 * 60_000; // two hours ago: every test time is in the past and (nearly always) today
+// up to two hours ago, but still today in India (just after midnight: a few minutes ago), so "today's counts" hold
+const IST_MINUTES = Math.floor(((Date.now() + 330 * 60_000) % 86_400_000) / 60_000);
+const T0 = Date.now() - Math.min(120, Math.max(IST_MINUTES - 1, 4)) * 60_000;
 const at = (minutes: number) => new Date(T0 + minutes * 60_000);
 
 function phonePlant() {

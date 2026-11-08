@@ -23,6 +23,18 @@ export function describeChange(action: string, details: Record<string, unknown>)
     }
     case "customer.add":
       return `Added customer ${show(details.name)}, ${show(details.place)} (${phone(details.phone)})${details.from === "call" ? " from a phone call" : ""}`;
+    case "drop.switch":
+      return `Drop app ${details.enabled ? "switched on" : "switched off"} for ${show(details.name)}`;
+    case "drop.brands": {
+      const list = (details.brands ?? []) as string[];
+      return `Drop app brands for ${show(details.name)}: ${list.length ? list.join(", ") : `${show(details.main)} only`}`;
+    }
+    case "drop.phone_add":
+      return `Drop app: extra phone ${phone(details.phone)} added for ${show(details.name)}`;
+    case "drop.phone_remove":
+      return `Drop app: extra phone ${phone(details.phone)} removed from ${show(details.name)}`;
+    case "drop.make_main":
+      return `Drop app: ${phone(details.to)} is now the main phone of ${show(details.name)} (was ${phone(details.from)}): ${show(details.reason)}`;
     case "ignored.add":
       return `Number ${phone(details.phone)} added to Not an order number (${show(details.label)})`;
     case "ignored.remove":

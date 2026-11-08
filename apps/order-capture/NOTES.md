@@ -411,3 +411,42 @@ box could only go in the note, so the bill, the Zoho file and every box count sa
 - Old orders unchanged: O-0025, O-0059, O-0063, O-0100, O-0105 have the free box only in the note. O-0100 (delivered,
   no open bill): Undo delivered → Change (+ 1 free Bluemins 1L) → Mark delivered → Make bill.
 - Tests: `test/free-lines.test.ts` (15 new); list / brand tests updated for the CSV's Free column and `free_quantity`.
+
+## 2026-11-08 — v0.49.0: Drop Phase 1 (switch, extra phones, login)
+Owner 2026-11-08 (plan `docs/CUSTOMER_APP_PHASE_PLAN.md`, mock-ups https://claude.ai/artifact/N3Mz1ucytpBxbJqbje8ypE).
+The server side of the Drop customer app's login, plus the staff screens to switch shops on. No app yet (Phase 3).
+- **Migration `0012_drop_access.sql`** (approved): `app_access_changes` (Can use Drop + brands, newest row wins),
+  `app_phone_changes` (extra phones, newest row per phone wins), `app_login_codes` (HMAC only; UPDATE attempts / used_at),
+  `app_sessions` (token SHA-256 only; UPDATE last_seen_at / ended_at / end_reason). FORCE RLS, no DELETE. Two triggers
+  (`app_phone_check`) refuse a phone on two shops (extra vs main / extra), with a transaction lock per (plant, phone).
+- **Settings** (`src/server/drop/config.ts`): `DROP_APPS` = `{"<app id>": {"tenant_id", "brand"}}` (the app id → plant
+  and the brand every shop sees; brands stay data), `DROP_CODE_SECRET` (≥ 32), and `"login_content_sid"` in the plant's
+  `TWILIO_WHATSAPP_SENDERS` entry (`thanks.ts` reads it; a bad or reused one is named and only the login goes off).
+  Broken settings switch the customer API off and show under `/health` warnings.
+- **Staff:** Drop card on the customer's Overview (owner, support) and at `/customers/[id]/drop` (also Order desk, linked
+  "Drop phones" on the customer list): Can use Drop, brands (Rates brands minus the main one), main + extra phones with
+  last login, Add / Remove (owner + Order desk), Make main (owner: swaps with the customer's mobile, reason, audited as
+  `customer.details` + `drop.make_main`; nobody logged out). Customers → **Drop shops** (owner, support): switched-on
+  shops and the three pilot numbers. Access rows `drop_view`, `drop_manage`, `drop_phones`, `drop_shops`.
+- **An extra phone is the same shop everywhere:** `findByPhone` = main phone, else active extra phone (bot, Calls, New
+  order, customer list); `insertCustomer` returns the shop; the upload refuses such a row; the mobile Edit refuses
+  another shop's extra phone (and points to Make main for this shop's own).
+- **Customer API** (`/api/app/v1/*`, outside the login proxy; header `x-drop-app`): `login/start` (same answer for every
+  number; a code only for an active switched-on shop's phone; 3 per 15 min / 10 a day per phone from the database; 20
+  per connection an hour; the WhatsApp message goes after the answer), `login/verify` (10 min, single use, 5 wrong tries;
+  90-day token `dpt_…`), `logout`, `session` (shop name, phone, brands). A session ends (with the reason) when the shop
+  is switched off, the phone removed or the customer switched off. Errors `{ error: { code, message } }`, no-store.
+  Logins / codes are audit rows `app.*`, kept out of Recent changes; `drop.*` shown.
+- Made while building: the Drop card page for Order desk (the account page shows money, which Order desk doesn't see);
+  the main brand in `DROP_APPS` (not in code); Zoho match needed no change (it goes through `insertCustomer`).
+- Tests: `test/drop-access.test.ts` (9), `test/drop-login.test.ts` (11); guard lists (rls, append-only, access) and the
+  thank-you settings test updated; `calls-tab.test.ts` times kept inside today's India date (failed just after midnight).
+- Checked on `pnpm dev` (2026-11-09, plant 002 with Sales switched on for the check, two temporary customers, a fake
+  Twilio; headless Chromium at 390 px; all rows removed and plant 002 switched back afterwards): owner switch on, Order
+  desk refused the switch (403) but added an extra phone, a clash named ("already the main phone of …"); login start gave
+  the same answer for the shop's extra phone, an unknown number and a shop not switched on, with one WhatsApp message
+  (login template) to the first; wrong code 401, right code a 90-day token, same code again 401; session showed the
+  shop; switching the shop off ended it (401). Screens matched the mock-ups (card on Overview, Add / Make main forms,
+  Order desk's card page without Make main, Drop shops with the three numbers, "Drop phones" on Order desk's list).
+  Found and fixed: the Drop card ran its four reads at once on one transaction (pg's "already executing" warning); now
+  one after another. Dev note: `.env`'s `PLATFORM_URL` is an old LAN address (192.168.1.2); the check used localhost.

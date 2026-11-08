@@ -439,3 +439,53 @@ export const billAdjustments = oc.table("bill_adjustments", {
   createdByName: text("created_by_name").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
+
+// ---------- Drop, the customer app (0012): switch + brands, extra phones, login codes, app sessions ----------
+export type SessionEndReason = "logout" | "switched_off" | "phone_removed" | "customer_off";
+
+export const appAccessChanges = oc.table("app_access_changes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  customerId: uuid("customer_id").notNull(),
+  enabled: boolean("enabled").notNull(),
+  brands: text("brands").array().notNull().default([]),
+  changedBy: uuid("changed_by").notNull(),
+  changedByName: text("changed_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const appPhoneChanges = oc.table("app_phone_changes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  customerId: uuid("customer_id").notNull(),
+  phone: text("phone").notNull(),
+  action: text("action").$type<"add" | "remove">().notNull(),
+  changedBy: uuid("changed_by").notNull(),
+  changedByName: text("changed_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const appLoginCodes = oc.table("app_login_codes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  customerId: uuid("customer_id").notNull(),
+  phone: text("phone").notNull(),
+  codeHmac: text("code_hmac").notNull(),
+  expiresAt: ts("expires_at").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  usedAt: ts("used_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const appSessions = oc.table("app_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  customerId: uuid("customer_id").notNull(),
+  phone: text("phone").notNull(),
+  tokenSha256: text("token_sha256").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  expiresAt: ts("expires_at").notNull(),
+  lastSeenAt: ts("last_seen_at").notNull().defaultNow(),
+  endedAt: ts("ended_at"),
+  endReason: text("end_reason").$type<SessionEndReason>(),
+});

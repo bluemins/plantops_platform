@@ -86,6 +86,17 @@ export const env = {
   get reminderBudgetPaise() {
     return positive(process.env.REMINDER_BUDGET_PAISE, 50_000);
   },
+  /**
+   * Drop, the customer app (src/server/drop/config.ts): JSON {"<app id>": {"tenant_id": "…", "brand": "Bluemins"}}, the
+   * app id the app sends → its plant and the brand every shop sees. Empty = the customer API is off.
+   */
+  get dropApps() {
+    return process.env.DROP_APPS ?? "";
+  },
+  /** signs Drop's login codes (HMAC; at least 32 characters); empty = the customer API is off */
+  get dropCodeSecret() {
+    return process.env.DROP_CODE_SECRET ?? "";
+  },
   /** only tests change it (a fake Twilio) */
   get twilioApiUrl() {
     return process.env.TWILIO_API_URL ?? "https://api.twilio.com";

@@ -21,12 +21,13 @@ export interface ChangeView {
 /**
  * Owner (and PlantOps support): every change, newest first, in plain words. The WhatsApp bot's reads, alerts and repeats
  * stay out; each order it saves is one line ("WhatsApp order O-0057"). Calls marked Attended stay out too (one per call);
- * a caller saved as a customer is its "customer.add" line.
+ * a caller saved as a customer is its "customer.add" line. Drop logins, codes and logouts (`app.*`) stay out; the owner's
+ * Drop settings (`drop.*`) are shown.
  */
 export async function recentChanges(user: OcUser, limit = 200): Promise<ChangeView[]> {
   requireAccess(user, "view_changes");
   return withTenant(user.tenantId, async (tx) => {
-    const rows = await tx.select().from(auditLog).where(and(eq(auditLog.tenantId, user.tenantId), or(notLike(auditLog.action, "bot.%"), eq(auditLog.action, "bot.order")), notLike(auditLog.action, "call.%"))).orderBy(desc(auditLog.at), desc(auditLog.id)).limit(limit);
+    const rows = await tx.select().from(auditLog).where(and(eq(auditLog.tenantId, user.tenantId), or(notLike(auditLog.action, "bot.%"), eq(auditLog.action, "bot.order")), notLike(auditLog.action, "call.%"), notLike(auditLog.action, "app.%"))).orderBy(desc(auditLog.at), desc(auditLog.id)).limit(limit);
     return rows.map((r) => ({ at: r.at.toISOString(), by: String(r.details.by ?? "Someone"), text: describeChange(r.action, r.details) }));
   });
 }

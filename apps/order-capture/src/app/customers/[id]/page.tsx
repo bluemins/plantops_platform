@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { can } from "@/server/access";
 import { kit } from "@/server/kit";
 import { account, istToday } from "@/server/ledger";
+import { dropCard } from "@/server/drop/manage";
 import { orNotFound } from "@/server/pages";
 import { requirePageUser } from "@/server/session";
 import { AccountView, pickTab } from "../../account-view";
@@ -23,12 +24,16 @@ export default async function CustomerAccountPage({ params, searchParams }: { pa
   const tab = pickTab(one(sp.tab));
   const range = { from: one(sp.from) || undefined, to: one(sp.to) || undefined };
   const fy = /^\d{4}$/.test(one(sp.fy)) ? Number(one(sp.fy)) : undefined;
-  const [plant, a] = await Promise.all([kit.branding(user.tenantId), orNotFound(account(user, { kind: "customer", id }, { ...range, fy }))]);
+  const [plant, a, drop] = await Promise.all([
+    kit.branding(user.tenantId),
+    orNotFound(account(user, { kind: "customer", id }, { ...range, fy })),
+    can(user, "drop_view") && tab === "overview" ? dropCard(user, id).catch(() => undefined) : undefined,
+  ]);
   return (
     <div className="space-y-4 pb-8">
       <div className="print:hidden"><Header user={user} plant={plant} /></div>
       <div className="print:hidden"><BackLink href="/customers">← Customers</BackLink></div>
-      <AccountView user={user} a={a} tab={tab} base={`/customers/${id}`} range={range} today={istToday()} show={{ bills: one(sp.bs), pays: one(sp.ps) }} plant={plant ? { name: plant.name, gstin: plant.gstin } : undefined} />
+      <AccountView user={user} a={a} tab={tab} base={`/customers/${id}`} range={range} today={istToday()} show={{ bills: one(sp.bs), pays: one(sp.ps) }} plant={plant ? { name: plant.name, gstin: plant.gstin } : undefined} drop={drop} />
     </div>
   );
 }

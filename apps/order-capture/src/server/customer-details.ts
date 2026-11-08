@@ -12,6 +12,7 @@ import { isShortMapLink, MAX_ACCURACY_M, parseMapPosition } from "@/lib/customer
 import { NAME_MAX, NAME_MIN, PLACE_MAX, PLACE_MIN } from "@/lib/upload";
 import { can, requireAccess } from "./access";
 import { audit } from "./audit";
+import { extraPhoneOwner } from "./drop/shops";
 import { schema, withTenant, type OcTx } from "./db";
 import { badRequest, conflict, forbidden, notFound } from "./http";
 import type { OcUser } from "./session";
@@ -146,6 +147,12 @@ export async function updateCustomerDetails(user: OcUser, id: string, raw: Custo
         if (reason.length < 3) throw badRequest("Changing the mobile needs a reason (e.g. new number).");
         const [other] = await tx.select({ name: customers.name }).from(customers).where(and(eq(customers.tenantId, user.tenantId), eq(customers.phone, phone)));
         if (other) throw conflict(`${other.name} already has this number. A number belongs to one customer.`);
+        const extraOf = await extraPhoneOwner(tx, user.tenantId, phone);
+        if (extraOf === id) throw conflict("This number is already an extra Drop phone of this customer. Use Make main phone on its Drop card.");
+        if (extraOf) {
+          const [o] = await tx.select({ name: customers.name }).from(customers).where(and(eq(customers.tenantId, user.tenantId), eq(customers.id, extraOf)));
+          throw conflict(`${o?.name ?? "Another customer"} has this number as an extra Drop phone. A number belongs to one customer.`);
+        }
         next.phone = phone;
         next.phoneTyped = input.phone;
         changes.phone = { from: c.phone, to: phone };

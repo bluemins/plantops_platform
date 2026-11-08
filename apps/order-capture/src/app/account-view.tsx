@@ -14,6 +14,8 @@ import { AddComment, EditCustomer, LocationBox, PersonsEditor } from "./customer
 import { CancelWithReason, PrintButton, ReceivePayment } from "./ledger-forms";
 import { BillBadge, PhoneLink, StatusBadge } from "./parts";
 import { BuyingPaying } from "./buying-paying";
+import { DropCard } from "./drop-card";
+import type { DropCardView } from "@/server/drop/manage";
 
 export const BILL_SHOW = [
   ["all", "All"],
@@ -81,6 +83,7 @@ export function AccountView({
   today,
   show = {},
   plant,
+  drop,
 }: {
   user: OcUser;
   a: Account;
@@ -90,6 +93,8 @@ export function AccountView({
   today: string;
   show?: { bills?: string; pays?: string };
   plant?: { name: string; gstin?: string | null };
+  /** the Drop card (owner, Order desk, support); undefined = not shown */
+  drop?: DropCardView;
 }) {
   const isCustomer = a.party.kind === "customer";
   const qs = (t: string) => `${base}?tab=${t}`;
@@ -186,6 +191,11 @@ export function AccountView({
                     {d.delivery_landmark && <Row k="Landmark">{d.delivery_landmark}</Row>}
                   </dl>
                 )}
+              </Section>
+            )}
+            {isCustomer && drop && (
+              <Section title="Drop app">
+                <DropCard customerId={a.party.id} view={drop} />
               </Section>
             )}
             <Section title="GST details (for GST bills)">

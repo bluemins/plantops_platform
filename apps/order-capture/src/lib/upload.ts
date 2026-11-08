@@ -86,7 +86,8 @@ export function rowProblem(row: UploadRow): string | null {
   return problems.length ? problems.join("; ") : null;
 }
 
-export function classifyUpload(rows: UploadRow[], existing: ExistingCustomer[]): UploadPlan {
+/** `extraPhones`: Drop extra phones → their shop's name; such a row is refused (a phone belongs to one customer). */
+export function classifyUpload(rows: UploadRow[], existing: ExistingCustomer[], extraPhones: Map<string, string> = new Map()): UploadPlan {
   const plan: UploadPlan = { added: [], unchanged: [], updated: [], rejected: [], repeated: [] };
 
   // 1. rows that can't be saved on their own; completely empty rows are skipped quietly
@@ -128,6 +129,11 @@ export function classifyUpload(rows: UploadRow[], existing: ExistingCustomer[]):
     const name = clean(row.name);
     const place = clean(row.place);
     const have = known.get(phone);
+    const extraOf = have ? undefined : extraPhones.get(phone);
+    if (extraOf !== undefined) {
+      plan.rejected.push({ lines: [row.line], phone, reason: `This number is an extra Drop phone of ${extraOf}` });
+      continue;
+    }
     if (have) {
       if (have.name === name && have.place === place && have.active) plan.unchanged.push({ line: row.line, name, phone });
       else plan.updated.push({ line: row.line, id: have.id, phone, from: { name: have.name, place: have.place, active: have.active }, to: { name, place } });

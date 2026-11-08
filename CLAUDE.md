@@ -2088,3 +2088,16 @@ it at ₹0 (worth as the discount; Zoho file row price = discount); Sales by Ite
 `0011_free_lines.sql` (approved: `free` on order and bill lines, checks, one paid + one free line per product). Platform
 and SSO token unchanged. Notes: `apps/order-capture/NOTES.md`. **Next:** deploy (migration first), then fix O-0100.
 
+
+### 2026-11-08 — Drop (customer app) Phase 1: switch, extra phones, login — built (v0.49.0)
+Plan `docs/CUSTOMER_APP_PHASE_PLAN.md` (approved by the owner 2026-11-08, decisions D1–D6; background
+`docs/CUSTOMER_APP_PLAN.md` sections 18–20); mock-ups https://claude.ai/artifact/N3Mz1ucytpBxbJqbje8ypE. Phase 0 done:
+D-U-N-S requested for PureVibe Enterprises (ref DR110820263662512338; Play Console organisation account when it
+arrives), WhatsApp login template `drop_login_code_v1` (`HX701c5de329b39705cfa1c152c931c4b7`) approved, Firebase project
+`drop-purevibe` with Android app `life.bluemins.drop`. Sales migration `0012_drop_access.sql` (approved): Drop switch +
+brands, extra phones (one shop per phone, also a database trigger), login codes (HMAC only) and 90-day app sessions
+(SHA-256 only). Staff: Drop card on the customer's Overview (owner) and `/customers/[id]/drop` (Order desk: extra phones),
+Customers → Drop shops. An extra phone is the same shop for the bot, Calls, New order and the customer list. Customer
+API `/api/app/v1/login/start|verify`, `logout`, `session` (header `x-drop-app`; same answer for every number). New
+settings on `order-capture`: `DROP_APPS`, `DROP_CODE_SECRET`, `login_content_sid` in `TWILIO_WHATSAPP_SENDERS`. Platform
+and SSO token unchanged. Tests: Sales 921. Notes: `apps/order-capture/NOTES.md`. Next: go live, then Phase 2.

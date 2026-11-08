@@ -12,6 +12,7 @@ import { clean, NAME_MAX, NAME_MIN, PHONE_TYPED_MAX, PLACE_MAX, PLACE_MIN } from
 import { requireAccess } from "./access";
 import { audit } from "./audit";
 import { latestConsents, recordConsent } from "./consent";
+import { customerOfPhone, extraPhoneOwner } from "./drop/shops";
 import { schema, withTenant, type OcTx } from "./db";
 import { badRequest, notFound } from "./http";
 import type { OcUser } from "./session";
@@ -57,10 +58,13 @@ export const CustomerPatch = z
   })
   .strict();
 
-/** The customer with this (normalised) phone in this plant, switched on or off. */
+/**
+ * The customer with this (normalised) phone in this plant, switched on or off: its main phone (the mobile), else one of
+ * its Drop extra phones (owner, 2026-11-08: an extra phone is the same shop for the bot, Calls, a new order and the
+ * customer list).
+ */
 export async function findByPhone(tx: OcTx, tenantId: string, phone: string) {
-  const [c] = await tx.select().from(customers).where(and(eq(customers.tenantId, tenantId), eq(customers.phone, phone)));
-  return c ?? null;
+  return (await customerOfPhone(tx, tenantId, phone))?.customer ?? null;
 }
 
 // ---------- reading ----------
@@ -110,6 +114,9 @@ export async function createCustomer(user: OcUser, input: z.infer<typeof Custome
  * false`) instead of a second one. Audited as "customer.add" (Recent changes).
  */
 export async function insertCustomer(tx: OcTx, user: OcUser, c: { name: string; phoneTyped: string; phone: string; place: string }, details: Record<string, unknown> = {}) {
+  // a shop's Drop extra phone is that shop, never a new customer
+  const owner = await extraPhoneOwner(tx, user.tenantId, c.phone);
+  if (owner) return { created: false, customer: (await findByPhone(tx, user.tenantId, c.phone))! };
   const [row] = await tx
     .insert(customers)
     .values({ tenantId: user.tenantId, name: c.name, phoneTyped: c.phoneTyped, phone: c.phone, place: c.place, createdBy: user.userId, createdByName: user.name })

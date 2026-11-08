@@ -53,6 +53,10 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["location_view", true, true, false, false, true],
   ["location_save", true, true, false, false, false],
   ["location_clear", true, true, false, false, false],
+  ["drop_view", true, true, false, false, true],
+  ["drop_manage", true, false, false, false, false],
+  ["drop_phones", true, true, false, false, false],
+  ["drop_shops", true, false, false, false, true],
 ];
 
 describe("who is who", () => {

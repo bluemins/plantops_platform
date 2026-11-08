@@ -29,6 +29,8 @@ export interface Sender {
   reminderContentSid?: string | null;
   /** the thank-you only for orders with a product of one of these brands; null = every order */
   thanksBrands?: string[] | null;
+  /** the plant's approved WhatsApp login-code template for Drop (authentication, {{1}} = the code); null = no Drop login */
+  loginContentSid?: string | null;
 }
 
 const FROM_RE = /^(whatsapp:\+\d{8,15}|MG[0-9a-f]{32})$/i;
@@ -49,7 +51,7 @@ function readSender(tenantId: string): { sender: Sender | null; problem: string 
     return { sender: null, problem: 'TWILIO_WHATSAPP_SENDERS is not valid JSON (it must look like {"<plant id>": {"from": …, "content_sid": …}})' };
   }
   if (!all || typeof all !== "object" || Array.isArray(all)) return { sender: null, problem: 'TWILIO_WHATSAPP_SENDERS must look like {"<plant id>": {"from": …, "content_sid": …}}' };
-  const s = (all as Record<string, unknown>)[tenantId] as { from?: unknown; content_sid?: unknown; reminder_content_sid?: unknown; thanks_brands?: unknown } | null | undefined;
+  const s = (all as Record<string, unknown>)[tenantId] as { from?: unknown; content_sid?: unknown; reminder_content_sid?: unknown; thanks_brands?: unknown; login_content_sid?: unknown } | null | undefined;
   if (s === undefined) return { sender: null, problem: null };
   const at = "TWILIO_WHATSAPP_SENDERS, this plant's entry:";
   if (!s || typeof s !== "object") return { sender: null, problem: `${at} not {"from": …, "content_sid": …}` };
@@ -62,11 +64,16 @@ function readSender(tenantId: string): { sender: Sender | null; problem: string 
   const brandsOk = b === undefined || (Array.isArray(b) && b.length > 0 && b.every((x) => typeof x === "string" && x.trim() !== "" && x.trim().length <= BRAND_MAX));
   // a broken list: no order gets the tick box (never every order by mistake), and the problem is named
   const thanksBrands = b === undefined ? null : brandsOk ? (b as string[]).map((x) => x.trim()) : [];
-  const sender = { from: s.from, contentSid: s.content_sid, reminderContentSid: reminder, thanksBrands };
+  const l = s.login_content_sid;
+  const login = typeof l === "string" && TEMPLATE_RE.test(l) ? l : null;
+  const sender = { from: s.from, contentSid: s.content_sid, reminderContentSid: reminder, thanksBrands, loginContentSid: login };
   if (!brandsOk) return { sender, problem: `${at} "thanks_brands" must look like ["Bluemins"] (brand names as on Rates), so the thank-you is off` };
   if (r !== undefined && !reminder) return { sender, problem: `${at} "reminder_content_sid" is not HX…, so reminders are off` };
   if (reminder && reminder.toLowerCase() === s.content_sid.toLowerCase())
     return { sender, problem: `${at} "content_sid" and "reminder_content_sid" are the same template (the thank-you needs its own)` };
+  if (l !== undefined && !login) return { sender, problem: `${at} "login_content_sid" is not HX…, so the Drop login is off` };
+  if (login && [s.content_sid, reminder].some((x) => x && x.toLowerCase() === login.toLowerCase()))
+    return { sender: { ...sender, loginContentSid: null }, problem: `${at} "login_content_sid" must be its own template (the login-code one), so the Drop login is off` };
   return { sender, problem: null };
 }
 
