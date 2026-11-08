@@ -2089,7 +2089,7 @@ it at ₹0 (worth as the discount; Zoho file row price = discount); Sales by Ite
 and SSO token unchanged. Notes: `apps/order-capture/NOTES.md`. **Next:** deploy (migration first), then fix O-0100.
 
 
-### 2026-11-08 — Drop (customer app) Phase 1: switch, extra phones, login — built (v0.49.0)
+### 2026-11-08 — Drop (customer app) Phase 1: switch, extra phones, login — live (v0.49.0, 2026-11-09)
 Plan `docs/CUSTOMER_APP_PHASE_PLAN.md` (approved by the owner 2026-11-08, decisions D1–D6; background
 `docs/CUSTOMER_APP_PLAN.md` sections 18–20); mock-ups https://claude.ai/artifact/N3Mz1ucytpBxbJqbje8ypE. Phase 0 done:
 D-U-N-S requested for PureVibe Enterprises (ref DR110820263662512338; Play Console organisation account when it
@@ -2100,4 +2100,7 @@ brands, extra phones (one shop per phone, also a database trigger), login codes 
 Customers → Drop shops. An extra phone is the same shop for the bot, Calls, New order and the customer list. Customer
 API `/api/app/v1/login/start|verify`, `logout`, `session` (header `x-drop-app`; same answer for every number). New
 settings on `order-capture`: `DROP_APPS`, `DROP_CODE_SECRET`, `login_content_sid` in `TWILIO_WHATSAPP_SENDERS`. Platform
-and SSO token unchanged. Tests: Sales 921. Notes: `apps/order-capture/NOTES.md`. Next: go live, then Phase 2.
+and SSO token unchanged. Tests: Sales 921. Notes: `apps/order-capture/NOTES.md`. **Live 2026-11-09** (`2e21f24`, migration
+`0012` applied, settings set; deploy record `docs/deployments/shared.md`); no shop switched on yet. Rates brands set by the
+owner (Bluemins, Mr.Charge, Hemex, Bluemins 20L; empties none). Next: Phase 2 (Home data), then design Phase 4 content
+(owner: brand-wise content push, see the phase plan's Phase 4 note).

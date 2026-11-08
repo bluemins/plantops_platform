@@ -48,6 +48,10 @@ owner can feel a Capacitor app on their phone.
 - **2026-11-08: Phase 0 decisions 1–4 made** (section 20).
 - **2026-11-08: phase plan approved: `docs/CUSTOMER_APP_PHASE_PLAN.md`** (Phases 1–7, database, decisions D1–D6
   approved incl. due per brand and free boxes not counted, build prompts). Next: Phase 1.
+- **2026-11-09: Phase 1 live (v0.49.0):** Drop switch, extra phones, WhatsApp-code login (server side) and the staff
+  screens; Rates brands set by the owner (Bluemins / Mr.Charge / Hemex / Bluemins 20L). **Next: Phase 2** (Home data)
+  in a new session, using the Phase 2 prompt in the phase plan; then design Phase 4 content (brand-wise push, see the
+  phase plan's Phase 4 note). Waiting on: the D-U-N-S number (ref DR110820263662512338) for the Play Console.
 - **Then (done above):** turn this into a phase plan with mock-ups (`docs/CUSTOMER_APP_PHASE_PLAN.md`), with every schema change
   listed for approval, like the earlier modules.
 

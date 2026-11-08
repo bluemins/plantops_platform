@@ -1,6 +1,7 @@
 # Drop (customer app): Phase Plan and Build Prompts
 
-Status: **approved by the owner (2026-11-08), decisions D1–D6 included.** Nothing is built yet. Every database change below is
+Status: **approved by the owner (2026-11-08), decisions D1–D6 included. Phase 1 LIVE 2026-11-09 (v0.49.0); next = Phase 2
+(owner, in a new session).** Every database change below is
 **proposed**: each migration is shown to the owner before it runs. Background, the owner's decisions and the reasons:
 `docs/CUSTOMER_APP_PLAN.md` (read sections 18–20 first). **Phase 1 mock-ups** (Drop card, add phone, make main,
 Drop shops, app login): https://claude.ai/artifact/N3Mz1ucytpBxbJqbje8ypE. Earlier mock-up canvas:
@@ -228,7 +229,7 @@ Platform: **no migration, no SSO change.** `packages/types`: the two new notific
 | Phase | What | Release |
 |---|---|---|
 | 0 | Accounts, template, Firebase, decisions | done 2026-11-08 (D-U-N-S pending) |
-| 1 | Sales: Drop switch, phones, login | Sales v0.49.0 |
+| 1 | Sales: Drop switch, phones, login | Sales v0.49.0, **live 2026-11-09** (`2e21f24`) |
 | 2 | Sales: customer API for Home | v0.49.0 |
 | 3 | Drop app: login, Home, Help (call / WhatsApp) | Drop 0.1 (test app on the owner's phone) |
 | 4 | Content: products, certificates, announcements, share kit | Sales v0.50.0, Document Store, Drop 0.2 |
@@ -247,6 +248,13 @@ and the Bluemins bottle list. **Owner's content to gather before Phase 4:** prod
 certificates to show, 3–5 posters with WhatsApp texts, the first announcement, 10–20 pilot shops.
 
 ### Phase 1: Sales: Drop switch, phones, login
+**Done 2026-11-09:** built as planned (notes: `apps/order-capture/NOTES.md` v0.49.0), live as v0.49.0. Changes from
+the plan: the Drop card also has its own page `/customers/[id]/drop` for Order desk (the customer page shows money);
+the plant's main brand is in `DROP_APPS` (`{"drop": {"tenant_id", "brand"}}`), not in code; the Zoho match needed no
+change. Live settings on `order-capture`: `DROP_APPS` (`drop` → plant 001, Bluemins), `DROP_CODE_SECRET` (owner's password
+manager), `login_content_sid` in `TWILIO_WHATSAPP_SENDERS`. Plant 001's brands set on Rates by the owner (2026-11-09):
+Bluemins (1L / 500ml / 250ml bottles), Mr.Charge, Hemex, **Bluemins 20L** (20 L jar + connection; kept apart from
+"Bluemins" so the thank-you stays bottles only), empties no brand. No shop switched on yet (app in Phase 3).
 - Migration `0012_drop_access.sql` (show first; dev + test).
 - `src/server/drop/access.ts`: the shop's current switch, brands and phones; "phone belongs to one shop" check across
   main and extra phones (the bot, Calls and login find the shop by either).
@@ -293,6 +301,12 @@ certificates to show, 3–5 posters with WhatsApp texts, the first announcement,
 - Mock-up canvas updated to these screens before building (owner's OK on the look).
 
 ### Phase 4: Content: products, certificates, announcements, share kit
+- **To design properly before building (owner, 2026-11-09: "a proper infra to push the content to the Drop app, brand
+  wise").** The brand filter above is only the base. Plan this phase in plan mode with mock-ups, covering: (1) draft →
+  preview → publish, with optional start / end dates (offers that end by themselves); (2) targeting beyond brand:
+  customer type, area, or hand-picked shops; (3) a per-brand look on the app's cards (logo, colour); (4) who writes
+  content: owner only, or a content role (e.g. Marketing staff) with the owner publishing; (5) simple numbers per item:
+  opened, shared, tapped. Choices in (2) and (3) may shape Phase 2's Home answer: check them when building Phase 2.
 - Migrations Sales `0013_drop_content.sql` and Document Store `0003_show_in_app.sql` (show first).
 - Volume `/data` on `order-capture` (D5), `ORDER_STORAGE_DIR`, files through `packages/module-kit` storage; photos
   shrunk on the owner's phone (`photo.ts`); nightly backup route `POST /api/cron/backup` + `backup.yml` step.
