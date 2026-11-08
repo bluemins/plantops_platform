@@ -32,20 +32,22 @@ export default async function SalesReportPage({ params, searchParams }: Props) {
   const groups = GROUPS.filter((g) => !(kind === "customer" && g === "customer"));
   const amountWord = p.amount === "with" ? "with GST" : "before GST";
 
-  // the number cells of one line, the same for rows, group lines and the total
+  // the number cells of one line, the same for rows, group lines and the total; "Free" only when the period has free boxes
+  const hasFree = r.total.free_qty > 0n;
+  const free = (c: Cell) => (hasFree ? [c.free_qty > 0n ? qtyText(c.free_qty) : "—"] : []);
   const cells = (c: Cell) =>
     kind === "item"
       ? broken
-        ? [...c.amounts.map(m), qtyText(c.qty), m(c.amount)]
-        : [qtyText(c.qty), m(c.amount)]
+        ? [...c.amounts.map(m), qtyText(c.qty), ...free(c), m(c.amount)]
+        : [qtyText(c.qty), ...free(c), m(c.amount)]
       : broken
         ? [String(c.bills), ...c.amounts.map(m), m(c.amount)]
         : [String(c.bills), m(c.before), m(c.with_gst)];
   const heads =
     kind === "item"
       ? broken
-        ? [...r.buckets.map((b) => b.label), "Quantity", "Total"]
-        : ["Quantity", "Amount"]
+        ? [...r.buckets.map((b) => b.label), "Quantity", ...(hasFree ? ["Free"] : []), "Total"]
+        : ["Quantity", ...(hasFree ? ["Free"] : []), "Amount"]
       : broken
         ? ["Bills", ...r.buckets.map((b) => b.label), "Total"]
         : ["Bills", "Sales", "Sales with GST"];

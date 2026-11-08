@@ -262,7 +262,8 @@ export async function botContext(key: BotKey, input: z.infer<typeof ContextInput
         await tx
           .select({ sku_id: orderLines.skuId, quantity: orderLines.quantity })
           .from(orderLines)
-          .where(and(eq(orderLines.tenantId, key.tenant_id), eq(orderLines.orderId, last.id), eq(orderLines.version, last.version)))
+          // free boxes (scheme) are never repeated: the customer reorders what they paid for
+          .where(and(eq(orderLines.tenantId, key.tenant_id), eq(orderLines.orderId, last.id), eq(orderLines.version, last.version), eq(orderLines.free, false)))
           .orderBy(orderLines.lineNo)
       ).filter((l) => shown.has(l.sku_id));
       // nothing left the bot can offer (every product switched off or not on the key's list): no "repeat"

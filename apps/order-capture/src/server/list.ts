@@ -143,7 +143,7 @@ export async function listOrders(user: OcUser, f: ListFilters = {}, now = Date.n
     const list: ListRow[] = shown.map((o) => {
       const current: LineView[] = lines
         .filter((x) => x.orderId === o.id && x.version === o.version)
-        .map(({ l }) => ({ sku_id: l.skuId, product: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, total: l.lineTotal }));
+        .map(({ l }) => ({ sku_id: l.skuId, product: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, total: l.lineTotal, free: l.free }));
       return {
         id: o.id,
         ref: formatRef(o.refNo),
@@ -181,7 +181,7 @@ export interface PendingSummary {
   orders: number;
   total: string;
   /** one row per product and unit, biggest amount first */
-  products: { sku_id: string; product: string; unit: string; quantity: number; orders: number; min_rate: string; max_rate: string; amount: string }[];
+  products: { sku_id: string; product: string; unit: string; quantity: number; free_quantity: number; orders: number; min_rate: string | null; max_rate: string | null; amount: string }[];
   /** one row per brand ("" = products with no brand), biggest amount first; empty when no product has a brand */
   brands: { brand: string; orders: number; units: string; amount: string }[];
 }
@@ -203,10 +203,11 @@ export async function pendingSummary(user: OcUser): Promise<PendingSummary> {
       select l.sku_id,
              (array_agg(l.product_name order by o.created_at desc))[1] as product,
              l.unit,
-             sum(l.quantity)::int as quantity,
+             coalesce(sum(l.quantity) filter (where not l.free), 0)::int as quantity,
+             coalesce(sum(l.quantity) filter (where l.free), 0)::int as free_quantity,
              count(distinct o.id)::int as orders,
-             min(l.rate)::text as min_rate,
-             max(l.rate)::text as max_rate,
+             (min(l.rate) filter (where not l.free))::text as min_rate,
+             (max(l.rate) filter (where not l.free))::text as max_rate,
              sum(l.line_total)::text as amount
         from ${orders} o
         join ${orderLines} l on l.order_id = o.id and l.version = o.version and l.tenant_id = o.tenant_id
@@ -218,7 +219,7 @@ export async function pendingSummary(user: OcUser): Promise<PendingSummary> {
       select o.id as order_id, l.sku_id, l.unit, l.quantity, l.line_total::text
         from ${orders} o
         join ${orderLines} l on l.order_id = o.id and l.version = o.version and l.tenant_id = o.tenant_id
-       where o.tenant_id = ${user.tenantId} and o.status = 'pending'`);
+       where o.tenant_id = ${user.tenantId} and o.status = 'pending' and not l.free`);
     const per = new Map<string, { orders: Set<string>; lines: { quantity: number; unit: string }[]; paise: bigint }>();
     for (const l of lines) {
       const b = bySku.get(l.sku_id) ?? "";
@@ -269,12 +270,13 @@ export async function exportCsv(user: OcUser) {
           l.lineTotal,
           o.total,
           bySku.get(l.skuId) ?? "",
+          l.free ? "Yes" : "",
         ]);
       }
     }
     await audit(tx, user, "export.csv", null, { orders: os.length, lines: rows.length });
     return csv([
-      ["Reference", "Entered at", "Entered by", "Customer", "Phone", "Place", "Order note", "Status", "Status changed at", "Delivered by", "Delivered at", "Delivery note", "Zoho invoice no.", "Version", "Product", "Unit", "Quantity", "Rate", "Line total", "Order total", "Brand"],
+      ["Reference", "Entered at", "Entered by", "Customer", "Phone", "Place", "Order note", "Status", "Status changed at", "Delivered by", "Delivered at", "Delivery note", "Zoho invoice no.", "Version", "Product", "Unit", "Quantity", "Rate", "Line total", "Order total", "Brand", "Free"],
       ...rows,
     ]);
   });

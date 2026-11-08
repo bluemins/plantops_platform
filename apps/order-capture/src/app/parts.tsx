@@ -39,6 +39,11 @@ export function BrandTag({ brand }: { brand: string }) {
   return <span className={`inline-block shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${brandColour(brand)}`}>{brand}</span>;
 }
 
+/** Free boxes (scheme) on an order or bill line. */
+export function FreeTag() {
+  return <span className="inline-block shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-800">FREE</span>;
+}
+
 /** A big tappable row that leads to another screen (home page, Rates page links). */
 export function LinkRow({ href, children, note }: { href: string; children: ReactNode; note?: string }) {
   return (

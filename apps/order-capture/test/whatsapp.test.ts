@@ -4,7 +4,7 @@ import { withoutAmounts, type LineView } from "@/lib/history";
 import { whatsappText, type CopyOrder } from "@/lib/whatsapp";
 
 const NOW = new Date("2026-10-14T05:00:00Z"); // 10:30 am IST
-const line = (product: string, quantity: number, unit: string, rate: string): LineView => ({ sku_id: product, product, unit, quantity, rate, total: (quantity * Number(rate)).toFixed(2) });
+const line = (product: string, quantity: number, unit: string, rate: string): LineView => ({ sku_id: product, product, unit, quantity, rate, total: (quantity * Number(rate)).toFixed(2), free: false });
 const sai: CopyOrder = {
   ref: "O-0009",
   customer: "Hotel Sai Palace",

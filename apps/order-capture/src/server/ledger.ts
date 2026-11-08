@@ -318,11 +318,12 @@ async function buyingAndPaying(
   for (const l of ol) skuByName.set(l.productName.trim().toLowerCase(), l.skuId);
   const keyOf = (skuId: string | null, name: string) => skuId ?? skuByName.get(name.trim().toLowerCase()) ?? `name:${name.trim().toLowerCase()}`;
   const billLinesById = new Map<string, InsightLine[]>();
-  for (const l of bl.sort((a, b) => a.lineNo - b.lineNo))
+  // free boxes (scheme) are not purchases: the usual basket and "stopped buying" count paid lines only
+  for (const l of bl.filter((x) => !x.free).sort((a, b) => a.lineNo - b.lineNo))
     billLinesById.set(l.billId, [...(billLinesById.get(l.billId) ?? []), { key: keyOf(l.skuId, l.itemName), name: l.itemName, unit: l.unit, quantity: Number(l.quantity) }]);
   const unbilledOrders: InsightPurchase[] = unbilled.map((o) => ({
     date: istDate(o.createdAt),
-    lines: ol.filter((l) => l.orderId === o.id && l.version === o.version).map((l) => ({ key: keyOf(l.skuId, l.productName), name: l.productName, unit: l.unit, quantity: l.quantity })),
+    lines: ol.filter((l) => l.orderId === o.id && l.version === o.version && !l.free).map((l) => ({ key: keyOf(l.skuId, l.productName), name: l.productName, unit: l.unit, quantity: l.quantity })),
   }));
   return customerInsights({
     bills: rows.bills.map((b) => ({ id: b.id, bill_date: b.billDate, due_date: b.dueDate, total: P(b.total), cancelled: !!b.cancelledAt, opening: b.zohoInvoiceId?.startsWith("ob:") ?? false })),
@@ -489,7 +490,7 @@ export async function billDetail(user: OcUser, id: string) {
         : null,
       created_by: b.createdByName,
       cancelled: b.cancelledAt ? { at: b.cancelledAt.toISOString(), by: b.cancelledByName, reason: b.cancelReason } : null,
-      lines: lines.map((l) => ({ line_no: l.lineNo, item: l.itemName, sku: l.skuCode, description: l.description, quantity: l.quantity, unit: l.unit, rate: l.rate, discount: l.discount, tax: l.taxName, tax_percent: l.taxPercent, tax_amount: l.taxAmount, taxable: l.taxable, hsn: l.hsn, total: l.lineTotal })),
+      lines: lines.map((l) => ({ line_no: l.lineNo, item: l.itemName, sku: l.skuCode, description: l.description, quantity: l.quantity, unit: l.unit, rate: l.rate, discount: l.discount, tax: l.taxName, tax_percent: l.taxPercent, tax_amount: l.taxAmount, taxable: l.taxable, hsn: l.hsn, total: l.lineTotal, free: l.free })),
       payments: allocs
         .map((x) => ({ payment_id: x.a.paymentId, number: x.number, mode: x.mode, date: x.a.allocatedOn, amount: x.a.amount }))
         .sort((a, c) => a.date.localeCompare(c.date)),

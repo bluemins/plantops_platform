@@ -107,7 +107,7 @@ async function decide(tx: OcTx, tenantId: string, o: { id: string; customerId: s
   const lines = await tx
     .select({ quantity: orderLines.quantity, unit: orderLines.unit, productName: orderLines.productName })
     .from(orderLines)
-    .where(and(eq(orderLines.tenantId, tenantId), eq(orderLines.orderId, o.id), eq(orderLines.version, o.version)))
+    .where(and(eq(orderLines.tenantId, tenantId), eq(orderLines.orderId, o.id), eq(orderLines.version, o.version), eq(orderLines.free, false)))
     .orderBy(asc(orderLines.lineNo));
   return { send: { name: c.name, products: linesText(lines) } };
 }

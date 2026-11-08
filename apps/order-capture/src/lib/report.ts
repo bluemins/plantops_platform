@@ -116,6 +116,8 @@ export type SalesLine = {
   before: bigint;
   /** paise with GST */
   with_gst: bigint;
+  /** free boxes (scheme): counted as free quantity, never as sold */
+  free?: boolean;
 };
 
 export type ReportOptions = {
@@ -130,7 +132,8 @@ export type ReportOptions = {
   vehicle?: string;
 };
 
-export type Cell = { bills: number; qty: bigint; amounts: bigint[]; amount: bigint; before: bigint; with_gst: bigint };
+/** `qty` = sold (paid) quantity; `free_qty` = free boxes given (scheme) */
+export type Cell = { bills: number; qty: bigint; free_qty: bigint; amounts: bigint[]; amount: bigint; before: bigint; with_gst: bigint };
 export type ReportRow = Cell & { key: string; label: string; sku: string | null };
 export type ReportGroup = Cell & { key: string; label: string; rows: ReportRow[] };
 
@@ -180,17 +183,18 @@ export function buildReport(lines: SalesLine[], o: ReportOptions) {
   );
   const group = o.kind === "customer" && o.group === "customer" ? "none" : o.group;
   type Acc = Cell & { billIds: Set<string> };
-  const empty = (): Acc => ({ bills: 0, qty: 0n, amounts: buckets.map(() => 0n), amount: 0n, before: 0n, with_gst: 0n, billIds: new Set() });
+  const empty = (): Acc => ({ bills: 0, qty: 0n, free_qty: 0n, amounts: buckets.map(() => 0n), amount: 0n, before: 0n, with_gst: 0n, billIds: new Set() });
   const add = (a: Acc, l: SalesLine, i: number) => {
     const v = o.amount === "with" ? l.with_gst : l.before;
     a.billIds.add(l.bill_id);
-    a.qty += l.qty;
+    if (l.free) a.free_qty += l.qty;
+    else a.qty += l.qty;
     a.amounts[i]! += v;
     a.amount += v;
     a.before += l.before;
     a.with_gst += l.with_gst;
   };
-  const done = (a: Acc): Cell => ({ bills: a.billIds.size, qty: a.qty, amounts: a.amounts, amount: a.amount, before: a.before, with_gst: a.with_gst });
+  const done = (a: Acc): Cell => ({ bills: a.billIds.size, qty: a.qty, free_qty: a.free_qty, amounts: a.amounts, amount: a.amount, before: a.before, with_gst: a.with_gst });
 
   const groups = new Map<string, { label: string; acc: Acc; rows: Map<string, { label: string; sku: string | null; acc: Acc }> }>();
   const total = empty();

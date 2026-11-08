@@ -75,15 +75,15 @@ async function customersByPhone(tx: OcTx, tenantId: string, phones: string[]) {
 
 /** "2 × Bluemins 20L Jar, 1 × Dispenser · delivered 28 Oct" for the customer's newest delivered order, else null. */
 async function lastOrderText(tx: OcTx, tenantId: string, customerId: string) {
-  const { rows } = await tx.execute<{ product_name: string; quantity: number; at: Date }>(sql`
-    select l.product_name, l.quantity, coalesce(o.delivered_at, o.status_changed_at) as at
+  const { rows } = await tx.execute<{ product_name: string; quantity: number; free: boolean; at: Date }>(sql`
+    select l.product_name, l.quantity, l.free, coalesce(o.delivered_at, o.status_changed_at) as at
       from (select * from order_capture.orders where tenant_id = ${tenantId} and customer_id = ${customerId} and status = 'delivered'
              order by coalesce(delivered_at, status_changed_at) desc, ref_no desc limit 1) o
       join order_capture.order_lines l on l.tenant_id = o.tenant_id and l.order_id = o.id and l.version = o.version
      order by l.line_no`);
   if (!rows.length) return null;
   const day = new Intl.DateTimeFormat("en-IN", { timeZone: IST, day: "numeric", month: "short" }).format(new Date(rows[0]!.at));
-  return `${rows.map((r) => `${r.quantity} × ${r.product_name}`).join(", ")} · delivered ${day}`;
+  return `${rows.map((r) => `${r.quantity} × ${r.product_name}${r.free ? " free" : ""}`).join(", ")} · delivered ${day}`;
 }
 
 /** Everything the Calls tab shows. */

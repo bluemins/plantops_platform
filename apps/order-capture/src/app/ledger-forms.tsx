@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { BILL_TERMS, billAmounts, dueFromTerms, paise, rupees, TERMS_LABEL, type BillAmounts, type BillTerms } from "@/lib/ledger";
 import { money } from "@/lib/money";
 import type { BillForm } from "@/server/bill-make";
+import { FreeTag } from "./parts";
 
 const field = "min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-base focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)";
 const label = "mb-1 block text-sm font-medium text-slate-700";
@@ -136,7 +137,7 @@ export function MakeBill({ form }: { form: BillForm }) {
     billing_city: form.customer.billing_city ?? "",
     billing_pin: form.customer.billing_pin ?? "",
   });
-  const [lines, setLines] = useState(form.lines.map((l) => ({ line_no: l.line_no, description: "", discount: "", pct: false })));
+  const [lines, setLines] = useState(form.lines.map((l) => ({ line_no: l.line_no, description: l.free ? "Free" : "", discount: "", pct: false })));
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
@@ -322,17 +323,21 @@ export function MakeBill({ form }: { form: BillForm }) {
         {form.lines.map((l, i) => {
           const out = calc?.lines[i];
           return (
-            <div key={l.line_no} className="space-y-2 rounded-xl border border-slate-200 p-3">
+            <div key={l.line_no} className={`space-y-2 rounded-xl border p-3 ${l.free ? "border-green-300 bg-green-50" : "border-slate-200"}`}>
               <div className="flex justify-between gap-2 font-semibold">
-                <span className="min-w-0 break-words">{l.name}</span>
-                <span className="shrink-0">{money(out ? rupees(out.amount) : l.amount)}</span>
+                <span className="min-w-0 break-words">
+                  {l.name} {l.free && <FreeTag />}
+                </span>
+                <span className={`shrink-0 ${l.free ? "text-green-800" : ""}`}>{money(out ? rupees(out.amount) : l.amount)}</span>
               </div>
               <p className="text-sm text-slate-500">
-                {l.quantity} {l.unit} × {money(l.rate)}{l.hsn ? ` · HSN ${l.hsn}` : ""}{f.needs_gst && l.gst_rate !== null ? ` · GST ${l.gst_rate}%` : ""}
+                {l.quantity} {l.unit} × {money(l.rate)}
+                {l.free && ` − ${money(rupees(paise(l.rate) * BigInt(l.quantity)))} free · from the order`}
+                {l.hsn ? ` · HSN ${l.hsn}` : ""}{f.needs_gst && l.gst_rate !== null ? ` · GST ${l.gst_rate}%` : ""}
               </p>
               <input className={field} value={lines[i]!.description} maxLength={500} placeholder="Description (optional), e.g. Oct month"
                 onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, description: e.target.value } : x)))} />
-              {all && (
+              {all && !l.free && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-slate-600">Line discount</span>
                   <input className={`${field} max-w-28`} inputMode="decimal" value={lines[i]!.discount} placeholder="0"
@@ -352,6 +357,7 @@ export function MakeBill({ form }: { form: BillForm }) {
       <label className="block">
         <span className={label}>Discount ₹ (optional)</span>
         <input className={field} inputMode="decimal" value={f.discount} onChange={set("discount")} placeholder="0" />
+        {form.lines.some((l) => l.free) && <span className="mt-1 block text-xs text-slate-500">Money off (e.g. ₹50). The free boxes come from the order.</span>}
       </label>
 
       {all && (

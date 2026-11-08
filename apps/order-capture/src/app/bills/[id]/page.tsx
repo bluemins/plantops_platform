@@ -10,7 +10,7 @@ import { orNotFound } from "@/server/pages";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../../header";
 import { CancelWithReason, GstInvoice, PrintButton } from "../../ledger-forms";
-import { BackLink, BillBadge } from "../../parts";
+import { BackLink, BillBadge, FreeTag } from "../../parts";
 
 type Params = Promise<{ id: string }>;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -66,9 +66,10 @@ export default async function BillPage({ params }: { params: Params }) {
       <Card className="space-y-2">
         {b.lines.length === 0 && <p className="text-sm text-slate-500">{b.opening_balance ? "What the customer owed before Zoho." : "No lines."}</p>}
         {b.lines.map((l) => (
-          <div key={l.line_no} className="flex justify-between gap-3 text-sm">
+          <div key={l.line_no} className={`flex justify-between gap-3 text-sm ${l.free ? "rounded-lg bg-green-50 px-2 py-1" : ""}`}>
             <span className="break-words">
               {l.item}{l.description ? ` (${l.description})` : ""} · {qty(l.quantity)}{l.unit ? ` ${l.unit}` : ""} × {money(l.rate)}
+              {l.free ? <> <span className="text-green-800">− {money(l.discount)}</span> <FreeTag /></> : null}
               {l.tax ? <span className="text-slate-500"> · {l.tax} {money(l.tax_amount)}</span> : null}
               {l.hsn ? <span className="text-slate-500"> · HSN {l.hsn}</span> : null}
             </span>

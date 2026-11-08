@@ -59,12 +59,12 @@ async function salesLines(tenantId: string, from: string, to: string): Promise<S
   return withTenant(tenantId, async (tx) => {
     const { rows } = await tx.execute<{
       bill_id: string; bill_date: string; salesperson: string | null; vehicle: string | null; customer_key: string; customer_name: string;
-      place: string | null; brand: string | null; sku_id: string | null; item_name: string; sku_code: string | null; qty: string; before: string; with_gst: string;
+      place: string | null; brand: string | null; sku_id: string | null; item_name: string; sku_code: string | null; qty: string; before: string; with_gst: string; free: boolean;
     }>(sql`
       select b.id as bill_id, b.bill_date::text, b.salesperson, b.vehicle,
              coalesce('c:' || cu.id::text, 'z:' || zc.id::text, 'n:' || lower(b.customer_name)) as customer_key,
              coalesce(cu.name, zc.name, b.customer_name) as customer_name,
-             cu.place, pr.brand, l.sku_id, l.item_name, l.sku_code, l.quantity::text as qty,
+             cu.place, pr.brand, l.sku_id, l.item_name, l.sku_code, l.quantity::text as qty, l.free,
              coalesce(l.taxable, l.line_total)::text as before,
              (coalesce(l.taxable, l.line_total) + l.tax_amount)::text as with_gst
         from order_capture.bills b
@@ -94,6 +94,7 @@ async function salesLines(tenantId: string, from: string, to: string): Promise<S
         qty: qtyOf(r.qty),
         before: paise(r.before),
         with_gst: paise(r.with_gst),
+        free: r.free,
       };
     });
   });

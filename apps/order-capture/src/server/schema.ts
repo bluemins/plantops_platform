@@ -133,6 +133,8 @@ export const orderLines = oc.table("order_lines", {
   quantity: integer("quantity").notNull(),
   rate: numeric("rate", { precision: 10, scale: 2 }).notNull(),
   lineTotal: numeric("line_total", { precision: 18, scale: 2 }).notNull(),
+  /** free boxes (scheme; migration 0011): line_total 0, rate = what they are worth */
+  free: boolean("free").notNull().default(false),
 });
 
 export const orderEvents = oc.table("order_events", {
@@ -374,6 +376,8 @@ export const billLines = oc.table("bill_lines", {
   lineTotal: numeric("line_total", { precision: 18, scale: 2 }).notNull(),
   /** the amount before GST (migration 0009); null on bills without GST */
   taxable: numeric("taxable", { precision: 18, scale: 2 }),
+  /** a free line copied from the order (migration 0011): rate = worth, discount = the whole line, line_total 0 */
+  free: boolean("free").notNull().default(false),
 });
 
 /** One row per plant (migration 0009); no row = rates include GST, due on receipt, no notes. */

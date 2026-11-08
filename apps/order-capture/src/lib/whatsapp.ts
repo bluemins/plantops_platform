@@ -47,7 +47,8 @@ export function whatsappText(orders: CopyOrder[], now = new Date()): string {
     const block = [
       `*${o.ref}* · ${o.customer}`,
       `${phoneText(o.phone)} · ${o.place}`,
-      ...o.lines.map((l) => `- ${l.product}: ${l.quantity.toLocaleString("en-IN")} ${l.unit}${l.rate === null ? "" : ` × ${money(l.rate)}`}`),
+      // free boxes (scheme) say FREE, never a rate; the load totals below count them (they leave the plant too)
+      ...o.lines.map((l) => `- ${l.product}: ${l.quantity.toLocaleString("en-IN")} ${l.unit}${l.free ? " FREE" : l.rate === null ? "" : ` × ${money(l.rate)}`}`),
     ];
     if (o.note) block.push(`Note: ${o.note}`);
     if (o.total !== null) block.push(`Amount: ${money(o.total)}`);

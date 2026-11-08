@@ -385,3 +385,29 @@ when the page opens, nothing stored); facts gathered by `buyingAndPaying` in `sr
 - Tests: `test/customer-insights.test.ts` (13 new); new checks in ledger-actions (days to pay) and customer-details (Marketing staff: bills only). Checked on `pnpm dev` (plant
   002 with Sales switched on for the check, a temporary customer with 77 sample bills; headless Chrome at 390 / 1280 px;
   all removed afterwards). Not yet seen with plant 001's real Zoho history.
+
+## 2026-11-08 — v0.48.0: free boxes on the order (scheme, "12 + 1 free")
+Owner 2026-11-08 ("build it"; plan + mock-ups `docs/FREE_BOXES_PHASE_PLAN.md`). Found on O-0100 (Bikash Kirana): the free
+box could only go in the note, so the bill, the Zoho file and every box count said 12 when 13 left the plant.
+- **Migration `0011_free_lines.sql`** (approved): `order_lines.free` + `bill_lines.free` (default false, so every saved
+  row reads as paid). Order lines: free → `line_total = 0`, else `quantity × rate` (`order_lines_total_check`); unique
+  per (order, version, product, free) (`order_lines_product_once`), so a product can be once paid and once free. Bill
+  lines: free → `line_total = 0`. No grant change (both SELECT + INSERT).
+- **Order form / Change** (`src/app/lines-editor.tsx`): "+ Add free boxes" below the products; a green FREE card with
+  a quantity only; the total bar says "+ 1 box free". A free line's rate is what the boxes are worth: the paid line's
+  rate for the same product, else the rate it started with, else 0. Any product, the same as a paid one or another.
+  At least one paid line (`LinesInput`). Bot orders never send `free`.
+- **Shown:** order page (FREE tag, "Boxes to load: 13 box …"), list cards and notifications ("… 1 box free"), history
+  ("added … 1 box free", "(free): 1 box → 2 box"), versions, Calls tab's last order, WhatsApp copy ("1 box FREE"; the
+  load totals count free boxes), owner's pending summary ("+ 1 free" under the paid quantity; rates and brand units from
+  paid lines), order CSV ("Free" column at the end).
+- **Make bill:** the free line comes over as is: quantity, rate = worth, discount = quantity × worth, amount 0,
+  description "Free" unless typed; no line discount and no share of the bill discount; no GST. Bill page shows it with
+  FREE. The Zoho file: its own row (Item Price = worth, Discount Amount = the same).
+- **Reports → Sales by Item:** a "Free" column (screen and CSV) only when the period has free boxes; sold quantity and
+  amounts unchanged.
+- **Left out of:** the customer's last rates, "Buying & paying" (usual order, stopped buying), the bot's "repeat last
+  order", the reminder text.
+- Old orders unchanged: O-0025, O-0059, O-0063, O-0100, O-0105 have the free box only in the note. O-0100 (delivered,
+  no open bill): Undo delivered → Change (+ 1 free Bluemins 1L) → Mark delivered → Make bill.
+- Tests: `test/free-lines.test.ts` (15 new); list / brand tests updated for the CSV's Free column and `free_quantity`.

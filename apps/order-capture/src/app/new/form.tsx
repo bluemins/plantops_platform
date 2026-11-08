@@ -9,7 +9,8 @@ import { NOTE_MAX } from "@/lib/note";
 import { NAME_MAX, PLACE_MAX } from "@/lib/upload";
 import type { SavedOrder } from "@/server/orders";
 import type { RateView } from "@/server/rates";
-import { LinesEditor, linesBody, linesProblem, plainRate, totalOf, unitsOf, type EditLine } from "../lines-editor";
+import { FreeTag } from "../parts";
+import { freeUnitsOf, LinesEditor, linesBody, linesProblem, plainRate, totalOf, unitsOf, type EditLine } from "../lines-editor";
 
 type Lookup = { phone: string; customer: { id: string; name: string; place: string; active: boolean } | null; last_order_at: string | null; last_rates: Record<string, string> };
 type Match = { id: string; name: string; phone: string; place: string; active: boolean };
@@ -108,6 +109,7 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
 
   const total = totalOf(lines);
   const units = unitsOf(lines, products);
+  const free = freeUnitsOf(lines, products);
   const isNew = Boolean(normal && found && !found.customer);
   const off = Boolean(found?.customer && !found.customer.active);
 
@@ -256,6 +258,7 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
             <span className="text-slate-600">Total{units ? ` · ${units}` : ""}</span>
             <span className="text-2xl font-bold">{money(total)}</span>
           </div>
+          {free && <p className="text-sm font-semibold text-green-800">{free}</p>}
           <Button className="w-full min-h-14 text-lg" onClick={save} disabled={busy}>
             {busy ? "Saving…" : "Save order"}
           </Button>
@@ -278,9 +281,9 @@ function SavedView({ order, onNew, ownerNotified }: { order: SavedOrder; onNew: 
           {order.customer.name}, {order.customer.place}
         </p>
         {order.lines.map((l) => (
-          <div key={l.product} className="flex justify-between gap-3">
+          <div key={`${l.sku_id}:${l.free}`} className="flex justify-between gap-3">
             <span>
-              {l.product} · {l.quantity.toLocaleString("en-IN")} {l.unit} × {money(l.rate)}
+              {l.product} · {l.quantity.toLocaleString("en-IN")} {l.unit} {l.free ? <FreeTag /> : `× ${money(l.rate)}`}
             </span>
             <span className="shrink-0">{money(l.total)}</span>
           </div>

@@ -104,6 +104,6 @@ describe("brand totals in the owner's pending summary and the CSV", () => {
     await brandOf(p, b1l.id, "box", "");
     expect((await pendingSummary(p.owner)).brands.map((b) => b.brand)).toEqual(["Mr.Charge", ""]);
     const csv = (await exportCsv(p.owner)).trim().split("\r\n");
-    expect(csv.slice(1).map((l) => l.split(",").at(-1))).toEqual(["Mr.Charge", "", "Mr.Charge", "Bluemins"]);
+    expect(csv.slice(1).map((l) => l.split(",").at(-2))).toEqual(["Mr.Charge", "", "Mr.Charge", "Bluemins"]);
   });
 });

@@ -36,13 +36,25 @@ const Line = z.object({
   sku_id: z.uuid("Please choose a product"),
   quantity: z.number("Quantity must be a whole number").int("Quantity must be a whole number").min(1, "Quantity must be at least 1").max(QTY_MAX, `Quantity can be at most ${QTY_MAX.toLocaleString("en-IN")}`),
   rate: z.string().trim().regex(RATE_RE, "Rate must be a number of rupees with at most 2 decimals, e.g. 90 or 92.50"),
+  /** free boxes (scheme): never charged; `rate` is only what they are worth (migration 0011) */
+  free: z.boolean().optional(),
 });
-/** An order's lines: the same rules for a new order and for a change. */
+/**
+ * An order's lines: the same rules for a new order and for a change. Each product at most once paid and once free;
+ * at least one paid line (free boxes go with a sale).
+ */
 export const LinesInput = z
   .array(Line)
   .min(1, "Add at least one product")
-  .max(LINES_MAX, `An order can have at most ${LINES_MAX} products`)
-  .refine((ls) => new Set(ls.map((l) => l.sku_id)).size === ls.length, "Each product can be in the order only once");
+  .max(LINES_MAX, `An order can have at most ${LINES_MAX} lines`)
+  .refine((ls) => ls.some((l) => !l.free), "Add at least one product that is charged")
+  .refine((ls) => new Set(ls.filter((l) => !l.free).map((l) => l.sku_id)).size === ls.filter((l) => !l.free).length, "Each product can be in the order only once")
+  .refine((ls) => new Set(ls.filter((l) => l.free).map((l) => l.sku_id)).size === ls.filter((l) => l.free).length, "Each product can be free only once in an order");
+
+/** The order's lines as stored: free lines have amount 0 and keep the worth rate. */
+export function storedLine(l: { quantity: number; rate: string; free?: boolean }) {
+  return { rate: fromPaise(lineTotal(1, l.rate)), paise: l.free ? 0n : lineTotal(l.quantity, l.rate) };
+}
 /** Unknown fields (tenant_id, entered_by, ref_no, status, total…) are dropped: z.object strips them. */
 export const OrderInput = z.object({
   request_key: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/, "Please reload the page and try again"),
@@ -61,7 +73,7 @@ export interface SavedOrder {
   created: boolean;
   status: string;
   customer: { name: string; place: string; phone: string };
-  lines: { sku_id: string; product: string; unit: string; quantity: number; rate: string; total: string }[];
+  lines: { sku_id: string; product: string; unit: string; quantity: number; rate: string; total: string; free: boolean }[];
   total: string;
   note: string | null;
 }
@@ -76,7 +88,7 @@ export async function lastRates(tx: OcTx, tenantId: string, customerId: string):
     select distinct on (l.sku_id) l.sku_id, l.rate::text as rate
       from ${orders} o
       join ${orderLines} l on l.order_id = o.id and l.version = o.version and l.tenant_id = o.tenant_id
-     where o.tenant_id = ${tenantId} and o.customer_id = ${customerId} and o.status <> 'cancelled'
+     where o.tenant_id = ${tenantId} and o.customer_id = ${customerId} and o.status <> 'cancelled' and not l.free
      order by l.sku_id, o.created_at desc, o.ref_no desc`);
   return Object.fromEntries(rows.map((r) => [r.sku_id, r.rate]));
 }
@@ -131,7 +143,7 @@ export async function savedView(tx: OcTx, tenantId: string, orderId: string, cre
     created,
     status: o!.status,
     customer: { name: o!.customerName, place: o!.customerPlace, phone: o!.customerPhone },
-    lines: lines.map((l) => ({ sku_id: l.skuId, product: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, total: l.lineTotal })),
+    lines: lines.map((l) => ({ sku_id: l.skuId, product: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, total: l.lineTotal, free: l.free })),
     total: o!.total,
     note: o!.orderNote,
   };
@@ -195,7 +207,7 @@ export async function saveOrder(o: {
   by: OrderBy;
   requestKey: string;
   products: TenantSku[];
-  lines: { sku_id: string; quantity: number; rate: string }[];
+  lines: { sku_id: string; quantity: number; rate: string; free?: boolean }[];
   note: string | null;
   customer: (tx: OcTx, nextRef: number) => Promise<CustomerRow>;
   repeat?: (tx: OcTx, enteredBy: string) => Promise<void>;
@@ -217,7 +229,8 @@ export async function saveOrder(o: {
     const units = new Map((await effectiveRates(tx, o.tenantId, o.products)).map((r) => [r.sku_id, r.unit]));
     const lines = o.lines.map((l, i) => {
       const p = bySku.get(l.sku_id)!;
-      return { lineNo: i + 1, skuId: l.sku_id, productName: productLabel(p), unit: units.get(l.sku_id)!, quantity: l.quantity, rate: fromPaise(lineTotal(1, l.rate)), paise: lineTotal(l.quantity, l.rate) };
+      const free = l.free ?? false;
+      return { lineNo: i + 1, skuId: l.sku_id, productName: productLabel(p), unit: units.get(l.sku_id)!, quantity: l.quantity, free, ...storedLine({ ...l, free }) };
     });
     const total = lines.reduce((s, l) => s + l.paise, 0n);
 
@@ -238,7 +251,7 @@ export async function saveOrder(o: {
       })
       .returning({ id: orders.id });
     await tx.insert(orderLines).values(
-      lines.map((l) => ({ tenantId: o.tenantId, orderId: row!.id, version: 1, lineNo: l.lineNo, skuId: l.skuId, productName: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, lineTotal: fromPaise(l.paise) })),
+      lines.map((l) => ({ tenantId: o.tenantId, orderId: row!.id, version: 1, lineNo: l.lineNo, skuId: l.skuId, productName: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, lineTotal: fromPaise(l.paise), free: l.free })),
     );
     await tx.insert(orderEvents).values({ tenantId: o.tenantId, orderId: row!.id, kind: "created", version: 1, createdBy: o.by.userId, createdByName: o.by.name });
     const saved = await savedView(tx, o.tenantId, row!.id, true);

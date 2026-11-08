@@ -5,18 +5,19 @@ import { Button, ErrorText } from "@plantops/ui";
 import { api } from "@/lib/api";
 import type { PricedLine } from "@/lib/history";
 import { money } from "@/lib/money";
-import { LinesEditor, linesBody, linesProblem, plainRate, totalOf, unitsOf, type EditLine, type EditProduct } from "../../../lines-editor";
+import { freeUnitsOf, LinesEditor, linesBody, linesProblem, plainRate, totalOf, unitsOf, type EditLine, type EditProduct } from "../../../lines-editor";
 
 type Order = { id: string; ref: string; status: "pending" | "delivered" | "cancelled"; version: number; total: string; lines: PricedLine[] };
 
 /** The order's current lines, editable; Save sends the version it started from (409 if someone changed it since). */
 export function ChangeEditor({ order, products }: { order: Order; products: EditProduct[] }) {
-  const [lines, setLines] = useState<EditLine[]>(order.lines.map((l) => ({ sku_id: l.sku_id, quantity: String(l.quantity), rate: plainRate(l.rate), edited: true })));
+  const [lines, setLines] = useState<EditLine[]>(order.lines.map((l) => ({ sku_id: l.sku_id, quantity: String(l.quantity), rate: plainRate(l.rate), edited: true, ...(l.free ? { free: true } : {}) })));
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
-  const was = (skuId: string) => order.lines.find((l) => l.sku_id === skuId);
+  const was = (skuId: string) => order.lines.find((l) => l.sku_id === skuId && !l.free);
   const total = totalOf(lines);
   const units = unitsOf(lines, products);
+  const free = freeUnitsOf(lines, products);
 
   async function save() {
     const p = linesProblem(lines, products);
@@ -55,6 +56,7 @@ export function ChangeEditor({ order, products }: { order: Order; products: Edit
             </span>
             <span className="text-2xl font-bold">{money(total)}</span>
           </div>
+          {free && <p className="text-sm font-semibold text-green-800">{free}</p>}
           <Button className="w-full min-h-14 text-lg" onClick={save} disabled={busy}>
             {busy ? "Saving…" : "Save changes"}
           </Button>

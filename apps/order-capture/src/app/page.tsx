@@ -160,7 +160,8 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
 
 /** Owner only: all pending orders added up (the whole plant, not the search). */
 function PendingTotals({ summary }: { summary: PendingSummary }) {
-  const rate = (p: PendingSummary["products"][number]) => (p.min_rate === p.max_rate ? money(p.min_rate) : `${money(p.min_rate)}–${money(p.max_rate)}`);
+  const rate = (p: PendingSummary["products"][number]) =>
+    p.min_rate === null || p.max_rate === null ? "—" : p.min_rate === p.max_rate ? money(p.min_rate) : `${money(p.min_rate)}–${money(p.max_rate)}`;
   return (
     <details open className="rounded-2xl border border-slate-200 bg-white p-4">
       <summary className="flex min-h-10 cursor-pointer list-none items-baseline justify-between gap-3">
@@ -215,6 +216,7 @@ function PendingTotals({ summary }: { summary: PendingSummary }) {
               </td>
               <td className="py-1.5 pl-2 text-right whitespace-nowrap">
                 {p.quantity.toLocaleString("en-IN")} {p.unit}
+                {p.free_quantity > 0 && <span className="block text-xs font-semibold text-green-800">+ {p.free_quantity.toLocaleString("en-IN")} free</span>}
               </td>
               <td className="py-1.5 pl-2 text-right whitespace-nowrap">{rate(p)}</td>
               <td className="py-1.5 pl-2 text-right font-semibold whitespace-nowrap">{money(p.amount)}</td>

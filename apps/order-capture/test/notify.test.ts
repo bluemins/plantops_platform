@@ -82,7 +82,7 @@ describe("1. new order (phone + bell): owners + ticked people, not whoever saved
       status: "pending",
       total: "510.00",
       customer: { name: "N".repeat(100), place: "P".repeat(200), phone: "9876543210" },
-      lines: [{ sku_id: "s", product: "X".repeat(120), unit: "box", quantity: 1, rate: "90.00", total: "90.00" }],
+      lines: [{ sku_id: "s", product: "X".repeat(120), unit: "box", quantity: 1, rate: "90.00", total: "90.00", free: false }],
       note: "N".repeat(300),
     });
     expect(n.title.length).toBeLessThanOrEqual(80);
@@ -99,7 +99,7 @@ describe("1. new order (phone + bell): owners + ticked people, not whoever saved
       status: "pending",
       total: "90.00",
       customer: { name: "Sri ram hotel", place: "bijepur", phone: "9876543210" },
-      lines: [{ sku_id: "s", product: "Bluemins (500 ml × 24)", unit: "box", quantity: 1, rate: "90.00", total: "90.00" }],
+      lines: [{ sku_id: "s", product: "Bluemins (500 ml × 24)", unit: "box", quantity: 1, rate: "90.00", total: "90.00", free: false }],
       note: "Deliver after 4 pm\nGate 2",
     });
     expect(n.body).toBe("Sri ram hotel, bijepur. Bluemins (500 ml × 24) 1 box (by Atharv) Note: Deliver after 4 pm Gate 2");

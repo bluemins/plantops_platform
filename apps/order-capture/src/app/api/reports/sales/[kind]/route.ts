@@ -17,13 +17,16 @@ export const GET = handle(async (req, ctx: Ctx) => {
   const r = await salesReport(user, kind, p);
   const broken = p.breakdown !== "none";
   const qty = (c: Cell) => qtyText(c.qty).replace(/,/g, "");
+  // free boxes (scheme): their own column, only when the period has any
+  const hasFree = r.total.free_qty > 0n;
+  const free = (c: Cell) => (hasFree ? [qtyText(c.free_qty).replace(/,/g, "")] : []);
   const nums = (c: Cell) =>
     kind === "item"
-      ? broken ? [...c.amounts.map(rupees), qty(c), rupees(c.amount)] : [qty(c), rupees(c.amount)]
+      ? broken ? [...c.amounts.map(rupees), qty(c), ...free(c), rupees(c.amount)] : [qty(c), ...free(c), rupees(c.amount)]
       : broken ? [String(c.bills), ...c.amounts.map(rupees), rupees(c.amount)] : [String(c.bills), rupees(c.before), rupees(c.with_gst)];
   const heads =
     kind === "item"
-      ? broken ? [...r.buckets.map((b) => b.label), "Quantity", "Total"] : ["Quantity", "Amount"]
+      ? broken ? [...r.buckets.map((b) => b.label), "Quantity", ...(hasFree ? ["Free"] : []), "Total"] : ["Quantity", ...(hasFree ? ["Free"] : []), "Amount"]
       : broken ? ["Bills", ...r.buckets.map((b) => b.label), "Total"] : ["Bills", "Sales", "Sales with GST"];
   const grouped = r.group !== "none";
   const rows: unknown[][] = [

@@ -13,14 +13,14 @@ import { and, asc, desc, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { productLabel } from "@plantops/module-kit";
 import { withoutAmounts, type EventKind, type EventView, type LineView, type VersionView } from "@/lib/history";
-import { fromPaise, lineTotal, toPaise } from "@/lib/money";
+import { fromPaise, toPaise } from "@/lib/money";
 import { cleanNote, NOTE_MAX } from "@/lib/note";
 import { formatRef } from "@/lib/ref";
 import { can, requireAccess, type Action } from "./access";
 import { schema, withTenant, type OcTx } from "./db";
 import { badRequest, conflict, notFound } from "./http";
 import { openBillNumber } from "./ledger";
-import { LinesInput } from "./orders";
+import { LinesInput, storedLine } from "./orders";
 import { activeProducts, effectiveRates } from "./rates";
 import type { OrderStatus } from "./schema";
 import type { OcUser } from "./session";
@@ -83,7 +83,7 @@ async function versionsOf(tx: OcTx, tenantId: string, orderId: string): Promise<
   for (const r of rows) {
     let v = out.find((x) => x.version === r.version);
     if (!v) out.push((v = { version: r.version, lines: [], total: "0.00" }));
-    v.lines.push({ sku_id: r.skuId, product: r.productName, unit: r.unit, quantity: r.quantity, rate: r.rate, total: r.lineTotal });
+    v.lines.push({ sku_id: r.skuId, product: r.productName, unit: r.unit, quantity: r.quantity, rate: r.rate, total: r.lineTotal, free: r.free });
   }
   for (const v of out) v.total = fromPaise(v.lines.reduce((s, l) => s + toPaise(l.total!), 0n));
   return out;
@@ -183,15 +183,14 @@ export async function changeOrder(user: OcUser, id: string, input: z.infer<typeo
       const had = kept.get(l.sku_id);
       const p = products.get(l.sku_id);
       if (!had && !p) throw badRequest("One of the products is not an active product of this plant. Reload the page and try again.");
-      const paise = lineTotal(l.quantity, l.rate);
-      return { lineNo: i + 1, skuId: l.sku_id, productName: had?.product ?? productLabel(p!), unit: had?.unit ?? units.get(l.sku_id)!, quantity: l.quantity, rate: fromPaise(toPaise(l.rate)), paise };
+      return { lineNo: i + 1, skuId: l.sku_id, productName: had?.product ?? productLabel(p!), unit: had?.unit ?? units.get(l.sku_id)!, quantity: l.quantity, free: l.free ?? false, ...storedLine(l) };
     });
-    const same = next.length === current.length && next.every((n, i) => current[i]!.sku_id === n.skuId && current[i]!.quantity === n.quantity && current[i]!.rate === n.rate);
+    const same = next.length === current.length && next.every((n, i) => current[i]!.sku_id === n.skuId && current[i]!.free === n.free && current[i]!.quantity === n.quantity && current[i]!.rate === n.rate);
     if (same) return { changed: false, version: o.version, total: o.total };
     const version = o.version + 1;
     const total = fromPaise(next.reduce((s, l) => s + l.paise, 0n));
     await tx.insert(orderLines).values(
-      next.map((l) => ({ tenantId: user.tenantId, orderId: id, version, lineNo: l.lineNo, skuId: l.skuId, productName: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, lineTotal: fromPaise(l.paise) })),
+      next.map((l) => ({ tenantId: user.tenantId, orderId: id, version, lineNo: l.lineNo, skuId: l.skuId, productName: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, lineTotal: fromPaise(l.paise), free: l.free })),
     );
     await tx.update(orders).set({ version, total }).where(and(eq(orders.tenantId, user.tenantId), eq(orders.id, id)));
     await event(tx, user, id, "changed", version);

@@ -2080,3 +2080,11 @@ Bill value throughout (Zoho history + PlantOps); unbilled orders count as purcha
 `apps/order-capture/src/lib/customer-insights.ts`; nothing stored; no migration; SSO token unchanged. Notes:
 `apps/order-capture/NOTES.md`. Tests: Sales 854 (+13). **Next:** "Due to reorder" list on the Customers screen.
 
+### 2026-11-08 — Sales: free boxes on the order (v0.48.0) — built, not deployed
+Owner 2026-11-08 (O-0100 "12+1 free" could only go in the note). Plan + mock-ups `docs/FREE_BOXES_PHASE_PLAN.md`.
+"+ Add free boxes" on New order / Change (any product, quantity only, never charged; worth = the customer's rate);
+shown with a FREE tag on the order, list, WhatsApp copy (load totals count them), pending summary, CSV; Make bill copies
+it at ₹0 (worth as the discount; Zoho file row price = discount); Sales by Item gets a Free column. Sales migration
+`0011_free_lines.sql` (approved: `free` on order and bill lines, checks, one paid + one free line per product). Platform
+and SSO token unchanged. Notes: `apps/order-capture/NOTES.md`. **Next:** deploy (migration first), then fix O-0100.
+

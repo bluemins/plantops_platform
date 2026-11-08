@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Card } from "@plantops/ui";
 import { fmtDateTime } from "@plantops/module-kit/format";
-import { eventText, thanksText } from "@/lib/history";
+import { eventText, lineKey, loadText, productsText, thanksText } from "@/lib/history";
 import { money } from "@/lib/money";
 import { can } from "@/server/access";
 import { getOrder } from "@/server/handling";
@@ -12,7 +12,7 @@ import { orNotFound } from "@/server/pages";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../../header";
 import { MakeBill } from "../../ledger-forms";
-import { BackLink, BillBadge, PhoneLink, StatusBadge } from "../../parts";
+import { BackLink, BillBadge, FreeTag, PhoneLink, StatusBadge } from "../../parts";
 import { OrderActions } from "./actions";
 import { AddNote } from "./add-note";
 
@@ -81,15 +81,22 @@ export default async function OrderPage({ params }: { params: Params }) {
           <span>{o.total === null ? "Quantity" : "Amount"}</span>
         </div>
         {o.lines.map((l) =>
-          l.rate === null || l.total === null ? (
-            <div key={l.sku_id} className="flex justify-between gap-3">
+          l.free ? (
+            <div key={lineKey(l)} className="flex items-center justify-between gap-3 rounded-lg bg-green-50 px-2 py-1">
+              <span className="break-words">
+                {l.product} · {l.quantity.toLocaleString("en-IN")} {l.unit} <FreeTag />
+              </span>
+              <span className="shrink-0 font-semibold text-green-800">{o.total === null ? `${l.quantity.toLocaleString("en-IN")} ${l.unit}` : money("0")}</span>
+            </div>
+          ) : l.rate === null || l.total === null ? (
+            <div key={lineKey(l)} className="flex justify-between gap-3">
               <span className="break-words">{l.product}</span>
               <span className="shrink-0 font-semibold">
                 {l.quantity.toLocaleString("en-IN")} {l.unit}
               </span>
             </div>
           ) : (
-            <div key={l.sku_id} className="flex justify-between gap-3">
+            <div key={lineKey(l)} className="flex justify-between gap-3">
               <span className="break-words">
                 {l.product} · {l.quantity.toLocaleString("en-IN")} {l.unit} × {money(l.rate)}
               </span>
@@ -103,6 +110,7 @@ export default async function OrderPage({ params }: { params: Params }) {
             <span>{money(o.total)}</span>
           </div>
         )}
+        {o.lines.some((l) => l.free) && <p className="text-sm text-green-800">Boxes to load: {loadText(o.lines)}</p>}
         <p className="text-sm text-slate-500">
           Entered by {o.entered_by} · {fmtDateTime(o.created_at)}
           {o.version > 1 && ` · version ${o.version}`}
@@ -141,7 +149,7 @@ export default async function OrderPage({ params }: { params: Params }) {
       )}
 
       <OrderActions
-        order={{ id: o.id, ref: o.ref, status: o.status, version: o.version, summary: o.lines.map((l) => `${l.product} ${l.quantity.toLocaleString("en-IN")} ${l.unit}`).join(", ") }}
+        order={{ id: o.id, ref: o.ref, status: o.status, version: o.version, summary: productsText(o.lines) }}
         may={may}
         thanks={{ available: o.thanks.available, onlyBrands: o.thanks.only_brands, already: o.thanks.message ? (o.thanks.message.sent_at ?? o.thanks.message.at) : null, name: o.customer.name, phone: o.customer.phone }}
       />
@@ -174,9 +182,9 @@ export default async function OrderPage({ params }: { params: Params }) {
                     {v.total !== null && ` · ${money(v.total)}`}
                   </p>
                   {v.lines.map((l) => (
-                    <p key={l.sku_id} className="text-slate-600">
+                    <p key={lineKey(l)} className="text-slate-600">
                       {l.product} · {l.quantity.toLocaleString("en-IN")} {l.unit}
-                      {l.rate !== null && l.total !== null && ` × ${money(l.rate)} = ${money(l.total)}`}
+                      {l.free ? " · free" : l.rate !== null && l.total !== null && ` × ${money(l.rate)} = ${money(l.total)}`}
                     </p>
                   ))}
                 </div>

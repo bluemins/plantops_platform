@@ -144,6 +144,8 @@ export async function billForm(user: OcUser, orderId: string) {
         unit: l.unit,
         rate: l.rate,
         amount: l.lineTotal,
+        /** free boxes (scheme): amount 0, `rate` = what they are worth */
+        free: l.free,
         hsn: sku.get(l.skuId)?.hsn ?? null,
         gst_rate: sku.get(l.skuId)?.gst_rate ?? null,
       })),
@@ -261,7 +263,8 @@ export async function makeBill(user: OcUser, raw: z.input<typeof MakeBillInput>)
         lines.map((l) => {
           const amount = paise(l.lineTotal);
           const x = extra.get(l.lineNo);
-          const lineDiscount = x?.discount ? paise(x.discount) : x?.discount_pct ? (amount * BigInt(Math.round(x.discount_pct * 100)) + 5000n) / 10000n : 0n;
+          // a free line (amount 0) takes no discount of its own
+          const lineDiscount = l.free ? 0n : x?.discount ? paise(x.discount) : x?.discount_pct ? (amount * BigInt(Math.round(x.discount_pct * 100)) + 5000n) / 10000n : 0n;
           return { amount, discount: lineDiscount, gst_rate: sku.get(l.skuId)?.gst_rate ?? null };
         }),
         input.discount ? paise(input.discount) : 0n,
@@ -324,11 +327,13 @@ export async function makeBill(user: OcUser, raw: z.input<typeof MakeBillInput>)
           skuId: l.skuId,
           skuCode: sku.get(l.skuId)?.sku_code ?? null,
           itemName: l.productName,
-          description: extra.get(l.lineNo)?.description || null,
+          description: extra.get(l.lineNo)?.description || (l.free ? "Free" : null),
           quantity: String(l.quantity),
           unit: l.unit,
           rate: l.rate,
-          discount: rupees(paise(l.lineTotal) - a.amount),
+          // a free line: worth rate × quantity, all of it taken off (line 0), so the bill and the Zoho file show the value
+          discount: l.free ? rupees(paise(l.rate) * BigInt(l.quantity)) : rupees(paise(l.lineTotal) - a.amount),
+          free: l.free,
           taxName: input.needs_gst ? `${place === gst!.state ? "GST" : "IGST"}${rate}` : null,
           taxPercent: input.needs_gst ? String(rate) : null,
           taxAmount: rupees(a.tax),

@@ -25,7 +25,7 @@ const link = (orderId: string) => `/o/${orderId}`;
 
 /** 1. A new order: owners + ticked people, not whoever saved it ("by WhatsApp" for the bot's orders). */
 export function newOrderNotification(user: OrderBy, o: SavedOrder): NotificationInput {
-  const lines = productsText(o.lines.map((l) => ({ sku_id: l.sku_id, product: l.product, unit: l.unit, quantity: l.quantity, rate: l.rate, total: l.total })));
+  const lines = productsText(o.lines);
   return {
     kind: "order_capture.new",
     title: title(`New order ${o.ref}: ${money(o.total)}`),

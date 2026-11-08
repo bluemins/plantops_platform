@@ -23,7 +23,7 @@ describe("age and the 2-day amber boundary", () => {
   });
 });
 
-const line = (sku_id: string, product: string, quantity: number, rate: string, unit = "box"): LineView => ({ sku_id, product, unit, quantity, rate, total: (quantity * Number(rate)).toFixed(2) });
+const line = (sku_id: string, product: string, quantity: number, rate: string, unit = "box"): LineView => ({ sku_id, product, unit, quantity, rate, total: (quantity * Number(rate)).toFixed(2), free: false });
 const v1 = [line("a", "500ml", 1, "90.00"), line("b", "1ltr", 2, "140.00")];
 
 describe("what changed between versions", () => {
