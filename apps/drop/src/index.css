@@ -1,0 +1,45 @@
+@import "tailwindcss";
+@import "konsta/react/theme.css";
+
+/* Fonts shipped inside the app (work offline). Baloo 2 headings (the Baloo family has an Odia cut, Baloo Bhaina 2,
+   for the Odia screens later), Noto Sans text. */
+@import "@fontsource/baloo-2/700.css";
+@import "@fontsource/baloo-2/800.css";
+@import "@fontsource/noto-sans/400.css";
+@import "@fontsource/noto-sans/600.css";
+@import "@fontsource/noto-sans/700.css";
+
+/* Drop blue until the plant's own colour arrives: src/theme.ts sets --color-brand (and --color-on-brand, dark text on
+   light colours) from Business details; the tints follow it. */
+@theme {
+  --color-brand-primary: #1d4ed8;
+  --color-brand: #1d4ed8;
+  --color-on-brand: #ffffff;
+  /* brand-coloured words on white: the brand colour, darkened by theme.ts when it is too light to read */
+  --color-link: var(--color-brand);
+  --color-faint: color-mix(in srgb, var(--color-brand) 6%, white);
+  --color-soft: color-mix(in srgb, var(--color-brand) 14%, white);
+  --color-mid: color-mix(in srgb, var(--color-brand) 42%, white);
+  --color-ink: #0f1b33;
+  --color-muted: #4a5873;
+  --color-line: #e3e9f2;
+  --color-well: #eef2f7;
+  --color-page: #f4f8fc;
+  --color-good: #0f6b4f;
+  --color-good-soft: #e3f5ee;
+  --font-display: "Baloo 2", system-ui, sans-serif;
+  --font-sans: "Noto Sans", system-ui, sans-serif;
+}
+
+html, body, #root { height: 100%; }
+body {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background: var(--color-page);
+}
+@layer components {
+  .card { background: #fff; border-radius: 24px; box-shadow: 0 6px 18px rgb(15 27 51 / 0.05); }
+  .card-lift { box-shadow: 0 12px 32px rgb(15 27 51 / 0.08); }
+}

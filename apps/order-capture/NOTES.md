@@ -532,3 +532,11 @@ Owner 2026-11-09 (plan `docs/CUSTOMER_APP_PHASE_PLAN.md` Phase 4, "Polls tab").
   the points and a thank-you text). Poll points now count in the Points tab, Home and the Drop card.
 - Shared: `src/server/drop/boxes.ts` (plant-wide boxes per shop like Home; `zohoUntil` now shared with Home).
 - Tests: `test/polls-lib.test.ts` (5), `test/drop-polls.test.ts` (6); guard lists updated.
+
+### 2026-11-09 — Drop Phase 5: the app's look + logo (v0.54.0)
+- `GET /api/app/v1/look` (app id only, no login: plant name, brand colour if a valid `#rrggbb`, has logo, customer
+  support phone / hours from Business details; 60 a minute per address) and `GET /api/app/v1/logo` (the plant's logo
+  image, 404 without one; cached 1 h). `src/server/drop/look.ts`; tests `test/drop-look.test.ts`.
+- The app itself is `apps/drop` (Drop 0.2.0, debug APK): Login, Home, Points, Polls; polls crash on tab switch fixed
+  (effect returned `scrollTo`'s Promise); Drop launcher icon, round and themed icon, splash.
+- `.dockerignore` leaves `apps/drop/android` out of every server image.

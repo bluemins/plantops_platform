@@ -380,7 +380,7 @@ Platform: **no migration, no SSO change.** `packages/types`: new notification ki
 | 2 | Sales: customer API for Home | v0.50.0, built 2026-11-09 (not deployed) |
 | 3 | Sales: points (settings, balance, record, free-box requests) | v0.51.0, built 2026-11-09 (not deployed) |
 | 4 | Sales: polls (owner page, results, answers, poll points) | v0.52.0, built 2026-11-09 (not deployed) |
-| 5 | Drop app: login, Home, Points, Polls | Drop 0.1 (test app on the owner's phone) |
+| 5 | Drop app: login, Home, Points, Polls | Drop 0.2.0 (debug APK) + Sales v0.54.0 (look / logo), **live 2026-11-09** |
 | 6 | Push notifications | Sales v0.53.0, Drop 0.2 |
 | 7 | Privacy policy, Play Store, load test, pilot | Drop 1.0 |
 | Later | Content (products, certificates, announcements, share kit), then support (issues, suggestions, replies) | after the pilot |

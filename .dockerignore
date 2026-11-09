@@ -7,3 +7,6 @@
 **/.data
 coverage
 .git
+
+# The Drop Android project is built on a computer, never in a server image
+apps/drop/android

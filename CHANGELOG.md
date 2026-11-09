@@ -4,6 +4,14 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.54.0 — 2026-11-09 — Drop Phase 5: the customer app + its look
+
+Owner, 2026-11-09. **No migration.** Platform and SSO token unchanged.
+- **Drop app** (`apps/drop`, Drop 0.2.0, debug-signed APK, Android): login with a WhatsApp code, Home, Points, Polls.
+  Fixed: the app crashed on a tab switch (Polls). New Drop icon (round and themed) and launch screen.
+- **Sales:** `/api/app/v1/look` (plant name, brand colour, logo yes / no, support phone and hours) and `/api/app/v1/logo`
+  for the app's header and login screen.
+
 ## v0.53.1 — 2026-11-09 — Sales: Drop polls easier to find, sample poll, close date
 
 Owner, 2026-11-09. **No migration.** Platform and SSO token unchanged.

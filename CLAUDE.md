@@ -2115,3 +2115,13 @@ the Paid holidays only ("🎉 Diwali"); choice leave only on the salary page, sl
 `0012_person_holidays.sql` (approved: one append-only table, FORCE RLS, SELECT + INSERT). Platform and SSO token
 unchanged. Notes: `apps/attendance-salary/NOTES.md`. Tests: Attendance 500 (+20). Owner after deploy: paste Ramu's list
 from November, then cancel the 8 h added on 8 Nov (he didn't work Diwali).
+
+### 2026-11-09 — Drop Phase 5: the customer app — live (v0.54.0, Drop 0.2.0)
+`apps/drop` (Capacitor 8 + React 19 + Tailwind 4 + Konsta UI; plan `docs/CUSTOMER_APP_PHASE_PLAN.md` Phase 5): login
+(phone + WhatsApp code), Home, Points, Polls; session in Android secure storage; plant name / colour / logo / support
+phone from the new Sales `GET /api/app/v1/look` and `/logo` (no login, public things only). Debug-signed APK sent to a
+few shops directly (Play comes in Phase 7). Fixed before release: a crash on tab switch (an effect returned
+`scrollTo`'s Promise). Drop icon, themed icon and splash. Also v0.53.1: owner's Sales front page links Drop polls,
+"Fill in a sample poll", poll pages show the last open day. No migration; SSO token unchanged. Tests: Sales 1,018,
+Drop 12. **Next:** Phase 6 (push notifications) in plan mode.
+

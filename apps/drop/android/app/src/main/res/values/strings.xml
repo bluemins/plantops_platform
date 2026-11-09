@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Drop</string>
+    <string name="title_activity_main">Drop</string>
+    <string name="package_name">life.bluemins.drop</string>
+    <string name="custom_url_scheme">life.bluemins.drop</string>
+</resources>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <!-- Drop app icon, 108 × 108 adaptive canvas (launchers show the middle 72; keep the drop inside the 66 circle). -->
+  <rect width="108" height="108" fill="#1d4ed8"/>
+  <g transform="translate(22.8 23.45) scale(2.6)">
+    <path d="M12 2 C12 2 5 10 5 14.5 a7 7 0 0 0 14 0 C19 10 12 2 12 2 Z" fill="#ffffff"/>
+    <path d="M15.4 12.6 Q17.1 15.1 16.1 17.9" fill="none" stroke="#1d4ed8" stroke-opacity="0.3" stroke-width="1.3" stroke-linecap="round"/>
+  </g>
+</svg>
