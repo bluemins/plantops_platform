@@ -132,6 +132,7 @@ describe("Art and colour", () => {
     expect(kindOf("20L", "jar")).toBe("jar");
     expect(kindOf("20 L")).toBe("jar");
     expect(kindOf("500ml", "box")).toBe("small");
+    expect(kindOf("250ml", "box")).toBe("tiny");
     expect(kindOf("1L", "box")).toBe("bottle");
   });
   it("white text on dark brand colours, dark text on light ones", () => {

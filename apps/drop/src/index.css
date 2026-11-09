@@ -9,17 +9,21 @@
 @import "@fontsource/noto-sans/600.css";
 @import "@fontsource/noto-sans/700.css";
 
-/* Drop blue until the plant's own colour arrives: src/theme.ts sets --color-brand (and --color-on-brand, dark text on
+/* Drop's label blue until the plant's own colour arrives: src/theme.ts sets --color-brand (and --color-on-brand, dark text on
    light colours) from Business details; the tints follow it. */
 @theme {
-  --color-brand-primary: #1d4ed8;
-  --color-brand: #1d4ed8;
+  --color-brand-primary: #2a3a9a;
+  --color-brand: #2a3a9a;
   --color-on-brand: #ffffff;
   /* brand-coloured words on white: the brand colour, darkened by theme.ts when it is too light to read */
   --color-link: var(--color-brand);
-  --color-faint: color-mix(in srgb, var(--color-brand) 6%, white);
-  --color-soft: color-mix(in srgb, var(--color-brand) 14%, white);
+  /* pale panels and the tab pill: the water's sky blue, very light (like the label's white-and-sky top) */
+  --color-faint: color-mix(in srgb, var(--color-sky) 9%, white);
+  --color-soft: color-mix(in srgb, var(--color-sky) 22%, white);
   --color-mid: color-mix(in srgb, var(--color-brand) 42%, white);
+  /* the water: a sky blue leaning towards the plant's colour (the bottle label's wave), and its pale tint */
+  --color-sky: color-mix(in srgb, #7fd0f2 85%, var(--color-brand));
+  --color-sky-soft: color-mix(in srgb, var(--color-sky) 20%, white);
   --color-ink: #0f1b33;
   --color-muted: #4a5873;
   --color-line: #e3e9f2;

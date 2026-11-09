@@ -1,2 +1,4 @@
 node_modules/
 dist/
+# Firebase app settings (from the Firebase console; the owner puts it here before building)
+android/app/google-services.json

@@ -7,6 +7,7 @@ import { schema, withTenant } from "../db";
 import { appOf, DropError } from "./api";
 import type { DropApp } from "./config";
 import { tokenHash, TOKEN_RE } from "./login";
+import { removeSessionDevices } from "./push";
 import { dropAccess, sessionProblem } from "./shops";
 
 const { appSessions, auditLog, customers } = schema;
@@ -62,7 +63,8 @@ export async function logout(req: Request, now = new Date()) {
       .update(appSessions)
       .set({ endedAt: now, endReason: "logout" })
       .where(and(eq(appSessions.tenantId, app.tenantId), eq(appSessions.tokenSha256, tokenHash(token)), isNull(appSessions.endedAt)))
-      .returning({ customerId: appSessions.customerId });
+      .returning({ id: appSessions.id, customerId: appSessions.customerId });
+    if (s) await removeSessionDevices(tx, app.tenantId, s.id, now);
     if (s) await tx.insert(auditLog).values({ tenantId: app.tenantId, actor: `drop-app:${s.customerId}`, action: "app.logout", target: s.customerId, details: { by: "Drop app" } });
   });
 }

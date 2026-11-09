@@ -64,7 +64,7 @@ export function WavingDrop({ className }: { className?: string }) {
 export function Waves() {
   return (
     <svg viewBox="0 0 390 70" preserveAspectRatio="none" className="absolute inset-x-0 bottom-0 h-[70px] w-full" aria-hidden>
-      <path d="M0 30 C70 6 140 54 210 30 C280 8 330 40 390 22 L390 70 L0 70 Z" fill="#fff" opacity="0.18" />
+      <path d="M0 30 C70 6 140 54 210 30 C280 8 330 40 390 22 L390 70 L0 70 Z" className="fill-sky" />
       <path d="M0 46 C80 24 150 66 220 44 C290 24 340 56 390 40 L390 70 L0 70 Z" className="fill-page" />
     </svg>
   );
@@ -103,34 +103,49 @@ export function TruckArt() {
   );
 }
 
-export type Kind = "jar" | "small" | "bottle";
-/** Which picture a product gets, from its size / unit ("20L" or a jar → jar; ml → small bottle; else bottle). */
+export type Kind = "jar" | "bottle" | "small" | "tiny";
+/** Which picture a product gets, from its size / unit ("20L" or a jar → jar; up to 300 ml → tiny; other ml → small;
+ *  else the 1 L bottle). */
 export function kindOf(size: string, unit = ""): Kind {
   const s = `${size} ${unit}`.toLowerCase();
   if (/jar|can|\b(1[5-9]|2\d)\s*l/.test(s)) return "jar";
-  if (/ml/.test(s)) return "small";
+  const ml = /(\d+)\s*ml/.exec(s);
+  if (ml) return Number(ml[1]) <= 300 ? "tiny" : "small";
   return "bottle";
 }
 
-/** A product picture in a tinted square (order lines). */
+const BOTTLE_H: Record<Exclude<Kind, "jar">, number> = { bottle: 1, small: 0.8, tiny: 0.62 };
+
+/** The square ribbed bottle (cap, ribs, a tall label with the plant's colour at its foot and the water wave). */
+export function Bottle({ kind, height }: { kind: Exclude<Kind, "jar">; height: number }) {
+  const h = height * BOTTLE_H[kind];
+  return (
+    <svg viewBox="0 0 40 100" style={{ height: h, width: h * 0.4 }} aria-hidden>
+      <rect x="13" y="2" width="14" height="9" rx="2" className="fill-brand" />
+      <path d="M15 11 H25 V17 L32 30 V94 Q32 98 28 98 H12 Q8 98 8 94 V30 L15 17 Z" fill="#fff" className="stroke-sky" strokeWidth="1.6" />
+      <path d="M8 40H32M8 47H32M8 54H32M8 61H32M8 68H32M8 75H32M8 82H32M8 89H32" className="stroke-sky-soft" strokeWidth="1.2" />
+      <rect x="15" y="34" width="10" height="56" rx="1.5" fill="#fff" className="stroke-sky" strokeWidth="1" />
+      <path d="M15 66 Q18 63 20 66 T25 66 V72 H15 Z" className="fill-sky" />
+      <rect x="15" y="72" width="10" height="18" className="fill-brand" />
+    </svg>
+  );
+}
+
+/** A product picture in a tinted square (order lines): the jar, or the bottle in its size. */
 export function ProductIcon({ kind }: { kind: Kind }) {
   return (
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-soft">
-      <svg viewBox="0 0 24 24" className={kind === "jar" ? "h-7 w-7" : kind === "small" ? "h-[22px] w-[22px]" : "h-[26px] w-[26px]"} aria-hidden>
-        {kind === "jar" ? (
+    <span className="flex h-12 w-11 shrink-0 items-end justify-center rounded-xl bg-sky-soft pb-0.5">
+      {kind === "jar" ? (
+        <svg viewBox="0 0 24 24" className="mb-1.5 h-8 w-8" aria-hidden>
           <g className="fill-brand">
             <rect x="9" y="1" width="6" height="3" rx="1" />
             <path d="M8 4.5 L16 4.5 L17 7 Q21 8 21 12 L21 21 Q21 23 19 23 L5 23 Q3 23 3 21 L3 12 Q3 8 7 7 Z" />
             <path d="M3 15 L21 15 M3 19 L21 19" stroke="#fff" strokeWidth="1.4" opacity="0.7" />
           </g>
-        ) : (
-          <g>
-            <rect x="9.5" y="1.5" width="5" height="3" rx="1" className="fill-brand" />
-            <path d="M9 5 L15 5 L15 7 Q18 9 18 12 L18 21 Q18 23 16 23 L8 23 Q6 23 6 21 L6 12 Q6 9 9 7 Z" className="fill-brand" />
-            <rect x="6" y="13" width="12" height="5" fill="#fff" opacity="0.85" />
-          </g>
-        )}
-      </svg>
+        </svg>
+      ) : (
+        <Bottle kind={kind} height={44} />
+      )}
     </span>
   );
 }
@@ -161,7 +176,7 @@ export function DropGauge({ progress, label }: { progress: number; label: string
       </defs>
       <path d={DROP} fill="#fff" />
       <g clipPath="url(#drop-gauge)">
-        <path transform={`translate(0 ${level - 18})`} d="M-20 12 C20 0 50 24 90 12 C130 0 160 24 200 12 C220 6 232 10 250 12 L250 320 L-20 320 Z" className="fill-mid" />
+        <path transform={`translate(0 ${level - 18})`} d="M-20 12 C20 0 50 24 90 12 C130 0 160 24 200 12 C220 6 232 10 250 12 L250 320 L-20 320 Z" className="fill-sky" />
         <g transform={`translate(0 ${level - 10})`}>
           <path d="M-30 10 C10 22 40 -2 80 10 C120 22 150 -2 190 10 C215 18 232 12 250 10 L250 320 L-30 320 Z" className="fill-brand" />
           <g fill="#fff">
@@ -178,7 +193,7 @@ export function DropGauge({ progress, label }: { progress: number; label: string
   );
 }
 
-/** A free-box reward: a cardboard box with the drop, or a 20 L jar. */
+/** A free-box reward: the bottle in its size, or a 20 L jar. */
 export function RewardArt({ kind, className = "h-14 w-[60px]" }: { kind: Kind; className?: string }) {
   return (
     <svg viewBox="0 0 60 56" className={`shrink-0 ${className}`} aria-hidden>
@@ -190,13 +205,14 @@ export function RewardArt({ kind, className = "h-14 w-[60px]" }: { kind: Kind; c
           <path d="M16 22 Q16 18 20 17" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
         </>
       ) : (
-        <>
-          <path d="M6 18 L30 26 L30 54 L6 46 Z" fill="#e9c79a" />
-          <path d="M30 26 L54 18 L54 46 L30 54 Z" fill="#d6a86f" />
-          <path d="M6 18 L30 10 L54 18 L30 26 Z" fill="#f3d9b1" />
-          <path d="M18 14 L42 22 L42 30 L36 28 L36 21 L12 16 Z" fill="#fff" opacity="0.55" />
-          <path d="M18 30 C18 30 13 36 13 39 a5 5 0 0 0 10 0 C23 36 18 30 18 30 Z" className="fill-brand" />
-        </>
+        <g transform={`translate(${30 - 20 * 0.56 * BOTTLE_H[kind]} ${56 - 100 * 0.56 * BOTTLE_H[kind]}) scale(${0.56 * BOTTLE_H[kind]})`}>
+          <rect x="13" y="2" width="14" height="9" rx="2" className="fill-brand" />
+          <path d="M15 11 H25 V17 L32 30 V94 Q32 98 28 98 H12 Q8 98 8 94 V30 L15 17 Z" fill="#fff" className="stroke-sky" strokeWidth="1.6" />
+          <path d="M8 40H32M8 47H32M8 54H32M8 61H32M8 68H32M8 75H32M8 82H32M8 89H32" className="stroke-sky-soft" strokeWidth="1.2" />
+          <rect x="15" y="34" width="10" height="56" rx="1.5" fill="#fff" className="stroke-sky" strokeWidth="1" />
+          <path d="M15 66 Q18 63 20 66 T25 66 V72 H15 Z" className="fill-sky" />
+          <rect x="15" y="72" width="10" height="18" className="fill-brand" />
+        </g>
       )}
     </svg>
   );

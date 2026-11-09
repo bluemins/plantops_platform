@@ -561,3 +561,35 @@ export const pollAnswers = oc.table("poll_answers", {
   pointsReason: text("points_reason").$type<PollReason>().notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
+
+// ---------- Drop push (0015): shops' phones and the push outbox ----------
+export type DeviceRemoveReason = "logout" | "session_ended" | "unregistered" | "replaced";
+export type PushKind = "order_received" | "order_delivered" | "new_poll" | "free_box" | "points_ending";
+export type PushTab = "home" | "points" | "polls";
+
+export const appDevices = oc.table("app_devices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  sessionId: uuid("session_id").notNull(),
+  fcmToken: text("fcm_token").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  removedAt: ts("removed_at"),
+  removeReason: text("remove_reason").$type<DeviceRemoveReason>(),
+});
+
+export const appPushOutbox = oc.table("app_push_outbox", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  deviceId: uuid("device_id").notNull(),
+  kind: text("kind").$type<PushKind>().notNull(),
+  dedupeKey: text("dedupe_key").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  tab: text("tab").$type<PushTab>().notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  tries: integer("tries").notNull().default(0),
+  nextTryAt: ts("next_try_at").notNull().defaultNow(),
+  sentAt: ts("sent_at"),
+  gaveUpAt: ts("gave_up_at"),
+  lastError: text("last_error"),
+});

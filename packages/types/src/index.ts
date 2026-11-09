@@ -400,6 +400,7 @@ export const NOTIFICATION_KINDS: Record<
   "order_capture.bill_cancelled": { module: "order_capture", label: "Bill cancelled", bellOnly: true },
   "order_capture.payment_cancelled": { module: "order_capture", label: "Payment cancelled", bellOnly: true },
   "order_capture.drop_redeem": { module: "order_capture", label: "Drop: a shop asked for a free box (points)" },
+  "order_capture.drop_push_failed": { module: "order_capture", label: "Drop: pushes to shops' phones are failing", bellOnly: true },
   "attendance_salary.corrected": { module: "attendance_salary", label: "Your attendance was changed", aboutYou: true },
   "attendance_salary.outside": { module: "attendance_salary", label: "Mark refused: outside the plant", bellOnly: true },
   "attendance_salary.no_exit": { module: "attendance_salary", label: "People who didn't mark OUT (morning)", bellOnly: true },

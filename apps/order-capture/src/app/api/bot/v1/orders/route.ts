@@ -1,5 +1,7 @@
 import { after } from "next/server";
 import { botCreateOrder, botRoute, notifyBotOrder, OrderCreateInput } from "@/server/bot";
+import { dropAppOfPlant } from "@/server/drop/config";
+import { pushOrder } from "@/server/drop/push";
 import { kit } from "@/server/kit";
 
 /**
@@ -9,5 +11,6 @@ import { kit } from "@/server/kit";
 export const POST = botRoute(OrderCreateInput, async (key, input) => {
   const { order, answer } = await botCreateOrder(key, input);
   if (order.created) after(() => kit.notify(key.tenant_id, notifyBotOrder(key, order)));
+  if (order.created && dropAppOfPlant(key.tenant_id)) after(() => pushOrder(key.tenant_id, order.id, "received"));
   return Response.json(answer, { status: order.created ? 201 : 200 });
 });

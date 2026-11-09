@@ -4,6 +4,16 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.55.0 — 2026-11-09 — Drop Phase 6: push notifications + the bottle's look
+
+Owner, 2026-11-09. **Migration:** Sales `0015_drop_push.sql` (two new tables, FORCE RLS, SELECT + INSERT, retry /
+removal columns only). Platform: one new alert kind (`order_capture.drop_push_failed`). SSO token unchanged.
+- Shops' phones get pushes: order received / delivered (sizes and boxes, never money), new poll, free box on its way,
+  points ending (1 Dec, 15 Jan). New setting `FCM_SERVICE_ACCOUNT` on `order-capture`; new cron-job.org job
+  `POST /api/cron/drop-push` every 5 minutes.
+- Drop 0.3.0: pushes, and the look of the bottle label (label blue, sky-blue water, the real bottle shapes, new icon
+  and launch screen).
+
 ## v0.54.0 — 2026-11-09 — Drop Phase 5: the customer app + its look
 
 Owner, 2026-11-09. **No migration.** Platform and SSO token unchanged.

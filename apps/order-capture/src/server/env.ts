@@ -97,6 +97,20 @@ export const env = {
   get dropCodeSecret() {
     return process.env.DROP_CODE_SECRET ?? "";
   },
+  /**
+   * Drop push (src/server/drop/fcm.ts): the Firebase service-account key as JSON (project_id, client_email,
+   * private_key). Empty = no pushes are sent (they wait in the outbox, given up after 3 days).
+   */
+  get fcmServiceAccount() {
+    return process.env.FCM_SERVICE_ACCOUNT ?? "";
+  },
+  /** only tests change these (a fake Firebase) */
+  get fcmApiUrl() {
+    return process.env.FCM_API_URL ?? "https://fcm.googleapis.com";
+  },
+  get fcmTokenUrl() {
+    return process.env.FCM_TOKEN_URL ?? "";
+  },
   /** only tests change it (a fake Twilio) */
   get twilioApiUrl() {
     return process.env.TWILIO_API_URL ?? "https://api.twilio.com";

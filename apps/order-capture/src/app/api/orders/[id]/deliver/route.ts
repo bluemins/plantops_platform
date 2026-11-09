@@ -1,4 +1,6 @@
 import { after } from "next/server";
+import { dropAppOfPlant } from "@/server/drop/config";
+import { pushOrder } from "@/server/drop/push";
 import { deliverOrder, DeliverInput } from "@/server/handling";
 import { handle, json, readJson, uuidParam } from "@/server/http";
 import { kit } from "@/server/kit";
@@ -14,7 +16,9 @@ type Ctx = { params: Promise<{ id: string }> };
  */
 export const POST = handle(async (req, ctx: Ctx) => {
   const user = await requireApiUser();
-  const { status, event, thanks_queued } = await deliverOrder(user, uuidParam((await ctx.params).id), await readJson(req, DeliverInput));
+  const id = uuidParam((await ctx.params).id);
+  const { status, event, thanks_queued } = await deliverOrder(user, id, await readJson(req, DeliverInput));
+  if (dropAppOfPlant(user.tenantId)) after(() => pushOrder(user.tenantId, id, "delivered"));
   const note = deliveredNotification(user, event);
   if (note) after(() => kit.notify(user.tenantId, note));
   if (thanks_queued) after(() => sendPending(user.tenantId).catch((err) => console.error("[order-capture] WhatsApp thank-you failed:", (err as Error).message)));

@@ -124,7 +124,9 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
   await asApp(tenantId, `insert into order_capture.app_access_changes (tenant_id, customer_id, enabled, changed_by, changed_by_name) values ('${tenantId}', '${customer}', true, '${who}', 'Sujata')`);
   await asApp(tenantId, `insert into order_capture.app_phone_changes (tenant_id, customer_id, phone, action, changed_by, changed_by_name) values ('${tenantId}', '${customer}', '7008099887', 'add', '${who}', 'Sujata')`);
   await asApp(tenantId, `insert into order_capture.app_login_codes (tenant_id, customer_id, phone, code_hmac, expires_at) values ('${tenantId}', '${customer}', '${phone}', repeat('a', 64), now() + interval '10 minutes')`);
-  await asApp(tenantId, `insert into order_capture.app_sessions (tenant_id, customer_id, phone, token_sha256, expires_at) values ('${tenantId}', '${customer}', '${phone}', encode(sha256(gen_random_uuid()::text::bytea), 'hex'), now() + interval '90 days')`);
+  const session = await one(`insert into order_capture.app_sessions (tenant_id, customer_id, phone, token_sha256, expires_at) values ('${tenantId}', '${customer}', '${phone}', encode(sha256(gen_random_uuid()::text::bytea), 'hex'), now() + interval '90 days') returning id`);
+  const device = await one(`insert into order_capture.app_devices (tenant_id, session_id, fcm_token) values ('${tenantId}', '${session}', 'fcm-' || encode(sha256(gen_random_uuid()::text::bytea), 'hex')) returning id`);
+  const push = await one(`insert into order_capture.app_push_outbox (tenant_id, device_id, kind, dedupe_key, title, body, tab) values ('${tenantId}', '${device}', 'order_received', 'order:${order}:received', 'Order received', '1L × 20 box', 'home') returning id`);
   // Drop points (0013): a settings row and a free box asked, on the order
   await asApp(tenantId, `insert into order_capture.points_settings (tenant_id, effective_from, start_date, rewards, changed_by, changed_by_name)
     values ('${tenantId}', '2026-11-01', '2026-11-01', '[{"sku_id": "${sku1l}", "label": "1ltr", "points": 800}]', '${who}', 'Sujata')`);
@@ -135,12 +137,12 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
     values ('${tenantId}', 'Which size sells most?', '{1L,500ml}', '{Bluemins}', now() - interval '1 day', now() + interval '6 days', '${who}', 'Sujata') returning id`);
   const answer = await one(`insert into order_capture.poll_answers (tenant_id, poll_id, customer_id, phone, choice, points, points_reason)
     values ('${tenantId}', '${poll}', '${customer}', '${phone}', 0, 10, 'counted') returning id`);
-  return { poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
+  return { device, push, poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
 }
 
 /** The tables in the order_capture schema (the guard tests compare against this list). */
 export const TABLES = [
-  "app_access_changes", "app_login_codes", "app_phone_changes", "app_sessions",
+  "app_access_changes", "app_devices", "app_login_codes", "app_phone_changes", "app_push_outbox", "app_sessions",
   "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
   "ignored_number_changes", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "points_redemptions", "points_settings", "poll_answers", "polls", "product_rates",
   "reminder_groups", "support_views", "zoho_contacts", "zoho_imports",

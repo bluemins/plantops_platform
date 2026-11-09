@@ -1,4 +1,6 @@
+import { after } from "next/server";
 import { z } from "zod";
+import { pushFreeBoxes } from "@/server/drop/push";
 import { addRewardToOrder } from "@/server/drop/points";
 import { handle, json, readJson, uuidParam } from "@/server/http";
 import { requireApiUser } from "@/server/session";
@@ -10,5 +12,7 @@ const Input = z.object({ order_id: z.uuid() });
 export const POST = handle(async (req, ctx: Ctx) => {
   const user = await requireApiUser();
   const { order_id } = await readJson(req, Input);
-  return json(await addRewardToOrder(user, uuidParam((await ctx.params).id), order_id));
+  const done = await addRewardToOrder(user, uuidParam((await ctx.params).id), order_id);
+  after(() => pushFreeBoxes(user.tenantId, order_id));
+  return json(done);
 });

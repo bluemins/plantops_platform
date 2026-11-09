@@ -540,3 +540,21 @@ Owner 2026-11-09 (plan `docs/CUSTOMER_APP_PHASE_PLAN.md` Phase 4, "Polls tab").
 - The app itself is `apps/drop` (Drop 0.2.0, debug APK): Login, Home, Points, Polls; polls crash on tab switch fixed
   (effect returned `scrollTo`'s Promise); Drop launcher icon, round and themed icon, splash.
 - `.dockerignore` leaves `apps/drop/android` out of every server image.
+
+### 2026-11-09 — Drop Phase 6: push notifications (v0.55.0, built, not deployed)
+- Migration `0015_drop_push.sql` (approved by the owner 2026-11-09): `app_devices` (a phone per login + Firebase token;
+  removed, never deleted) and `app_push_outbox` (one row per phone and event; retry columns only); FORCE RLS, SELECT +
+  INSERT; `app_push_tenants()`.
+- `src/server/drop/fcm.ts`: FCM HTTP v1 without an SDK (service-account JWT signed with Node crypto, token cached);
+  `FCM_SERVICE_ACCOUNT` (broken = listed by `/health`, pushes off). `src/server/drop/push.ts`: order received / delivered
+  (only lines of the shop's Drop brands, sizes and boxes, never money), free box on an order, new poll (open, the
+  shop's brands, not answered), points ending (1 Dec, 15 Jan, daily job). Sent after the answer and by
+  `POST /api/cron/drop-push` (cron-job.org every 5 minutes; 200 per plant per run; growing wait; given up after 3 days;
+  Firebase "gone" removes the phone). Key refused for an hour → `order_capture.drop_push_failed` (bell).
+- `POST /api/app/v1/devices`; logout removes the session's phones; an ended / expired session gets nothing.
+- Owner decisions 2026-11-09: push for every order (staff and bot), job every 5 minutes.
+- Tests: `test/drop-push.test.ts` (10); guards updated. Sales 1028, platform 426.
+- Drop 0.3.0: `@capacitor/push-notifications` 8.1.3 (asks after login, tap opens the tab, channel `drop`, small icon
+  `ic_stat_drop`); the product look (owner: mock-up https://claude.ai/artifact/WAxBV11GadnCSzAgm8KED8, icon B, brand
+  colour #2a3a9a in Business details): sky-blue water tints from the plant's colour, the square ribbed bottle in three
+  sizes (1 L / 500 ml / ≤ 300 ml), icon with the water wave, splash with the wave. `google-services.json` is not in git.

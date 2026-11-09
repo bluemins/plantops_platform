@@ -157,12 +157,19 @@ describe("append-only for order_app", () => {
       `update order_capture.polls set closes_at = now()`,
       `update order_capture.poll_answers set choice = 1`,
       `update order_capture.poll_answers set points = 0`,
+      // Drop push (0015): a phone's token and login never change (only its removal); a push's text never changes
+      `update order_capture.app_devices set fcm_token = 'fcm-xxxxxxxxxxxxxxxxxxxx'`,
+      `update order_capture.app_devices set session_id = gen_random_uuid()`,
+      `update order_capture.app_push_outbox set title = 'Changed'`,
+      `update order_capture.app_push_outbox set body = 'Changed'`,
+      `update order_capture.app_push_outbox set device_id = gen_random_uuid()`,
+      `update order_capture.app_push_outbox set dedupe_key = 'x'`,
     ];
   };
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(87 + 14 + 19 + 2 + 11 + 6 + 9 + 8 + 6 + 4 + 6 + 4 + 5); // + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008); bill_settings (delete, truncate) and 11 locked bill-field updates (0009); the three customer tables (delete, truncate) and 9 locked updates (0010), and the customer's phone is no longer locked (the owner may change it, D3); the four Drop tables (delete, truncate) and 6 locked updates (0012)
+    expect(list.length).toBe(87 + 14 + 19 + 2 + 11 + 6 + 9 + 8 + 6 + 4 + 6 + 4 + 5 + 4 + 6); // + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008); bill_settings (delete, truncate) and 11 locked bill-field updates (0009); the three customer tables (delete, truncate) and 9 locked updates (0010), and the customer's phone is no longer locked (the owner may change it, D3); the four Drop tables (delete, truncate) and 6 locked updates (0012)
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 

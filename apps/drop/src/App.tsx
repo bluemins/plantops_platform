@@ -5,6 +5,7 @@ import { App as CapApp } from "@capacitor/app";
 import { Gift, House, LogOut, MessageCircleQuestion, RefreshCw } from "lucide-react";
 import { API, call, type Look } from "./api";
 import { DropMark } from "./art";
+import { startPush } from "./push";
 import { clearToken, loadToken, saveToken } from "./session";
 import { applyBrand } from "./theme";
 import { t } from "./text/en";
@@ -44,6 +45,9 @@ export default function App() {
       void r.then((x) => x.remove());
     };
   }, []);
+
+  // pushes for this login: asks once, signs the phone up; a tapped push opens its tab
+  useEffect(() => (token ? startPush(token, setTab) : undefined), [token]);
 
   // a new tab starts at its top
   // (braces: newer web views return a Promise from scrollTo, and React would call it as the clean-up → crash)
