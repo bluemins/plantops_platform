@@ -366,7 +366,7 @@ Platform: **no migration, no SSO change.** `packages/types`: new notification ki
 |---|---|---|
 | 0 | Accounts, template, Firebase, decisions | done 2026-11-08 (D-U-N-S pending) |
 | 1 | Sales: Drop switch, phones, login | Sales v0.49.0, **live 2026-11-09** (`2e21f24`) |
-| 2 | Sales: customer API for Home | v0.50.0 |
+| 2 | Sales: customer API for Home | v0.50.0, built 2026-11-09 (not deployed) |
 | 3 | Sales: points (settings, balance, record, free-box requests) | v0.51.0 |
 | 4 | Sales: polls (owner page, results, answers, poll points) | v0.52.0 |
 | 5 | Drop app: login, Home, Points, Polls | Drop 0.1 (test app on the owner's phone) |
@@ -415,6 +415,9 @@ Bluemins (1L / 500ml / 250ml bottles), Mr.Charge, Hemex, **Bluemins 20L** (20 L 
   audit trail; Order desk can add phones but not switch on; support read-only; append-only refusals for `order_app`.
 
 ### Phase 2: Sales: customer API for Home
+**Built 2026-11-09** (notes: `apps/order-capture/NOTES.md` v0.50.0). Changes from the plan: `orders` is a list (`[]` = none);
+a bill with no lines (Zoho opening balance) counts to the main brand (owner); old Zoho lines find their product by SKU code
+or name (with or without the brand in front), so no Zoho names are in code.
 - `GET /api/app/v1/home` → `{ shop: { name }, order: [...] | null, dues: [{ brand, paise }], boxes: { brand: {...} } | null,
   support: { phone, hours }, news: {...} | null }`, built in `src/server/drop/home.ts`; box totals rules in a pure
   `src/lib/box-totals.ts` (Bluemins-bottle match by brand tag or the Zoho names in plan 20).

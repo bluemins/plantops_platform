@@ -67,7 +67,7 @@ const ownedBy = <T extends { customerId: unknown; zohoContactId: unknown }>(t: T
   );
 
 /** Every ledger row of one party, as the money rules want them. */
-async function partyFacts(tx: OcTx, tenantId: string, customerId: string | null, contactIds: string[]) {
+export async function partyFacts(tx: OcTx, tenantId: string, customerId: string | null, contactIds: string[]) {
   const b = await tx.select().from(bills).where(and(eq(bills.tenantId, tenantId), ownedBy(bills, customerId, contactIds)));
   const p = await tx.select().from(payments).where(and(eq(payments.tenantId, tenantId), ownedBy(payments, customerId, contactIds)));
   const billIds = b.map((x) => x.id);

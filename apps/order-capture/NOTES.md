@@ -450,3 +450,27 @@ The server side of the Drop customer app's login, plus the staff screens to swit
   Order desk's card page without Make main, Drop shops with the three numbers, "Drop phones" on Order desk's list).
   Found and fixed: the Drop card ran its four reads at once on one transaction (pg's "already executing" warning); now
   one after another. Dev note: `.env`'s `PLATFORM_URL` is an old LAN address (192.168.1.2); the check used localhost.
+
+## 2026-11-09 — v0.50.0: Drop Phase 2 (customer API for Home)
+Owner 2026-11-09 (plan `docs/CUSTOMER_APP_PHASE_PLAN.md` Phase 2). `GET /api/app/v1/home` (Drop session; 30 a minute per
+session, 120 per connection; `no-store`), built in `src/server/drop/home.ts` field by field. **No migration, no new
+setting; platform and SSO token unchanged.** Nothing calls it until the app (Phase 5).
+- **Answer:** `shop { name }`, `orders` (pending = "received" with its date, delivered today with the time; per product
+  `{ product, size, unit, qty, free }`, only the shop's brands; an order with none of them left out; `[]` = nothing on the
+  way), `dues` (one per brand the shop sees, paise), `boxes` (`{ <main brand>: this_month / last_month with sizes,
+  this_year + last_year_same_days }` or null), `support { phone, hours }` (Business details) or null, `news: null`.
+  Never rates, order / bill amounts, refs, notes, history or staff names (a test searches the answer).
+- **Which product a line is** (`lineMatcher` in `src/lib/brand.ts`): its product link; else (old Zoho lines) the one
+  product with the same SKU code, name, or name without its brand words in front (Zoho "1L Water Bottle" → "Bluemins
+  1L Water Bottle"); two fitting = none. Brand = Rates brand or the guess, as everywhere. Size from `volume_ml`.
+- **Due per brand** (`src/lib/brand-due.ts`, D3): the account page's bills (`partyFacts`, now exported from
+  `src/server/ledger.ts`); each bill's due split by the brands' share of its line values with GST (like Reports),
+  leftover paisa to the largest share; **a bill with no line value (a Zoho opening balance) goes to the main brand**
+  (owner, 2026-11-09); lines with no brand stay "Other" (never sent); the unused advance is not taken off.
+- **Box totals** (`src/lib/box-totals.ts`, 18.5 / 20.3 / D4): non-cancelled bills (no opening balances) by bill date +
+  delivered orders without a live bill by delivery date, each box once, free lines never; the main brand only (so
+  "Bluemins 20L", Mr.Charge, Hemex don't count); this year against the same days last year (as "Buying & paying");
+  null when the shop bought none of the main brand in the last 12 months.
+- Made while building: `orders` is a list (`[]` for none) instead of `order | null` (a shop can have two on the way);
+  the 12-month window and month / year edges use India dates.
+- Tests: `test/brand-due.test.ts` (8), `test/box-totals.test.ts` (4), `test/drop-home.test.ts` (6).
