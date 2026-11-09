@@ -2125,3 +2125,15 @@ few shops directly (Play comes in Phase 7). Fixed before release: a crash on tab
 "Fill in a sample poll", poll pages show the last open day. No migration; SSO token unchanged. Tests: Sales 1,018,
 Drop 12. **Next:** Phase 6 (push notifications) in plan mode.
 
+
+### 2026-11-09 — Drop Phase 6: push notifications + the bottle's look — live (v0.55.0, Drop 0.3.1)
+Sales migration `0015_drop_push.sql` (approved: `app_devices`, `app_push_outbox`; FORCE RLS, SELECT + INSERT, removal /
+retry columns only). FCM HTTP v1 without an SDK (`FCM_SERVICE_ACCOUNT` on `order-capture`); pushes for order received /
+delivered (the shop's Drop brands, sizes and boxes, never money), new poll, free box, points ending (1 Dec, 15 Jan);
+sent after the answer and by `POST /api/cron/drop-push` (cron-job.org, every 5 min, POST). Platform kind
+`order_capture.drop_push_failed`. Drop 0.3.1: push (asks after login, tap opens the tab) and the label's look (owner's
+mock-up https://claude.ai/artifact/WAxBV11GadnCSzAgm8KED8: brand colour #2a3a9a in Business details, sky-blue water,
+square ribbed bottles in three sizes, icon B with the water wave). **Verified on the owner's Android phone:** sign-up
+21:54, "New poll" push 22:00, new icon on the home screen. SSO token unchanged. Tests: Sales 1028, platform 426, Drop
+12. **Next:** Phase 7 (privacy policy, Play Store after the D-U-N-S number, pilot shops); rotate `CRON_SECRET` (it
+appeared in a screenshot).
