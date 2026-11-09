@@ -12,3 +12,5 @@ next-env.d.ts
 # Personal Claude Code settings (not shared)
 .claude/settings.local.json
 .data/
+# Windows "downloaded" notes next to copied files
+*:Zone.Identifier
