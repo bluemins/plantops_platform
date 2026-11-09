@@ -12,6 +12,7 @@ import { normalisePhone } from "@plantops/module-kit/phone";
 import { effectiveBrand } from "@/lib/brand";
 import { ageOf, withoutAmounts, type LineView } from "@/lib/history";
 import { fromPaise, toPaise, unitsText } from "@/lib/money";
+import { rewardsOnOrders } from "./drop/points";
 import { formatRef } from "@/lib/ref";
 import { can, requireAccess } from "./access";
 import { audit } from "./audit";
@@ -49,6 +50,8 @@ export interface ListRow {
   /** the brands of its current lines, in line order */
   brands: string[];
   lines: LineView[];
+  /** free boxes asked with Drop points that go with this order (never order lines) */
+  rewards: string[];
   /** null = hidden from this person */
   total: string | null;
   created_at: string;
@@ -129,6 +132,7 @@ export async function listOrders(user: OcUser, f: ListFilters = {}, now = Date.n
           .where(and(eq(orderLines.tenantId, user.tenantId), inArray(orderLines.orderId, shown.map((o) => o.id))))
           .orderBy(asc(orderLines.lineNo))
       : [];
+    const rewards = await rewardsOnOrders(tx, user.tenantId, shown.map((o) => o.id));
     // delivered orders whose bill (not cancelled) is fully paid: "Closed"
     const closedIds = new Set<string>();
     if (amounts && tab === "delivered" && shown.length) {
@@ -155,6 +159,7 @@ export async function listOrders(user: OcUser, f: ListFilters = {}, now = Date.n
         note: o.orderNote,
         brands: [...new Set(current.map((l) => bySku.get(l.sku_id) ?? "").filter(Boolean))],
         lines: amounts ? current : withoutAmounts(current),
+        rewards: (rewards.get(o.id) ?? []).map((r) => r.label),
         total: amounts ? o.total : null,
         created_at: o.createdAt.toISOString(),
         status_changed_at: o.statusChangedAt.toISOString(),

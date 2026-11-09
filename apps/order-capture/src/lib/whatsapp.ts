@@ -12,6 +12,8 @@ export interface CopyOrder {
   place: string;
   note: string | null;
   lines: LineView[];
+  /** free boxes asked with Drop points (product names), not order lines */
+  rewards?: string[];
   /** null = hidden from this person */
   total: string | null;
 }
@@ -32,7 +34,13 @@ function loadTotals(orders: CopyOrder[]): string {
     else totals.set(key, { product: l.product, unit: l.unit, quantity: l.quantity });
   }
   const rows = [...totals.values()].sort((a, b) => a.product.localeCompare(b.product, "en-IN") || a.unit.localeCompare(b.unit));
-  return ["*Total to load*", ...rows.map((t) => `- ${t.product}: ${t.quantity.toLocaleString("en-IN")} ${t.unit}`)].join("\n");
+  const rewards = new Map<string, number>();
+  for (const r of orders.flatMap((o) => o.rewards ?? [])) rewards.set(r, (rewards.get(r) ?? 0) + 1);
+  return [
+    "*Total to load*",
+    ...rows.map((t) => `- ${t.product}: ${t.quantity.toLocaleString("en-IN")} ${t.unit}`),
+    ...[...rewards].sort((a, b) => a[0].localeCompare(b[0], "en-IN")).map(([label, n]) => `- ${label}: ${n} FREE (points reward)`),
+  ].join("\n");
 }
 
 /**
@@ -50,6 +58,7 @@ export function whatsappText(orders: CopyOrder[], now = new Date()): string {
       // free boxes (scheme) say FREE, never a rate; the load totals below count them (they leave the plant too)
       ...o.lines.map((l) => `- ${l.product}: ${l.quantity.toLocaleString("en-IN")} ${l.unit}${l.free ? " FREE" : l.rate === null ? "" : ` × ${money(l.rate)}`}`),
     ];
+    for (const r of o.rewards ?? []) block.push(`- ${r}: 1 FREE (points reward)`);
     if (o.note) block.push(`Note: ${o.note}`);
     if (o.total !== null) block.push(`Amount: ${money(o.total)}`);
     parts.push(block.join("\n"));

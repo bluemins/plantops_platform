@@ -34,6 +34,16 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
           Drop shops
         </LinkRow>
       )}
+      {can(user, "drop_rewards_view") && (
+        <LinkRow href="/customers/drop/rewards" note="Free boxes shops asked for with Drop points">
+          Free boxes asked
+        </LinkRow>
+      )}
+      {can(user, "drop_points_view") && (
+        <LinkRow href="/customers/drop/points" note="₹ per point, late payments, free boxes, start date">
+          Drop points settings
+        </LinkRow>
+      )}
       {can(user, "customer_upload") && (
         <LinkRow href="/customers/upload" note="From Google Sheets, Excel or Zoho (CSV)">
           Upload a customer list

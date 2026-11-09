@@ -489,3 +489,42 @@ export const appSessions = oc.table("app_sessions", {
   endedAt: ts("ended_at"),
   endReason: text("end_reason").$type<SessionEndReason>(),
 });
+
+// ---------- Drop points (0013): settings history, free boxes asked ----------
+export type PointsReward = { sku_id: string; label: string; points: number };
+
+export const pointsSettings = oc.table("points_settings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  effectiveFrom: date("effective_from").notNull(),
+  startDate: date("start_date"),
+  rupeesPerPoint: numeric("rupees_per_point", { precision: 8, scale: 2 }).notNull(),
+  lateDays: integer("late_days").notNull(),
+  pollPoints: integer("poll_points").notNull(),
+  redeemMonths: integer("redeem_months").array().notNull(),
+  rewards: jsonb("rewards").$type<PointsReward[]>().notNull(),
+  changedBy: uuid("changed_by").notNull(),
+  changedByName: text("changed_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const pointsRedemptions = oc.table("points_redemptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  customerId: uuid("customer_id").notNull(),
+  skuId: uuid("sku_id").notNull(),
+  label: text("label").notNull(),
+  points: integer("points").notNull(),
+  yearEnd: date("year_end").notNull(),
+  askedByPhone: text("asked_by_phone").notNull(),
+  requestKey: text("request_key").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  orderId: uuid("order_id"),
+  addedBy: uuid("added_by"),
+  addedByName: text("added_by_name"),
+  addedAt: ts("added_at"),
+  cancelledAt: ts("cancelled_at"),
+  cancelledBy: uuid("cancelled_by"),
+  cancelledByName: text("cancelled_by_name"),
+  cancelReason: text("cancel_reason"),
+});

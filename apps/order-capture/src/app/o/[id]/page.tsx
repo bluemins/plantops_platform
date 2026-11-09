@@ -6,6 +6,7 @@ import { money } from "@/lib/money";
 import { can } from "@/server/access";
 import { getOrder } from "@/server/handling";
 import { billForm } from "@/server/bill-make";
+import { orderRewards } from "@/server/drop/points";
 import { billOfOrder } from "@/server/ledger";
 import { kit } from "@/server/kit";
 import { orNotFound } from "@/server/pages";
@@ -15,6 +16,7 @@ import { MakeBill } from "../../ledger-forms";
 import { BackLink, BillBadge, FreeTag, PhoneLink, StatusBadge } from "../../parts";
 import { OrderActions } from "./actions";
 import { AddNote } from "./add-note";
+import { AddReward } from "./add-reward";
 
 type Params = Promise<{ id: string }>;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -24,7 +26,7 @@ export default async function OrderPage({ params }: { params: Params }) {
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const user = await requirePageUser(`/o/${id}`);
-  const [plant, o] = await Promise.all([kit.branding(user.tenantId), orNotFound(getOrder(user, id))]);
+  const [plant, o, rewards] = await Promise.all([kit.branding(user.tenantId), orNotFound(getOrder(user, id)), orderRewards(user, id)]);
   const bill = can(user, "ledger_view") && o.status === "delivered" ? await billOfOrder(user, id) : null;
   const closed = bill && bill.status === "paid";
   const pending = o.status === "pending";
@@ -110,6 +112,12 @@ export default async function OrderPage({ params }: { params: Params }) {
             <span>{money(o.total)}</span>
           </div>
         )}
+        {rewards.on.map((r) => (
+          <div key={r.label} className="flex items-center justify-between gap-3 rounded-lg bg-violet-50 px-2 py-1 text-violet-950">
+            <span className="break-words">🎁 Points reward: {r.label} × 1 free</span>
+            <span className="shrink-0 text-sm">not on the bill</span>
+          </div>
+        ))}
         {o.lines.some((l) => l.free) && <p className="text-sm text-green-800">Boxes to load: {loadText(o.lines)}</p>}
         <p className="text-sm text-slate-500">
           Entered by {o.entered_by} · {fmtDateTime(o.created_at)}
@@ -147,6 +155,8 @@ export default async function OrderPage({ params }: { params: Params }) {
           <span className="font-semibold">The WhatsApp thank-you is off: the WhatsApp settings are broken.</span> Ask PlantOps support to fix them ({o.thanks.problem}).
         </p>
       )}
+
+      {rewards.asked && <AddReward orderId={o.id} reward={rewards.asked} />}
 
       <OrderActions
         order={{ id: o.id, ref: o.ref, status: o.status, version: o.version, summary: productsText(o.lines) }}

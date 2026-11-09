@@ -212,7 +212,7 @@ describe("Drop Home", () => {
     const q = await shopPlant();
     const r = await homeOf(q.app, q.token);
     expect(r.status).toBe(200);
-    expect(r.body).toEqual({ shop: { name: "Shree Stores" }, orders: [], dues: [{ brand: "Bluemins", paise: 0 }], boxes: null, support: null, news: null });
+    expect(r.body).toEqual({ shop: { name: "Shree Stores" }, orders: [], dues: [{ brand: "Bluemins", paise: 0 }], boxes: null, support: null, points: null, news: null });
   });
 
   it("another plant's app never reads this shop; an ended session is refused", async () => {

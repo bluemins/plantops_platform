@@ -18,7 +18,8 @@ import { cleanNote, NOTE_MAX } from "@/lib/note";
 import { RATE_RE } from "@/lib/rates";
 import { formatRef } from "@/lib/ref";
 import { clean, NAME_MAX, NAME_MIN, PHONE_TYPED_MAX, PLACE_MAX, PLACE_MIN } from "@/lib/upload";
-import { requireAccess } from "./access";
+import { can, requireAccess } from "./access";
+import { askedFor, attachReward, rewardsOnOrders } from "./drop/points";
 import { audit } from "./audit";
 import { findByPhone, listCustomers } from "./customers";
 import { schema, withTenant, type OcTx } from "./db";
@@ -65,6 +66,8 @@ export const OrderInput = z.object({
     .optional()
     .transform(cleanNote)
     .refine((n) => n === null || n.length <= NOTE_MAX, `A note has at most ${NOTE_MAX} characters`),
+  /** a free box the shop asked for with Drop points, to go with this order */
+  reward_id: z.uuid().optional(),
 });
 
 export interface SavedOrder {
@@ -76,6 +79,8 @@ export interface SavedOrder {
   lines: { sku_id: string; product: string; unit: string; quantity: number; rate: string; total: string; free: boolean }[];
   total: string;
   note: string | null;
+  /** free boxes asked with Drop points that go with this order (never order lines, never on a bill) */
+  rewards: { label: string }[];
 }
 
 // ---------- the customer and their last rates (the form's lookup) ----------
@@ -113,7 +118,7 @@ export async function lookupCustomer(user: OcUser, typedPhone: string) {
   if (!phone) throw badRequest("Enter a 10-digit mobile number");
   return withTenant(user.tenantId, async (tx) => {
     const c = await findByPhone(tx, user.tenantId, phone);
-    if (!c) return { phone, customer: null, last_order_at: null, last_rates: {} as Record<string, string> };
+    if (!c) return { phone, customer: null, last_order_at: null, last_rates: {} as Record<string, string>, reward_asked: null };
     const [last] = await tx
       .select({ at: orders.createdAt })
       .from(orders)
@@ -125,6 +130,7 @@ export async function lookupCustomer(user: OcUser, typedPhone: string) {
       customer: { id: c.id, name: c.name, place: c.place, active: c.active },
       last_order_at: last?.at.toISOString() ?? null,
       last_rates: await lastRates(tx, user.tenantId, c.id),
+      reward_asked: can(user, "drop_rewards") ? await askedFor(tx, user.tenantId, c.id) : null,
     };
   });
 }
@@ -146,6 +152,7 @@ export async function savedView(tx: OcTx, tenantId: string, orderId: string, cre
     lines: lines.map((l) => ({ sku_id: l.skuId, product: l.productName, unit: l.unit, quantity: l.quantity, rate: l.rate, total: l.lineTotal, free: l.free })),
     total: o!.total,
     note: o!.orderNote,
+    rewards: (await rewardsOnOrders(tx, tenantId, [o!.id])).get(o!.id) ?? [],
   };
 }
 
@@ -169,6 +176,15 @@ export async function createOrder(user: OcUser, input: z.infer<typeof OrderInput
     products,
     lines: input.lines,
     note: input.note,
+    // a free box asked with Drop points goes with the order, in the same transaction (never as an order line)
+    saved: input.reward_id
+      ? async (tx, order) => {
+          requireAccess(user, "drop_rewards");
+          const done = await attachReward(tx, user, input.reward_id!, order.id);
+          await audit(tx, user, "drop.reward_add", input.reward_id!, { name: done.shop, reward: done.label, order: done.ref });
+          order.rewards.push({ label: done.label });
+        }
+      : undefined,
     // the customer: found by phone (used as is), or new with this order
     customer: async (tx, next) => {
       const found = await findByPhone(tx, user.tenantId, phone);

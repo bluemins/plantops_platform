@@ -125,14 +125,19 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
   await asApp(tenantId, `insert into order_capture.app_phone_changes (tenant_id, customer_id, phone, action, changed_by, changed_by_name) values ('${tenantId}', '${customer}', '7008099887', 'add', '${who}', 'Sujata')`);
   await asApp(tenantId, `insert into order_capture.app_login_codes (tenant_id, customer_id, phone, code_hmac, expires_at) values ('${tenantId}', '${customer}', '${phone}', repeat('a', 64), now() + interval '10 minutes')`);
   await asApp(tenantId, `insert into order_capture.app_sessions (tenant_id, customer_id, phone, token_sha256, expires_at) values ('${tenantId}', '${customer}', '${phone}', encode(sha256(gen_random_uuid()::text::bytea), 'hex'), now() + interval '90 days')`);
-  return { who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
+  // Drop points (0013): a settings row and a free box asked, on the order
+  await asApp(tenantId, `insert into order_capture.points_settings (tenant_id, effective_from, start_date, rewards, changed_by, changed_by_name)
+    values ('${tenantId}', '2026-11-01', '2026-11-01', '[{"sku_id": "${sku1l}", "label": "1ltr", "points": 800}]', '${who}', 'Sujata')`);
+  const redemption = await one(`insert into order_capture.points_redemptions (tenant_id, customer_id, sku_id, label, points, year_end, asked_by_phone, request_key, order_id, added_by, added_by_name, added_at)
+    values ('${tenantId}', '${customer}', '${sku1l}', '1ltr', 800, '2028-01-31', '${phone}', 'rk-${randomUUID()}', '${order}', '${who}', 'Atharv', now()) returning id`);
+  return { redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
 }
 
 /** The tables in the order_capture schema (the guard tests compare against this list). */
 export const TABLES = [
   "app_access_changes", "app_login_codes", "app_phone_changes", "app_sessions",
   "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
-  "ignored_number_changes", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "product_rates",
+  "ignored_number_changes", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "points_redemptions", "points_settings", "product_rates",
   "reminder_groups", "support_views", "zoho_contacts", "zoho_imports",
 ];
 

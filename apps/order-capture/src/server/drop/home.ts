@@ -10,14 +10,16 @@
 import { and, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { boxTotals, type BoxLine } from "@/lib/box-totals";
 import { brandDues } from "@/lib/brand-due";
-import { brandKey, effectiveBrand, lineMatcher, sizeLabel, type BrandProduct } from "@/lib/brand";
+import { brandKey, sizeLabel, type BrandProduct } from "@/lib/brand";
 import { billDue, paise } from "@/lib/ledger";
 import { schema, withTenant } from "../db";
 import { kit } from "../kit";
 import { partyFacts } from "../ledger";
+import { homePoints } from "./points";
+import { productMatcher } from "./products";
 import type { AppSession } from "./session";
 
-const { billLines, orderLines, orders, productRates, zohoContacts } = schema;
+const { billLines, orderLines, orders, zohoContacts } = schema;
 
 const IST = "Asia/Kolkata";
 const istDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: IST }).format(d);
@@ -31,6 +33,7 @@ export type Home = {
   dues: { brand: string; paise: number }[];
   boxes: Record<string, NonNullable<ReturnType<typeof boxTotals>>> | null;
   support: { phone: string; hours: string | null } | null;
+  points: Awaited<ReturnType<typeof homePoints>>;
   news: null;
 };
 
@@ -42,7 +45,7 @@ export async function home(s: AppSession, now = new Date()): Promise<Home> {
   const shown = new Set(s.brands.map(brandKey));
 
   const data = await withTenant(t, async (tx) => {
-    const rates = await tx.select({ skuId: productRates.skuId, brand: productRates.brand }).from(productRates).where(eq(productRates.tenantId, t));
+    const matcher = await productMatcher(tx, t, skus);
     const contacts = await tx.select({ id: zohoContacts.id }).from(zohoContacts).where(and(eq(zohoContacts.tenantId, t), eq(zohoContacts.customerId, s.customerId)));
     const { rows, L } = await partyFacts(tx, t, s.customerId, contacts.map((c) => c.id));
     // orders: on the way, or delivered since last year's April (for box totals and "delivered today")
@@ -60,12 +63,11 @@ export async function home(s: AppSession, now = new Date()): Promise<Home> {
     const [z] = await tx.execute<{ d: string | null }>(sql`
       select max(bill_date)::text as d from order_capture.bills
        where tenant_id = ${t} and source = 'zoho' and coalesce(zoho_invoice_id, '') not like 'ob:%'`).then((r) => r.rows);
-    return { rates, rows, dueOf, os, ol, bl, zohoUntil: z?.d ?? null };
+    const points = await homePoints(tx, s, skus, today);
+    return { matcher, rows, dueOf, os, ol, bl, zohoUntil: z?.d ?? null, points };
   });
 
-  const savedBrand = new Map(data.rates.map((r) => [r.skuId, r.brand]));
-  const products: BrandProduct[] = skus.map((p) => ({ id: p.id, name: p.name, sku_code: p.sku_code, volume_ml: p.volume_ml, brand: effectiveBrand(savedBrand.get(p.id), p.name) }));
-  const productOf = lineMatcher(products);
+  const productOf = data.matcher.of;
 
   // ---------- current orders ----------
   const current = data.os.filter((o) => o.status === "pending" || istDate(o.deliveredAt ?? o.statusChangedAt) === today);
@@ -130,6 +132,7 @@ export async function home(s: AppSession, now = new Date()): Promise<Home> {
     dues: s.brands.map((brand) => ({ brand, paise: Number(dues.get(brandKey(brand)) ?? 0n) })),
     boxes: main ? { [s.app.brand]: main } : null,
     support: branding?.support_phone ? { phone: branding.support_phone, hours: branding.support_hours ?? null } : null,
+    points: data.points,
     news: null,
   };
 }

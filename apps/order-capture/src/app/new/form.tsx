@@ -12,7 +12,14 @@ import type { RateView } from "@/server/rates";
 import { FreeTag } from "../parts";
 import { freeUnitsOf, LinesEditor, linesBody, linesProblem, plainRate, totalOf, unitsOf, type EditLine } from "../lines-editor";
 
-type Lookup = { phone: string; customer: { id: string; name: string; place: string; active: boolean } | null; last_order_at: string | null; last_rates: Record<string, string> };
+type Lookup = {
+  phone: string;
+  customer: { id: string; name: string; place: string; active: boolean } | null;
+  last_order_at: string | null;
+  last_rates: Record<string, string>;
+  /** a free box the shop asked for with Drop points, not on an order yet */
+  reward_asked: { id: string; label: string; points: number } | null;
+};
 type Match = { id: string; name: string; phone: string; place: string; active: boolean };
 const spaced = (p: string) => `${p.slice(0, 5)} ${p.slice(5)}`;
 
@@ -41,6 +48,7 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
   const [place, setPlace] = useState("");
   const [lines, setLines] = useState<EditLine[]>([]);
   const [note, setNote] = useState("");
+  const [addReward, setAddReward] = useState(true);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState<SavedOrder>();
@@ -131,6 +139,7 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
       customer: { phone, ...(isNew ? { name, place } : {}) },
       lines: linesBody(lines),
       ...(note.trim() ? { note } : {}),
+      ...(found?.reward_asked && addReward ? { reward_id: found.reward_asked.id } : {}),
     };
     const r = await api<SavedOrder>("/api/orders", { body }).catch(() => null);
     setBusy(false);
@@ -150,6 +159,7 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
     setPlace("");
     setLines([]);
     setNote("");
+    setAddReward(true);
     setError(undefined);
     setSaved(undefined);
     window.scrollTo(0, 0);
@@ -205,6 +215,15 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
             </p>
           </div>
         </div>
+      )}
+      {found?.customer?.active && found.reward_asked && (
+        <label className="flex gap-3 rounded-xl border border-violet-300 bg-violet-50 px-4 py-3">
+          <input type="checkbox" className="mt-1 h-5 w-5 shrink-0" checked={addReward} onChange={(e) => setAddReward(e.target.checked)} />
+          <span>
+            <span className="block font-semibold">🎁 Free box asked: {found.reward_asked.label} × 1</span>
+            <span className="block text-sm text-slate-700">Points reward from the Drop app. Add to this order (not charged, not on the bill).</span>
+          </span>
+        </label>
       )}
       {off && (
         <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
@@ -292,6 +311,11 @@ function SavedView({ order, onNew, ownerNotified }: { order: SavedOrder; onNew: 
           <span>Total</span>
           <span>{money(order.total)}</span>
         </div>
+        {order.rewards.map((r) => (
+          <p key={r.label} className="rounded-lg bg-violet-50 px-3 py-2 text-violet-950">
+            🎁 Points reward: {r.label} × 1 free
+          </p>
+        ))}
         {order.note && <p className="rounded-lg bg-amber-50 px-3 py-2 whitespace-pre-line break-words text-amber-950">📝 {order.note}</p>}
       </div>
       {ownerNotified && <p className="text-sm text-slate-500">The owner has been notified.</p>}

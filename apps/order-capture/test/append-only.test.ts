@@ -144,12 +144,19 @@ describe("append-only for order_app", () => {
       `update order_capture.app_login_codes set phone = '9000000000'`,
       `update order_capture.app_sessions set token_sha256 = repeat('0', 64)`,
       `update order_capture.app_sessions set customer_id = gen_random_uuid()`,
+      // Drop points (0013): settings are a history; a request's shop, reward, points and key never change
+      `update order_capture.points_settings set rupees_per_point = 1`,
+      `update order_capture.points_settings set start_date = null`,
+      `update order_capture.points_redemptions set points = 1`,
+      `update order_capture.points_redemptions set customer_id = gen_random_uuid()`,
+      `update order_capture.points_redemptions set label = 'X'`,
+      `update order_capture.points_redemptions set request_key = 'rk-xxxxxxxx'`,
     ];
   };
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(87 + 14 + 19 + 2 + 11 + 6 + 9 + 8 + 6); // + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008); bill_settings (delete, truncate) and 11 locked bill-field updates (0009); the three customer tables (delete, truncate) and 9 locked updates (0010), and the customer's phone is no longer locked (the owner may change it, D3); the four Drop tables (delete, truncate) and 6 locked updates (0012)
+    expect(list.length).toBe(87 + 14 + 19 + 2 + 11 + 6 + 9 + 8 + 6 + 4 + 6); // + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008); bill_settings (delete, truncate) and 11 locked bill-field updates (0009); the three customer tables (delete, truncate) and 9 locked updates (0010), and the customer's phone is no longer locked (the owner may change it, D3); the four Drop tables (delete, truncate) and 6 locked updates (0012)
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 

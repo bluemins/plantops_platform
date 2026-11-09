@@ -81,7 +81,7 @@ describe("alerts and notification settings", () => {
   it("the settings page lists the ten Order Capture kinds (WhatsApp-bot alerts, reminders stopped, sales ledger); delivered, cancelled, note and the ledger ones are bell only, none urgent", async () => {
     const list = (await settings(desk.cookie)).filter((s) => s.kind.startsWith("order_capture."));
     expect(list.map((s) => s.kind).sort()).toEqual([
-      "order_capture.bill_cancelled", "order_capture.cancelled", "order_capture.delivered", "order_capture.feedback_low", "order_capture.handoff",
+      "order_capture.bill_cancelled", "order_capture.cancelled", "order_capture.delivered", "order_capture.drop_redeem", "order_capture.feedback_low", "order_capture.handoff",
       "order_capture.new", "order_capture.note", "order_capture.payment", "order_capture.payment_cancelled", "order_capture.reminder_failed",
     ]);
     expect(list.filter((s) => s.bell_only).map((s) => s.kind).sort()).toEqual([

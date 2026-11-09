@@ -35,6 +35,14 @@ export function describeChange(action: string, details: Record<string, unknown>)
       return `Drop app: extra phone ${phone(details.phone)} removed from ${show(details.name)}`;
     case "drop.make_main":
       return `Drop app: ${phone(details.to)} is now the main phone of ${show(details.name)} (was ${phone(details.from)}): ${show(details.reason)}`;
+    case "drop.points_settings": {
+      const rewards = (details.rewards ?? []) as string[];
+      return `Drop points settings from ${show(details.effective_from)}: start ${show(details.start_date)}, ₹${show(details.rupees_per_point)} a point, paid within ${show(details.late_days)} days of delivery, poll ${show(details.poll_points)} points; free boxes ${rewards.length ? rewards.join(", ") : "none"}`;
+    }
+    case "drop.reward_add":
+      return `Drop free box (points) ${show(details.reward)} added to ${show(details.order)} for ${show(details.name)}`;
+    case "drop.reward_cancel":
+      return `Drop free box (points) ${show(details.reward)} cancelled for ${show(details.name)}, ${show(details.points)} points back: ${show(details.reason)}`;
     case "ignored.add":
       return `Number ${phone(details.phone)} added to Not an order number (${show(details.label)})`;
     case "ignored.remove":

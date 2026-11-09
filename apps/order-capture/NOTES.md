@@ -480,3 +480,36 @@ setting; platform and SSO token unchanged.** Nothing calls it until the app (Pha
   column also holds Mr.Charge / Hemex 1-litre boxes (Drop counts Bluemins only, 18.5). Every live bill line has a product
   link; nothing lands in "Other" except 20 L, connection and empties. Due per brand = the account's due for both shops.
 - Tests: `test/brand-due.test.ts` (8), `test/box-totals.test.ts` (4), `test/drop-home.test.ts` (7).
+
+## 2026-11-09 — v0.51.0: Drop Phase 3 (points)
+Owner 2026-11-09 (plan `docs/CUSTOMER_APP_PHASE_PLAN.md` Phase 3, "Points tab"). **Points are completely separate from
+normal billing** (owner): nothing writes to orders, order lines or bills.
+- **Migration `0013_drop_points.sql`** (approved): `points_settings` (dated history; start date, ₹ per point, late days,
+  poll points, redeem months, rewards) and `points_redemptions` (free boxes asked; the order link and a staff
+  cancellation each set once, trigger `points_redemptions_set_once`; UPDATE only on those columns). FORCE RLS, no DELETE.
+  No existing table changed.
+- **Rules** (`src/lib/points.ts`, pure): PlantOps bills from the start date (never Zoho), the main brand's value before
+  GST after discounts (GST bills: `taxable`; others: line totals × (sub-total − discount) ÷ sub-total); each allocation of
+  a payment earns allocation × value ÷ bill total ÷ ₹ per point (hundredths, shown rounded down); **no points when the
+  payment's date is more than `late_days` (5) after the delivery** (owner: bills take 2–3 days; a bill without an order:
+  its bill date); earned on the allocation date (₹ per point and points year of that day); cancelled payments / bills
+  earn nothing. Points year 1 Feb – 31 Jan, the first to the first 31 Jan at least 6 months after the start (Nov 2026 →
+  31 Jan 2028). Days before the first settings row use the first row. A request's state comes from its order: asked → on
+  the way (order pending) → delivered (spent) | returned (order cancelled or staff cancel); undo delivered puts it back.
+- **Staff:** Customers → **Drop points settings** `/customers/drop/points` (owner; support reads; history) and **Free
+  boxes asked** `/customers/drop/rewards` (owner + Order desk: cancel with a reason). New order shows "🎁 Free box asked"
+  with a tick (attached in the order's own transaction); the order page has "Add to this order"; the order page, list
+  cards and WhatsApp copy (and its load totals) show "Points reward: … × 1 free"; never on Make bill or a bill. Balance
+  and the open request on the Drop card. Access rows `drop_points_view`, `drop_points_settings`, `drop_rewards_view`,
+  `drop_rewards`. Recent changes `drop.points_settings`, `drop.reward_add`, `drop.reward_cancel`.
+- **App:** `GET /api/app/v1/points` (balance, ends on, rewards with can-use / why not, open request, monthly record:
+  purchases, polls, each free box; never bills or amounts), `POST /api/app/v1/points/redeem` `{ reward, request_key }`
+  (per-shop lock; repeated key = same request; 409 with a plain reason). Home gains `points { balance, next }` (null
+  while off). Kind `order_capture.drop_redeem` (owners + ticked Order desk, push) in `packages/types`: **the platform
+  needs deploying with this release.**
+- Made while building: the screens live under Customers (next to Drop shops); error codes `not_offered` / `not_allowed`;
+  the pending summary is unchanged (rewards have no value).
+- Tests: `test/points-lib.test.ts` (10, a hand-worked year), `test/drop-points.test.ts` (7); guard lists updated. Sales
+  989, platform 426. Checked on `pnpm dev` (plant 002, temporary shop with a paid ₹2,000 bill, all removed after):
+  settings saved, 2,000 points, ask → 1,200 + the owner's bell, New order offered it, order saved at ₹300 with the
+  reward beside it, order page / list / both staff pages, delivered = spent.

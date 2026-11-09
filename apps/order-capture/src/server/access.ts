@@ -60,7 +60,11 @@ export type Action =
   | "drop_view" // a customer's Drop card: switch, brands, phones, last login
   | "drop_manage" // switch a shop on / off for Drop, brands shown, Make main phone
   | "drop_phones" // add / remove a shop's extra phones
-  | "drop_shops"; // the Drop shops list (pilot numbers)
+  | "drop_shops" // the Drop shops list (pilot numbers)
+  | "drop_points_view" // the points settings page (support: read-only)
+  | "drop_points_settings" // change the points settings
+  | "drop_rewards_view" // free boxes asked with points; a shop's points balance
+  | "drop_rewards"; // add a free box asked to an order, cancel a request (with a reason)
 
 export const ACCESS: Record<Action, readonly Who[]> = {
   read: ["owner", "desk", "viewer", "accounts", "support"],
@@ -108,6 +112,10 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   drop_manage: ["owner"],
   drop_phones: ["owner", "desk"],
   drop_shops: ["owner", "support"],
+  drop_points_view: ["owner", "support"],
+  drop_points_settings: ["owner"],
+  drop_rewards_view: ["owner", "desk", "support"],
+  drop_rewards: ["owner", "desk"],
 };
 
 /** What the user is, for this table. null = no Order Capture rights at all (e.g. a store keeper). */

@@ -80,6 +80,20 @@ export function DropCard({ customerId, view }: { customerId: string; view: DropC
         </div>
       </div>
 
+      {view.points && (
+        <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm">
+          <p className="font-semibold">
+            Points: {view.points.balance.toLocaleString("en-IN")}
+            {view.points.year_end ? <span className="font-normal text-slate-600"> · end on {view.points.year_end}</span> : null}
+          </p>
+          {view.points.open_request && (
+            <p>
+              🎁 Free box asked: {view.points.open_request.label} ({view.points.open_request.state}) · <a href="/customers/drop/rewards" className="font-semibold text-(--brand) hover:underline">Free boxes asked</a>
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="space-y-2">
         <p className="text-sm font-semibold">Phones that can log in</p>
         <div className="rounded-lg border border-slate-200 p-3">

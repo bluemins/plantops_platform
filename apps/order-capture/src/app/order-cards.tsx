@@ -92,6 +92,11 @@ export function OrderCards({ orders, tickable, plainPhones }: { orders: ListRow[
                 <p className="relative z-10 w-fit text-sm">
                   <PhoneLink phone={o.phone} plain={plainPhones} prefix="+91 " />
                 </p>
+                {o.rewards.map((r) => (
+                  <p key={r} className="text-sm break-words text-violet-900">
+                    🎁 Points reward: {r} × 1 free
+                  </p>
+                ))}
                 {o.note && <p className="line-clamp-1 text-sm break-words text-amber-900">📝 {o.note}</p>}
                 <div className="flex justify-between gap-3">
                   <span className="min-w-0 break-words">{productsText(o.lines)}</span>

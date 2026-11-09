@@ -14,6 +14,8 @@ export type DropCode =
   | "session_ended"
   | "module_off"
   | "rate_limited"
+  | "not_offered"
+  | "not_allowed"
   | "unavailable";
 
 export class DropError extends Error {

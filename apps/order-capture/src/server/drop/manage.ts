@@ -14,7 +14,10 @@ import { schema, withTenant, type OcTx } from "../db";
 import { badRequest, conflict, notFound } from "../http";
 import { activeProducts, effectiveRates } from "../rates";
 import type { OcUser } from "../session";
+import { STATE_LABEL } from "@/lib/points";
+import { kit } from "../kit";
 import { dropAppOfPlant } from "./config";
+import { shopPoints } from "./points";
 import { customerOfPhone, dropAccess, extraPhoneOwner, extraPhones } from "./shops";
 import type { SessionEndReason } from "../schema";
 
@@ -72,12 +75,15 @@ export interface DropCardView {
   main: { phone: string; last_login: string | null };
   extras: { phone: string; added_by: string; added_at: string; last_login: string | null }[];
   can: { manage: boolean; phones: boolean };
+  /** Drop points (null = this person doesn't see them, or points are off) */
+  points: { balance: number; year_end: string | null; open_request: { label: string; state: string } | null } | null;
 }
 
 /** A customer's Drop card (owner, Order desk, support). */
 export async function dropCard(user: OcUser, customerId: string): Promise<DropCardView> {
   requireAccess(user, "drop_view");
   const app = dropAppOfPlant(user.tenantId);
+  const skus = can(user, "drop_rewards_view") ? await kit.products(user.tenantId) : null;
   return withTenant(user.tenantId, async (tx) => {
     const c = await customerRow(tx, user.tenantId, customerId);
     // one after another: a transaction is one database connection
@@ -85,6 +91,7 @@ export async function dropCard(user: OcUser, customerId: string): Promise<DropCa
     const extras = await extraPhones(tx, user.tenantId, customerId);
     const logins = await lastLogins(tx, user.tenantId, customerId);
     const choices = app ? await brandChoices(tx, user.tenantId, app.brand) : [];
+    const pts = skus && app ? (await shopPoints(tx, user.tenantId, customerId, skus)).summary : null;
     return {
       name: c.name,
       set_up: app !== null,
@@ -98,6 +105,9 @@ export async function dropCard(user: OcUser, customerId: string): Promise<DropCa
       main: { phone: c.phone, last_login: logins.get(c.phone) ?? null },
       extras: extras.map((e) => ({ phone: e.phone, added_by: e.addedByName, added_at: e.addedAt.toISOString(), last_login: logins.get(e.phone) ?? null })),
       can: { manage: can(user, "drop_manage"), phones: can(user, "drop_phones") },
+      points: pts && (pts.on || pts.open_request)
+        ? { balance: pts.balance, year_end: pts.year_end, open_request: pts.open_request ? { label: pts.open_request.label, state: STATE_LABEL[pts.open_request.state] } : null }
+        : null,
     };
   });
 }

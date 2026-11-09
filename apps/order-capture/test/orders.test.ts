@@ -255,7 +255,7 @@ describe("the customer", () => {
 describe("rate pre-fill: this customer's last rate, else the default", () => {
   it("no orders and no default: nothing to pre-fill", async () => {
     const p = plant();
-    expect(await lookupCustomer(p.desk, "9876543210")).toEqual({ phone: "9876543210", customer: null, last_order_at: null, last_rates: {} });
+    expect(await lookupCustomer(p.desk, "9876543210")).toEqual({ phone: "9876543210", customer: null, last_order_at: null, last_rates: {}, reward_asked: null });
     expect((await formProducts(p.desk)).find((r) => r.sku_id === b500.id)!.default_rate).toBeNull();
   });
 

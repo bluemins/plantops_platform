@@ -135,9 +135,16 @@ Capture); never the database, the plant login or the SSO token.
 ```
 **Rules (owner, 2026-11-09; first numbers, the owner can change them later on a "Points settings" page in Sales):**
 - **Earn: 1 point per ₹20 paid** on Bluemins lines of PlantOps bills dated on or after the **points start date** (the
-  pilot start, set by the owner): the value **before GST, after discounts**; free lines are ₹0 so earn nothing.
-  "Paid" = a payment allocated to the bill (an advance counts when it is used on a bill); a payment or bill cancelled
-  takes its points back. The Bluemins part of a mixed bill uses the D3 split. Kept exact (hundredths), shown rounded down.
+  pilot start, set by the owner): the value **before GST, after discounts** (line discounts and the whole-bill discount,
+  shared by line value); free lines are ₹0 so earn nothing. "Paid" = a payment allocated to the bill: points = payment ×
+  (Bluemins value before GST ÷ bill total) ÷ ₹ per point. An advance counts when it is used on a bill; a payment or bill
+  cancelled takes its points back. The Bluemins part of a mixed bill uses the D3 split. Kept exact (hundredths), shown
+  rounded down. **Points are completely separate from normal billing** (owner, 2026-11-09): they never change a bill.
+- **Late payment: no points** (owner, 2026-11-09): a payment made more than **5 days after the delivery date** earns
+  nothing (bills take 2–3 days to make, so the days count from delivery; a bill without an order: from its bill date).
+  The 5 is a setting.
+- **Points are earned on the payment's allocation date** (an advance used later earns on the day it is used); that day
+  picks the ₹ per point in force and the points year.
 - **Purchase points are worked out when asked, never stored** (from bills and payment allocations, like box totals),
   so they can't drift from the ledger. Settings are a dated history: a later change of the ₹20 applies from its date only.
 - **Polls: 10 points** for an answer, **one counted per week** (Monday–Sunday, India), only if the shop had a delivered
@@ -150,7 +157,8 @@ Capture); never the database, the plant login or the SSO token.
   delivered, cancelled). **No per-bill points**, so the record never shows a bill's amount (decision 18.3).
 - **Redeem (D10):** the shop taps **Use** → confirm → the points are held at once (balance drops). One request open at a
   time. Sales shows **"Free box asked"** on the customer's page and on New order for that customer ("Add 1L × 1 free:
-  points reward"); staff add it to the next order as a free line linked to the request. Points are spent for good when
+  points reward"); staff add it to the next order. **The reward goes with the order as a note, never as an order line and
+  never on a bill** (owner, 2026-11-09): the order page, list and WhatsApp copy show "🎁 Points reward: 1L × 1 free". Points are spent for good when
   that order is delivered; the order cancelled, the line removed, or staff cancelling the request (owner / Order desk,
   reason) gives them back. A request still open on 31 January is honoured (the points were held in that year).
 
@@ -325,7 +333,10 @@ listed; no DELETE anywhere. No existing table changes except where listed.
   `order_id` (set when added to an order), `added_by`, `added_at`, `closed` (`delivered` / `cancelled`), `closed_reason`,
   `closed_at`. UPDATE on (`order_id`, `added_*`, `closed*`) only; a database check allows each to be set once.
   Unique: one open request per customer.
-- `order_lines` link: the free line made from a request carries `redemption_id` (new nullable column; ask).
+- ~~`order_lines` link~~: not needed (owner, 2026-11-09: the reward is linked to the order from `points_redemptions.order_id`,
+  never an order line). Built: `points_settings` also has `late_days` (default 5); a request's state is worked out from
+  its order (asked / on the way / delivered / returned), so only the order link and a staff cancellation are stored,
+  each set once (trigger).
 - Purchase points are not stored (worked out from bills and allocations); poll points come from `poll_answers`.
 
 **Sales `0014_drop_polls.sql` (Phase 4):**
@@ -367,7 +378,7 @@ Platform: **no migration, no SSO change.** `packages/types`: new notification ki
 | 0 | Accounts, template, Firebase, decisions | done 2026-11-08 (D-U-N-S pending) |
 | 1 | Sales: Drop switch, phones, login | Sales v0.49.0, **live 2026-11-09** (`2e21f24`) |
 | 2 | Sales: customer API for Home | v0.50.0, built 2026-11-09 (not deployed) |
-| 3 | Sales: points (settings, balance, record, free-box requests) | v0.51.0 |
+| 3 | Sales: points (settings, balance, record, free-box requests) | v0.51.0, built 2026-11-09 (not deployed) |
 | 4 | Sales: polls (owner page, results, answers, poll points) | v0.52.0 |
 | 5 | Drop app: login, Home, Points, Polls | Drop 0.1 (test app on the owner's phone) |
 | 6 | Push notifications | Sales v0.53.0, Drop 0.2 |
@@ -432,6 +443,9 @@ or name (with or without the brand in front), so no Zoho names are in code.
   month / year boundaries; plant 001's real total checked by hand once against the owner's 8 Nov list.
 
 ### Phase 3: Sales: points
+**Built 2026-11-09** (notes: `apps/order-capture/NOTES.md` v0.51.0). Changes from the plan: the reward is never an order
+line (no `order_lines` change); the late rule (5 days from delivery); screens under Customers → Drop points settings /
+Free boxes asked; `order_capture.drop_redeem` needs the platform deployed too.
 - Migration Sales `0013_drop_points.sql` (show first). The first settings row (start date empty = points off) written by
   the owner on **Drop → Points settings**.
 - Pure rules in `src/lib/points.ts`: purchase points from bills + allocations (Bluemins lines before GST, D3 split for
