@@ -133,6 +133,11 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
             Customers
           </LinkRow>
         )}
+        {can(user, "drop_polls") && (
+          <LinkRow href="/customers/drop/polls" note="Add a poll for the shops in the Drop app, see the answers">
+            Drop polls
+          </LinkRow>
+        )}
         {can(user, "view_changes") && (
           <LinkRow href="/changes" note="Who changed rates and customers, exports">
             Recent changes

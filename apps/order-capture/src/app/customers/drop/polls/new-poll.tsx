@@ -5,7 +5,8 @@ import { Button, ErrorText } from "@plantops/ui";
 import { api } from "@/lib/api";
 
 const box = "min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-base focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)";
-const plusDays = (ymd: string, n: number) => new Date(Date.parse(`${ymd}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+const SAMPLE = { question: "Which size sells most in your shop?", choices: ["20 L jar", "1 L bottle", "500 ml bottle", "250 ml bottle"] } as const;
+const plusDays =(ymd: string, n: number) => new Date(Date.parse(`${ymd}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 /** Owner: a new poll. It can't be edited after publishing (a new poll corrects it). */
 export function NewPoll({ brands, main, today }: { brands: string[]; main: string; today: string }) {
@@ -30,14 +31,30 @@ export function NewPoll({ brands, main, today }: { brands: string[]; main: strin
     window.location.href = `/customers/drop/polls/${r.data.id}`;
   }
 
+  /** A ready-made example; nothing is saved until the owner taps Publish. */
+  function fillSample() {
+    setQuestion(SAMPLE.question);
+    setChoices([...SAMPLE.choices]);
+    setOther(true);
+    setOpen(true);
+  }
+
   if (!open)
     return (
-      <button type="button" className="min-h-12 w-full rounded-xl border border-dashed border-(--brand) font-semibold text-(--brand)" onClick={() => setOpen(true)}>
-        + New poll
-      </button>
+      <div className="space-y-2">
+        <button type="button" className="min-h-12 w-full rounded-xl border border-dashed border-(--brand) font-semibold text-(--brand)" onClick={() => setOpen(true)}>
+          + New poll
+        </button>
+        <button type="button" className="min-h-11 w-full text-sm font-semibold text-(--brand)" onClick={fillSample}>
+          Fill in a sample poll
+        </button>
+      </div>
     );
   return (
     <section aria-label="New poll" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <button type="button" className="text-sm font-semibold text-(--brand)" onClick={fillSample}>
+        Fill in a sample poll
+      </button>
       <label className="block text-sm font-semibold">
         Question
         <input className={`${box} mt-1`} maxLength={150} placeholder="e.g. Which size sells most in your shop?" value={question} onChange={(e) => setQuestion(e.target.value)} />

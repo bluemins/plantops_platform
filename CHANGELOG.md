@@ -4,6 +4,13 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.53.1 — 2026-11-09 — Sales: Drop polls easier to find, sample poll, close date
+
+Owner, 2026-11-09. **No migration.** Platform and SSO token unchanged.
+- **Drop polls** link on the owner's Sales front page (was only under Customers).
+- New poll: **Fill in a sample poll** (pre-fills a question and choices; nothing saved until Publish).
+- Poll pages show the last day a poll is open ("15 Nov, 11:59 pm") instead of the midnight after it ("16 Nov, 12:00 am").
+
 ## v0.53.0 — 2026-11-09 — Attendance: a person's own holiday list
 
 Owner, 2026-11-09, for Ramu at plant 001. **Migration:** Attendance `0012_person_holidays.sql` (one append-only table,

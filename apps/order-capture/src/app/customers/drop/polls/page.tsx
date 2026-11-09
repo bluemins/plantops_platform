@@ -8,6 +8,8 @@ import { BackLink } from "../../../parts";
 import { NewPoll } from "./new-poll";
 
 const when = (iso: string) => new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
+// a poll closes at midnight after its last day: show that last minute ("15 Nov, 11:59 pm"), not "16 Nov, 12:00 am"
+const until = (iso: string) => when(new Date(Date.parse(iso) - 60_000).toISOString());
 const STATE = { open: "Open", scheduled: "Not open yet", closed: "Closed" } as const;
 
 /** Owner (support reads): the Drop polls, newest first, and New poll. */
@@ -33,7 +35,7 @@ export default async function PollsPage() {
                 <span className="min-w-0">
                   <span className="block font-semibold break-words">{p.question}</span>
                   <span className="block text-xs text-slate-600">
-                    {when(p.opens_at)} – {when(p.closes_at)} · {p.brands.join(", ")}
+                    {when(p.opens_at)} – {until(p.closes_at)} · {p.brands.join(", ")}
                   </span>
                 </span>
                 <span className="shrink-0 text-right text-sm">

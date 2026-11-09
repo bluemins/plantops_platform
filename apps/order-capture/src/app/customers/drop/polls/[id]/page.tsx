@@ -12,6 +12,8 @@ import { ClosePoll } from "./close";
 type Params = Promise<{ id: string }>;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const when = (iso: string) => new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
+// a poll closes at midnight after its last day: show that last minute ("15 Nov, 11:59 pm"), not "16 Nov, 12:00 am"
+const until = (iso: string) => when(new Date(Date.parse(iso) - 60_000).toISOString());
 const pct = (n: number, total: number) => (total ? Math.round((n * 100) / total) : 0);
 
 function Bars({ labels, counts, total }: { labels: string[]; counts: number[]; total: number }) {
@@ -49,7 +51,7 @@ export default async function PollPage({ params }: { params: Params }) {
       <BackLink href="/customers/drop/polls">← Drop polls</BackLink>
       <h1 className="text-xl font-bold break-words">{p.question}</h1>
       <p className="text-sm text-slate-600">
-        {p.state === "open" ? "Open" : p.state === "scheduled" ? "Not open yet" : "Closed"} · {when(p.opens_at)} – {when(p.closes_at)} · {p.brands.join(", ")} · by {p.created_by}
+        {p.state === "open" ? "Open" : p.state === "scheduled" ? "Not open yet" : "Closed"} · {when(p.opens_at)} – {until(p.closes_at)} · {p.brands.join(", ")} · by {p.created_by}
         {p.closed_early_by ? ` · closed early by ${p.closed_early_by}` : ""}
       </p>
       <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
