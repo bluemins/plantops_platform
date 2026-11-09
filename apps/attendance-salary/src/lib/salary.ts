@@ -10,10 +10,13 @@
 // rounded once; the "halves" figures of PayResult are kept for the screens (fractional since rule 21).
 // Rule 23 (owner, 2026-11-01): an optional "Work starts at" per person; time at the plant before it isn't counted (a
 // scan at 8:50 counts from 9:00), a later IN counts from the IN. Empty = from the IN, as before.
+// Rule 24 (owner, 2026-11-09): a person's own holiday list. A Paid holiday is a paid day off; worked, the work that day
+// is paid on top (a full day = 1 extra day's pay). In each choice group the owner marks ONE festival that is not Paid as
+// the person's choice leave: a paid day off when not worked, a normal day when worked.
 import { dayStart, monthDays } from "./days";
 
 /** Saved with every payment's frozen figures; raise it whenever a rule here changes. */
-export const RULES_VERSION = 8;
+export const RULES_VERSION = 9;
 /**
  * The salary types (owner, 2026-10-23): each pay basis is one named calculation, picked first in the Salary box, shown
  * on the Salary tab, slip and CSV, and saved with a paid month's figures.
@@ -150,9 +153,27 @@ export function countedDates(month: string, today: string, joinedOn: string | nu
  * "off" = the owner marked a day off WITHOUT pay (rule 20, unpaid since rule 22); never from the IN / OUT marks. "short" = worked, but less than the
  * work hours (rule 21). "half" only in months frozen before rule 21.
  */
-export type DayStatus = "present" | "short" | "half" | "absent" | "off";
+export type DayStatus = "present" | "short" | "half" | "absent" | "off" | "holiday";
 /** The owner's whole-day mark for one person and day (rule 20); "clear" rows are already left out */
 export type DayMark = "on" | "off";
+
+/** Rule 24: one day of a person's own holiday list, as it stands now */
+export interface Holiday {
+  name: string;
+  /** a Paid holiday (else a festival that can be taken as choice leave) */
+  paid: boolean;
+  /** the choice group ("Oct–Dec"); null = none (Paid holidays never have one) */
+  group: string | null;
+  /** the owner marked this festival as the person's choice leave */
+  choice: boolean;
+}
+
+/** Rule 24 on one day: which holiday made it paid, and whether the person worked */
+export interface DayHoliday {
+  name: string;
+  kind: "paid" | "choice";
+  worked: boolean;
+}
 
 export interface DayResult {
   date: string;
@@ -165,6 +186,10 @@ export interface DayResult {
   status: DayStatus;
   /** work minutes over the work hours; 0 for people without "Gets overtime" */
   otMinutes: number;
+  /** rule 24: the Paid holiday or choice leave that made the day "holiday" */
+  holiday?: DayHoliday;
+  /** rule 24: work on a Paid holiday, paid on top (at most the work hours: a full day = 1 extra day) */
+  holidayWorkMinutes: number;
 }
 
 /** Rule 21: the lunch break is taken off in full from 5 h at the plant. */
@@ -213,8 +238,11 @@ export function earlyMinutes(date: string, day: DayTime | undefined, workStartMi
  * Rule 20 (v0.26.0, docs/DAY_MARKS_PLAN.md): the owner's day mark decides the day instead: "on" = present, "off" =
  * a day off without pay (rule 22, owner 2026-10-23: paid leave covers it like an absent day). Overtime still comes
  * only from the real IN / OUT times. Rule 23: time before "Work starts at" is taken off before the lunch break.
+ * Rule 24 (`holidays`, the person's own list): a Paid holiday is always "holiday" (a paid day, even over an OFF mark);
+ * work on it (ON = a full day) goes to `holidayWorkMinutes`, paid on top. A choice leave is "holiday" only when not
+ * worked (absent or OFF); worked, it is a normal day.
  */
-export function dayStatuses(days: ReadonlyMap<string, DayTime>, shiftMinutes: number, counted: readonly string[], getsOvertime: boolean, marks?: ReadonlyMap<string, DayMark>, lunchMinutes = 0, workStartMinutes: number | null = null): DayResult[] {
+export function dayStatuses(days: ReadonlyMap<string, DayTime>, shiftMinutes: number, counted: readonly string[], getsOvertime: boolean, marks?: ReadonlyMap<string, DayMark>, lunchMinutes = 0, workStartMinutes: number | null = null, holidays?: ReadonlyMap<string, Holiday>): DayResult[] {
   return counted.map((date) => {
     const day = days.get(date);
     const minutes = day?.minutes ?? 0;
@@ -223,7 +251,18 @@ export function dayStatuses(days: ReadonlyMap<string, DayTime>, shiftMinutes: nu
     const mark = marks?.get(date);
     const byTime: DayStatus = work >= shiftMinutes ? "present" : work > 0 ? "short" : "absent";
     const status: DayStatus = mark === "on" ? "present" : mark === "off" ? "off" : byTime;
-    return { date, minutes, earlyMinutes: early, workMinutes: work, status, otMinutes: getsOvertime ? Math.max(0, work - shiftMinutes) : 0 };
+    const otMinutes = getsOvertime ? Math.max(0, work - shiftMinutes) : 0;
+    const base = { date, minutes, earlyMinutes: early, workMinutes: work, otMinutes };
+    const h = holidays?.get(date);
+    if (h?.paid) {
+      const worked = status === "present" || status === "short";
+      const holidayWorkMinutes = status === "present" ? shiftMinutes : status === "short" ? work : 0;
+      return { ...base, status: "holiday", holiday: { name: h.name, kind: "paid", worked }, holidayWorkMinutes };
+    }
+    if (h?.choice && (status === "absent" || status === "off")) {
+      return { ...base, status: "holiday", holiday: { name: h.name, kind: "choice", worked: false }, holidayWorkMinutes: 0 };
+    }
+    return { ...base, status, holidayWorkMinutes: 0 };
   });
 }
 
@@ -238,13 +277,21 @@ export interface DayCounts {
   short?: number;
   shortMinutes?: number;
   otMinutes: number;
+  /** rule 24: paid holiday days (Paid holidays + choice leave taken); missing before rule 24 (= 0) */
+  holiday?: number;
+  /** rule 24: of those, the choice leave days */
+  choice?: number;
+  /** rule 24: work on Paid holidays, paid on top */
+  holidayWorkMinutes?: number;
 }
 
 export function countDays(days: readonly DayResult[]): DayCounts {
-  const c = { present: 0, half: 0, absent: 0, off: 0, short: 0, shortMinutes: 0, otMinutes: 0 };
+  const c = { present: 0, half: 0, absent: 0, off: 0, short: 0, shortMinutes: 0, otMinutes: 0, holiday: 0, choice: 0, holidayWorkMinutes: 0 };
   for (const d of days) {
     c[d.status] += 1;
     if (d.status === "short") c.shortMinutes += d.workMinutes;
+    if (d.holiday?.kind === "choice") c.choice += 1;
+    c.holidayWorkMinutes += d.holidayWorkMinutes;
     c.otMinutes += d.otMinutes;
   }
   return c;
@@ -304,6 +351,8 @@ export interface PayResult {
   /** rule 9: 0 without "Gets overtime" */
   otMinutes: number;
   otPayPaise: number;
+  /** rule 24: work on Paid holidays × the day's pay ÷ the work hours (missing before rule 24 = 0) */
+  holidayWorkPaise?: number;
   /** rules 16-18: passed through from the input */
   taPaise: number;
   daPaise: number;
@@ -322,7 +371,8 @@ export function monthPay(i: PayInput): PayResult {
   const day = i.shiftMinutes || 480;
   const short = i.short ?? 0;
   const shortWork = Math.min(i.shortMinutes ?? 0, short * day);
-  const paidMinutes = i.present * day + (i.half * day) / 2 + shortWork;
+  // rule 24: a paid holiday is a paid day (Paid holiday, or choice leave taken)
+  const paidMinutes = i.present * day + (i.half * day) / 2 + shortWork + (i.holiday ?? 0) * day;
   // rule 4 (+ rule 21: the time short days are short; rule 22: the owner's days off are not paid, like absent days)
   const missingMinutes = (i.absent + (i.off ?? 0)) * day + (i.half * day) / 2 + (short * day - shortWork);
   const leaveMinutes = perDay || fixed ? 0 : Math.min(missingMinutes, (i.paidLeaveHalfdays * day) / 2); // rule 5 (rule 15: none)
@@ -335,7 +385,7 @@ export function monthPay(i: PayInput): PayResult {
   let earnedPaise: number;
   if (fixed) {
     // PV_SALARY_FIXED_MONTHLY: the full salary in a full month; a part month pays its counted days at salary ÷ 30
-    const countedDays = i.present + i.half + short + i.absent + (i.off ?? 0);
+    const countedDays = i.present + i.half + short + i.absent + (i.off ?? 0) + (i.holiday ?? 0);
     paidHalves = i.fullMonth ? 0 : 2 * countedDays;
     earnedPaise = i.fullMonth ? i.monthlyPaise : Math.min(i.monthlyPaise, countedDays * dayPayPaise);
   } else if (perDay) {
@@ -356,8 +406,10 @@ export function monthPay(i: PayInput): PayResult {
   // rule 9: overtime only with "Gets overtime" and a rate; exact minutes
   const otMinutes = i.getsOvertime && i.otRatePaise && !fixed ? i.otMinutes : 0;
   const otPayPaise = otMinutes ? Math.round((otMinutes * i.otRatePaise!) / 60) : 0;
+  // rule 24: work on a Paid holiday is paid on top, at the day's pay (a full day's work = 1 extra day)
+  const holidayWorkPaise = Math.round(((i.holidayWorkMinutes ?? 0) * dayPayPaise) / day);
   // rule 12, extended by rule 19: approved TA, DA and expenses are added
-  const remainingPaise = earnedPaise + otPayPaise + i.taPaise + i.daPaise + i.expensesPaise - i.advancesPaise - i.carriedInPaise + i.adjustmentPaise;
+  const remainingPaise = earnedPaise + otPayPaise + holidayWorkPaise + i.taPaise + i.daPaise + i.expensesPaise - i.advancesPaise - i.carriedInPaise + i.adjustmentPaise;
   return {
     absentHalves,
     leaveUsedHalves,
@@ -368,6 +420,7 @@ export function monthPay(i: PayInput): PayResult {
     earnedPaise,
     otMinutes,
     otPayPaise,
+    holidayWorkPaise,
     taPaise: i.taPaise,
     daPaise: i.daPaise,
     expensesPaise: i.expensesPaise,
@@ -460,7 +513,7 @@ export function claimTotals(claims: readonly Claim[], rates: { kmRatePaise: numb
 // ---------- the owner's checking panel (docs/SALARY_PHASE_PLAN.md "Owner: checking panel") ----------
 
 /** The panel's boxes: days, hours and rupees as typed. */
-export type PanelField = "ta" | "da" | "expenses" | "monthly" | "dayRate" | "present" | "half" | "short" | "shortHours" | "absent" | "off" | "leave" | "otHours" | "otRate" | "advances" | "carried";
+export type PanelField = "ta" | "da" | "expenses" | "monthly" | "dayRate" | "present" | "half" | "short" | "shortHours" | "absent" | "off" | "holiday" | "holidayWorkHours" | "leave" | "otHours" | "otRate" | "advances" | "carried";
 
 /**
  * The panel's typed boxes -> monthPay()'s input, so the panel runs exactly the server's arithmetic. An empty or
@@ -487,6 +540,9 @@ export function panelInput(auto: PayInput, typed: Partial<Record<PanelField, str
     shortMinutes: Math.round(n("shortHours", (auto.shortMinutes ?? 0) / 60) * 60),
     absent: n("absent", auto.absent),
     off: n("off", auto.off ?? 0),
+    // rule 24: paid holiday days and the work on Paid holidays in hours
+    holiday: n("holiday", auto.holiday ?? 0),
+    holidayWorkMinutes: Math.round(n("holidayWorkHours", (auto.holidayWorkMinutes ?? 0) / 60) * 60),
     paidLeaveHalfdays: Math.round(n("leave", auto.paidLeaveHalfdays / 2) * 2),
     otMinutes: Math.round(n("otHours", auto.otMinutes / 60) * 60),
     otRatePaise: auto.getsOvertime ? paise("otRate", auto.otRatePaise ?? 0) : auto.otRatePaise,
@@ -582,6 +638,8 @@ export interface FrozenMonth {
   daDays: number;
   kmTenths: number;
   adjustmentFrom: string | null;
+  /** rule 24: the month's paid holidays (Paid holidays and choice leave taken), oldest first (rules 9+; missing = none) */
+  holidays?: (DayHoliday & { date: string })[];
   /** exactly what monthPay() was given, and what it gave */
   input: PayInput;
   result: PayResult;
@@ -606,6 +664,7 @@ export function readFrozen(f: FrozenMonth): FrozenMonth {
     kmTenths: f.kmTenths ?? 0,
     counts: { short: 0, shortMinutes: 0, ...f.counts },
     input: { ...noClaims, short: 0, shortMinutes: 0, shiftMinutes: f.setting.shiftMinutes, ...f.input, payBasis: f.input.payBasis ?? "monthly", dayRatePaise: f.input.dayRatePaise ?? null },
-    result: { ...noClaims, ...f.result },
+    holidays: f.holidays ?? [],
+    result: { ...noClaims, holidayWorkPaise: 0, ...f.result },
   };
 }

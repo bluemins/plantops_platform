@@ -57,14 +57,14 @@ describe("month CSV", () => {
     await markAt(p.worker, "out", "2026-10-01 06:00");
 
     const rows = parse(await monthCsv(p.owner, "2026-09"));
-    expect(rows[0]).toEqual(["Name", "Date", "First IN", "Last OUT", "Worked", "Worked minutes", "Blocks", "No exit", "No entry", "Changed"]);
+    expect(rows[0]).toEqual(["Name", "Date", "First IN", "Last OUT", "Worked", "Worked minutes", "Blocks", "No exit", "No entry", "Changed", "Paid holiday"]);
     expect(rows).toHaveLength(1 + 2 * 30); // Anmol (nothing marked) and Ramu, every day of September
     const ramu = (d: string) => rows.find((r) => r[0] === "Ramu" && r[1] === d);
-    expect(ramu("2026-09-01")).toEqual(["Ramu", "2026-09-01", "9:00", "17:40", "8h 40m", "520", "1", "", "", ""]);
-    expect(ramu("2026-09-02")).toEqual(["Ramu", "2026-09-02", "9:10", "", "", "0", "0", "yes", "", ""]);
-    expect(ramu("2026-09-03")).toEqual(["Ramu", "2026-09-03", "9:00", "18:30", "9h 30m", "570", "1", "", "", "yes"]);
-    expect(ramu("2026-09-30")).toEqual(["Ramu", "2026-09-30", "22:00", "6:00", "8h 00m", "480", "1", "", "", ""]);
-    expect(rows.find((r) => r[0] === "Anmol" && r[1] === "2026-09-15")).toEqual(["Anmol", "2026-09-15", "", "", "", "0", "0", "", "", ""]);
+    expect(ramu("2026-09-01")).toEqual(["Ramu", "2026-09-01", "9:00", "17:40", "8h 40m", "520", "1", "", "", "", ""]);
+    expect(ramu("2026-09-02")).toEqual(["Ramu", "2026-09-02", "9:10", "", "", "0", "0", "yes", "", "", ""]);
+    expect(ramu("2026-09-03")).toEqual(["Ramu", "2026-09-03", "9:00", "18:30", "9h 30m", "570", "1", "", "", "yes", ""]);
+    expect(ramu("2026-09-30")).toEqual(["Ramu", "2026-09-30", "22:00", "6:00", "8h 00m", "480", "1", "", "", "", ""]);
+    expect(rows.find((r) => r[0] === "Anmol" && r[1] === "2026-09-15")).toEqual(["Anmol", "2026-09-15", "", "", "", "0", "0", "", "", "", ""]);
   });
 
   it("someone who left still appears for a month they worked; a name can't run as a formula", async () => {

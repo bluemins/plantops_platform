@@ -68,6 +68,24 @@ export const dayMarks = at.table("day_marks", {
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 
+/** A person's own holiday list (migration 0012, rule 24): newest row per person and day wins */
+export type HolidayAction = "add" | "remove" | "choice" | "unchoice";
+
+export const personHolidays = at.table("person_holidays", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  userId: uuid("user_id").notNull(),
+  userName: text("user_name").notNull(),
+  day: date("day").notNull(),
+  action: text("action").$type<HolidayAction>().notNull(),
+  name: text("name"),
+  paid: boolean("paid"),
+  choiceGroup: text("choice_group"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
 export const supportViews = at.table("support_views", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
   tenantId: uuid("tenant_id").notNull(),

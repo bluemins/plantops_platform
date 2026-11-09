@@ -141,7 +141,9 @@ describe("the salary CSV", () => {
     expect(bindu.startsWith("'=cmd Bindu,")).toBe(true);
     const b = bindu.split(",");
     expect([b[SALARY_CSV_HEADER.indexOf("Overtime")], b[SALARY_CSV_HEADER.indexOf("Overtime hours")], b[SALARY_CSV_HEADER.indexOf("Overtime pay")]]).toEqual(["no", "", ""]);
-    expect(lines.find((l) => l.startsWith("Ramu,"))!.endsWith(",-2100.00")).toBe(true);
+    expect(lines.find((l) => l.startsWith("Ramu,"))!.split(",")[SALARY_CSV_HEADER.indexOf("Remaining")]).toBe("-2100.00");
+    // rule 24: no holiday list, so the holiday columns are 0
+    expect(lines.find((l) => l.startsWith("Ramu,"))!.endsWith(",-2100.00,0,0,0.00")).toBe(true);
 
     const { rows } = await asOwner<{ action: string; details: Record<string, unknown> }>("select action, details from attendance_salary.audit_log where tenant_id = $1 and action = 'salary.export'", [p.tenantId]);
     expect(rows).toHaveLength(1);

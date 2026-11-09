@@ -8,10 +8,11 @@ import { requireAccess } from "./access";
 import { audit } from "./audit";
 import { withTenant } from "./db";
 import { notFound } from "./http";
+import { loadHolidays } from "./holidays";
 import { loadMarks, staffList, type Person } from "./people";
 import type { AtUser } from "./session";
 
-export const CSV_HEADER = ["Name", "Date", "First IN", "Last OUT", "Worked", "Worked minutes", "Blocks", "No exit", "No entry", "Changed"];
+export const CSV_HEADER = ["Name", "Date", "First IN", "Last OUT", "Worked", "Worked minutes", "Blocks", "No exit", "No entry", "Changed", "Paid holiday"];
 
 /** Owner: the month as CSV text. People = active Plant staff + anyone with a mark that month. */
 export async function monthCsv(user: AtUser, month: string) {
@@ -21,6 +22,8 @@ export async function monthCsv(user: AtUser, month: string) {
   const staff = await staffList(user);
   return withTenant(user.tenantId, async (tx) => {
     const loaded = await loadMarks(tx, user.tenantId, dates[0]!, dates.at(-1)!);
+    // rule 24: each person's Paid holidays (choice leave is not shown on attendance, owner 2026-11-09)
+    const holidays = await loadHolidays(tx, user.tenantId, dates[0]!, dates.at(-1)!);
     // active Plant staff, plus anyone else with something on a day of this month (e.g. someone who has left)
     const people = new Map<string, Person>(staff.active.map((p) => [p.userId, p]));
     const now = new Date();
@@ -47,6 +50,7 @@ export async function monthCsv(user: AtUser, month: string) {
           day?.noExit ? "yes" : "",
           day?.noEntry ? "yes" : "",
           day?.changed ? "yes" : "",
+          holidays.get(p.userId)?.get(d)?.paid ? holidays.get(p.userId)!.get(d)!.name : "",
         ]);
       }
     }

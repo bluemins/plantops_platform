@@ -44,6 +44,8 @@ export default async function PersonDayPage({ params }: { params: Promise<{ user
       </a>
       <DayView day={view.day} />
       {statuses && counted && <WorkBox atPlant={view.day.minutes} day={counted} shiftMinutes={statuses.shiftMinutes} lunchMinutes={statuses.lunchMinutes} workStartMinutes={statuses.workStartMinutes} getsOvertime={statuses.getsOvertime} />}
+      {/* rule 24: a Paid holiday on the person's own list (today: counted tomorrow, so the box above isn't shown yet) */}
+      {statuses?.paidHolidays[date] && !counted && <p className="rounded-2xl border border-sky-300 bg-sky-50 p-4 font-semibold text-sky-950">🎉 {statuses.paidHolidays[date]}: paid holiday</p>}
       {/* the owner's whole-day ON / OFF (docs/DAY_MARKS_PLAN.md); others see the mark only */}
       <DayMarkPanel personId={personId} name={view.name ?? "This person"} day={date} mark={dayMark} canMark={can(user, "day_mark")} />
       {/* Office staff / a Supervisor: no Fix once the month is marked paid for this person (owner, 2026-11-01) */}

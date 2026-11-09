@@ -2104,3 +2104,14 @@ and SSO token unchanged. Tests: Sales 921. Notes: `apps/order-capture/NOTES.md`.
 `0012` applied, settings set; deploy record `docs/deployments/shared.md`); no shop switched on yet. Rates brands set by the
 owner (Bluemins, Mr.Charge, Hemex, Bluemins 20L; empties none). Next: Phase 2 (Home data), then design Phase 4 content
 (owner: brand-wise content push, see the phase plan's Phase 4 note).
+
+### 2026-11-09 — Attendance: a person's own holiday list (v0.53.0) — built, not deployed
+Asked by the owner 2026-11-09 for Ramu (plant 001), from the plant's 2026 holiday sheet. Staff → person → **Holidays**
+(owner; support reads): paste the sheet from Excel with **Start from** (owner: from November 2026, so Dussehra is not
+paid) or add one day; per choice group the owner marks one festival as **choice leave**. **Rule 24** in
+`apps/attendance-salary/src/lib/salary.ts`: a Paid holiday is a paid day (worked = the day + 1 extra day's pay, at most
+a full day); a choice leave is paid when not worked; months already marked paid can't change. The month calendar shows
+the Paid holidays only ("🎉 Diwali"); choice leave only on the salary page, slip and CSV. Attendance migration
+`0012_person_holidays.sql` (approved: one append-only table, FORCE RLS, SELECT + INSERT). Platform and SSO token
+unchanged. Notes: `apps/attendance-salary/NOTES.md`. Tests: Attendance 500 (+20). Owner after deploy: paste Ramu's list
+from November, then cancel the 8 h added on 8 Nov (he didn't work Diwali).

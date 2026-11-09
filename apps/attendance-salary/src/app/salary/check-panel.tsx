@@ -34,6 +34,11 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
   if (row.input.half) fields.splice(2, 0, ["half", "Half days", row.input.half]);
   // rule 20: the owner's days off (unpaid, rule 22), when there are any
   if (row.input.off) fields.push(["off", "Days off (not paid)", row.input.off]);
+  // rule 24: the person's own holidays, when there are any this month
+  if (row.input.holiday || row.input.holidayWorkMinutes) {
+    fields.push(["holiday", "Paid holidays (days)", row.input.holiday ?? 0]);
+    fields.push(["holidayWorkHours", "Work on Paid holidays (hours)", Math.round(((row.input.holidayWorkMinutes ?? 0) / 60) * 100) / 100]);
+  }
   if (row.input.payBasis === "monthly") fields.push(["leave", "Paid leave allowed (days)", row.input.paidLeaveHalfdays / 2]);
   if (row.getsOvertime) {
     fields.push(["otHours", "Overtime hours", Math.round((row.input.otMinutes / 60) * 100) / 100]);
@@ -49,10 +54,10 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
   fields.push(["carried", "Carried in (₹)", row.input.carriedInPaise / 100]);
 
   const shift = yin.shiftMinutes ?? row.shiftMinutes;
-  const total = yin.present + yin.half + (yin.short ?? 0) + yin.absent + (yin.off ?? 0);
+  const total = yin.present + yin.half + (yin.short ?? 0) + yin.absent + (yin.off ?? 0) + (yin.holiday ?? 0);
   const daysOk = total === row.countedDays;
   const target = complete && row.fullMonth ? `${fmtMonth(month).split(" ")[0]} has ${monthLength}` : complete ? `${row.countedDays} days worked here` : `${row.countedDays} days so far`;
-  const daysText = `${num(yin.present)} full + ${num(yin.short ?? 0)} short${yin.half ? ` + ${num(yin.half)} half` : ""} + ${num(yin.absent)} absent${yin.off ? ` + ${num(yin.off)} off` : ""} = ${num(total)} days`;
+  const daysText = `${num(yin.present)} full + ${num(yin.short ?? 0)} short${yin.half ? ` + ${num(yin.half)} half` : ""} + ${num(yin.absent)} absent${yin.off ? ` + ${num(yin.off)} off` : ""}${yin.holiday ? ` + ${num(yin.holiday)} holiday` : ""} = ${num(total)} days`;
   const diff = yours.remainingPaise - auto.remainingPaise;
 
   const line = (label: string, value: string, strong = false) => (
@@ -93,7 +98,7 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
                 type="number"
                 inputMode="decimal"
                 min={0}
-                step={k === "present" || k === "half" || k === "short" || k === "absent" || k === "off" ? 1 : k === "leave" ? 0.5 : "any"}
+                step={k === "present" || k === "half" || k === "short" || k === "absent" || k === "off" || k === "holiday" ? 1 : k === "leave" ? 0.5 : "any"}
                 value={typed[k] ?? String(a)}
                 onChange={(e) => setTyped((t) => ({ ...t, [k]: e.target.value }))}
               />
@@ -117,6 +122,7 @@ export function CheckPanel({ row, month, monthLength, complete, onClose, childre
           ? line(`Unpaid days ${halvesText(yours.unpaidHalves)} × day's pay`, yours.deductionPaise ? `−${paiseText(yours.deductionPaise)}` : "₹0")
           : line(`Paid days ${halvesText(yours.paidHalves)} × day's pay`, paiseText(yours.earnedPaise))}
         {line("Salary earned", paiseText(yours.earnedPaise), true)}
+        {(yours.holidayWorkPaise ?? 0) !== 0 && line(`Worked on Paid holidays ${fmtMinutes(yin.holidayWorkMinutes ?? 0)} × day's pay`, `+${paiseText(yours.holidayWorkPaise ?? 0)}`)}
         {row.getsOvertime && line(`Overtime ${fmtMinutes(yours.otMinutes)} × ${paiseText(yin.otRatePaise ?? 0)}/h`, `+${paiseText(yours.otPayPaise)}`)}
         {yours.taPaise !== 0 && line(`TA${row.kmTenths ? ` (${kmText(row.kmTenths)} km)` : ""}`, `+${paiseText(yours.taPaise)}`)}
         {yours.daPaise !== 0 && line(`DA${row.daDays ? ` (${row.daDays} ${row.daDays === 1 ? "day" : "days"})` : ""}`, `+${paiseText(yours.daPaise)}`)}

@@ -123,7 +123,7 @@ export function DayView({ day }: { day: WorkDay }) {
  * "Work for salary" under a counted day (rule 21): time at the plant − lunch = work, and what the day counts as. Hours
  * only, never money. Nothing for today (counted tomorrow) or without a salary setting.
  */
-export function WorkBox({ atPlant, day, shiftMinutes, lunchMinutes, workStartMinutes, getsOvertime }: { atPlant: number; day: { status: string; earlyMinutes: number; workMinutes: number; otMinutes: number; mark?: string }; shiftMinutes: number; lunchMinutes: number; workStartMinutes: number | null; getsOvertime: boolean }) {
+export function WorkBox({ atPlant, day, shiftMinutes, lunchMinutes, workStartMinutes, getsOvertime }: { atPlant: number; day: { status: string; earlyMinutes: number; workMinutes: number; otMinutes: number; mark?: string; holiday?: { name: string; worked: boolean; extraMinutes: number } }; shiftMinutes: number; lunchMinutes: number; workStartMinutes: number | null; getsOvertime: boolean }) {
   const lunch = atPlant - day.earlyMinutes - day.workMinutes;
   const row = (label: string, value: string, strong = false) => (
     <div className={`flex justify-between gap-3 ${strong ? "font-bold" : ""}`}>
@@ -131,7 +131,12 @@ export function WorkBox({ atPlant, day, shiftMinutes, lunchMinutes, workStartMin
       <span className="tabular-nums">{value}</span>
     </div>
   );
-  const verdict = day.mark
+  // rule 24: a Paid holiday on the person's own list (choice leave is not shown here, owner 2026-11-09)
+  const verdict = day.holiday
+    ? day.holiday.worked
+      ? `🎉 ${day.holiday.name}: paid holiday + worked (${extraText(day.holiday.extraMinutes, shiftMinutes)} extra)`
+      : `🎉 ${day.holiday.name}: paid holiday`
+    : day.mark
     ? day.mark === "off"
       ? "OFF (owner): a day off, not paid"
       : "ON (owner): counted as a full day"
@@ -148,13 +153,16 @@ export function WorkBox({ atPlant, day, shiftMinutes, lunchMinutes, workStartMin
       {workStartMinutes != null && day.earlyMinutes > 0 && row(`Before ${clockText(workStartMinutes)} (not counted)`, `− ${fmtMinutes(day.earlyMinutes)}`)}
       {lunchMinutes > 0 && row(`Lunch break (${fmtHours(lunchMinutes)})`, lunch > 0 ? `− ${fmtMinutes(lunch)}` : "not taken off")}
       {row("Work", fmtMinutes(day.workMinutes), true)}
-      <p className={`rounded-lg px-3 py-2 font-semibold ${day.status === "short" && !day.mark ? "bg-amber-50 text-amber-900" : "bg-slate-100 text-slate-800"}`}>
+      <p className={`rounded-lg px-3 py-2 font-semibold ${day.holiday ? "bg-sky-50 text-sky-900" : day.status === "short" && !day.mark ? "bg-amber-50 text-amber-900" : "bg-slate-100 text-slate-800"}`}>
         {verdict}
         {getsOvertime && day.otMinutes > 0 ? ` · overtime ${fmtSpan(day.otMinutes)}` : ""}
       </p>
     </section>
   );
 }
+
+/** Rule 24: work on a Paid holiday as extra days: "1 day", "0.5 day". */
+export const extraText = (minutes: number, shiftMinutes: number) => (minutes >= shiftMinutes ? "1 day" : `${shortDaysText(minutes, shiftMinutes)} day`);
 
 /** 480 -> "8 h", 90 -> "1.5 h" */
 const fmtHours = (minutes: number) => `${Math.round((minutes / 60) * 100) / 100} h`;

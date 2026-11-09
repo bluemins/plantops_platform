@@ -34,6 +34,8 @@ export function slipCard({ month, figures: f, payment }: { month: string; figure
     ["Absent", String(f.counts.absent)],
   ];
   if (f.counts.off) tiles.push(["Days off", String(f.counts.off)]); // rule 20
+  if (f.counts.holiday) tiles.push(["Holidays", String(f.counts.holiday)]); // rule 24 (paid)
+  const holidays = f.holidays ?? [];
   if (ot) tiles.push(["Overtime", fmtMinutes(r.otMinutes)]);
   const shortText = short ? ` + ${short} short (${fmtMinutes(shortMinutes)} ÷ ${hoursText(shift)} h = ${shortDaysText(shortMinutes, shift)} days)` : "";
   const halfText = f.counts.half ? ` + ${f.counts.half} half days` : "";
@@ -61,7 +63,7 @@ export function slipCard({ month, figures: f, payment }: { month: string; figure
         {f.input.payBasis === "fixed" ? (
           line(f.input.fullMonth ? "Fixed monthly salary" : `Part month: ${halvesText(r.paidHalves)} days × ${paiseText(r.dayPayPaise)}`, paiseText(r.earnedPaise))
         ) : perDay ? (
-          line(`${f.counts.present} full${f.counts.off && f.rules < 7 ? ` + ${f.counts.off} off` : ""}${halfText}${shortText} = ${halvesText(r.paidHalves)} days × ${paiseText(r.dayPayPaise)}`, paiseText(r.earnedPaise))
+          line(`${f.counts.present} full${f.counts.off && f.rules < 7 ? ` + ${f.counts.off} off` : ""}${halfText}${shortText}${f.counts.holiday ? ` + ${f.counts.holiday} holiday` : ""} = ${halvesText(r.paidHalves)} days × ${paiseText(r.dayPayPaise)}`, paiseText(r.earnedPaise))
         ) : (
           <>
             {line("Monthly salary", paiseText(f.input.monthlyPaise))}
@@ -74,7 +76,21 @@ export function slipCard({ month, figures: f, payment }: { month: string; figure
         )}
         {line("Salary earned", paiseText(r.earnedPaise), true)}
         {ot && line(`Overtime ${fmtMinutes(r.otMinutes)} × ${paiseText(f.input.otRatePaise ?? 0)}/h`, `+${paiseText(r.otPayPaise)}`)}
+        {(r.holidayWorkPaise ?? 0) !== 0 && line("Worked on holiday (extra)", `+${paiseText(r.holidayWorkPaise ?? 0)}`)}
       </div>
+      {holidays.length > 0 && (
+        <div className="space-y-1 border-t border-slate-100 pt-2 text-sm">
+          <p className="text-xs font-semibold tracking-wide text-slate-600 uppercase">Paid holidays</p>
+          {holidays.map((h) => (
+            <div key={h.date} className="flex justify-between gap-3">
+              <span className="min-w-0 break-words">
+                {shortDay(h.date)} · {h.name}
+              </span>
+              <span className="text-slate-600">{h.kind === "choice" ? "choice leave" : h.worked ? "paid · worked" : "paid"}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {f.fieldDutyDays > 0 && (
         <div className="space-y-1 border-t border-slate-100 pt-2 text-sm">
           <p className="text-xs font-semibold tracking-wide text-slate-600 uppercase">Field duty</p>

@@ -45,6 +45,8 @@ export function MonthTiles({ statuses }: { statuses: MonthStatuses }) {
   ];
   // rule 20: days off the owner marked (unpaid), only when there are any
   if (statuses.counts.off) tiles.push(["Days off", String(statuses.counts.off)]);
+  // rule 24: Paid holidays on the person's own list (choice leave is not shown on the month, owner 2026-11-09)
+  if (statuses.counts.holiday) tiles.push(["Paid holidays", String(statuses.counts.holiday)]);
   if (statuses.getsOvertime) tiles.push(["Overtime", fmtMinutes(statuses.counts.otMinutes)]);
   return (
     <section aria-label="This month" className="space-y-1">

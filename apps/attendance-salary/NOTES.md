@@ -845,3 +845,35 @@ stopped them). Owner's choice: the owner sets the number per person when giving 
 - Not affected: "Mark for someone" (always now), "Mark days" and advances (their own 7-day rule).
 - Tests: `fix-days-back.test.ts` (6) here, `apps/platform/test/fix-days-back.test.ts` (5). Older Office staff tests fix
   September days, so the test helper `atUser` gives a very wide window unless a test sets one (`WIDE_FIX_DAYS`).
+
+## 2026-11-09: a person's own holiday list (v0.53.0, rule 24)
+Asked by the owner 2026-11-09 for Ramu (plant 001), from the plant's 2026 holiday sheet (6 Paid holidays, festivals in
+4 choice groups with 1 choice leave each). Decided with the owner the same day: only Ramu (each person has their own
+list); worked on a Paid holiday = the day + 1 extra day's pay; the owner marks the choice leave; the month calendar shows
+the Paid holidays only (choice leave on the salary page and slip only); it starts from November (October was paid,
+so Dussehra 20 Oct is not paid).
+- **Holidays box** on Staff → person (under Advances), owner edits, support reads (`holiday_edit` = owner only;
+  `salary_view` to see it). One year at a time (the calendar's year). "Paste from Excel" reads the owner's sheet
+  (`parseHolidayPaste()` in `src/lib/holidays.ts`: Paid = a cell "Paid"; a number in the last column marks a choice
+  group, whether the spreadsheet copied it on the group's first or last row; groups named by their months, "Oct–Dec
+  2026") with **Start from** (default this month: earlier rows are left out). "+ Add one holiday" for single days.
+  Per festival in a group: "Take as choice leave" / "Undo choice" (one per group); Remove.
+- **Paid months can't change** (409 "… is already marked paid … Undo paid first"), for adds, removes and choice marks.
+- **Rule 24** (`dayStatuses()` + `monthPay()` in `src/lib/salary.ts`): a Paid holiday is status `holiday` (a paid day,
+  even over an OFF mark); work on it (ON = a full day) is `holidayWorkMinutes`, at most the work hours, paid on top at
+  the day's pay (`holidayWorkPaise`); overtime unchanged. A choice leave is `holiday` only when not worked (absent or
+  OFF). Monthly: holidays are not missing days; per day: paid at the day rate; part month / fixed: counted as paid days.
+  `RULES_VERSION` 9; frozen months keep `holidays` (missing before = none).
+- **Screens:** calendar (owner's person page and the worker's own) "🎉 <name>" in sky blue on Paid holidays, also on
+  future days, "worked +1 day"; key line; worker tiles "Paid holidays"; day page Work box "🎉 Diwali: paid holiday".
+  A choice leave day shows as it would without it (absent / OFF). Salary strip "Paid holidays 2 · 1 choice" and "Worked on
+  holiday +₹300"; checking panel boxes; slip "Holidays" tile, a "Paid holidays" list and "Worked on holiday (extra)";
+  salary CSV "Paid holidays", "Choice leave days", "Holiday work pay" (last 3 columns); attendance CSV "Paid holiday".
+- **Database:** migration `0012_person_holidays.sql` (approved by the owner 2026-11-09): `person_holidays`, append-only
+  (add / remove / choice / unchoice; the newest row per person and day wins), FORCE RLS, `attendance_app` SELECT + INSERT.
+  Recent changes: `holiday.add` / `.remove` / `.choice` / `.unchoice`. Platform and SSO token unchanged.
+- Tests: `holidays.test.ts` (19, incl. the owner's sheet both ways and Ramu's November); shape updates elsewhere.
+  Attendance 500 pass.
+- **Owner to do after deploy:** Staff → Ramu → Holidays → Paste from Excel (Start from November 2026) → Add; mark the
+  Oct–Dec choice leave when he takes one; then cancel the 8 h added on 8 Nov (he didn't work Diwali) so the day shows
+  as the paid holiday. Rows for 2027 need the 2027 sheet.

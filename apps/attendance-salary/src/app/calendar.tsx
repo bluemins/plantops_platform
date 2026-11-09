@@ -2,6 +2,7 @@ import { fmtMinutes, fmtMonth, fmtSpan, weekdayMon0 } from "@/lib/days";
 import { clockText, hoursText } from "@/lib/salary";
 import type { MonthView } from "@/server/calendar";
 import type { MonthStatuses } from "@/server/salary";
+import { extraText } from "./day-view";
 
 const WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -47,8 +48,14 @@ export function MonthCalendar({ view, dayHref, monthHref, statuses }: { view: Mo
           const worked = d.minutes > 0 || d.blocks.length > 0 || d.entries.length > 0;
           // with a salary setting (docs/SALARY_PHASE_PLAN.md mock-up 5): short days and absent days get their own colour
           const st = statuses?.days[d.date];
+          // rule 24: a Paid holiday on the person's own list, also today and later (choice leave is not shown)
+          const holidayName = statuses?.paidHolidays[d.date];
           const tone = future
-            ? "text-slate-300"
+            ? holidayName
+              ? "border border-sky-200 bg-sky-50/60 text-sky-800"
+              : "text-slate-300"
+            : holidayName && (!st || st.status === "holiday")
+              ? "border border-sky-300 bg-sky-50 text-sky-950"
             : st?.status === "off"
               ? "border border-emerald-300 bg-emerald-50 text-emerald-900" // rule 20: the owner's day off (unpaid, rule 22)
               : d.noExit
@@ -69,6 +76,12 @@ export function MonthCalendar({ view, dayHref, monthHref, statuses }: { view: Mo
               <span className="text-[11px] leading-tight">
                 {d.open ? "in now" : d.minutes > 0 ? fmtMinutes(st ? st.workMinutes : d.minutes) : st?.status === "off" ? "day off" : st?.mark === "on" ? "present" : d.noExit ? "0h" : st?.status === "absent" ? "absent" : ""}
               </span>
+              {holidayName && (
+                <span className="line-clamp-2 max-w-full text-[10px] leading-tight font-bold break-words text-sky-800" title={`${holidayName}: paid holiday`}>
+                  🎉 {holidayName}
+                </span>
+              )}
+              {st?.holiday?.worked && <span className="text-[10px] font-bold text-sky-800">worked +{extraText(st.holiday.extraMinutes, statuses!.shiftMinutes)}</span>}
               {st?.status === "short" && !st.mark && <span className="text-[10px] font-bold text-amber-800">short</span>}
               {st && st.otMinutes > 0 && !d.noExit && <span className="text-[10px] font-bold text-(--brand)">+{fmtSpan(st.otMinutes)}</span>}
               {st?.mark ? (
@@ -128,6 +141,12 @@ export function CalendarKey({ statuses }: { statuses?: MonthStatuses | null } = 
             <span className="h-3 w-3 rounded border border-emerald-300 bg-emerald-50" />
             OFF: day off, not paid (owner)
           </span>
+          {Object.keys(statuses.paidHolidays).length > 0 && (
+            <span className="flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded border border-sky-300 bg-sky-50" />
+              🎉 Paid holiday (worked = +1 day)
+            </span>
+          )}
           <span className="flex items-center gap-1.5">
             <span className="h-3 w-3 rounded border border-(--brand) bg-(--brand-soft)" />
             ON: present (owner)

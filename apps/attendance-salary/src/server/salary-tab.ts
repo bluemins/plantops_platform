@@ -195,6 +195,7 @@ export const SALARY_CSV_HEADER = [
   "Overtime", "Overtime hours", "Overtime rate", "Overtime pay",
   "Field duty days", "Km", "TA rate", "TA", "DA days", "DA rate", "DA", "Expenses", "Claims waiting",
   "Advances", "Carried in", "Adjustment", "Remaining",
+  "Paid holidays", "Choice leave days", "Holiday work pay",
 ];
 
 /** Paise as a spreadsheet number: 1120000 -> "11200.00", -210000 -> "-2100.00". */
@@ -253,6 +254,10 @@ export async function salaryCsv(user: AtUser, month: string, now: Date = new Dat
       rupees(x.carriedInPaise),
       rupees(x.adjustmentPaise),
       rupees(x.remainingPaise),
+      // rule 24: the person's own holidays (Paid + choice leave taken) and work on Paid holidays
+      r.counts.holiday ?? 0,
+      r.counts.choice ?? 0,
+      rupees(x.holidayWorkPaise ?? 0),
     ]);
   }
   await withTenant(user.tenantId, (tx) => audit(tx, user, "salary.export", null, { month, people: tab.rows.length }));

@@ -49,7 +49,7 @@ describe("who is who", () => {
 
 describe("the access table", () => {
   // the agreed table (docs/ATTENDANCE_PHASE_PLAN.md + Phase 2 plan): which actions each person has
-  const OWNER: Action[] = ["see_everyone", "see_today", "fix", "day_mark", "settings", "view_settings", "export", "view_changes", "support_log", ...OWNER_SALARY, "advance_add", "advance_view", ...OWNER_CLAIMS];
+  const OWNER: Action[] = ["see_everyone", "see_today", "fix", "day_mark", "holiday_edit", "settings", "view_settings", "export", "view_changes", "support_log", ...OWNER_SALARY, "advance_add", "advance_view", ...OWNER_CLAIMS];
   const EMPLOYEE: Action[] = ["mark", "see_own", "see_own_salary", "claim_own"];
   const OFFICE: Action[] = ["see_everyone", "see_today", "fix", "mark_for", "advance_add", "advance_view"];
   // a Supervisor marks and fixes the Office staff only (owner, 2026-10-19; the person is checked in people.ts)
@@ -70,7 +70,7 @@ describe("the access table", () => {
   it("each person can do exactly their actions", () => {
     const actions = Object.keys(ACCESS) as Action[];
     expect(actions.sort()).toEqual([
-      "advance_add", "advance_view", "claim_decide", "claim_own", "claim_view", "day_mark", "export", "fix", "mark", "mark_for", "salary_edit", "salary_export", "salary_pay",
+      "advance_add", "advance_view", "claim_decide", "claim_own", "claim_view", "day_mark", "export", "fix", "holiday_edit", "mark", "mark_for", "salary_edit", "salary_export", "salary_pay",
       "salary_view", "see_everyone", "see_office_staff", "see_own", "see_own_salary", "see_today", "settings", "support_log", "view_changes", "view_settings",
     ]);
     const people = { ...p, ...q };

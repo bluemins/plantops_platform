@@ -55,6 +55,15 @@ export function describeChange(action: string, d: Record<string, unknown>): stri
       return d.mark === "clear"
         ? `Cleared the day mark on ${fmtDayLong(show(d.day))} for ${show(d.person)} (back to the IN / OUT marks)`
         : `Marked ${fmtDayLong(show(d.day))} ${d.mark === "on" ? "ON (present)" : "OFF (day off, not paid)"} for ${show(d.person)}`;
+    case "holiday.add":
+      // rule 24: a person's own holiday list
+      return `${d.replaced ? "Changed" : "Added"} holiday ${show(d.name)} on ${fmtDayLong(show(d.day))} for ${show(d.person)}: ${d.paid ? "Paid" : d.group ? `festival, choice group ${show(d.group)}` : "festival"}`;
+    case "holiday.remove":
+      return `Removed holiday ${show(d.name)} on ${fmtDayLong(show(d.day))} for ${show(d.person)}`;
+    case "holiday.choice":
+      return `${show(d.name)} (${shortDay(d.day)}) marked as ${show(d.person)}'s choice leave for ${show(d.group)}`;
+    case "holiday.unchoice":
+      return `${show(d.name)} (${shortDay(d.day)}) no longer ${show(d.person)}'s choice leave`;
     case "salary.set":
       return `Salary for ${show(d.person)} from ${shortMonth(d.from)}: ${settingText({ basis: typeof d.basis === "string" ? d.basis : undefined, monthly: typeof d.monthly === "number" ? d.monthly : null, day_rate: typeof d.day_rate === "number" ? d.day_rate : null, km_rate: typeof d.km_rate === "number" ? d.km_rate : null, da_day: typeof d.da_day === "number" ? d.da_day : null, field: d.field === true, temporary: d.staff_type === "temporary", shift: num(d.shift), lunch: num(d.lunch), start: typeof d.start === "number" ? d.start : null, leave: num(d.leave), ot_rate: typeof d.ot_rate === "number" ? d.ot_rate : null, joined: d.joined as string | null, left: d.left as string | null })}${d.reason ? `: ${show(d.reason)}` : ""}`;
     case "claim.sent":

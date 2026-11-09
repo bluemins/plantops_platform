@@ -113,12 +113,15 @@ export async function seedPlant(tenantId: string) {
   // day marks (migration 0008): the owner marked a day OFF
   const dayMark = await one(`insert into attendance_salary.day_marks (tenant_id, user_id, user_name, day, mark, created_by, created_by_name)
     values ('${tenantId}', '${worker}', 'Ramu', '2026-10-18', 'off', '${owner}', 'Sujata') returning id`);
-  return { worker, owner, scan, fix, cancel, outbox, setting, advance, correction, visibility, payment, undo, claim, decision, file, dayMark };
+  // a person's holiday list (migration 0012): Diwali, paid
+  const holiday = await one(`insert into attendance_salary.person_holidays (tenant_id, user_id, user_name, day, action, name, paid, created_by, created_by_name)
+    values ('${tenantId}', '${worker}', 'Ramu', '2026-11-08', 'add', 'Diwali', true, '${owner}', 'Sujata') returning id`);
+  return { worker, owner, scan, fix, cancel, outbox, setting, advance, correction, visibility, payment, undo, claim, decision, file, dayMark, holiday };
 }
 
 /** The tables in the attendance_salary schema (the guard tests compare against this list). */
 export const TABLES = [
-  "audit_log", "day_marks", "notification_outbox", "plant_settings", "punch_cancels", "punches",
+  "audit_log", "day_marks", "notification_outbox", "person_holidays", "plant_settings", "punch_cancels", "punches",
   "salary_advances", "salary_claim_decisions", "salary_claim_files", "salary_claims", "salary_payment_undos",
   "salary_payments", "salary_settings", "salary_visibility", "support_views",
 ];

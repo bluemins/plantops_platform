@@ -25,6 +25,7 @@ import {
   type DayStatus,
   type DayTime,
   type FrozenMonth,
+  type Holiday,
   type PaidMonth,
   type PayInput,
   type SalarySetting,
@@ -33,6 +34,7 @@ import { workDays } from "@/lib/sessions";
 import { can, requireAccess } from "./access";
 import { loadClaims, type ClaimRow } from "./claims";
 import { loadDayMarks } from "./day-marks";
+import { loadHolidays } from "./holidays";
 import { schema, withTenant, type AtTx } from "./db";
 import type { StaffType } from "./schema";
 import { notFound } from "./http";
@@ -135,7 +137,7 @@ export interface PersonSalary {
 }
 
 /** Works out one person's months up to `month` from already-loaded rows (also used for the whole plant). */
-function personMonths(userId: string, data: SalaryData, days: ReadonlyMap<string, DayTime>, marks: ReadonlyMap<string, DayMark>, month: string, today: string): PersonSalary {
+function personMonths(userId: string, data: SalaryData, days: ReadonlyMap<string, DayTime>, marks: ReadonlyMap<string, DayMark>, month: string, today: string, holidays: ReadonlyMap<string, Holiday>): PersonSalary {
   const settings = data.settings.filter((s) => s.userId === userId);
   const first = firstSalaryMonth(settings)!;
   const months: Omit<SalaryMonth, "chain">[] = [];
@@ -144,7 +146,7 @@ function personMonths(userId: string, data: SalaryData, days: ReadonlyMap<string
     // rule 1: Joined on blank = the first day of the first salary month
     const counted = countedDates(m, today, setting.joinedOn ?? `${first}-01`, setting.leftOn);
     if (!counted) continue; // not employed on any day of this month
-    const dayResults = dayStatuses(days, setting.shiftMinutes, counted.dates, setting.getsOvertime, marks, setting.lunchMinutes, setting.workStartMinutes); // rules 20, 21, 23
+    const dayResults = dayStatuses(days, setting.shiftMinutes, counted.dates, setting.getsOvertime, marks, setting.lunchMinutes, setting.workStartMinutes, holidays); // rules 20, 21, 23, 24
     const claims = data.claims.filter((c) => c.userId === userId && ym(c.onDate) === m);
     months.push({
       month: m,
@@ -212,11 +214,13 @@ export async function salaryMonthsOf(tenantId: string, month: string, opts: { pe
     const from = firsts.reduce((a, b) => (a < b ? a : b));
     const loaded = await loadMarks(tx, tenantId, `${from}-01`, monthDays(month).at(-1)!, opts.personId);
     const marked = await loadDayMarks(tx, tenantId, `${from}-01`, monthDays(month).at(-1)!, opts.personId ? [opts.personId] : undefined);
+    // rule 24: each person's own holiday list
+    const holidays = await loadHolidays(tx, tenantId, `${from}-01`, monthDays(month).at(-1)!, opts.personId ? [opts.personId] : undefined);
     const people = userIds
       .filter((id) => firstSalaryMonth(data.settings.filter((s) => s.userId === id))! <= month)
       .map((id) => {
         const l = loaded.get(id);
-        return personMonths(id, data, workDays(l?.marks ?? [], l?.cancels ?? [], now), marked.get(id) ?? new Map(), month, today);
+        return personMonths(id, data, workDays(l?.marks ?? [], l?.cancels ?? [], now), marked.get(id) ?? new Map(), month, today, holidays.get(id) ?? new Map());
       })
       .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
     return { month, today, people };
@@ -245,6 +249,9 @@ export function payInputOf(c: SalaryMonth): PayInput {
   };
 }
 
+/** Rule 24: the month's paid holidays (Paid holidays and choice leave taken), oldest first. */
+export const holidaysOf = (days: readonly DayResult[]) => days.flatMap((d) => (d.holiday ? [{ date: d.date, ...d.holiday }] : []));
+
 /** Rule 14: the month's calculation exactly as it stands, to be saved with a payment (the slip shows only this). */
 export function freezeMonth(c: SalaryMonth): FrozenMonth {
   const s = c.setting;
@@ -261,6 +268,7 @@ export function freezeMonth(c: SalaryMonth): FrozenMonth {
     fieldDutyDays: c.claimTotals.fieldDutyDays,
     daDays: c.claimTotals.daDays,
     kmTenths: c.claimTotals.kmTenths,
+    holidays: holidaysOf(c.days),
     adjustmentFrom: c.chain.adjustmentFrom,
     input: payInputOf(c),
     result: c.chain.live,
@@ -278,7 +286,9 @@ export const frozenOf = (figures: Record<string, unknown>): FrozenMonth | null =
  */
 export interface MonthStatuses {
   /** `mark`: the owner's whole-day ON / OFF (rule 20), so the calendar can say so; `workMinutes`: rule 21 */
-  days: Record<string, { status: DayStatus; earlyMinutes: number; workMinutes: number; otMinutes: number; mark?: DayMark }>;
+  days: Record<string, { status: DayStatus; earlyMinutes: number; workMinutes: number; otMinutes: number; mark?: DayMark; holiday?: { name: string; worked: boolean; extraMinutes: number } }>;
+  /** rule 24: the person's Paid holidays on every day of the month (today and later too): date -> name */
+  paidHolidays: Record<string, string>;
   /** the month's setting: a full day's work and the lunch break (rule 21) */
   shiftMinutes: number;
   lunchMinutes: number;
@@ -304,22 +314,27 @@ export async function monthStatuses(user: AtUser, personId: string, month: strin
   const own = personId === user.userId;
   if (!(own ? can(user, "see_own") || can(user, "see_everyone") : can(user, "see_everyone") || can(user, "see_office_staff"))) throw notFound("Not found");
   if (!own) await requireReach(user, personId); // a Supervisor: Office staff only
-  const [rows, marked] = await withTenant(user.tenantId, async (tx) => [
+  const [rows, marked, holidays] = await withTenant(user.tenantId, async (tx) => [
     await tx.select().from(salarySettings).where(and(eq(salarySettings.tenantId, user.tenantId), eq(salarySettings.userId, personId))),
     await loadDayMarks(tx, user.tenantId, `${month}-01`, monthDays(month).at(-1)!, [personId]),
+    await loadHolidays(tx, user.tenantId, `${month}-01`, monthDays(month).at(-1)!, [personId]),
   ] as const);
   const settings = rows.map((r) => ({ ...r, fromMonth: ym(r.fromMonth) }));
   const setting = settingFor(settings, month);
   if (!setting) return null;
   const counted = countedDates(month, istDay(now), setting.joinedOn ?? `${firstSalaryMonth(settings)}-01`, setting.leftOn);
   if (!counted) return null;
-  const results = dayStatuses(days, setting.shiftMinutes, counted.dates, setting.getsOvertime, marked.get(personId), setting.lunchMinutes, setting.workStartMinutes); // rules 20, 21, 23
+  const all = dayStatuses(days, setting.shiftMinutes, counted.dates, setting.getsOvertime, marked.get(personId), setting.lunchMinutes, setting.workStartMinutes, holidays.get(personId)); // rules 20, 21, 23, 24
+  // rule 24 (owner 2026-11-09): the calendar shows Paid holidays only; a choice leave day shows as it would without it
+  const results = all.map((d): DayResult => (d.holiday?.kind === "choice" ? { ...d, status: marked.get(personId)?.get(d.date) === "off" ? "off" : "absent", holiday: undefined } : d));
   return {
     days: Object.fromEntries(results.map((d) => {
       const mark = marked.get(personId)?.get(d.date);
-      return [d.date, { status: d.status, earlyMinutes: d.earlyMinutes, workMinutes: d.workMinutes, otMinutes: d.otMinutes, ...(mark ? { mark } : {}) }];
+      const holiday = d.holiday?.kind === "paid" ? { holiday: { name: d.holiday.name, worked: d.holiday.worked, extraMinutes: d.holidayWorkMinutes } } : {};
+      return [d.date, { status: d.status, earlyMinutes: d.earlyMinutes, workMinutes: d.workMinutes, otMinutes: d.otMinutes, ...(mark ? { mark } : {}), ...holiday }];
     })),
     counts: countDays(results),
+    paidHolidays: Object.fromEntries([...(holidays.get(personId) ?? new Map<string, Holiday>()).entries()].filter(([, h]) => h.paid).map(([d, h]) => [d, h.name])),
     shiftMinutes: setting.shiftMinutes,
     lunchMinutes: setting.lunchMinutes,
     workStartMinutes: setting.workStartMinutes,

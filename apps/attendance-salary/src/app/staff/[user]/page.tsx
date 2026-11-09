@@ -4,6 +4,7 @@ import { can } from "@/server/access";
 import { personClaims } from "@/server/claims";
 import { monthFor } from "@/server/calendar";
 import { kit } from "@/server/kit";
+import { holidayList } from "@/server/holidays";
 import { advancePanel, fromMonthChoices, salaryPanel } from "@/server/salary-edit";
 import { monthStatuses } from "@/server/salary";
 import { orNotFound } from "@/server/pages";
@@ -11,6 +12,7 @@ import { requirePageUser } from "@/server/session";
 import { CalendarKey, MonthCalendar } from "../../calendar";
 import { Header } from "../../header";
 import { Advances } from "./advances";
+import { HolidaysBox } from "./holidays-box";
 import { MarkDays } from "./mark-days";
 import { PersonClaims } from "./claims";
 import { SalaryBox, SalaryReadOnly, VisibilityTick } from "./salary-box";
@@ -31,6 +33,8 @@ export default async function PersonMonthPage({ params, searchParams }: { params
   const [plant, view] = await Promise.all([kit.branding(user.tenantId), orNotFound(monthFor(user, personId, typeof sp.m === "string" ? sp.m : null))]);
   const salary = can(user, "salary_view") ? await salaryPanel(user, personId, view.month) : null;
   const claims = can(user, "claim_view") ? await personClaims(user, personId, view.month) : null;
+  // rule 24: the person's own holiday list for the calendar's year (owner edits, support reads)
+  const holidays = salary && salary.history.length > 0 ? await holidayList(user, personId, view.month.slice(0, 4)) : null;
   // Office staff: advances and "still to recover" only, never a salary (docs/ATTENDANCE_ROLES_PHASE_PLAN.md mock-up 2)
   const advances = !salary && can(user, "advance_view") ? await advancePanel(user, personId, view.month) : null;
   const statuses = await monthStatuses(user, personId, view.month, new Map(view.days.map((d) => [d.date, d])));
@@ -71,6 +75,7 @@ export default async function PersonMonthPage({ params, searchParams }: { params
             <SalaryReadOnly applies={salary.applies} history={salary.history} canSee={salary.canSee} name={name} />
           )}
           <Advances personId={personId} month={salary.month} today={salary.today} firstDate={salary.firstAdvanceDate} entries={salary.advances} expect={salary.expect.advance} editable={can(user, "salary_edit")} />
+          {holidays && <HolidaysBox personId={personId} name={name} list={holidays} thisMonth={salary.thisMonth} editable={can(user, "holiday_edit")} />}
           {claims && salary.history.length > 0 && <PersonClaims personId={personId} month={salary.month} claims={claims} canDecide={can(user, "claim_decide")} />}
         </>
       )}

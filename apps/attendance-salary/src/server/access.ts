@@ -20,6 +20,7 @@ export type Action =
   | "see_office_staff" // a Supervisor: the Office staff's calendars and days only (to mark and fix them; never yourself)
   | "see_today" // the Today board (Supervisor: read-only)
   | "fix" // add a time / cancel a mark, with a reason (never your own unless owner; a Supervisor only for Office staff)
+  | "holiday_edit" // a person's own holiday list and choice leave (rule 24: owner only)
   | "day_mark" // mark a person's whole day ON / OFF / Clear, no times (docs/DAY_MARKS_PLAN.md: owner only)
   | "mark_for" // "Mark for someone": IN / OUT now (never yourself; a Supervisor only for Office staff, owner 2026-10-19)
   | "settings" // plant location, circle, print QR, make a new QR
@@ -47,6 +48,7 @@ export const ACCESS: Record<Action, readonly Capacity[]> = {
   see_today: ["owner", "office", "supervisor", "support"],
   fix: ["owner", "office", "supervisor"],
   day_mark: ["owner"],
+  holiday_edit: ["owner"],
   mark_for: ["office", "supervisor"],
   settings: ["owner"],
   view_settings: ["owner", "support"],
@@ -66,7 +68,7 @@ export const ACCESS: Record<Action, readonly Capacity[]> = {
 };
 
 /** Salary and claims: Office staff and Supervisors never learn these pages exist ("not found", never "not allowed"). */
-const SALARY_ACTIONS: readonly Action[] = ["salary_view", "salary_edit", "salary_pay", "salary_export", "see_own_salary", "claim_own", "claim_view", "claim_decide"];
+const SALARY_ACTIONS: readonly Action[] = ["holiday_edit", "salary_view", "salary_edit", "salary_pay", "salary_export", "see_own_salary", "claim_own", "claim_view", "claim_decide"];
 
 /** What the user is, for this table. */
 export interface Actor {

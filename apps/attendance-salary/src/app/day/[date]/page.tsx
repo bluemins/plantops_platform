@@ -29,6 +29,8 @@ export default async function DayPage({ params }: { params: Promise<{ date: stri
       </a>
       <DayView day={view.day} />
       {statuses && counted && <WorkBox atPlant={view.day.minutes} day={counted} shiftMinutes={statuses.shiftMinutes} lunchMinutes={statuses.lunchMinutes} workStartMinutes={statuses.workStartMinutes} getsOvertime={statuses.getsOvertime} />}
+      {/* rule 24: a Paid holiday on the person's own list (today: counted tomorrow, so the box above isn't shown yet) */}
+      {statuses?.paidHolidays[date] && !counted && <p className="rounded-2xl border border-sky-300 bg-sky-50 p-4 font-semibold text-sky-950">🎉 {statuses.paidHolidays[date]}: paid holiday</p>}
       {mark && (
         <p className="rounded-2xl border border-slate-200 bg-white p-4 font-semibold">
           {mark === "off" ? "OFF (owner): a day off, not paid" : "ON (owner): counted as present"}
