@@ -4,6 +4,17 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.53.0 — 2026-11-09 — Attendance: a person's own holiday list
+
+Owner, 2026-11-09, for Ramu at plant 001. **Migration:** Attendance `0012_person_holidays.sql` (one append-only table,
+FORCE RLS, SELECT + INSERT). Platform and SSO token unchanged.
+- Staff → person → **Holidays** (owner; support reads): paste the holiday sheet from Excel with **Start from**, or add one
+  day; mark one festival per choice group as **choice leave**; Remove. Months already marked paid can't change.
+- **Rule 24:** a Paid holiday is a paid day; worked, 1 extra day's pay (at most a full day). A choice leave is paid
+  when not worked. Other festivals are normal days.
+- The month calendar shows Paid holidays ("🎉 Diwali"); choice leave shows on the salary strip, panel, slip and CSV only.
+  Attendance CSV "Paid holiday"; salary CSV "Paid holidays", "Choice leave days", "Holiday work pay".
+
 ## v0.46.1 — 2026-11-07 — Customers tile for Marketing staff with an order role
 
 Owner, 2026-11-07: Dillip (Order desk + Accounts + Marketing staff) saw only his Sales "Bills" tile. **No migration.**
