@@ -64,14 +64,14 @@ async function order(t: string, customer: string, status: "pending" | "delivered
   return rows[0]!.id;
 }
 type BL = [{ id: string | null; name: string }, number, number, boolean?];
-async function bill(t: string, who: { customer?: string; contact?: string; imp?: string }, lines: BL[], o: { order?: string; number?: string; ob?: boolean; cancelled?: boolean; total?: number } = {}) {
+async function bill(t: string, who: { customer?: string; contact?: string; imp?: string }, lines: BL[], o: { order?: string; number?: string; ob?: boolean; cancelled?: boolean; total?: number; date?: string } = {}) {
   const total = o.total ?? lines.reduce((s, [, q, r, f]) => s + (f ? 0 : q * r), 0);
   const zoho = !!who.contact;
   const { rows } = await asOwner<{ id: string }>(
     `insert into order_capture.bills (tenant_id, source, number, ref_no, zoho_invoice_id, bill_date, customer_id, zoho_contact_id, customer_name, order_id, sub_total, total, import_id, created_by, created_by_name,
        cancelled_at, cancelled_by, cancelled_by_name, cancel_reason)
      values ($1, $2, $3, $4, $5, $6, $7, $8, 'Shree Stores', $9, $10, $10, $11, '${WHO}', 'Sujata', ${o.cancelled ? `now(), '${WHO}', 'Sujata', 'Wrong rate'` : "null, null, null, null"}) returning id`,
-    [t, zoho ? "zoho" : "plantops", o.number ?? `B-${String(++refNo).padStart(4, "0")}`, zoho ? null : refNo, zoho ? `${o.ob ? "ob:" : "zi-"}${randomUUID()}` : null, IST(new Date()), who.customer ?? null, who.contact ?? null, o.order ?? null, total, who.imp ?? null],
+    [t, zoho ? "zoho" : "plantops", o.number ?? `B-${String(++refNo).padStart(4, "0")}`, zoho ? null : refNo, zoho ? `${o.ob ? "ob:" : "zi-"}${randomUUID()}` : null, o.date ?? IST(new Date()), who.customer ?? null, who.contact ?? null, o.order ?? null, total, who.imp ?? null],
   );
   for (const [i, [s, q, r, f]] of lines.entries())
     await asOwner(
@@ -136,8 +136,8 @@ describe("Drop Home", () => {
     // part-paid, a cancelled bill; an unused advance
     const imp = (await asOwner<{ id: string }>(`insert into order_capture.zoho_imports (tenant_id, imported_by, imported_by_name) values ($1, '${WHO}', 'Sujata') returning id`, [t])).rows[0]!.id;
     const contact = (await asOwner<{ id: string }>(`insert into order_capture.zoho_contacts (tenant_id, zoho_contact_id, name, customer_id, import_id) values ($1, 'zc-1', 'Shree Stores (Bijepur)', $2, $3) returning id`, [t, c, imp])).rows[0]!.id;
-    const zb = await bill(t, { contact, imp }, [[{ id: null, name: "1L Water Bottle" }, 10, 100]], { number: "INV-000777" });
-    await bill(t, { contact, imp }, [], { number: "OB-1", ob: true, total: 200 });
+    const zb = await bill(t, { contact, imp }, [[{ id: null, name: "1L Water Bottle" }, 10, 100]], { number: "INV-000777", date: IST(new Date(Date.now() - 40 * 86_400_000)) });
+    await bill(t, { contact, imp }, [], { number: "OB-1", ob: true, total: 200, date: "2026-04-01" });
     const ab = await bill(t, { customer: c }, [[b1, 5, 100], [b1, 1, 100, true], [m1, 3, 100], [jar, 4, 50], [hx, 2, 50]], { order: A });
     await bill(t, { customer: c }, [[b1, 100, 100]], { cancelled: true });
     await pay(t, c, 400, zb);
@@ -159,9 +159,9 @@ describe("Drop Home", () => {
     for (const o of r.body.orders.slice(1)) expect(o).toMatchObject({ status: "delivered", date: today, time: expect.stringMatching(/^\d\d:\d\d$/) });
     // Zoho 600 + opening balance 200 + Bluemins' 500 / 1,100 of A's ₹550 due; the unused advance is not taken off
     expect(r.body.dues).toEqual([{ brand: "Bluemins", paise: 105000 }]);
-    // Zoho 10 + A's bill 5 (A counted once, its free box not) + B 2 (500ml) + E 8 if yesterday was this month;
-    // the cancelled bill, C / D (not delivered) and other brands never
-    expect(r.body.boxes.Bluemins.this_month).toEqual({ total: sameMonthYesterday ? 25 : 17, sizes: [{ size: "1L", boxes: sameMonthYesterday ? 23 : 15 }, { size: "500ml", boxes: 2 }] });
+    // A's bill 5 (A counted once, its free box not) + B 2 (500ml) + E 8 if yesterday was this month (the Zoho bill is
+    // 40 days old); the cancelled bill, C / D (not delivered) and other brands never
+    expect(r.body.boxes.Bluemins.this_month).toEqual({ total: sameMonthYesterday ? 15 : 7, sizes: [{ size: "1L", boxes: sameMonthYesterday ? 13 : 5 }, { size: "500ml", boxes: 2 }] });
     expect(Object.keys(r.body.boxes)).toEqual(["Bluemins"]);
     expect(r.body.support).toEqual({ phone: "9437000111", hours: "Mon–Sat 9–7" });
     expect(r.body.news).toBeNull();
@@ -191,6 +191,21 @@ describe("Drop Home", () => {
     expect(sum).toBe(Math.round(Number(acc.totals.due) * 100));
     expect(sum).toBe(135000);
     await setDrop(p.owner, p.shop.id, SetDropInput.parse({ enabled: true }));
+  });
+
+  it("an order delivered by the plant's last Zoho invoice date with no bill here was billed in Zoho: not counted twice", async () => {
+    const q = await shopPlant();
+    const t = q.tenantId;
+    const imp = (await asOwner<{ id: string }>(`insert into order_capture.zoho_imports (tenant_id, imported_by, imported_by_name) values ($1, '${WHO}', 'Sujata') returning id`, [t])).rows[0]!.id;
+    const contact = (await asOwner<{ id: string }>(`insert into order_capture.zoho_contacts (tenant_id, zoho_contact_id, name, customer_id, import_id) values ($1, 'zc-2', 'Shree', $2, $3) returning id`, [t, q.shop.id, imp])).rows[0]!.id;
+    // Zoho billed up to 3 days ago (its invoice for the order below is not linked to it)
+    await bill(t, { contact, imp }, [[{ id: null, name: "1L Water Bottle" }, 10, 100]], { number: "INV-1", date: IST(new Date(Date.now() - 3 * 86_400_000)) });
+    await order(t, q.shop.id, "delivered", [[b1, 10, 100]], "now() - interval '4 days'");
+    await order(t, q.shop.id, "delivered", [[b1, 2, 100]]); // after Zoho: counts
+    const r = await homeOf(q.app, q.token);
+    // (on 1–4 April the order 4 days ago is last year's)
+    const fourDaysAgoThisFy = !/-04-0[1-4]$/.test(IST(new Date()));
+    expect(r.body.boxes.Bluemins.this_year.total).toBe(fourDaysAgoThisFy ? 12 : 2);
   });
 
   it("a shop with nothing on the way, nothing due and no recent buying", async () => {

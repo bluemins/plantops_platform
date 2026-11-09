@@ -2,11 +2,12 @@
 // asks and never stored:
 //   * orders: pending ("received") or delivered today, only lines of the shop's brands, products and boxes (+ free)
 //   * dues: due per brand for the shop's brands (src/lib/brand-due.ts), from the same bills as the account page
-//   * boxes: the main brand's box totals (src/lib/box-totals.ts), only for a shop that bought it in the last 12 months
+//   * boxes: the main brand's box totals (src/lib/box-totals.ts), only for a shop that bought it in the last 12 months;
+//     a delivered order with no bill counts only after the plant's last Zoho invoice date (before it, Zoho billed it)
 //   * support: the plant's customer support phone and hours (Business details)
 // The answer is built field by field (an allow-list): never rates, order or bill amounts, refs, notes, history or staff
 // names. The only money in it is the brand dues.
-import { and, eq, gte, inArray, or } from "drizzle-orm";
+import { and, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { boxTotals, type BoxLine } from "@/lib/box-totals";
 import { brandDues } from "@/lib/brand-due";
 import { brandKey, effectiveBrand, lineMatcher, sizeLabel, type BrandProduct } from "@/lib/brand";
@@ -54,7 +55,12 @@ export async function home(s: AppSession, now = new Date()): Promise<Home> {
     const dueOf = new Map(L.bills.map((b) => [b.id, billDue(b, L.allocations, L.adjustments)]));
     const wanted = rows.bills.filter((b) => !b.cancelledAt && ((dueOf.get(b.id) ?? 0n) > 0n || b.billDate >= fyStartPrev)).map((b) => b.id);
     const bl = wanted.length ? await tx.select().from(billLines).where(and(eq(billLines.tenantId, t), inArray(billLines.billId, wanted))) : [];
-    return { rates, rows, dueOf, os, ol, bl };
+    // the plant's last Zoho invoice date: up to then Zoho's invoices are the record of what was delivered, so an order
+    // delivered by then with no bill here was invoiced in Zoho (often not linked to it) and must not count twice
+    const [z] = await tx.execute<{ d: string | null }>(sql`
+      select max(bill_date)::text as d from order_capture.bills
+       where tenant_id = ${t} and source = 'zoho' and coalesce(zoho_invoice_id, '') not like 'ob:%'`).then((r) => r.rows);
+    return { rates, rows, dueOf, os, ol, bl, zohoUntil: z?.d ?? null };
   });
 
   const savedBrand = new Map(data.rates.map((r) => [r.skuId, r.brand]));
@@ -113,6 +119,7 @@ export async function home(s: AppSession, now = new Date()): Promise<Home> {
   for (const o of data.os) {
     if (o.status !== "delivered" || billedOrders.has(o.id)) continue;
     const on = istDate(o.deliveredAt ?? o.statusChangedAt);
+    if (data.zohoUntil && on <= data.zohoUntil) continue;
     for (const l of data.ol) if (l.orderId === o.id && l.version === o.version && !l.free) addBox(on, productOf({ sku_id: l.skuId, name: l.productName }), l.quantity);
   }
   const main = boxTotals(boxLines, s.app.brand, today);

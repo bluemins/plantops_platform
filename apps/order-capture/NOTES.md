@@ -473,4 +473,10 @@ setting; platform and SSO token unchanged.** Nothing calls it until the app (Pha
   null when the shop bought none of the main brand in the last 12 months.
 - Made while building: `orders` is a list (`[]` for none) instead of `order | null` (a shop can have two on the way);
   the 12-month window and month / year edges use India dates.
-- Tests: `test/brand-due.test.ts` (8), `test/box-totals.test.ts` (4), `test/drop-home.test.ts` (6).
+- **Found in the live check (2026-11-09):** 38 of plant 001's orders delivered up to 5 Nov (1,429 boxes) have no bill here
+  because Zoho invoiced them (not linked). They were counted twice; now a delivered order without a bill counts only
+  after the plant's last Zoho invoice date (no plant or date in code). After the fix, plant 001 up to 7 Nov: 500 ml 8,576
+  and 250 ml 817 = the owner's 8 Nov list exactly, no shop above the list; 1 L 17,311 vs 19,553 because the list's 1 L
+  column also holds Mr.Charge / Hemex 1-litre boxes (Drop counts Bluemins only, 18.5). Every live bill line has a product
+  link; nothing lands in "Other" except 20 L, connection and empties. Due per brand = the account's due for both shops.
+- Tests: `test/brand-due.test.ts` (8), `test/box-totals.test.ts` (4), `test/drop-home.test.ts` (7).
