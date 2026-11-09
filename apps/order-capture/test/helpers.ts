@@ -130,14 +130,19 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
     values ('${tenantId}', '2026-11-01', '2026-11-01', '[{"sku_id": "${sku1l}", "label": "1ltr", "points": 800}]', '${who}', 'Sujata')`);
   const redemption = await one(`insert into order_capture.points_redemptions (tenant_id, customer_id, sku_id, label, points, year_end, asked_by_phone, request_key, order_id, added_by, added_by_name, added_at)
     values ('${tenantId}', '${customer}', '${sku1l}', '1ltr', 800, '2028-01-31', '${phone}', 'rk-${randomUUID()}', '${order}', '${who}', 'Atharv', now()) returning id`);
-  return { redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
+  // Drop polls (0014): a poll and the customer's answer
+  const poll = await one(`insert into order_capture.polls (tenant_id, question, choices, brands, opens_at, closes_at, created_by, created_by_name)
+    values ('${tenantId}', 'Which size sells most?', '{1L,500ml}', '{Bluemins}', now() - interval '1 day', now() + interval '6 days', '${who}', 'Sujata') returning id`);
+  const answer = await one(`insert into order_capture.poll_answers (tenant_id, poll_id, customer_id, phone, choice, points, points_reason)
+    values ('${tenantId}', '${poll}', '${customer}', '${phone}', 0, 10, 'counted') returning id`);
+  return { poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
 }
 
 /** The tables in the order_capture schema (the guard tests compare against this list). */
 export const TABLES = [
   "app_access_changes", "app_login_codes", "app_phone_changes", "app_sessions",
   "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
-  "ignored_number_changes", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "points_redemptions", "points_settings", "product_rates",
+  "ignored_number_changes", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "points_redemptions", "points_settings", "poll_answers", "polls", "product_rates",
   "reminder_groups", "support_views", "zoho_contacts", "zoho_imports",
 ];
 

@@ -513,3 +513,22 @@ normal billing** (owner): nothing writes to orders, order lines or bills.
   989, platform 426. Checked on `pnpm dev` (plant 002, temporary shop with a paid ₹2,000 bill, all removed after):
   settings saved, 2,000 points, ask → 1,200 + the owner's bell, New order offered it, order saved at ₹300 with the
   reward beside it, order page / list / both staff pages, delivered = spent.
+
+## 2026-11-09 — v0.52.0: Drop Phase 4 (polls)
+Owner 2026-11-09 (plan `docs/CUSTOMER_APP_PHASE_PLAN.md` Phase 4, "Polls tab").
+- **Migration `0014_drop_polls.sql`** (approved): `polls` (question, 2–6 choices, Other box, brands, open / close
+  times; UPDATE only on the early close, set once by trigger `polls_closed_once`) and `poll_answers` (one per shop per
+  poll, never changed; choice −1 = Other with its text; points and reason decided when saved). FORCE RLS, no DELETE.
+- **Rules** (`src/lib/polls.ts`): open from opens_at to closes_at unless closed early; poll points = the settings' poll
+  points only when points are on, it is the shop's first counted answer this week (Monday–Sunday, India) and the shop had
+  an order delivered in the last 30 days; else 0 with `week_used` / `no_recent_order` / `points_off`. **Buying size**
+  (owner, 2026-11-09): main-brand boxes in the 3 months before the poll opened, small < 10, medium 10–49, large 50+.
+- **Owner:** Customers → **Drop polls** `/customers/drop/polls` (list, + New poll: opens on a day (today = now), closes at
+  the end of a day, brands from Rates) and a poll's page (bars per choice, Other texts, by buying size, by place, Close
+  now, CSV: one row per answer with the shop's real main-brand boxes per product). Support reads; Order desk none.
+  Access rows `drop_polls_view`, `drop_polls`; Recent changes `drop.poll_add`, `drop.poll_close`, `export.poll_csv`.
+- **App:** `GET /api/app/v1/polls` (points each, this week counted, open unanswered polls of the shop's brands, answered
+  count / points; never results) and `POST /api/app/v1/polls/:id/answer` `{ choice, other? }` (per-shop lock; 201 with
+  the points and a thank-you text). Poll points now count in the Points tab, Home and the Drop card.
+- Shared: `src/server/drop/boxes.ts` (plant-wide boxes per shop like Home; `zohoUntil` now shared with Home).
+- Tests: `test/polls-lib.test.ts` (5), `test/drop-polls.test.ts` (6); guard lists updated.

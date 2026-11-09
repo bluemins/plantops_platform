@@ -39,6 +39,11 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
           Free boxes asked
         </LinkRow>
       )}
+      {can(user, "drop_polls_view") && (
+        <LinkRow href="/customers/drop/polls" note="Tap questions for Drop shops, answers by place and buying size">
+          Drop polls
+        </LinkRow>
+      )}
       {can(user, "drop_points_view") && (
         <LinkRow href="/customers/drop/points" note="₹ per point, late payments, free boxes, start date">
           Drop points settings

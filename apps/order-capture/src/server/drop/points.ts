@@ -216,8 +216,13 @@ export type ShopPoints = { summary: PointsSummary; setting: PointsSetting | null
 
 export async function shopPoints(tx: OcTx, tenantId: string, customerId: string, skus: TenantSku[], today = istToday()): Promise<ShopPoints> {
   const f = await shopFacts(tx, tenantId, customerId, skus);
-  // poll points come with Phase 4 (poll_answers)
-  const summary = pointsSummary({ earned: f.earned, polls: [], requests: f.requests, settings: f.settings, today });
+  // poll points: decided when each answer was saved (src/server/drop/polls.ts), kept on the answer
+  const answers = await tx
+    .select({ points: schema.pollAnswers.points, at: schema.pollAnswers.createdAt })
+    .from(schema.pollAnswers)
+    .where(and(eq(schema.pollAnswers.tenantId, tenantId), eq(schema.pollAnswers.customerId, customerId), sql`${schema.pollAnswers.points} > 0`));
+  const polls = answers.map((a) => ({ on: istDate(a.at), points: a.points }));
+  const summary = pointsSummary({ earned: f.earned, polls, requests: f.requests, settings: f.settings, today });
   return { summary, setting: settingOn(f.settings, today), requests: f.requests };
 }
 

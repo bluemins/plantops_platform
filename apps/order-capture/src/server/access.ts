@@ -64,7 +64,9 @@ export type Action =
   | "drop_points_view" // the points settings page (support: read-only)
   | "drop_points_settings" // change the points settings
   | "drop_rewards_view" // free boxes asked with points; a shop's points balance
-  | "drop_rewards"; // add a free box asked to an order, cancel a request (with a reason)
+  | "drop_rewards" // add a free box asked to an order, cancel a request (with a reason)
+  | "drop_polls_view" // the Drop polls and their results (support: read-only)
+  | "drop_polls"; // new poll, close a poll early, results CSV
 
 export const ACCESS: Record<Action, readonly Who[]> = {
   read: ["owner", "desk", "viewer", "accounts", "support"],
@@ -116,6 +118,8 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   drop_points_settings: ["owner"],
   drop_rewards_view: ["owner", "desk", "support"],
   drop_rewards: ["owner", "desk"],
+  drop_polls_view: ["owner", "support"],
+  drop_polls: ["owner"],
 };
 
 /** What the user is, for this table. null = no Order Capture rights at all (e.g. a store keeper). */

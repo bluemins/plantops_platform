@@ -528,3 +528,36 @@ export const pointsRedemptions = oc.table("points_redemptions", {
   cancelledByName: text("cancelled_by_name"),
   cancelReason: text("cancel_reason"),
 });
+
+// ---------- Drop polls (0014): the owner's polls, the shops' answers ----------
+export type PollReason = "counted" | "week_used" | "no_recent_order" | "points_off";
+
+export const polls = oc.table("polls", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  question: text("question").notNull(),
+  choices: text("choices").array().notNull(),
+  otherAllowed: boolean("other_allowed").notNull(),
+  brands: text("brands").array().notNull(),
+  opensAt: ts("opens_at").notNull(),
+  closesAt: ts("closes_at").notNull(),
+  closedEarlyAt: ts("closed_early_at"),
+  closedEarlyBy: uuid("closed_early_by"),
+  closedEarlyByName: text("closed_early_by_name"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const pollAnswers = oc.table("poll_answers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  pollId: uuid("poll_id").notNull(),
+  customerId: uuid("customer_id").notNull(),
+  phone: text("phone").notNull(),
+  choice: integer("choice").notNull(),
+  otherText: text("other_text"),
+  points: integer("points").notNull(),
+  pointsReason: text("points_reason").$type<PollReason>().notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});

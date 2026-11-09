@@ -39,6 +39,12 @@ export function describeChange(action: string, details: Record<string, unknown>)
       const rewards = (details.rewards ?? []) as string[];
       return `Drop points settings from ${show(details.effective_from)}: start ${show(details.start_date)}, ₹${show(details.rupees_per_point)} a point, paid within ${show(details.late_days)} days of delivery, poll ${show(details.poll_points)} points; free boxes ${rewards.length ? rewards.join(", ") : "none"}`;
     }
+    case "drop.poll_add":
+      return `Drop poll published: "${show(details.question)}" (${show(details.opens_on)} to ${show(details.closes_on)})`;
+    case "drop.poll_close":
+      return `Drop poll closed early: "${show(details.question)}"`;
+    case "export.poll_csv":
+      return `Drop poll answers downloaded (CSV): "${show(details.question)}", ${plural(details.answers, "answer")}`;
     case "drop.reward_add":
       return `Drop free box (points) ${show(details.reward)} added to ${show(details.order)} for ${show(details.name)}`;
     case "drop.reward_cancel":

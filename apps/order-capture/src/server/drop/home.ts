@@ -15,6 +15,7 @@ import { billDue, paise } from "@/lib/ledger";
 import { schema, withTenant } from "../db";
 import { kit } from "../kit";
 import { partyFacts } from "../ledger";
+import { zohoUntil } from "./boxes";
 import { homePoints } from "./points";
 import { productMatcher } from "./products";
 import type { AppSession } from "./session";
@@ -58,13 +59,11 @@ export async function home(s: AppSession, now = new Date()): Promise<Home> {
     const dueOf = new Map(L.bills.map((b) => [b.id, billDue(b, L.allocations, L.adjustments)]));
     const wanted = rows.bills.filter((b) => !b.cancelledAt && ((dueOf.get(b.id) ?? 0n) > 0n || b.billDate >= fyStartPrev)).map((b) => b.id);
     const bl = wanted.length ? await tx.select().from(billLines).where(and(eq(billLines.tenantId, t), inArray(billLines.billId, wanted))) : [];
-    // the plant's last Zoho invoice date: up to then Zoho's invoices are the record of what was delivered, so an order
-    // delivered by then with no bill here was invoiced in Zoho (often not linked to it) and must not count twice
-    const [z] = await tx.execute<{ d: string | null }>(sql`
-      select max(bill_date)::text as d from order_capture.bills
-       where tenant_id = ${t} and source = 'zoho' and coalesce(zoho_invoice_id, '') not like 'ob:%'`).then((r) => r.rows);
+    // up to the plant's last Zoho invoice date, Zoho's invoices are the record of what was delivered: an order delivered
+    // by then with no bill here was invoiced in Zoho (often not linked to it) and must not count twice
+    const zUntil = await zohoUntil(tx, t);
     const points = await homePoints(tx, s, skus, today);
-    return { matcher, rows, dueOf, os, ol, bl, zohoUntil: z?.d ?? null, points };
+    return { matcher, rows, dueOf, os, ol, bl, zohoUntil: zUntil, points };
   });
 
   const productOf = data.matcher.of;

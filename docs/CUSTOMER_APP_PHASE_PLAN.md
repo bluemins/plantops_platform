@@ -379,7 +379,7 @@ Platform: **no migration, no SSO change.** `packages/types`: new notification ki
 | 1 | Sales: Drop switch, phones, login | Sales v0.49.0, **live 2026-11-09** (`2e21f24`) |
 | 2 | Sales: customer API for Home | v0.50.0, built 2026-11-09 (not deployed) |
 | 3 | Sales: points (settings, balance, record, free-box requests) | v0.51.0, built 2026-11-09 (not deployed) |
-| 4 | Sales: polls (owner page, results, answers, poll points) | v0.52.0 |
+| 4 | Sales: polls (owner page, results, answers, poll points) | v0.52.0, built 2026-11-09 (not deployed) |
 | 5 | Drop app: login, Home, Points, Polls | Drop 0.1 (test app on the owner's phone) |
 | 6 | Push notifications | Sales v0.53.0, Drop 0.2 |
 | 7 | Privacy policy, Play Store, load test, pilot | Drop 1.0 |
@@ -466,6 +466,8 @@ Free boxes asked; `order_capture.drop_redeem` needs the platform deployed too.
   and the JSON carries no amounts; tenant isolation; append-only refusals.
 
 ### Phase 4: Sales: polls
+**Built 2026-11-09** (notes: `apps/order-capture/NOTES.md` v0.52.0). Buying size (owner): small < 10, medium 10–49, large
+50+ main-brand boxes in the 3 months before the poll opened. Screens under Customers → Drop polls.
 - Migration Sales `0014_drop_polls.sql` (show first).
 - **Drop → Polls** (owner): new poll (question, choices, Other, dates, brands), list, close early; results with place and
   buying-size split, "Other" texts, CSV with each shop's real boxes for the last 3 months. Access rows `drop_polls`.

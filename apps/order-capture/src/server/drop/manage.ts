@@ -47,7 +47,7 @@ export async function endSessions(tx: OcTx, tenantId: string, customerId: string
 }
 
 /** Brands the owner may tick for a shop: those on Rates (owner's, else guessed) of active products, minus the main one. */
-async function brandChoices(tx: OcTx, tenantId: string, main: string) {
+export async function brandChoices(tx: OcTx, tenantId: string, main: string) {
   const rates = await effectiveRates(tx, tenantId, await activeProducts(tenantId));
   const seen = new Map<string, string>();
   for (const r of rates) if (r.brand && r.brand.toLowerCase() !== main.toLowerCase() && !seen.has(r.brand.toLowerCase())) seen.set(r.brand.toLowerCase(), r.brand);
