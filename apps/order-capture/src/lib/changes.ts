@@ -70,6 +70,8 @@ export function describeChange(action: string, details: Record<string, unknown>)
       return `Bill ${show(details.number)} linked to order ${show(details.order)} (${show(details.customer)}${details.bill_customer && details.bill_customer !== details.customer ? `; bill under ${show(details.bill_customer)}` : ""})`;
     case "bill.unlink":
       return `Bill ${show(details.number)} taken off order ${show(details.order)} (${show(details.customer)}): ${show(details.reason)}`;
+    case "purchases.import":
+      return `Imported purchases from Zoho: ${plural(details.vendors_new, "vendor")}, ${plural(details.items_new, "item")}, ${plural(details.bills_new, "bill")} (₹${show(details.billed)}), ${plural(details.payments_new, "payment")} (₹${show(details.paid)})`;
     case "export.csv":
       return `Exported the orders (CSV, ${plural(details.orders, "order")}, ${plural(details.lines, "line")})`;
     default:

@@ -602,3 +602,26 @@ Owner 2026-11-09 (plan `docs/CUSTOMER_APP_PHASE_PLAN.md` Phase 4, "Polls tab").
   today's to-do list); "late" = over 48 h; place = the customer's place as typed today. Stock measures belong to
   Reports → Stock (Floor Stock), not here.
 - No migration; SSO token unchanged. Tests: `test/flow-check.test.ts` (11). Sales 1088.
+
+### 2026-11-10 — Purchases P1: Zoho import + read-only Purchases tab (v0.60.0)
+- Asked by the owner 2026-11-10 ("add all the purchases to PlantOps"); plan `docs/PURCHASES_PHASE_PLAN.md`. Owner
+  decisions: Vendors + Bills + Payments Made (+ Expenses, Vendor Credits later, both empty in Zoho); import now, enter
+  new ones in PlantOps from 1 Nov 2026 (P2); a Purchases section inside Sales; owner + Accounts with amounts, support
+  reads; Store keepers left out until P5; payments imported as Zoho has them (all Cash / Petty Cash), the owner corrects
+  the mode later; Zoho's bill numbers 1–46 → PB-0001…PB-0046, new ones continue from PB-0047; payments PM-….
+- **Migration `0016_purchases.sql` (approved by the owner 2026-11-10):** seven new tables (`purchase_imports`, `vendors`,
+  `purchase_items`, `purchase_bills`, `purchase_bill_lines`, `vendor_payments`, `vendor_payment_allocations`), FORCE
+  RLS, SELECT + INSERT, no DELETE. UPDATE only: vendor / item details and on-off (for P2), the cancel columns, and a
+  payment's `mode` / `paid_from`. No existing table changes.
+- Import: `/purchases/import` (owner), the four CSVs read in the browser (`src/lib/purchase-import.ts`), preview →
+  must match every bill's Zoho balance → confirm (`src/server/purchases.ts`, fingerprint like the sales import);
+  again = nothing new. Vendors by Zoho Contact ID; bills / payments find their vendor by name (Zoho's Bill export has no
+  vendor id); items: purchase-only ones plus any a bill uses (the 10 sold products stay PlantOps products).
+- Screens: a **Purchases** tab beside Bills (`SectionTabs`), with Purchase bills (bought / still to pay, filters,
+  search incl. item and PO), Payments made, Vendors (bought, you owe), a vendor's page (Bills / Payments / What we
+  buy, same-state vs other-state GST note) and a purchase bill's page (lines, CGST / SGST / IGST, rounding, payments).
+- Access rows `purchases_view` (owner, Accounts, support) and `purchase_import` (owner).
+- Plant 001's real files checked by a test (`test/purchases.test.ts`, skipped when the files aren't on the computer):
+  16 vendors, 50 items, 46 bills = ₹22,02,844.00 (GST ₹3,33,393.27), 46 payments, ₹0 owed, every bill matches Zoho.
+- Tests: `test/purchases.test.ts` (20), RLS / append-only guards for the 7 tables (+30 refused statements), access +2
+  rows. Sales 1123. **Not yet:** on screen; deployed.

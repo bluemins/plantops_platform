@@ -114,6 +114,24 @@ describe("append-only for order_app", () => {
       `update order_capture.zoho_imports set counts = '{}' where id = '${ids.imp}'`,
       `update order_capture.zoho_contacts set name = 'X' where id = '${ids.contact}'`,
       `update order_capture.zoho_contacts set zoho_contact_id = 'X' where id = '${ids.contact}'`,
+      // purchases (0016): bills, lines, payments, allocations and imports never change, except the cancel columns and a
+      // payment's mode / "paid from"; a vendor and an item never change who / where they came from
+      `update order_capture.purchase_bills set total = 1 where id = '${ids.pbill}'`,
+      `update order_capture.purchase_bills set number = 'PB-9999' where id = '${ids.pbill}'`,
+      `update order_capture.purchase_bills set vendor_id = vendor_id where id = '${ids.pbill}'`,
+      `update order_capture.purchase_bills set bill_date = '2020-01-01' where id = '${ids.pbill}'`,
+      `update order_capture.purchase_bills set igst = 1 where id = '${ids.pbill}'`,
+      `update order_capture.purchase_bills set tenant_id = gen_random_uuid() where id = '${ids.pbill}'`,
+      `update order_capture.purchase_bill_lines set quantity = 9 where id = '${ids.pline}'`,
+      `update order_capture.purchase_bill_lines set line_total = 1 where id = '${ids.pline}'`,
+      `update order_capture.vendor_payments set amount = 1 where id = '${ids.vpay}'`,
+      `update order_capture.vendor_payments set payment_date = '2020-01-01' where id = '${ids.vpay}'`,
+      `update order_capture.vendor_payments set vendor_id = vendor_id where id = '${ids.vpay}'`,
+      `update order_capture.vendor_payment_allocations set amount = 1 where id = '${ids.valloc}'`,
+      `update order_capture.purchase_imports set counts = '{}' where id = '${ids.pimp}'`,
+      `update order_capture.vendors set zoho_contact_id = 'X' where id = '${ids.vendor}'`,
+      `update order_capture.vendors set created_by_name = 'X' where id = '${ids.vendor}'`,
+      `update order_capture.purchase_items set zoho_item_id = 'X' where id = '${ids.pitem}'`,
       // bill fields + GST (0009): a saved bill's GST, terms and extra fields never change; only "sent to Zoho" moves
       `update order_capture.bills set cgst = 1 where id = '${ids.bill}'`,
       `update order_capture.bills set igst = 1 where id = '${ids.bill}'`,
@@ -169,7 +187,7 @@ describe("append-only for order_app", () => {
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(87 + 14 + 19 + 2 + 11 + 6 + 9 + 8 + 6 + 4 + 6 + 4 + 5 + 4 + 6); // + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008); bill_settings (delete, truncate) and 11 locked bill-field updates (0009); the three customer tables (delete, truncate) and 9 locked updates (0010), and the customer's phone is no longer locked (the owner may change it, D3); the four Drop tables (delete, truncate) and 6 locked updates (0012)
+    expect(list.length).toBe(87 + 14 + 19 + 2 + 11 + 6 + 9 + 8 + 6 + 4 + 6 + 4 + 5 + 4 + 6 + 14 + 16); // + the seven purchase tables (delete, truncate) and 16 locked purchase updates (0016); + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008); bill_settings (delete, truncate) and 11 locked bill-field updates (0009); the three customer tables (delete, truncate) and 9 locked updates (0010), and the customer's phone is no longer locked (the owner may change it, D3); the four Drop tables (delete, truncate) and 6 locked updates (0012)
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 

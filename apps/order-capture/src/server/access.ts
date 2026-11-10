@@ -68,7 +68,10 @@ export type Action =
   | "drop_rewards_view" // free boxes asked with points; a shop's points balance
   | "drop_rewards" // add a free box asked to an order, cancel a request (with a reason)
   | "drop_polls_view" // the Drop polls and their results (support: read-only)
-  | "drop_polls"; // new poll, close a poll early, results CSV
+  | "drop_polls" // new poll, close a poll early, results CSV
+  // Purchases (docs/PURCHASES_PHASE_PLAN.md, owner 2026-11-10): vendors, purchase bills, payments made, with amounts
+  | "purchases_view" // the Purchases tab: vendors, purchase bills, payments made, a vendor's page, a bill's page
+  | "purchase_import"; // bring Zoho's vendors, purchase items, bills and payments made into Purchases
 
 export const ACCESS: Record<Action, readonly Who[]> = {
   read: ["owner", "desk", "viewer", "accounts", "support"],
@@ -124,6 +127,8 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   drop_rewards: ["owner", "desk"],
   drop_polls_view: ["owner", "support"],
   drop_polls: ["owner"],
+  purchases_view: ["owner", "accounts", "support"],
+  purchase_import: ["owner"],
 };
 
 /** What the user is, for this table. null = no Order Capture rights at all (e.g. a store keeper). */

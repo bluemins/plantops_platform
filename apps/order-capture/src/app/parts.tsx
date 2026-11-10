@@ -63,13 +63,18 @@ export function LinkRow({ href, children, note }: { href: string; children: Reac
  * "Orders | Bills | Calls" under the header for people who use more than one (owner, Order desk, support); Bills needs
  * the ledger (amounts), Calls the Calls tab; Calls shows the waiting count.
  */
-export function SectionTabs({ current, waiting, bills = false, calls = true }: { current: "orders" | "bills" | "calls"; waiting: number; bills?: boolean; calls?: boolean }) {
-  const tabs: ["orders" | "bills" | "calls", string, string][] = [["orders", "/", "Orders"]];
+type Section = "orders" | "bills" | "purchases" | "calls";
+const COLS: Record<number, string> = { 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-4" };
+
+/** Orders | Bills | Purchases | Calls, as the person's rights allow (purchases: owner, Accounts, support). */
+export function SectionTabs({ current, waiting, bills = false, purchases = false, calls = true }: { current: Section; waiting: number; bills?: boolean; purchases?: boolean; calls?: boolean }) {
+  const tabs: [Section, string, string][] = [["orders", "/", "Orders"]];
   if (bills) tabs.push(["bills", "/bills", "Bills"]);
+  if (purchases) tabs.push(["purchases", "/purchases", "Purchases"]);
   if (calls) tabs.push(["calls", "/calls", "📞 Calls"]);
   if (tabs.length < 2) return null;
   return (
-    <nav aria-label="Orders, bills or calls" className={`grid gap-1 rounded-xl border border-slate-200 bg-white p-1 ${tabs.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+    <nav aria-label="Orders, bills, purchases or calls" className={`grid gap-1 rounded-xl border border-slate-200 bg-white p-1 ${COLS[tabs.length] ?? "grid-cols-2"}`}>
       {tabs.map(([key, href, label]) => (
         <a
           key={key}

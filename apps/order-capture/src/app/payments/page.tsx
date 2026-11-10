@@ -26,7 +26,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Sea
   return (
     <div className="space-y-4">
       <Header user={user} plant={plant} />
-      <SectionTabs current="bills" waiting={waiting} bills calls={can(user, "calls_view")} />
+      <SectionTabs current="bills" waiting={waiting} bills purchases={can(user, "purchases_view")} calls={can(user, "calls_view")} />
       <nav aria-label="Bills or payments" className="flex gap-4 text-sm font-semibold">
         <a href="/bills" className="pb-1 text-slate-600">Bills</a>
         <a href="/bills/gst" className="pb-1 text-slate-600">GST invoices</a>

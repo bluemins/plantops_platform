@@ -137,7 +137,20 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
     values ('${tenantId}', 'Which size sells most?', '{1L,500ml}', '{Bluemins}', now() - interval '1 day', now() + interval '6 days', '${who}', 'Sujata') returning id`);
   const answer = await one(`insert into order_capture.poll_answers (tenant_id, poll_id, customer_id, phone, choice, points, points_reason)
     values ('${tenantId}', '${poll}', '${customer}', '${phone}', 0, 10, 'counted') returning id`);
-  return { device, push, poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
+  // purchases (0016): an import, a vendor, an item, a purchase bill + line, a payment made and what it paid
+  const pimp = await one(`insert into order_capture.purchase_imports (tenant_id, imported_by, imported_by_name) values ('${tenantId}', '${who}', 'Sujata') returning id`);
+  const vendor = await one(`insert into order_capture.vendors (tenant_id, name, gstin, state, zoho_contact_id, import_id, created_by, created_by_name)
+    values ('${tenantId}', 'Balaji Sales Sambalpur', '21AFFPJ6952A1ZY', '21', 'zv-${randomUUID()}', '${pimp}', '${who}', 'Sujata') returning id`);
+  const pitem = await one(`insert into order_capture.purchase_items (tenant_id, name, unit, created_by, created_by_name) values ('${tenantId}', 'Preform 18.5 g', 'kg', '${who}', 'Sujata') returning id`);
+  const pbill = await one(`insert into order_capture.purchase_bills (tenant_id, source, number, ref_no, vendor_id, vendor_name, bill_date, sub_total, cgst, sgst, tax_total, total, created_by, created_by_name)
+    values ('${tenantId}', 'plantops', 'PB-0001', 1, '${vendor}', 'Balaji Sales Sambalpur', '2026-11-01', 1000, 90, 90, 180, 1180, '${who}', 'Sujata') returning id`);
+  const pline = await one(`insert into order_capture.purchase_bill_lines (tenant_id, bill_id, line_no, item_id, item_name, quantity, unit, rate, tax_percent, tax_amount, line_total)
+    values ('${tenantId}', '${pbill}', 1, '${pitem}', 'Preform 18.5 g', 10, 'kg', 100, 18, 180, 1000) returning id`);
+  const vpay = await one(`insert into order_capture.vendor_payments (tenant_id, source, number, ref_no, vendor_id, vendor_name, payment_date, mode, paid_from, amount, created_by, created_by_name)
+    values ('${tenantId}', 'plantops', 'PM-0001', 1, '${vendor}', 'Balaji Sales Sambalpur', '2026-11-02', 'cash', 'Petty Cash', 500, '${who}', 'Sujata') returning id`);
+  const valloc = await one(`insert into order_capture.vendor_payment_allocations (tenant_id, payment_id, bill_id, amount, allocated_on, created_by, created_by_name)
+    values ('${tenantId}', '${vpay}', '${pbill}', 500, '2026-11-02', '${who}', 'Sujata') returning id`);
+  return { pimp, vendor, pitem, pbill, pline, vpay, valloc, device, push, poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
 }
 
 /** The tables in the order_capture schema (the guard tests compare against this list). */
@@ -145,7 +158,8 @@ export const TABLES = [
   "app_access_changes", "app_devices", "app_login_codes", "app_phone_changes", "app_push_outbox", "app_sessions",
   "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
   "ignored_number_changes", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "points_redemptions", "points_settings", "poll_answers", "polls", "product_rates",
-  "reminder_groups", "support_views", "zoho_contacts", "zoho_imports",
+  "purchase_bill_lines", "purchase_bills", "purchase_imports", "purchase_items",
+  "reminder_groups", "support_views", "vendor_payment_allocations", "vendor_payments", "vendors", "zoho_contacts", "zoho_imports",
 ];
 
 /**

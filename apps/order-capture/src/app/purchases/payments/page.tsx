@@ -1,0 +1,65 @@
+import { redirect } from "next/navigation";
+import { Card } from "@plantops/ui";
+import { money } from "@/lib/money";
+import { can } from "@/server/access";
+import { waitingCount } from "@/server/calls-tab";
+import { kit } from "@/server/kit";
+import { vendorPaymentsList } from "@/server/purchases";
+import { requirePageUser } from "@/server/session";
+import { Header } from "../../header";
+import { SectionTabs } from "../../parts";
+import { day, field, MODE, one, PurchaseNav } from "../parts";
+
+type Search = Promise<Record<string, string | string[] | undefined>>;
+const MODES: [string, string][] = [["", "All"], ["cash", "Cash"], ["upi", "UPI"], ["bank", "Bank"], ["cheque", "Cheque"], ["other", "Other"]];
+
+/** Payments made to vendors, the whole plant (owner, Accounts, support). */
+export default async function VendorPaymentsPage({ searchParams }: { searchParams: Search }) {
+  const user = await requirePageUser("/purchases/payments");
+  if (!can(user, "purchases_view")) redirect("/");
+  const sp = await searchParams;
+  const f = { q: one(sp.q).slice(0, 100), from: one(sp.from), to: one(sp.to), mode: one(sp.mode) };
+  const [plant, data, waiting] = await Promise.all([kit.branding(user.tenantId), vendorPaymentsList(user, f), waitingCount(user)]);
+  return (
+    <div className="space-y-4">
+      <Header user={user} plant={plant} />
+      <SectionTabs current="purchases" waiting={waiting} bills={can(user, "ledger_view")} purchases calls={can(user, "calls_view")} />
+      <PurchaseNav current="payments" user={user} />
+      <Card>
+        <p className="text-xs text-slate-500">Paid{f.from || f.to ? " in these dates" : ""}{f.mode ? ` (${MODE[f.mode] ?? f.mode})` : ""}</p>
+        <p className="text-2xl font-bold">{money(data.total.sum)}</p>
+        <p className="text-xs text-slate-500">{data.total.n} payments</p>
+      </Card>
+      <form method="get" className="space-y-2">
+        <input name="q" defaultValue={f.q} className={field} placeholder="Search payment no., vendor or reference" />
+        <div className="grid grid-cols-3 gap-2">
+          <label className="text-sm">From<input type="date" name="from" defaultValue={f.from} className={field} /></label>
+          <label className="text-sm">To<input type="date" name="to" defaultValue={f.to} className={field} /></label>
+          <label className="text-sm">Mode
+            <select name="mode" defaultValue={f.mode} className={field}>{MODES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+          </label>
+        </div>
+        <button className="min-h-11 w-full rounded-xl border border-slate-300 bg-white text-sm font-semibold">Search</button>
+      </form>
+      <ul className="space-y-2">
+        {data.payments.length === 0 && <p className="text-sm text-slate-500">No payments here.</p>}
+        {data.payments.map((p) => (
+          <li key={p.id}>
+            <a href={`/purchases/vendors/${p.vendor_id}`} className={`flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50 ${p.cancelled ? "opacity-60" : ""}`}>
+              <span className="min-w-0">
+                <span className="block font-semibold break-words">{p.vendor_name}</span>
+                <span className="block text-sm text-slate-500">
+                  {p.number}{p.source === "zoho" ? " · Zoho" : ""} · {day(p.payment_date)} · {MODE[p.mode] ?? p.mode}{p.paid_from ? ` from ${p.paid_from}` : ""}{p.reference ? ` · ${p.reference}` : ""}{p.cancelled ? " · cancelled" : ""}
+                </span>
+                {p.bills && <span className="block text-sm text-slate-600">For {p.bills}</span>}
+                {!p.cancelled && p.unused !== "0.00" && <span className="block text-sm text-slate-600">{money(p.unused)} advance</span>}
+              </span>
+              <span className="shrink-0 font-semibold">{money(p.amount)}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+      {data.more && <p className="text-sm text-slate-500">Showing the latest 200. Search or pick dates to find others.</p>}
+    </div>
+  );
+}

@@ -65,6 +65,8 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["drop_rewards", true, true, false, false, false],
   ["drop_polls_view", true, false, false, false, true],
   ["drop_polls", true, false, false, false, false],
+  ["purchases_view", true, false, false, false, true],
+  ["purchase_import", true, false, false, false, false],
 ];
 
 describe("who is who", () => {
@@ -145,7 +147,7 @@ describe("the access table", () => {
 describe("Accounts", () => {
   const acc = ocUser(p.owner.tenantId, ["accounts"], "Kedar");
   const both = ocUser(p.owner.tenantId, ["order_desk", "accounts"], "Kedar");
-  const ACCOUNTS_MAY = ["read", "see_amounts", "view_customers", "ledger_view", "account_view", "bill_make", "payment_receive", "location_view", "location_save"];
+  const ACCOUNTS_MAY = ["read", "see_amounts", "view_customers", "ledger_view", "account_view", "bill_make", "payment_receive", "location_view", "location_save", "purchases_view"];
   it.each(TABLE)("%s: Accounts may only read orders and work on bills / payments", (action) => {
     expect(can(acc, action)).toBe(ACCOUNTS_MAY.includes(action));
   });
