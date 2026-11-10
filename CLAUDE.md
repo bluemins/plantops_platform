@@ -2145,4 +2145,4 @@ salesperson / place / vehicle, group by, CSV + print. With GST; opening balances
 out completely (owner). Plan `docs/REPORTS_PHASE_PLAN.md` section 6; `apps/order-capture/src/lib/receivables.ts`. Owner
 only (support reads). No migration; SSO token unchanged. **Checked 2026-11-10** on a local copy of plant 001's rows
 against Zoho's AR Aging Summary 05/11/2026 (₹1,06,306.26 vs PlantOps ₹1,06,196.26: the ₹110 = three bills changed in
-PlantOps after the import + one opening balance; plan section 6). **Next:** the owner opens Receivables live and decides the three bills.
+PlantOps after the import + one opening balance; plan section 6). The three bills: changed on purpose by the owner, PlantOps is right (2026-11-10). **Next:** the owner opens Receivables live.

@@ -81,7 +81,7 @@ recommendations approved the same day ("build").
   ₹110 is three record differences made in PlantOps after the import, not report errors: Deepak dhaba INV-001844
   ₹2,610 (bill and its payment cancelled in PlantOps on 9 Nov, still owed in Zoho); Hotel 10Mail INV-001763 ₹100 and
   Sahu Family Dhaba INV-001669 ₹1,200 (their Zoho payments cancelled in PlantOps on 7 Nov, paid in Zoho); Subrat Kumar
-  Mishra opening balance ₹1,200 (Zoho's aging by invoice leaves contact opening balances out). As of 10-11-2026 PlantOps
+  Mishra opening balance ₹1,200 (Zoho's aging by invoice leaves contact opening balances out). **Owner 2026-11-10: the three PlantOps changes are correct (made on purpose); PlantOps is the record, Zoho is not corrected.** As of 10-11-2026 PlantOps
   shows ₹1,10,966.26 owed (incl. PlantOps bills since 6 Nov) and ₹7,465 unused advances.
 - **Code:** `apps/order-capture/src/lib/receivables.ts` (pure rules + one table shape for page and CSV),
   `src/server/reports.ts` (`receivablesData`, `readRecParams`, `receivablesReport`), `/reports?section=receivables`,
