@@ -17,6 +17,7 @@ const SECTIONS: { id: Section; name: string; title: string; about: string; repor
       { href: "/reports/sales/item", name: "Sales by Item", about: "Quantity and sales per product" },
       { href: "/reports/sales/customer", name: "Sales by Customer", about: "Bills and sales per customer" },
       { href: "/reports/order-payment", name: "Order to Payment", about: "Where each order stands: delivered, billed, paid (Board or List)" },
+      { href: "/reports/flow-check", name: "Order flow check", about: "Delivery speed, late pending orders, changes, who does the work (lean check)" },
     ],
     filters:
       "period (month, quarter, financial year, custom) · break down by month or quarter · salesperson · place · vehicle · group by salesperson, customer, place, vehicle or brand · before / with GST.",

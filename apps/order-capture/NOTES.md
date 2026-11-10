@@ -588,3 +588,17 @@ Owner 2026-11-09 (plan `docs/CUSTOMER_APP_PHASE_PLAN.md` Phase 4, "Polls tab").
   matches are re-checked on the server and only still-sure pairs are linked; the bill's date can't be changed (the test
   found the grant refuses it, as it should).
 - No migration. Tests: `test/bill-link.test.ts` (7), access table +2 rows.
+
+### 2026-11-10 — Reports → Sales → Order flow check (v0.59.0)
+- Asked by the owner 2026-11-10: the order measures of `docs/ORDER_FLOW_LEAN_ANALYSIS.md` (sections 2 and 4.5) on a page
+  in Reports, so they can repeat the check themselves for any dates. `/reports/flow-check`; rules
+  `src/lib/flow-check.ts`, reads `src/server/flow-check.ts`. Owner only (support reads), the `reports` access row.
+- Shows: the four measures with target and the first check's number (same / next day, pending over 2 days now, changed
+  after saving, delivered with a bill or Zoho invoice no.); every pending order oldest first; entered → delivered
+  (median, average, 8 in 10, longest, over 4 days); week by week; who entered / delivered; time of day in / out;
+  changes, "undo delivered", quick cancels (within 1 h) and reasons; places with "maybe the same place typed
+  differently".
+- Made while building: dates = when the order was entered (default last 14 days); "Pending now" ignores the dates (it is
+  today's to-do list); "late" = over 48 h; place = the customer's place as typed today. Stock measures belong to
+  Reports → Stock (Floor Stock), not here.
+- No migration; SSO token unchanged. Tests: `test/flow-check.test.ts` (11). Sales 1088.
