@@ -2156,7 +2156,7 @@ differentiate"): an old order whose Zoho bill isn't linked to it shows as Delive
 ₹1,37,790) until linked; a "link a bill to an order" action is the follow-up. Owner only (support reads). No migration;
 SSO token unchanged. Plan `docs/REPORTS_PHASE_PLAN.md` section 7. Tests: Sales 1054 (+13).
 
-### 2026-11-10 — Link bills to orders (v0.58.0) — built, not deployed
+### 2026-11-10 — Link bills to orders (v0.58.0) — live 2026-11-10 (`9a9e80a`)
 Owner 2026-11-10 ("let's fix it"; the owner works through them as time allows). `/bills/link` (from Order to Payment):
 every delivered order without a bill with up to 3 suggested Zoho bills, link by bill number, "Link all N sure matches"
 (plant 001: 11); order page "Link the bill" and Unlink with a reason. Owner only (support reads); linking moves no money
