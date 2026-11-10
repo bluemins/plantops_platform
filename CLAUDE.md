@@ -2172,12 +2172,12 @@ by week, who enters / delivers, time of day, cancels, look-alike places. Owner o
 token unchanged. Tests: Sales 1088 (+11). **Next:** the owner runs it, then picks from what's left (daily action agent,
 pending vs stock, place list, purchase list).
 
-### 2026-11-10 — Purchases P1: Zoho import + Purchases tab in Sales (v0.60.0) — built, not deployed
+### 2026-11-10 — Purchases P1: Zoho import + Purchases tab in Sales (v0.60.0) — live 2026-11-10 (`8897061`)
 Owner 2026-11-10 ("add all the purchases to PlantOps"; plan `docs/PURCHASES_PHASE_PLAN.md`, decisions in its section 1).
 A **Purchases** tab inside Sales (owner, Accounts; support reads; Store keepers later, P5): Purchase bills, Payments made,
 Vendors, a vendor's page, a purchase bill's page; owner-only **Import from Zoho** (Vendors, Items, Bill, Vendor_Payment
 CSVs; preview must match every Zoho balance; again = nothing new). Zoho's bills 1–46 → PB-0001…, payments PM-…; payments
 kept as Cash / Petty Cash (owner corrects later). Sales migration `0016_purchases.sql` (approved): seven new tables, FORCE
 RLS, no DELETE. Platform and SSO token unchanged. Plant 001's real files checked by a test: 16 vendors, 46 bills =
-₹22,02,844.00, all paid. Tests: Sales 1123. Notes: `apps/order-capture/NOTES.md`. **Next:** deploy (migration first), the
-owner imports the files, then P2 (enter vendors, purchase bills and payments; mock-ups first).
+₹22,02,844.00, all paid. Tests: Sales 1123. Notes: `apps/order-capture/NOTES.md`. **Live 2026-11-10:** migration `0016` applied; plant 001's Zoho
+purchases imported (16 vendors, 46 bills ₹22,02,844.00, all paid; `docs/deployments/shared.md`). **Next:** the owner opens Purchases, then P2 (enter vendors, purchase bills and payments; mock-ups first).
