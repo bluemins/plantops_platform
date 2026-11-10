@@ -2147,7 +2147,7 @@ only (support reads). No migration; SSO token unchanged. **Checked 2026-11-10** 
 against Zoho's AR Aging Summary 05/11/2026 (₹1,06,306.26 vs PlantOps ₹1,06,196.26: the ₹110 = three bills changed in
 PlantOps after the import + one opening balance; plan section 6). The three bills: changed on purpose by the owner, PlantOps is right (2026-11-10). **Next:** the owner opens Receivables live.
 
-### 2026-11-10 — Reports: Order to Payment (v0.57.0) — built, not deployed
+### 2026-11-10 — Reports: Order to Payment (v0.57.0) — live 2026-11-10 (`b45b4db`)
 Owner 2026-11-10 (mock-up with plant 001's orders approved: https://claude.ai/artifact/VUbSpP5peyr332yuX9pSCS). Reports →
 Sales → **Order to Payment**: Board (a column per stage) and List (stage cards + table, CSV, print): Pending → Delivered,
 not billed → Billed, not paid → Part paid → Paid, days waiting, overdue; filters period / customer / salesperson /
@@ -2155,3 +2155,11 @@ place / brand / only overdue / show cancelled. **Zoho and PlantOps bills are one
 differentiate"): an old order whose Zoho bill isn't linked to it shows as Delivered, not billed (plant 001: 36 orders,
 ₹1,37,790) until linked; a "link a bill to an order" action is the follow-up. Owner only (support reads). No migration;
 SSO token unchanged. Plan `docs/REPORTS_PHASE_PLAN.md` section 7. Tests: Sales 1054 (+13).
+
+### 2026-11-10 — Link bills to orders (v0.58.0) — built, not deployed
+Owner 2026-11-10 ("let's fix it"; the owner works through them as time allows). `/bills/link` (from Order to Payment):
+every delivered order without a bill with up to 3 suggested Zoho bills, link by bill number, "Link all N sure matches"
+(plant 001: 11); order page "Link the bill" and Unlink with a reason. Owner only (support reads); linking moves no money
+(a Retail Sales bill stays in its account); Zoho-imported bills only. No migration; SSO token unchanged. Plan
+`docs/REPORTS_PHASE_PLAN.md` section 8.
+

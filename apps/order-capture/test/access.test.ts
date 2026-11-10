@@ -45,6 +45,8 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["ledger_export", true, false, false, false, false],
   ["ledger_totals", true, false, false, false, true],
   ["reports", true, false, false, false, true],
+  ["bill_link_view", true, false, false, false, true],
+  ["bill_link", true, false, false, false, false],
   // customer page Part 2 (docs/CUSTOMER_PAGE_PHASE_PLAN.md): edit / comments owner only; shop location for the people
   // who stand at the shop (Order desk, Accounts, Delivery staff too); plant staff / viewers never
   ["customer_edit", true, false, false, false, false],

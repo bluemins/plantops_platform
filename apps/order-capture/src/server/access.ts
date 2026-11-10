@@ -49,6 +49,8 @@ export type Action =
   | "ledger_export" // bills / payments CSV
   | "ledger_totals" // the plant's totals: still due, overdue bills, received (owner 2026-11-06: owner only)
   | "reports" // Reports: sales by item / customer (owner 2026-11-07: owner only; support reads)
+  | "bill_link_view" // the Link bills to orders list (owner 2026-11-10; support reads)
+  | "bill_link" // link an imported Zoho bill to a delivered order, or unlink it with a reason (owner only)
   // customer page Part 2 (docs/CUSTOMER_PAGE_PHASE_PLAN.md, owner 2026-11-07)
   | "customer_edit" // GST details (legal name, treatment, GSTIN, state, billing address) and payment terms; a pasted Maps link
   | "customer_details" // the other customer fields incl. the mobile (with a reason); contact persons
@@ -104,6 +106,8 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   ledger_export: ["owner"],
   ledger_totals: ["owner", "support"],
   reports: ["owner", "support"],
+  bill_link_view: ["owner", "support"],
+  bill_link: ["owner"],
   customer_edit: ["owner"],
   customer_details: ["owner", "marketing"],
   customer_comment: ["owner", "marketing"],

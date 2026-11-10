@@ -8,11 +8,14 @@ import { getOrder } from "@/server/handling";
 import { billForm } from "@/server/bill-make";
 import { orderRewards } from "@/server/drop/points";
 import { billOfOrder } from "@/server/ledger";
+import { linkSuggestions } from "@/server/bill-link";
+import { RANK_LABEL } from "@/lib/bill-link";
 import { kit } from "@/server/kit";
 import { orNotFound } from "@/server/pages";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../../header";
 import { MakeBill } from "../../ledger-forms";
+import { FindBill, LinkButton, UnlinkBill } from "../../bills/link/link-forms";
 import { BackLink, BillBadge, FreeTag, PhoneLink, StatusBadge } from "../../parts";
 import { OrderActions } from "./actions";
 import { AddNote } from "./add-note";
@@ -29,6 +32,7 @@ export default async function OrderPage({ params }: { params: Params }) {
   const [plant, o, rewards] = await Promise.all([kit.branding(user.tenantId), orNotFound(getOrder(user, id)), orderRewards(user, id)]);
   const bill = can(user, "ledger_view") && o.status === "delivered" ? await billOfOrder(user, id) : null;
   const closed = bill && bill.status === "paid";
+  const link = !bill && o.status === "delivered" && can(user, "bill_link") ? await linkSuggestions(user, id) : null;
   const pending = o.status === "pending";
   const may = {
     deliver: pending && can(user, "deliver"),
@@ -143,6 +147,30 @@ export default async function OrderPage({ params }: { params: Params }) {
           </span>
           <BillBadge status={bill.status} due={money(bill.due)} />
         </a>
+      )}
+      {bill && bill.source === "zoho" && can(user, "bill_link") && <UnlinkBill orderId={o.id} number={bill.number} />}
+      {link && (
+        <Card>
+          <h2 className="font-bold">Billed in Zoho? Link the bill</h2>
+          <p className="text-sm text-slate-600">If this order's bill came in with the Zoho import, link it here instead of making a new bill. It moves no money.</p>
+          {link.suggestions.length > 0 ? (
+            <ul className="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-200">
+              {link.suggestions.map((s) => (
+                <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2">
+                  <span className="min-w-0">
+                    <a href={`/bills/${s.id}`} className="font-semibold text-(--brand) hover:underline">{s.number}</a>{" "}
+                    <span className="text-sm">{money(s.total)} · {s.bill_date}</span>
+                    <span className="block text-xs text-slate-600">{s.customer_name} · {RANK_LABEL[s.rank]}</span>
+                  </span>
+                  <LinkButton orderId={o.id} billId={s.id} number={s.number} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-slate-600">No Zoho bill near this date for this customer or amount.</p>
+          )}
+          <div className="mt-2"><FindBill orderId={o.id} /></div>
+        </Card>
       )}
       {!bill && o.status === "delivered" && o.total !== null && can(user, "bill_make") && <MakeBill form={await billForm(user, o.id)} />}
 

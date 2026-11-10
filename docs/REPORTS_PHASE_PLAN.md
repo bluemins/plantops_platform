@@ -109,3 +109,21 @@ with plant 001's real orders: https://claude.ai/artifact/VUbSpP5peyr332yuX9pSCS 
 - **Code:** `apps/order-capture/src/lib/order-flow.ts` (rules), `src/server/reports.ts` (`readFlowParams`,
   `orderFlowReport`), `src/app/reports/order-payment/page.tsx`, `src/app/api/reports/order-payment/route.ts` (CSV).
   No migration; platform and SSO token unchanged. Tests: `test/order-flow-lib.test.ts` (10), `test/reports.test.ts` (+3).
+
+## 8. Link bills to orders (built 2026-11-10, v0.58.0)
+Asked by the owner 2026-11-10 ("let's fix it"; owner goes through them as time allows). Plant 001 on 10 Nov: 43 delivered
+orders without a linked bill (11 sure matches; ~10 likely under "Retail Sales"; ~5 same customer, other amount; ~17 no
+bill near the date).
+- **Screen** `/bills/link` (owner; support reads), linked from Order to Payment: every delivered order without a bill,
+  oldest delivery first, up to 3 suggested bills, a box to link any other bill by number, and **Link all N sure
+  matches** (shows the list, links only after Confirm; each pair checked again on the server).
+- **Order page:** "Billed in Zoho? Link the bill" for a delivered order without a bill (owner); **Unlink** with a reason
+  on a linked Zoho bill.
+- **Rules** (`src/lib/bill-link.ts`): candidates = imported Zoho bills, not cancelled, not opening balances, not linked,
+  within 7 days of delivery, of the order's customer or of the order's exact amount. Ranked same customer + amount →
+  same customer → same amount elsewhere. Sure = same customer + amount, ≤ 3 days, the only one, wanted by no other order.
+- **Decisions (owner 2026-11-10):** owner only; linking moves no money (a Retail Sales bill stays in Retail Sales'
+  account). Made while building: PlantOps bills are never linked / unlinked here (cancel the bill instead).
+- Audit `bill.link` / `bill.unlink` in Recent changes. No migration (order_app may already UPDATE `bills.order_id`; one live
+  bill per order is a unique index). Code `src/server/bill-link.ts`, `src/app/bills/link/`, API
+  `/api/orders/<id>/bill-link`, `/bill-unlink`, `/api/bills/link-sure`. Tests `test/bill-link.test.ts` (7).

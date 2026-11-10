@@ -166,6 +166,13 @@ export default async function OrderPaymentPage({ searchParams }: Props) {
         order; the bill number opens the bill. Orders move on when you Mark delivered, Make bill or Receive payment.
       </p>
 
+      {can(user, "bill_link_view") && (sums.find((s) => s.stage === "delivered")?.count ?? 0) > 0 && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 print:hidden">
+          Some delivered orders may be billed in Zoho with the bill not linked to the order.{" "}
+          <a href="/bills/link" className="font-bold text-(--brand) underline">Link bills to orders →</a>
+        </p>
+      )}
+
       {p.view === "board" ? (
         <div className="relative overflow-x-auto pb-2 lg:left-1/2 lg:w-[min(1440px,calc(100vw-2rem))] lg:-translate-x-1/2 print:static print:w-full print:translate-x-0">
           <div className="grid items-start gap-3" style={{ gridTemplateColumns: `repeat(${sums.length}, minmax(220px, 1fr))`, minWidth: sums.length * 232 }}>

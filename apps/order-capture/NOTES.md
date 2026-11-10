@@ -581,3 +581,10 @@ Owner 2026-11-09 (plan `docs/CUSTOMER_APP_PHASE_PLAN.md` Phase 4, "Polls tab").
 - Made while building: salesperson = the bill's, else who delivered; at most 60 cards a column (the rest in the List);
   "Received" includes adjustments (like Receivables); a column header opens the List at that stage.
 - No migration. Tests: `test/order-flow-lib.test.ts` (10), `test/reports.test.ts` (+3). Sales 1054.
+
+### 2026-11-10 — Link bills to orders (v0.58.0)
+- `/bills/link` + order page panel + Unlink (`docs/REPORTS_PHASE_PLAN.md` section 8). Owner only; support reads the list.
+- Made while building: only Zoho-imported bills are linked / unlinked (a PlantOps bill is made from its order); the sure
+  matches are re-checked on the server and only still-sure pairs are linked; the bill's date can't be changed (the test
+  found the grant refuses it, as it should).
+- No migration. Tests: `test/bill-link.test.ts` (7), access table +2 rows.
