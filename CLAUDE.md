@@ -2137,3 +2137,12 @@ square ribbed bottles in three sizes, icon B with the water wave). **Verified on
 21:54, "New poll" push 22:00, new icon on the home screen. SSO token unchanged. Tests: Sales 1028, platform 426, Drop
 12. **Next:** Phase 7 (privacy policy, Play Store after the D-U-N-S number, pilot shops); rotate `CRON_SECRET` (it
 appeared in a screenshot).
+
+### 2026-11-10 — Reports: Receivables (v0.56.0) — built, not deployed
+Owner 2026-11-10 (from Zoho's Receivables list, "filters like Sales by Item"). Reports → **Receivables**: Customer
+Balances, Aging Summary, Aging Details, Bill Details; period or "as of", age by due / bill date, 15- or 30-day bands,
+salesperson / place / vehicle, group by, CSV + print. With GST; opening balances count; cancelled bills / payments left
+out completely (owner). Plan `docs/REPORTS_PHASE_PLAN.md` section 6; `apps/order-capture/src/lib/receivables.ts`. Owner
+only (support reads). No migration; SSO token unchanged. **Checked 2026-11-10** on a local copy of plant 001's rows
+against Zoho's AR Aging Summary 05/11/2026 (₹1,06,306.26 vs PlantOps ₹1,06,196.26: the ₹110 = three bills changed in
+PlantOps after the import + one opening balance; plan section 6). **Next:** deploy; the owner decides the three bills.

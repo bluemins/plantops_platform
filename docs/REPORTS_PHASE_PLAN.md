@@ -53,5 +53,37 @@ Phones: the same pages, tables scroll sideways; reports are mostly read on a PC.
 ## 5. Phases
 - **R1:** Reports page + Sales Summary, by Customer, by Item, by Salesperson (+ CSV / print), owner only.
 - **R2:** dashboard tile with the number; Sales by Vehicle, by Place; compare with.
-- **Later sections** (owner to order): Receivables (customer balances, aging), Payments received, GST (GST bills by
+- **Later sections** (owner to order): Receivables (built v0.56.0, section 6), Payments received, GST (GST bills by
   month, HSN summary), Stock (Floor Stock), Attendance & salary.
+
+## 6. Receivables (built 2026-11-10, v0.56.0)
+Asked by the owner 2026-11-10 (from Zoho's Receivables list; "similar filters as Sales by Item"); plan and the three
+recommendations approved the same day ("build").
+- **Reports:** Customer Balances (opening, billed, received, closing per customer; = Zoho Customer Balance / Receivable
+  Summary), Aging Summary (per customer by age; = AR Aging Summary), Aging Details (each unpaid bill with its age; = AR
+  Aging Details), Bill Details (bills of a period with status and still due; = Invoice / Receivable Details). Quotes,
+  delivery challans and sales orders left out (PlantOps has none).
+- **Filters:** period (balances, bill details) or "as of" (today, end of last month / quarter / financial year, custom);
+  age by due date (default, Zoho's way; no due date = bill date) or bill date; bands 15 or 30 days × 4; salesperson,
+  place, vehicle; group by (per report); show who owe / also advances / everyone; bills all / not fully paid / overdue /
+  paid. CSV and Print on each; a customer opens their Statement, a bill its page.
+- **Rules:** amounts with GST; opening-balance bills count; cancelled bills and payments left out completely, with every
+  allocation touching them (decision 3); "as of" counts bills, allocations and adjustments dated up to that day.
+  Salesperson / vehicle belong to a bill: with either, Customer Balances works per bill and advances are left out.
+  Aging shows unused advances apart (not taken off), like Zoho.
+- **Zoho-closed amounts** (credit notes / write-offs, `bill_adjustments.kind = 'zoho_closed'`): the export doesn't say
+  when, so the import dated them the import day (6 Nov); the reports count them from the bill's date, as Zoho shows them
+  closed. Looking back before the real credit note this can be early.
+- **Data:** Zoho history to 5 Nov 2026 + PlantOps from 6 Nov, one ledger.
+- **Checked 2026-11-10** on a local copy of plant 001's live rows (read with the backup login, owner's OK; copy removed
+  afterwards) against Zoho's AR Aging Summary by invoice date as of 05/11/2026 (₹1,06,306.26; the 10/11 PDF is the same).
+  PlantOps as of 05-11-2026: ₹1,06,196.26. ayush, Bindu Sagar Bhoi, maheshwar and manas sahu equal Zoho to the paisa; the
+  ₹110 is three record differences made in PlantOps after the import, not report errors: Deepak dhaba INV-001844
+  ₹2,610 (bill and its payment cancelled in PlantOps on 9 Nov, still owed in Zoho); Hotel 10Mail INV-001763 ₹100 and
+  Sahu Family Dhaba INV-001669 ₹1,200 (their Zoho payments cancelled in PlantOps on 7 Nov, paid in Zoho); Subrat Kumar
+  Mishra opening balance ₹1,200 (Zoho's aging by invoice leaves contact opening balances out). As of 10-11-2026 PlantOps
+  shows ₹1,10,966.26 owed (incl. PlantOps bills since 6 Nov) and ₹7,465 unused advances.
+- **Code:** `apps/order-capture/src/lib/receivables.ts` (pure rules + one table shape for page and CSV),
+  `src/server/reports.ts` (`receivablesData`, `readRecParams`, `receivablesReport`), `/reports?section=receivables`,
+  `/reports/receivables/<balances|aging|aging-details|bills>`, `/api/reports/receivables/<kind>` (CSV). Owner only
+  (support reads). No migration; platform and SSO token unchanged.

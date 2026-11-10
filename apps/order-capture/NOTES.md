@@ -558,3 +558,18 @@ Owner 2026-11-09 (plan `docs/CUSTOMER_APP_PHASE_PLAN.md` Phase 4, "Polls tab").
   `ic_stat_drop`); the product look (owner: mock-up https://claude.ai/artifact/WAxBV11GadnCSzAgm8KED8, icon B, brand
   colour #2a3a9a in Business details): sky-blue water tints from the plant's colour, the square ribbed bottle in three
   sizes (1 L / 500 ml / ≤ 300 ml), icon with the water wave, splash with the wave. `google-services.json` is not in git.
+
+### 2026-11-10 — Reports: Receivables (v0.56.0)
+- Four reports in the Receivables section (`docs/REPORTS_PHASE_PLAN.md` section 6): Customer Balances, Aging Summary,
+  Aging Details, Bill Details, with filters like Sales by Item. Rules in `src/lib/receivables.ts`; one `RecTable` drawn
+  by the page and written by the CSV.
+- Owner decisions 2026-11-10: all four; age by due date by default; a cancelled bill / payment is left out completely,
+  even looking back before it was cancelled (its reversing allocation rows too).
+- Made while building: Customer Balances has a period (opening / billed / received / closing), not only "as of";
+  "Received" includes Zoho-closed adjustments; a minus balance = advance (green); Aging shows unused advances apart.
+- Zoho-closed adjustments count from the bill's date (the import dated them 6 Nov; the export has no date).
+- The report table is wider than the page column on a PC (up to 1,200 px); "—" for nothing owed; a swipe hint on phones.
+- Checked against Zoho's AR Aging Summary as of 05/11/2026 on a copy of plant 001's rows (plan section 6): equal except
+  three changes made in PlantOps after the import (Deepak dhaba INV-001844, Hotel 10Mail INV-001763, Sahu Family Dhaba
+  INV-001669) and one opening balance Zoho's aging leaves out.
+- No migration. Tests: `test/receivables-lib.test.ts` (9, hand-worked), `test/reports.test.ts` (+4 on real rows).

@@ -5,9 +5,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { TenantSku } from "@plantops/types";
 import { makeBill } from "@/server/bill-make";
 import { DeliverInput, deliverOrder } from "@/server/handling";
-import { cancelBill } from "@/server/ledger";
+import { cancelBill, cancelPayment, ReceivePaymentInput, receivePayment } from "@/server/ledger";
 import { createOrder, OrderInput } from "@/server/orders";
-import { readParams, salesReport } from "@/server/reports";
+import { readParams, readRecParams, receivablesReport, salesReport } from "@/server/reports";
 import { summaryFor } from "@/server/summary";
 import { KEEPER_ID, SKUS, startFakePlatform, type FakePlatform } from "./fake-platform";
 import { asApp, ocUser, plant, refused } from "./helpers";
@@ -95,5 +95,54 @@ describe("Sales by Item / Customer on real bills", () => {
     const s = await summaryFor(a.tenantId, "reports", next);
     expect(s.badges[0]!.text).toMatch(/ sales ₹2,630$/);
     expect(s.badges).toHaveLength(1); // nothing the month before, so no change shown
+  });
+});
+
+describe("Receivables on real rows", () => {
+  const rec = (kind: Parameters<typeof readRecParams>[0], q: Record<string, string> = {}) => readRecParams(kind, q);
+  const money = (c: unknown) => (typeof c === "bigint" ? Number(c) / 100 : c);
+  const lines = (t: Awaited<ReturnType<typeof receivablesReport>>["table"]) => t.groups.flatMap((g) => g.rows.map((r) => [r.label, ...r.cells.map(money)]));
+
+  beforeAll(async () => {
+    const id = async (phone: string) => ((await asApp(a.tenantId, `select id from order_capture.customers where tenant_id = '${a.tenantId}' and phone = '${phone}'`)).rows[0] as { id: string }).id;
+    // Krupalu pays ₹1,000: ₹450 on their bill, ₹550 stays as advance; Sri ram's ₹500 is cancelled (cheque bounced)
+    await receivePayment(acct, ReceivePaymentInput.parse({ customer_id: await id("9000000009"), amount: "1000", payment_date: today, mode: "cash" }));
+    const bounced = await receivePayment(acct, ReceivePaymentInput.parse({ customer_id: await id("9876543210"), amount: "500", payment_date: today, mode: "cheque" }));
+    await cancelPayment(a.owner, bounced.id, { reason: "cheque bounced" });
+  });
+
+  it("aging: the opening balance counts, cancelled bill and payment left out, the advance shown apart", async () => {
+    const { table: t } = await receivablesReport(a.owner, rec("aging"));
+    expect(lines(t).map((r) => [r[0], r.at(-1)])).toEqual([["Uttam Bargarh", 8050], ["Sri ram hotel", 1180]]);
+    expect(t.advance).toBe(55000n);
+    expect(t.groups[0]!.rows[0]!.href).toMatch(/^\/customers\/z\/[0-9a-f-]+\?tab=statement$/);
+  });
+
+  it("a bill Zoho closed without a payment counts as closed from its bill date (the import dated it the import day)", async () => {
+    const one = async (q: string) => ((await asApp(a.tenantId, q)).rows[0] as { id: string }).id;
+    const imp = await one(`select id from order_capture.zoho_imports where tenant_id = '${a.tenantId}' limit 1`);
+    const contact = await one(`select id from order_capture.zoho_contacts where tenant_id = '${a.tenantId}' and zoho_contact_id = 'zc9'`);
+    const zb = await one(`insert into order_capture.bills (tenant_id, source, number, zoho_invoice_id, bill_date, due_date, zoho_contact_id, customer_name, sub_total, total, import_id, created_by, created_by_name)
+      values ('${a.tenantId}', 'zoho', 'INV-000100', 'zi-100', '2026-01-10', '2026-01-10', '${contact}', 'Uttam Bargarh', 300, 300, '${imp}', gen_random_uuid(), 'Sujata') returning id`);
+    await asApp(a.tenantId, `insert into order_capture.bill_adjustments (tenant_id, bill_id, kind, amount, reason, adjusted_on, import_id, created_by, created_by_name)
+      values ('${a.tenantId}', '${zb}', 'zoho_closed', 300, 'Closed in Zoho without a payment', '${today}', '${imp}', gen_random_uuid(), 'Sujata')`);
+    expect((await receivablesReport(a.owner, rec("aging", { as_of: "custom", date: "2026-01-31" }))).table.count).toBe(0);
+  });
+
+  it("customer balances this month; bill details", async () => {
+    const { table: t } = await receivablesReport(a.owner, rec("balances", { show: "nonzero" }));
+    expect(lines(t)).toEqual([
+      ["Uttam Bargarh", 0, 8050, 0, 8050],
+      ["Sri ram hotel", 0, 1180, 0, 1180],
+      ["Krupalu Enterprises", 0, 450, 1000, -550],
+    ]);
+    const bills = (await receivablesReport(a.owner, rec("bills", { status: "open" }))).table;
+    expect(bills.count).toBe(3); // Sri ram's bill, Uttam's Zoho bill and opening balance; Krupalu's is paid, the cancelled one left out
+  });
+
+  it("owner only (support reads); Accounts, Order desk and staff are refused; plant B sees nothing", async () => {
+    expect((await receivablesReport(a.support, rec("aging"))).table.count).toBe(2);
+    for (const who of [acct, a.desk, a.staff]) expect((await refused(() => receivablesReport(who, rec("aging")))).status).toBe(403);
+    expect((await receivablesReport(b.owner, rec("balances", { show: "all" }))).table.groups).toEqual([]);
   });
 });

@@ -16,6 +16,25 @@ import {
   type SalesLine,
 } from "@/lib/report";
 import { paise } from "@/lib/ledger";
+import {
+  AS_OFS,
+  asOfDate,
+  agingDetails,
+  agingSummary,
+  BILL_SHOWS,
+  billDetails,
+  customerBalances,
+  GROUPS_FOR,
+  recChoices,
+  type AsOf,
+  type Basis,
+  type BillShow,
+  type Interval,
+  type RecData,
+  type RecGroup,
+  type RecKind,
+  type Show,
+} from "@/lib/receivables";
 import { requireAccess } from "./access";
 import { withTenant } from "./db";
 import { kit } from "./kit";
@@ -114,6 +133,121 @@ export async function salesReport(user: OcUser, kind: ReportKind, p: ReportParam
     place: p.place || undefined,
     vehicle: p.vehicle || undefined,
   });
+}
+
+// ---------- Receivables (src/lib/receivables.ts; docs/REPORTS_PHASE_PLAN.md section 6) ----------
+
+export type RecParams = {
+  kind: RecKind;
+  /** Customer Balances, Bill Details */
+  period: Period;
+  from: string;
+  to: string;
+  /** Aging */
+  as_of: AsOf;
+  date: string;
+  basis: Basis;
+  interval: Interval;
+  group: RecGroup;
+  show: Show;
+  status: BillShow;
+  salesperson: string;
+  place: string;
+  vehicle: string;
+};
+
+/** The settings from the address; anything unknown falls back. `date` = the "as of" day the report uses. */
+export function readRecParams(kind: RecKind, q: Record<string, string | undefined>, today = istToday()): RecParams {
+  const period = pick(PERIODS, q.period, "this_month");
+  const { from, to } = periodDates(period, today, { from: q.from, to: q.to });
+  const as_of = pick(AS_OFS, q.as_of, "today");
+  return {
+    kind,
+    period,
+    from,
+    to,
+    as_of,
+    date: asOfDate(as_of, today, q.date),
+    basis: q.basis === "bill" ? "bill" : "due",
+    interval: q.interval === "30" ? 30 : 15,
+    group: pick(GROUPS_FOR[kind], q.group, GROUPS_FOR[kind][0]!),
+    show: q.show === "nonzero" || q.show === "all" ? q.show : "owe",
+    status: pick(BILL_SHOWS, q.status, "all"),
+    salesperson: (q.salesperson ?? "").slice(0, 100),
+    place: (q.place ?? "").slice(0, 200),
+    vehicle: (q.vehicle ?? "").slice(0, 30),
+  };
+}
+
+/**
+ * Every bill and payment that is not cancelled, and what settled each bill (payments' allocations and adjustments),
+ * leaving out anything that touches a cancelled bill or payment. Opening-balance bills are kept: they are owed.
+ */
+async function receivablesData(tenantId: string): Promise<RecData> {
+  return withTenant(tenantId, async (tx) => {
+    const party = (alias: string) => sql.raw(`
+      coalesce('c:' || cu.id::text, 'z:' || zc.id::text) as customer_key,
+      coalesce(cu.name, zc.name, ${alias}.customer_name) as customer_name,
+      case when cu.id is not null then '/customers/' || cu.id::text else '/customers/z/' || zc.id::text end || '?tab=statement' as href,
+      cu.place`);
+    const join = (alias: string) => sql.raw(`
+      left join order_capture.zoho_contacts zc on zc.tenant_id = ${alias}.tenant_id and zc.id = ${alias}.zoho_contact_id
+      left join order_capture.customers cu on cu.tenant_id = ${alias}.tenant_id and cu.id = coalesce(${alias}.customer_id, zc.customer_id)`);
+    type PartyRow = { customer_key: string; customer_name: string; href: string; place: string | null };
+    const bills = await tx.execute<PartyRow & { id: string; number: string; bill_date: string; due_date: string | null; total: string; salesperson: string | null; vehicle: string | null }>(sql`
+      select b.id, b.number, b.bill_date::text, b.due_date::text, b.total::text, b.salesperson, b.vehicle, ${party("b")}
+        from order_capture.bills b ${join("b")}
+       where b.tenant_id = ${tenantId} and b.cancelled_at is null`);
+    const payments = await tx.execute<PartyRow & { id: string; payment_date: string; amount: string }>(sql`
+      select p.id, p.payment_date::text, p.amount::text, ${party("p")}
+        from order_capture.payments p ${join("p")}
+       where p.tenant_id = ${tenantId} and p.cancelled_at is null`);
+    const settles = await tx.execute<{ bill_id: string; payment_id: string | null; amount: string; on: string }>(sql`
+      select a.bill_id, a.payment_id, a.amount::text, a.allocated_on::text as on
+        from order_capture.payment_allocations a
+        join order_capture.bills b on b.tenant_id = a.tenant_id and b.id = a.bill_id and b.cancelled_at is null
+        join order_capture.payments p on p.tenant_id = a.tenant_id and p.id = a.payment_id and p.cancelled_at is null
+       where a.tenant_id = ${tenantId}
+      union all
+      -- Zoho's export says a bill was closed without a payment (credit note, write-off) but not when, so the import
+      -- dated it the import day; it counts from the bill's date, as Zoho's own reports show it closed (owner 2026-11-10)
+      select j.bill_id, null, j.amount::text, (case when j.kind = 'zoho_closed' then least(b.bill_date, j.adjusted_on) else j.adjusted_on end)::text
+        from order_capture.bill_adjustments j
+        join order_capture.bills b on b.tenant_id = j.tenant_id and b.id = j.bill_id and b.cancelled_at is null
+       where j.tenant_id = ${tenantId}`);
+    const partyOf = (r: PartyRow) => ({ customer_key: r.customer_key, customer_name: r.customer_name, href: r.href, place: r.place });
+    return {
+      bills: bills.rows.map((r) => ({
+        ...partyOf(r),
+        id: r.id,
+        number: r.number,
+        bill_date: r.bill_date,
+        due_date: r.due_date,
+        total: paise(r.total),
+        salesperson: r.salesperson,
+        vehicle: r.vehicle,
+      })),
+      payments: payments.rows.map((r) => ({ ...partyOf(r), id: r.id, payment_date: r.payment_date, amount: paise(r.amount) })),
+      settles: settles.rows.map((r) => ({ bill_id: r.bill_id, payment_id: r.payment_id, amount: paise(r.amount), on: r.on })),
+    };
+  });
+}
+
+/** Owner (support reads): one Receivables report with its filters. */
+export async function receivablesReport(user: OcUser, p: RecParams, today = istToday()) {
+  requireAccess(user, "reports");
+  const d = await receivablesData(user.tenantId);
+  const filter = { salesperson: p.salesperson || undefined, place: p.place || undefined, vehicle: p.vehicle || undefined };
+  const aging = { asOf: p.date, basis: p.basis, interval: p.interval, filter, group: p.group };
+  const table =
+    p.kind === "balances"
+      ? customerBalances(d, { from: p.from, to: p.to, filter, group: p.group, show: p.show })
+      : p.kind === "aging"
+        ? agingSummary(d, aging)
+        : p.kind === "aging-details"
+          ? agingDetails(d, aging)
+          : billDetails(d, { from: p.from, to: p.to, today, status: p.status, filter, group: p.group });
+  return { table, choices: recChoices(d) };
 }
 
 /** For the dashboard's Reports card (owner): last month's sales before GST and the change on the month before. */
