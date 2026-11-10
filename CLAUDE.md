@@ -2163,3 +2163,11 @@ every delivered order without a bill with up to 3 suggested Zoho bills, link by 
 (a Retail Sales bill stays in its account); Zoho-imported bills only. No migration; SSO token unchanged. Plan
 `docs/REPORTS_PHASE_PLAN.md` section 8.
 
+
+### 2026-11-10 — Reports: Order flow check (v0.59.0) — live 2026-11-10 (`5d6e109`)
+Owner 2026-11-10: the order measures of `docs/ORDER_FLOW_LEAN_ANALYSIS.md` (sections 2 and 4.5) on a page so they can
+repeat the check themselves. Reports → Sales → **Order flow check** (`/reports/flow-check`): same / next day, pending over
+2 days, changed after saving, delivered with a bill (each with target + first check), pending now, delivery speed, week
+by week, who enters / delivers, time of day, cancels, look-alike places. Owner only (support reads). No migration; SSO
+token unchanged. Tests: Sales 1088 (+11). **Next:** the owner runs it, then picks from what's left (daily action agent,
+pending vs stock, place list, purchase list).
