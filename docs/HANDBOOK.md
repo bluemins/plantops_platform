@@ -248,8 +248,12 @@ A reset is always temporary: the person picks their own at the next login. More 
 | Twilio `TWILIO_AUTH_TOKEN` | order-capture **and** the WhatsApp bot (separate Railway project) | not stored | ✔ |
 | Turnstile `TURNSTILE_SECRET` | job-applications | not stored | ✔ |
 | Bot: Google service account, Redis | WhatsApp bot project (`GOOGLE_SERVICE_ACCOUNT_JSON`, `REDIS_URL`) | not stored | ✔ |
-| `CRON_SECRET` | platform, lab-records, document-store, floor-stock, complaint-box, order-capture, attendance-salary, job-applications, GitHub environment `shared` **and** the 12 cron-job.org jobs (header `x-cron-secret`) | (pasted, then file deleted) | ✔ |
+| `CRON_SECRET` | platform, lab-records, document-store, floor-stock, complaint-box, order-capture, attendance-salary, job-applications, GitHub environment `shared` **and** the 13 cron-job.org jobs (header `x-cron-secret`) | (pasted, then file deleted) | ✔ |
 | `ATTEND_SESSION_SECRET` | attendance-salary. **Also makes the QR key:** changing it stops every printed Attendance QR (print new ones) | (pasted, then file deleted) | ✔ |
+| `DROP_CODE_SECRET` (signs Drop's WhatsApp login codes) | order-capture | (pasted, then file deleted) | ✔ |
+| Drop push key `FCM_SERVICE_ACCOUNT` (Firebase `drop-purevibe` service account JSON) | order-capture | not stored | ✔ |
+| Bot key `ORDER_BOT_KEYS` (`ocb_…`) | order-capture (hash) **and** the WhatsApp bot project (the key) | not stored | ✔ |
+| Calls key `ORDER_CALL_KEYS` (`occ_…`) | order-capture (hash) **and** MacroDroid on the plant phone (the key) | not stored | ✔ |
 | super_admin password | (stored as a hash in the database) | not stored | ✔ |
 | Phone notification keys `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | platform | not stored (local dev has its own pair in `.env`) | ✔ |
 | Backup login `DATABASE_URL_BACKUP` (read-only) | GitHub environment `shared` only | `.env.railway.shared` | ✔ |
@@ -268,7 +272,10 @@ A reset is always temporary: the person picks their own at the next login. More 
 |---|---|
 | Module secret | super_admin → **Modules** → new secret (the old one stops at once). Paste it into that service's `MODULE_SECRET_*` and into `.env.railway.shared`. |
 | Session secret | Change it in Railway. Everyone using that module logs in again. |
-| `CRON_SECRET` | `openssl rand -hex 32`; change it on every service that has it (table above), in the GitHub environment **and** in the header of all 12 cron-job.org jobs. Do it between 23:05 and 06:55 IST (no timed job then except the 02:00 backup). |
+| `CRON_SECRET` | `openssl rand -hex 32`; change it on every service that has it (table above), in the GitHub environment **and** in the header of all 13 cron-job.org jobs. Do it between 23:05 and 06:55 IST (no timed job then except the 02:00 backup and the 5-minute Drop push job, whose runs answer 401 until its header is changed; waiting pushes go out on the next good run). |
+| `DROP_CODE_SECRET` | `openssl rand -hex 32` into order-capture. Only login codes still waiting stop working; shops stay logged in. |
+| Bot key / Calls key | `pnpm --filter order-capture bot:key` (or `call:key`), put the **complete** printed value in order-capture's `ORDER_BOT_KEYS` / `ORDER_CALL_KEYS` and the new key in the bot project / MacroDroid the same night (section "Order Capture: phone calls" for the calls key). The old key stops at the redeploy. |
+| Drop push key | Firebase console → `drop-purevibe` → Project settings → Service accounts → new private key; paste the JSON into order-capture's `FCM_SERVICE_ACCOUNT`, check `/health` has no warning, then delete the old key in Google Cloud → IAM → Service accounts. |
 | SSO key | Run `pnpm sso:keygen`. Put the new key in platform's `SSO_PRIVATE_JWK_B64`, and the old *public* key in `SSO_PREVIOUS_PUBLIC_JWK_B64` for a day. |
 | Backup login password | Run `./scripts/setup-backup-login.sh shared` again, then update GitHub's `DATABASE_URL_BACKUP`. |
 | R2 keys | Cloudflare → R2 → Manage API tokens: make a new token (*Object Read & Write*, bucket `plantops-backup` only), put it in the four file-storing services (table above), GitHub and `.env.railway.shared`, run **Nightly backup** by hand, then delete the old token. |
@@ -283,9 +290,10 @@ status.railway.com, never the email's links. Then, in one evening window (23:05-
 1. **Everything PlantOps makes itself, in one go:** `./scripts/rotate-railway-secrets.sh shared`. It writes the
    new values to `.env.railway.shared.rotate` (nothing on screen). Stage each block in Railway **without
    deploying**, type `ROTATE` (it changes every database password, including `postgres` and the backup login, and
-   every module secret hash, in one transaction), then deploy the staged changes. Delete
+   every module secret hash, in one transaction), then deploy the staged changes. It also makes a new
+   `DROP_CODE_SECRET` (in the order-capture block). Delete
    `SSO_PREVIOUS_PUBLIC_JWK_B64` (the old key is the leaked one). Update GitHub (`CRON_SECRET`,
-   `DATABASE_URL_BACKUP`) and the 12 cron-job.org headers, save the new `.env.railway.shared` in the password
+   `DATABASE_URL_BACKUP`) and the 13 cron-job.org headers, save the new `.env.railway.shared` in the password
    manager, delete the `.rotate` and `.before-rotate` files.
 2. **Check:** `/login` and all seven `/health` answer with `"database":"ok"`; log in and open each module; the
    next backup run is green.
@@ -293,7 +301,9 @@ status.railway.com, never the email's links. Then, in one evening window (23:05-
    notifications on again if the VAPID keys were changed.
 4. **Keys made at a provider** (new key there, put it in Railway, then delete the old one): R2 (table above),
    Twilio auth token (order-capture + bot), Turnstile secret, WhatsApp token if set, Brevo key (delete it: unused),
-   VAPID keys (row above), the bot's Google service account key and Redis password.
+   VAPID keys (row above), the Drop push key `FCM_SERVICE_ACCOUNT` (row above), the bot's Google service account
+   key and Redis password. **PlantOps keys held by another device**, changed on both ends the same night (rows
+   above): the bot key `ORDER_BOT_KEYS` (bot project) and the calls key `ORDER_CALL_KEYS` (MacroDroid).
 5. **The account:** change the Railway password, 2-factor login on, delete Railway API tokens, check team members
    and the Railway GitHub app's access.
 6. **Look for misuse since the leak date:** Railway activity feed and Postgres logs; `platform.audit_log`
@@ -363,6 +373,7 @@ for each row below:
 | 10 | Floor Stock evening | `https://stock.bluemins.life/api/cron/evening` | every day | 17, 18, 19, 20, 21, 22, 23 | 1 |
 | 11 | Attendance morning | `https://attendance.bluemins.life/api/cron/morning` | every day | 8, 9, 10, 11 | 1 |
 | 12 | Order Capture reminders (WhatsApp reorder reminders; sends nothing unless `ORDER_REMINDERS=on`) | `https://orders.bluemins.life/api/cron/reminders` | every day | 10 | 30 |
+| 13 | Drop push (sends the Drop app's waiting phone notifications) | `https://orders.bluemins.life/api/cron/drop-push` | every day | every hour | every 5 minutes |
 
 Minute 1, not 0, so a call can never land a second before the hour (the jobs check "has the plant's hour come" in
 India time). After saving, open each job → **Test run**: the answer must be **200** with a JSON summary. **401** = wrong
@@ -370,7 +381,7 @@ secret; **503** = `CRON_SECRET` missing on that Railway service. **Execution his
 start time and answer of every run.
 
 `CRON_SECRET` only starts jobs that are safe to repeat; it opens no data. Still, if it is ever changed, change it
-on every Railway service, in GitHub (environment secret) **and** in all 12 cron-job.org jobs the same day.
+on every Railway service, in GitHub (environment secret) **and** in all 13 cron-job.org jobs the same day.
 
 A **new module with a daily job** adds a row here and a job on cron-job.org (and its step in `daily.yml`).
 
@@ -856,7 +867,7 @@ Example: Floor Stock, Phase 5. It becomes **one more Railway service** and **one
   data.
 - [ ] Owner and each document's responsible person turn on phone notifications and send a test (section 10,
   "No email").
-- [ ] Set up the 12 cron-job.org jobs (section 10); each **Test run** answers 200.
+- [ ] Set up the 13 cron-job.org jobs (section 10); each **Test run** answers 200.
 - [ ] Choose and configure a real S3 bucket only after safely copying and verifying the existing document files.
 - [ ] WhatsApp, when Meta approves.
 - [ ] Optional: set Watch Paths on each service.
