@@ -7,7 +7,7 @@ import { makeBill } from "@/server/bill-make";
 import { DeliverInput, deliverOrder } from "@/server/handling";
 import { cancelBill, cancelPayment, ReceivePaymentInput, receivePayment } from "@/server/ledger";
 import { createOrder, OrderInput } from "@/server/orders";
-import { readParams, readRecParams, receivablesReport, salesReport } from "@/server/reports";
+import { orderFlowReport, readFlowParams, readParams, readRecParams, receivablesReport, salesReport } from "@/server/reports";
 import { summaryFor } from "@/server/summary";
 import { KEEPER_ID, SKUS, startFakePlatform, type FakePlatform } from "./fake-platform";
 import { asApp, ocUser, plant, refused } from "./helpers";
@@ -144,5 +144,76 @@ describe("Receivables on real rows", () => {
     expect((await receivablesReport(a.support, rec("aging"))).table.count).toBe(2);
     for (const who of [acct, a.desk, a.staff]) expect((await refused(() => receivablesReport(who, rec("aging")))).status).toBe(403);
     expect((await receivablesReport(b.owner, rec("balances", { show: "all" }))).table.groups).toEqual([]);
+  });
+});
+
+describe("Order to Payment on real rows", () => {
+  const flow = (q: Record<string, string> = {}) => readFlowParams({ customer: "Flow shop", ...q });
+  const stages = async (q: Record<string, string> = {}) =>
+    (await orderFlowReport(a.owner, flow(q))).rows.map((r) => [r.customer_name, r.stage, Number(r.amount) / 100]);
+  let first = "";
+
+  beforeAll(async () => {
+    const shop = async (rate: string) =>
+      createOrder(a.desk, OrderInput.parse({
+        request_key: `flow-${Date.now()}-${++k}`,
+        customer: { phone: "9111111111", name: "Flow shop", place: "Bargarh" },
+        lines: [{ sku_id: b1l.id, quantity: 10, rate }],
+      }));
+    const deliver = (id: string) => deliverOrder(a.desk, id, DeliverInput.parse({ expected: { status: "pending", version: 1 } }));
+    await shop("10"); // pending ₹100
+    await deliver((await shop("20")).id); // delivered, not billed ₹200
+    const billedOnly = await shop("30");
+    first = billedOnly.id;
+    await deliver(billedOnly.id);
+    await makeBill(acct, { order_id: billedOnly.id }); // billed ₹300
+    const part = await shop("40");
+    await deliver(part.id);
+    const partBill = await makeBill(acct, { order_id: part.id });
+    const paid = await shop("50");
+    await deliver(paid.id);
+    const paidBill = await makeBill(acct, { order_id: paid.id });
+    const customer = ((await asApp(a.tenantId, `select id from order_capture.customers where tenant_id = '${a.tenantId}' and phone = '9111111111'`)).rows[0] as { id: string }).id;
+    await receivePayment(acct, ReceivePaymentInput.parse({ customer_id: customer, amount: "100", payment_date: today, mode: "cash", bill_ids: [partBill.id] }));
+    await receivePayment(acct, ReceivePaymentInput.parse({ customer_id: customer, amount: "500", payment_date: today, mode: "upi", bill_ids: [paidBill.id] }));
+    // a delivered order whose bill was imported from Zoho (linked to it): counts like any bill
+    const zohoOrder = await shop("60");
+    await deliver(zohoOrder.id);
+    const imp = ((await asApp(a.tenantId, `select id from order_capture.zoho_imports where tenant_id = '${a.tenantId}' limit 1`)).rows[0] as { id: string }).id;
+    await asApp(a.tenantId, `insert into order_capture.bills (tenant_id, source, number, zoho_invoice_id, bill_date, due_date, customer_id, customer_name, order_id, sub_total, total, import_id, created_by, created_by_name)
+      values ('${a.tenantId}', 'zoho', 'INV-009001', 'zi-9001', '2026-01-05', '2026-01-05', '${customer}', 'Flow shop', '${zohoOrder.id}', 630, 630, '${imp}', gen_random_uuid(), 'Sujata')`);
+  });
+
+  it("each stage with what it counts; a Zoho bill counts like a PlantOps one; oldest money first", async () => {
+    expect(await stages({ view: "list" })).toEqual([
+      ["Flow shop", "billed", 630], // the Zoho bill, overdue since January
+      ["Flow shop", "billed", 300],
+      ["Flow shop", "part", 300],
+      ["Flow shop", "delivered", 200],
+      ["Flow shop", "pending", 100],
+      ["Flow shop", "paid", 500],
+    ]);
+    const r = await orderFlowReport(a.owner, flow());
+    expect(r.sums.map((s) => [s.stage, s.count, Number(s.amount) / 100, s.overdue])).toEqual([
+      ["pending", 1, 100, 0],
+      ["delivered", 1, 200, 0],
+      ["billed", 2, 930, 1],
+      ["part", 1, 300, 0],
+      ["paid", 1, 500, 0],
+    ]);
+    expect(r.rows.find((x) => x.id === first)).toMatchObject({ href: `/o/${first}`, overdue: false, days: 0 });
+    expect(r.rows.find((x) => x.stage === "paid")!.paid_on).toBe(today);
+  });
+
+  it("filters: only overdue, place, brand", async () => {
+    expect((await stages({ overdue: "1" })).map((x) => x[2])).toEqual([630]);
+    expect(await stages({ place: "Nowhere" })).toEqual([]);
+    expect((await orderFlowReport(a.owner, flow())).choices.places).toContain("Bargarh");
+  });
+
+  it("owner only (support reads); Accounts, Order desk and staff are refused; plant B sees nothing", async () => {
+    expect((await orderFlowReport(a.support, flow())).rows).toHaveLength(6);
+    for (const who of [acct, a.desk, a.staff]) expect((await refused(() => orderFlowReport(who, flow()))).status).toBe(403);
+    expect((await orderFlowReport(b.owner, readFlowParams({ cancelled: "1" }))).rows).toEqual([]);
   });
 });

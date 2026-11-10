@@ -573,3 +573,11 @@ Owner 2026-11-09 (plan `docs/CUSTOMER_APP_PHASE_PLAN.md` Phase 4, "Polls tab").
   three changes made in PlantOps after the import (Deepak dhaba INV-001844, Hotel 10Mail INV-001763, Sahu Family Dhaba
   INV-001669) and one opening balance Zoho's aging leaves out.
 - No migration. Tests: `test/receivables-lib.test.ts` (9, hand-worked), `test/reports.test.ts` (+4 on real rows).
+
+### 2026-11-10 — Reports: Order to Payment (v0.57.0)
+- Reports → Sales → Order to Payment, Board and List (`docs/REPORTS_PHASE_PLAN.md` section 7; mock-up approved).
+- Owner decisions 2026-11-10: Board + List; no dragging; Paid folded to the last 7 days on the Board; **Zoho and
+  PlantOps bills are one ledger, no difference shown** (so unlinked Zoho-era orders show as "Delivered, not billed").
+- Made while building: salesperson = the bill's, else who delivered; at most 60 cards a column (the rest in the List);
+  "Received" includes adjustments (like Receivables); a column header opens the List at that stage.
+- No migration. Tests: `test/order-flow-lib.test.ts` (10), `test/reports.test.ts` (+3). Sales 1054.

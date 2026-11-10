@@ -16,6 +16,7 @@ const SECTIONS: { id: Section; name: string; title: string; about: string; repor
     reports: [
       { href: "/reports/sales/item", name: "Sales by Item", about: "Quantity and sales per product" },
       { href: "/reports/sales/customer", name: "Sales by Customer", about: "Bills and sales per customer" },
+      { href: "/reports/order-payment", name: "Order to Payment", about: "Where each order stands: delivered, billed, paid (Board or List)" },
     ],
     filters:
       "period (month, quarter, financial year, custom) · break down by month or quarter · salesperson · place · vehicle · group by salesperson, customer, place, vehicle or brand · before / with GST.",

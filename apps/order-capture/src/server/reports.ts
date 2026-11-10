@@ -35,6 +35,19 @@ import {
   type RecKind,
   type Show,
 } from "@/lib/receivables";
+import {
+  flowChoices,
+  flowDates,
+  flowRows,
+  FLOW_PERIODS,
+  FLOW_STAGES,
+  sortRows,
+  stageSums,
+  type FlowFilter,
+  type FlowOrder,
+  type FlowStage,
+} from "@/lib/order-flow";
+import { effectiveBrand } from "@/lib/brand";
 import { requireAccess } from "./access";
 import { withTenant } from "./db";
 import { kit } from "./kit";
@@ -258,4 +271,107 @@ export async function reportsTile(tenantId: string, today = istToday()) {
   const lines = await salesLines(tenantId, before.from, last.to);
   const sum = (from: string, to: string) => lines.filter((l) => l.bill_date >= from && l.bill_date <= to).reduce((s, l) => s + l.before, 0n);
   return { month: last.from.slice(0, 7), sales: sum(last.from, last.to), previous: sum(before.from, before.to) };
+}
+
+// ---------- Order to Payment (src/lib/order-flow.ts; docs/REPORTS_PHASE_PLAN.md section 7) ----------
+
+export type FlowParams = FlowFilter & { view: "board" | "list"; stage: FlowStage | "" };
+
+/** The settings from the address; anything unknown falls back. Default: every order, Board. */
+export function readFlowParams(q: Record<string, string | undefined>, today = istToday()): FlowParams {
+  const period = pick(FLOW_PERIODS, q.period, "all");
+  const { from, to } = flowDates(period, today, { from: q.from, to: q.to });
+  const yes = (v?: string) => v === "1" || v === "on" || v === "true";
+  return {
+    view: q.view === "list" ? "list" : "board",
+    stage: pick([...FLOW_STAGES, ""] as const, q.stage, ""),
+    period,
+    from,
+    to,
+    customer: (q.customer ?? "").slice(0, 100),
+    salesperson: (q.salesperson ?? "").slice(0, 100),
+    place: (q.place ?? "").slice(0, 200),
+    brand: (q.brand ?? "").slice(0, 30),
+    overdue: yes(q.overdue),
+    cancelled: yes(q.cancelled) || q.stage === "cancelled",
+  };
+}
+
+/** Every order with its live bill (PlantOps or imported from Zoho, alike), what settled it, and the brands on its lines. */
+async function flowData(tenantId: string): Promise<FlowOrder[]> {
+  const names = new Map((await kit.products(tenantId)).map((p) => [p.id, p.name]));
+  return withTenant(tenantId, async (tx) => {
+    const orders = await tx.execute<{
+      id: string; ref_no: number; status: FlowOrder["status"]; entered: string; delivered: string | null; delivered_by: string | null; total: string;
+      customer_id: string; customer_name: string; phone: string; place: string | null;
+      bill_id: string | null; bill_number: string | null; bill_date: string | null; due_date: string | null;
+      bill_total: string | null; settled: string | null; settled_on: string | null; salesperson: string | null;
+    }>(sql`
+      select o.id, o.ref_no, o.status,
+             (o.created_at at time zone 'Asia/Kolkata')::date::text as entered,
+             (o.delivered_at at time zone 'Asia/Kolkata')::date::text as delivered,
+             o.delivered_by_name as delivered_by, o.total::text,
+             o.customer_id, coalesce(cu.name, o.customer_name) as customer_name, o.customer_phone as phone, coalesce(cu.place, o.customer_place) as place,
+             b.id as bill_id, b.number as bill_number, b.bill_date::text, b.due_date::text, b.total::text as bill_total,
+             s.settled::text, s.settled_on::text, b.salesperson
+        from order_capture.orders o
+        left join order_capture.customers cu on cu.tenant_id = o.tenant_id and cu.id = o.customer_id
+        left join order_capture.bills b on b.tenant_id = o.tenant_id and b.order_id = o.id and b.cancelled_at is null
+        left join lateral (
+          select coalesce(sum(x.amount), 0) as settled, max(x.on) as settled_on from (
+            select a.amount, a.allocated_on as on
+              from order_capture.payment_allocations a
+              join order_capture.payments p on p.tenant_id = a.tenant_id and p.id = a.payment_id and p.cancelled_at is null
+             where a.tenant_id = b.tenant_id and a.bill_id = b.id
+            union all
+            select j.amount, j.adjusted_on from order_capture.bill_adjustments j where j.tenant_id = b.tenant_id and j.bill_id = b.id
+          ) x
+        ) s on b.id is not null
+       where o.tenant_id = ${tenantId}`);
+    const lines = await tx.execute<{ order_id: string; sku_id: string; product_name: string; brand: string | null }>(sql`
+      select l.order_id, l.sku_id, l.product_name, pr.brand
+        from order_capture.order_lines l
+        join order_capture.orders o on o.tenant_id = l.tenant_id and o.id = l.order_id and o.version = l.version
+        left join order_capture.product_rates pr on pr.tenant_id = l.tenant_id and pr.sku_id = l.sku_id
+       where l.tenant_id = ${tenantId}`);
+    const brands = new Map<string, Set<string>>();
+    for (const l of lines.rows) {
+      const b = effectiveBrand(l.brand, names.get(l.sku_id) ?? l.product_name);
+      if (b) (brands.get(l.order_id) ?? brands.set(l.order_id, new Set()).get(l.order_id)!).add(b);
+    }
+    return orders.rows.map((r) => ({
+        id: r.id,
+        ref_no: r.ref_no,
+        status: r.status,
+        entered: r.entered,
+        delivered: r.delivered,
+        delivered_by: r.delivered_by,
+        total: paise(r.total),
+        customer_id: r.customer_id,
+        customer_name: r.customer_name,
+        phone: r.phone,
+        place: r.place,
+        brands: [...(brands.get(r.id) ?? [])],
+        bill: r.bill_id
+          ? {
+              id: r.bill_id,
+              number: r.bill_number!,
+              bill_date: r.bill_date!,
+              due_date: r.due_date,
+              total: paise(r.bill_total!),
+              settled: paise(r.settled ?? "0"),
+              settled_on: r.settled_on,
+              salesperson: r.salesperson,
+            }
+          : null,
+      }));
+  });
+}
+
+/** Owner (support reads): Order to Payment rows (sorted for the List), stage totals and the filter choices. */
+export async function orderFlowReport(user: OcUser, p: FlowParams, today = istToday()) {
+  requireAccess(user, "reports");
+  const orders = await flowData(user.tenantId);
+  const rows = sortRows(flowRows(orders, today, p));
+  return { rows, sums: stageSums(rows, p.cancelled), choices: flowChoices(orders, today) };
 }

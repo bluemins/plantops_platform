@@ -87,3 +87,25 @@ recommendations approved the same day ("build").
   `src/server/reports.ts` (`receivablesData`, `readRecParams`, `receivablesReport`), `/reports?section=receivables`,
   `/reports/receivables/<balances|aging|aging-details|bills>`, `/api/reports/receivables/<kind>` (CSV). Owner only
   (support reads). No migration; platform and SSO token unchanged.
+
+## 7. Order to Payment (built 2026-11-10, v0.57.0)
+Asked by the owner 2026-11-10 ("what stage each transaction is at; for some we haven't received the payment"). Mock-up
+with plant 001's real orders: https://claude.ai/artifact/VUbSpP5peyr332yuX9pSCS (Board + List); owner "build" the same day.
+- **Where:** Reports → Sales → **Order to Payment** (`/reports/order-payment`), owner only (support reads), CSV + Print.
+- **Two views:** **Board** (a column per stage, a card per order: ref, customer, place, amount, days waiting, bill
+  number, OVERDUE) and **List** (stage cards that filter + a table: entered, order amount, delivered, bill, bill amount,
+  received, still due, waiting; totals). No dragging: an order moves only through Mark delivered, Make bill, Receive payment.
+- **Stages:** Pending (days since entered) · Delivered, not billed (since delivered) · Billed, not paid (since the bill) ·
+  Part paid (since the bill) · Paid (Closed; the Board shows the last 7 days, the List all) · Cancelled (only with
+  "Show cancelled"). Amounts: the order for Pending / Delivered, still due with GST for Billed / Part paid, the bill for
+  Paid. Overdue = still due after the bill's due date (none = the bill date).
+- **One ledger (owner 2026-11-10: "do not differentiate, we will go long with PlantOps"):** bills imported from Zoho and
+  bills made in PlantOps count alike; there is no Zoho column or cut-off date. Consequence: a delivered order whose Zoho
+  bill was never linked to it shows as **Delivered, not billed** (plant 001 on 10 Nov: 36 orders delivered up to 5 Nov,
+  ₹1,37,790), until it is linked. Today only the Zoho import links a bill to an order (by the invoice number typed on
+  the order); a "Link a bill to this order" action is the follow-up the owner may order.
+- **Filters:** orders entered (all / month / quarter / FY / custom), customer (name or mobile), salesperson (the bill's;
+  no bill = who delivered), place, brand (Rates brand, else the name's guess), only overdue, show cancelled.
+- **Code:** `apps/order-capture/src/lib/order-flow.ts` (rules), `src/server/reports.ts` (`readFlowParams`,
+  `orderFlowReport`), `src/app/reports/order-payment/page.tsx`, `src/app/api/reports/order-payment/route.ts` (CSV).
+  No migration; platform and SSO token unchanged. Tests: `test/order-flow-lib.test.ts` (10), `test/reports.test.ts` (+3).
