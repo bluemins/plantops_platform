@@ -25,6 +25,12 @@ export function PurchaseNav({ current, user }: { current: PurchaseTab; user: Act
           <a key={k} href={href} className={`pb-1 ${k === "import" ? "ml-auto text-(--brand)" : "text-slate-600"}`}>{label}</a>
         ),
       )}
+      {can(user, "purchase_enter") && (
+        <span className="flex w-full gap-2 pt-1">
+          <a href="/purchases/bills/new" className="inline-flex min-h-10 items-center rounded-xl bg-(--brand) px-4 text-sm font-semibold text-(--brand-contrast)">+ Purchase bill</a>
+          <a href="/purchases/vendors/new" className="inline-flex min-h-10 items-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800">+ Vendor</a>
+        </span>
+      )}
     </nav>
   );
 }

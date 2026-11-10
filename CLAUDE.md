@@ -2181,3 +2181,11 @@ kept as Cash / Petty Cash (owner corrects later). Sales migration `0016_purchase
 RLS, no DELETE. Platform and SSO token unchanged. Plant 001's real files checked by a test: 16 vendors, 46 bills =
 ₹22,02,844.00, all paid. Tests: Sales 1123. Notes: `apps/order-capture/NOTES.md`. **Live 2026-11-10:** migration `0016` applied; plant 001's Zoho
 purchases imported (16 vendors, 46 bills ₹22,02,844.00, all paid; `docs/deployments/shared.md`). **Next:** the owner opens Purchases, then P2 (enter vendors, purchase bills and payments; mock-ups first).
+
+### 2026-11-10 — Purchases P2: Accounts enters purchases (v0.61.0) — built
+Owner 2026-11-10 ("start building it; the account guy will add the data"). Owner + Accounts: add / edit vendors, **Record
+purchase bill** (items, GST % per line, CGST + SGST or IGST from the vendor's state, rounding, live total, "Paid now"),
+**Pay vendor** (oldest first or ticked, rest = advance used by the next bill), correct a payment's mode (the imported Cash
+/ Petty Cash ones). Owner only: cancel a purchase bill / payment with a reason. Owners get bells (3 new
+`NOTIFICATION_KINDS`). No migration; SSO token unchanged. Notes: `apps/order-capture/NOTES.md`. **Next:** P3 (Payables +
+Reports → Purchases).

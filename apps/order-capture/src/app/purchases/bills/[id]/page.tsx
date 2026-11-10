@@ -7,6 +7,7 @@ import { orNotFound } from "@/server/pages";
 import { purchaseBillDetail } from "@/server/purchases";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../../../header";
+import { CancelWithReason } from "../../../ledger-forms";
 import { BackLink, BillBadge } from "../../../parts";
 import { day, MODE, qty } from "../../parts";
 
@@ -75,6 +76,9 @@ export default async function PurchaseBillPage({ params }: { params: Params }) {
         {b.notes && <p className="text-sm whitespace-pre-line text-slate-600">{b.notes}</p>}
       </Card>
 
+      {!b.cancelled && can(user, "purchase_cancel") && (
+        <div className="print:hidden"><CancelWithReason url={`/api/purchases/bills/${b.id}/cancel`} what="purchase bill" effect="What was paid on it goes back to those payments as advance." /></div>
+      )}
       {b.cancelled && <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">Cancelled by {b.cancelled.by}: {b.cancelled.reason}</p>}
     </div>
   );

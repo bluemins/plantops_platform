@@ -1,7 +1,7 @@
 # Purchases (in Sales): plan
 
 Asked by the owner 2026-11-10: "add all the purchases to PlantOps" (Zoho Books → Purchases: Vendors, Bills, Payments
-Made, Expenses, Vendor Credits). Status: **P1 built 2026-11-10 (v0.60.0), not deployed.** Answers to section 6 and
+Made, Expenses, Vendor Credits). Status: **P1 live 2026-11-10 (v0.60.0), Zoho data imported; P2 built 2026-11-10 (v0.61.0): owner + Accounts enter purchases.** Answers to section 6 and
 the migration approved by the owner 2026-11-10 (section 1, decisions 5–9).
 
 ## 1. Decisions (owner, 2026-11-10)

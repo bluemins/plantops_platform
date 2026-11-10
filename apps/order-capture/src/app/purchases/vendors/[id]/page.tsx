@@ -8,7 +8,9 @@ import { orNotFound } from "@/server/pages";
 import { vendorDetail } from "@/server/purchases";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../../../header";
+import { CancelWithReason } from "../../../ledger-forms";
 import { BackLink, BillBadge } from "../../../parts";
+import { PaymentMode, PayVendor } from "../../forms";
 import { day, MODE, one, qty } from "../../parts";
 
 type Params = Promise<{ id: string }>;
@@ -31,7 +33,10 @@ export default async function VendorPage({ params, searchParams }: { params: Par
     <div className="space-y-4 pb-8">
       <Header user={user} plant={plant} />
       <BackLink href="/purchases/vendors">← Vendors</BackLink>
-      <h1 className="text-2xl font-bold break-words">{v.name}</h1>
+      <div className="flex items-start justify-between gap-3">
+        <h1 className="text-2xl font-bold break-words">{v.name}</h1>
+        {can(user, "purchase_enter") && <a href={`/purchases/vendors/${id}/edit`} className="shrink-0 pt-1 text-sm font-semibold text-(--brand)">Edit</a>}
+      </div>
       <Card className="space-y-1 text-sm">
         {v.company && <p>{v.company}</p>}
         {v.phone && <p><a href={`tel:${v.phone.replace(/[^\d+]/g, "")}`} className="font-semibold text-(--brand)">{v.phone}</a></p>}
@@ -52,6 +57,13 @@ export default async function VendorPage({ params, searchParams }: { params: Par
           {d.totals.overdue !== "0.00" && <p className="text-xs text-red-700">{money(d.totals.overdue)} overdue</p>}
         </div>
       </Card>
+
+      {can(user, "purchase_enter") && (
+        <div className="space-y-2">
+          <PayVendor vendorId={id} today={d.today} openBills={d.bills.filter((b) => !b.cancelled && b.due !== "0.00").map((b) => ({ id: b.id, number: b.number, bill_date: b.bill_date, due: b.due }))} />
+          {v.active && <a href={`/purchases/bills/new?vendor=${id}`} className="flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-sm font-semibold">+ Purchase bill from {v.name}</a>}
+        </div>
+      )}
 
       <nav aria-label="Vendor" className="flex gap-4 text-sm font-semibold">
         {TABS.map(([k, label]) =>
@@ -83,12 +95,21 @@ export default async function VendorPage({ params, searchParams }: { params: Par
         <ul className="space-y-2">
           {d.payments.length === 0 && <p className="text-sm text-slate-500">No payments to this vendor.</p>}
           {d.payments.map((p) => (
-            <li key={p.id} className={`flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm ${p.cancelled ? "opacity-60" : ""}`}>
-              <span className="min-w-0">
-                <span className="block font-semibold">{p.number}{p.source === "zoho" ? " · Zoho" : ""}{p.cancelled ? " · cancelled" : ""}</span>
-                <span className="block text-slate-500">{day(p.date)} · {MODE[p.mode] ?? p.mode}{p.paid_from ? ` from ${p.paid_from}` : ""}{p.reference ? ` · ${p.reference}` : ""}</span>
-              </span>
-              <span className="shrink-0 font-semibold">{money(p.amount)}</span>
+            <li key={p.id} className={`rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm ${p.cancelled ? "opacity-60" : ""}`}>
+              <div className="flex items-start justify-between gap-3">
+                <span className="min-w-0">
+                  <span className="block font-semibold">{p.number}{p.source === "zoho" ? " · Zoho" : ""}{p.cancelled ? " · cancelled" : ""}</span>
+                  <span className="block text-slate-500">{day(p.date)} · {MODE[p.mode] ?? p.mode}{p.paid_from ? ` from ${p.paid_from}` : ""}{p.reference ? ` · ${p.reference}` : ""}</span>
+                  {!p.cancelled && p.unused !== "0.00" && <span className="block text-slate-600">{money(p.unused)} advance</span>}
+                </span>
+                <span className="shrink-0 font-semibold">{money(p.amount)}</span>
+              </div>
+              {!p.cancelled && (can(user, "purchase_enter") || can(user, "purchase_cancel")) && (
+                <div className="mt-1 flex flex-wrap gap-x-4">
+                  {can(user, "purchase_enter") && <PaymentMode id={p.id} mode={p.mode} paidFrom={p.paid_from} />}
+                  {can(user, "purchase_cancel") && <CancelWithReason url={`/api/purchases/payments/${p.id}/cancel`} what="payment" effect="The bills it paid will be due again." />}
+                </div>
+              )}
             </li>
           ))}
         </ul>

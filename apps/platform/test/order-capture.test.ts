@@ -78,14 +78,16 @@ describe("alerts and notification settings", () => {
     expect((await tick(Q.adminCookie, off.userId, ["order_capture"])).status).toBe(400); // not switched on
   });
 
-  it("the settings page lists the ten Order Capture kinds (WhatsApp-bot alerts, reminders stopped, sales ledger); delivered, cancelled, note and the ledger ones are bell only, none urgent", async () => {
+  it("the settings page lists the ten Order Capture kinds (WhatsApp-bot alerts, reminders stopped, sales ledger, purchases); delivered, cancelled, note, the ledger and purchase ones are bell only, none urgent", async () => {
     const list = (await settings(desk.cookie)).filter((s) => s.kind.startsWith("order_capture."));
     expect(list.map((s) => s.kind).sort()).toEqual([
       "order_capture.bill_cancelled", "order_capture.cancelled", "order_capture.delivered", "order_capture.drop_push_failed", "order_capture.drop_redeem", "order_capture.feedback_low", "order_capture.handoff",
-      "order_capture.new", "order_capture.note", "order_capture.payment", "order_capture.payment_cancelled", "order_capture.reminder_failed",
+      "order_capture.new", "order_capture.note", "order_capture.payment", "order_capture.payment_cancelled", "order_capture.purchase_bill", "order_capture.purchase_cancelled",
+      "order_capture.reminder_failed", "order_capture.vendor_payment",
     ]);
     expect(list.filter((s) => s.bell_only).map((s) => s.kind).sort()).toEqual([
       "order_capture.bill_cancelled", "order_capture.cancelled", "order_capture.delivered", "order_capture.drop_push_failed", "order_capture.note", "order_capture.payment", "order_capture.payment_cancelled",
+      "order_capture.purchase_bill", "order_capture.purchase_cancelled", "order_capture.vendor_payment",
     ]);
     expect(list.some((s) => s.urgent)).toBe(false);
     expect((await settings(desk.cookie)).every((s) => s.kind.startsWith("order_capture."))).toBe(true);

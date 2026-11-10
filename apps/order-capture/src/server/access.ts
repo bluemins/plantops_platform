@@ -71,7 +71,9 @@ export type Action =
   | "drop_polls" // new poll, close a poll early, results CSV
   // Purchases (docs/PURCHASES_PHASE_PLAN.md, owner 2026-11-10): vendors, purchase bills, payments made, with amounts
   | "purchases_view" // the Purchases tab: vendors, purchase bills, payments made, a vendor's page, a bill's page
-  | "purchase_import"; // bring Zoho's vendors, purchase items, bills and payments made into Purchases
+  | "purchase_import" // bring Zoho's vendors, purchase items, bills and payments made into Purchases
+  | "purchase_enter" // add / edit a vendor, record a purchase bill, pay a vendor, correct a payment's mode (owner 2026-11-10: Accounts enters them)
+  | "purchase_cancel"; // cancel a purchase bill or a payment made, with a reason
 
 export const ACCESS: Record<Action, readonly Who[]> = {
   read: ["owner", "desk", "viewer", "accounts", "support"],
@@ -129,6 +131,8 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   drop_polls: ["owner"],
   purchases_view: ["owner", "accounts", "support"],
   purchase_import: ["owner"],
+  purchase_enter: ["owner", "accounts"],
+  purchase_cancel: ["owner"],
 };
 
 /** What the user is, for this table. null = no Order Capture rights at all (e.g. a store keeper). */

@@ -72,6 +72,20 @@ export function describeChange(action: string, details: Record<string, unknown>)
       return `Bill ${show(details.number)} taken off order ${show(details.order)} (${show(details.customer)}): ${show(details.reason)}`;
     case "purchases.import":
       return `Imported purchases from Zoho: ${plural(details.vendors_new, "vendor")}, ${plural(details.items_new, "item")}, ${plural(details.bills_new, "bill")} (₹${show(details.billed)}), ${plural(details.payments_new, "payment")} (₹${show(details.paid)})`;
+    case "vendor.add":
+      return `Vendor ${show(details.name)} added${details.gstin ? ` (GSTIN ${show(details.gstin)})` : ""}`;
+    case "vendor.update":
+      return `Vendor ${show(details.name)} changed: ${Array.isArray(details.changed) ? (details.changed as string[]).join(", ") : ""}`;
+    case "purchase.bill":
+      return `Purchase bill ${show(details.number)} from ${show(details.vendor)}: ₹${show(details.total)}${details.paid_now ? `, paid now (${show(details.paid_now)})` : ""}`;
+    case "purchase.payment":
+      return `Paid ₹${show(details.amount)} to ${show(details.vendor)} (${show(details.number)}, ${show(details.mode)})`;
+    case "purchase.payment_mode":
+      return `Payment ${show(details.number)} to ${show(details.vendor)}: ${show(details.from)} → ${show(details.to)}`;
+    case "purchase.bill_cancel":
+      return `Purchase bill ${show(details.number)} (${show(details.vendor)}, ₹${show(details.total)}) cancelled: ${show(details.reason)}`;
+    case "purchase.payment_cancel":
+      return `Payment ${show(details.number)} to ${show(details.vendor)} (₹${show(details.amount)}) cancelled: ${show(details.reason)}`;
     case "export.csv":
       return `Exported the orders (CSV, ${plural(details.orders, "order")}, ${plural(details.lines, "line")})`;
     default:

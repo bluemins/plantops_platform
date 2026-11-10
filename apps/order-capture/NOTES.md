@@ -625,3 +625,21 @@ Owner 2026-11-09 (plan `docs/CUSTOMER_APP_PHASE_PLAN.md` Phase 4, "Polls tab").
   16 vendors, 50 items, 46 bills = ₹22,02,844.00 (GST ₹3,33,393.27), 46 payments, ₹0 owed, every bill matches Zoho.
 - Tests: `test/purchases.test.ts` (20), RLS / append-only guards for the 7 tables (+30 refused statements), access +2
   rows. Sales 1123. **Not yet:** on screen; deployed.
+
+### 2026-11-10 — Purchases P2: entering purchases (v0.61.0)
+- Owner 2026-11-10: "start building it. The account guy will add the data" (no mock-ups first). Owner + **Accounts**
+  (`purchase_enter`): add / edit a vendor (`/purchases/vendors/new`, `…/[id]/edit`; GSTIN checked, the state from the
+  GSTIN or picked; one name per plant; switched-off vendors take no new bills), **Record purchase bill**
+  (`/purchases/bills/new`: items picked from the purchase items or typed new (added to the list), quantity, unit, rate,
+  GST %, HSN; live totals; rounding; "Paid now" in full with mode / paid from / reference), **Pay vendor** on a vendor's
+  page (oldest open bills first or the ticked ones; the rest is an advance), **Change mode** on a payment (the imported
+  Cash / Petty Cash ones). Owner only (`purchase_cancel`): cancel a purchase bill or a payment with a reason.
+- Rules (`src/lib/purchase-amounts.ts`, used by the screen and the server): line = quantity × rate rounded to the paisa;
+  GST on top; CGST + SGST when the vendor's state is the plant's (or either isn't known), IGST otherwise. Numbers PB- /
+  PM- continue after the highest (imported 46 / 48 → PB-0047, PM-0049). A vendor's invoice no. only once (not
+  cancelled). A vendor's advance pays the next bill first (like Make bill). Cancels add reversing allocation rows.
+- Bells (bell only; owners + ticked people, never whoever did it; sent after the answer): `order_capture.purchase_bill`,
+  `order_capture.vendor_payment`, `order_capture.purchase_cancelled` (platform catalogue +3; no platform migration).
+- **No migration** (P1's grants already cover it). Tests: `test/purchase-entry.test.ts` (15), access +2 rows.
+- Made while building: due date defaults to the bill date ("Due on Receipt", as every Zoho vendor has); no line
+  discounts (Zoho's 46 bills had none); "Paid now" is dated the bill date.

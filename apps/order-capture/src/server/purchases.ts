@@ -365,6 +365,11 @@ export async function vendorDetail(user: OcUser, id: string) {
       .from(vendorPayments)
       .where(and(eq(vendorPayments.tenantId, user.tenantId), eq(vendorPayments.vendorId, id)))
       .orderBy(sql`${vendorPayments.paymentDate} desc`, sql`${vendorPayments.number} desc`);
+    const usedRows = await tx.execute<{ payment_id: string; used: string }>(sql`
+      select a.payment_id, sum(a.amount)::text as used from order_capture.vendor_payment_allocations a
+        join order_capture.vendor_payments p on p.tenant_id = a.tenant_id and p.id = a.payment_id
+       where a.tenant_id = ${user.tenantId} and p.vendor_id = ${id} group by a.payment_id`);
+    const used = new Map(usedRows.rows.map((r) => [r.payment_id, P(r.used)]));
     const items = await tx.execute<{ item: string; unit: string | null; quantity: string; amount: string; last: string }>(sql`
       select l.item_name as item, max(l.unit) as unit, sum(l.quantity)::text as quantity, sum(l.line_total)::numeric(18, 2)::text as amount, max(b.bill_date)::text as last
         from order_capture.purchase_bill_lines l
@@ -382,8 +387,12 @@ export async function vendorDetail(user: OcUser, id: string) {
       },
       totals: { billed: rupees(billed), paid: rupees(paid), balance: rupees(billed - paid), overdue: rupees(live.filter((b) => b.status === "overdue").reduce((a, b) => a + P(b.due), 0n)) },
       bills,
-      payments: pays.map((p) => ({ id: p.id, number: p.number, source: p.source, date: p.paymentDate, mode: p.mode, paid_from: p.paidFrom, reference: p.reference, amount: p.amount, cancelled: !!p.cancelledAt })),
+      payments: pays.map((p) => {
+        const unused = p.cancelledAt ? 0n : P(p.amount) - (used.get(p.id) ?? 0n);
+        return { id: p.id, number: p.number, source: p.source, date: p.paymentDate, mode: p.mode, paid_from: p.paidFrom, reference: p.reference, amount: p.amount, unused: rupees(unused > 0n ? unused : 0n), cancelled: !!p.cancelledAt };
+      }),
       items: items.rows,
+      today,
     };
   });
 }
