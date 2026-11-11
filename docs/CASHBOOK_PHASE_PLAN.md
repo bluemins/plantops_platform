@@ -175,6 +175,35 @@ C-0123)". Platform and **SSO token unchanged**.
 
 Staff advances: never for yourself (like Office staff in Attendance).
 
+## 6a. Step C2 design (2026-11-11, waiting for the owner's answers + migration approval)
+**The owner's file:** `refeDocs/payments/WhatsApp Chat with Payments/customer_remaining_payment_report_11_2026_*.xlsx`
+(Pure Pani "Remaining Payment", 11 Nov 2026): **178 customers, ₹64,324 due** (every row has a due), 161 with a mobile,
+17 without (₹2,774: events, police, old customers), 13 rows with an old invoice ref ("#000123811/ Nov-2024") instead of a
+number; groups as in section 1; Daily 50 / Monthly 2. Columns used: Ref. No., Customer Name, Mobile No., Group, Payment
+Preference, **Total Due Till (Nov)**. Read-only check against plant 001's live Sales customers: **12 mobiles are already
+Sales customers** (some the same shop: "Raja Tea Stall" = "Raja Tea"; some not: "Home Majhipali" = "Rocky",
+"Prabhat Pradhan" = "Block Office Party").
+
+**What C2 builds:**
+1. **Sales → Cash → 20 L → Import** (owner): choose the Excel → preview (nothing saved): new customers, customers whose
+   mobile is already in Sales (each: *add the due to that customer*, or *type another mobile*), customers without a
+   mobile (type one, or leave them out for now: they stay in Pure Pani), totals that must equal the file's ₹ → confirm.
+   Each customer gets a **"20 L" mark** (Pure Pani ref, group) and its due as an **opening-balance bill** (no product lines,
+   so sales reports leave it out; Receivables and the customer's statement count it), like Zoho's "OB-…" bills.
+   Importing the same file again adds nothing; a later file adds only customers not yet imported.
+2. **Cash → + 20 L collection** (owner, Accounts): pick the day, find customers by any part of the name (20 L customers
+   first), amount, Cash / Online → one payment per line on the customer's account (oldest due first), cash lines into the
+   cash book; the total shown like today's "Total deposit".
+3. **What they owe**: the customer's page in Sales (existing), plus a "20 L" list under Cash with due per customer.
+
+**Not in C2 (owner: cash first):** jars, deposits, jar rates, monthly 20 L bills. So in PlantOps a 20 L due only goes
+**down** with collections; new deliveries billed in Pure Pani are not added until monthly bills are built.
+
+**Database (needs approval):** Sales migration `0018_jar_customers.sql`: `jar_imports` (file, counts, who) and
+`jar_customers` (customer, Pure Pani ref, group, preference, opening bill, import), FORCE RLS, no DELETE; **one change
+to an existing table:** `bills.source` also allows `'opening'` (today only `'zoho'` / `'plantops'`), so the opening
+balances get their own numbers ("OB20-3324") instead of using up B-numbers. Platform and SSO token unchanged.
+
 ## 7a. Step C1 as built (2026-11-11, v0.63.0)
 - Sales migration `0017_cash_book.sql`: `expense_categories`, `cash_vehicles`, `cash_entries` (C-numbers, cash day +
   work day, cancel columns only), `cash_closes` (versions; the first = opening balance), `cash_tenants()`. FORCE RLS,
