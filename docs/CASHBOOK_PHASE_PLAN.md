@@ -85,6 +85,11 @@ boxes entered as sold. The full load / stock check (free boxes, breakage, Floor 
 - Owner: "Copy as WhatsApp message" (the same layout as today) during the switch-over.
 
 ### 3.3 20 L jar collection
+**Owner, 2026-11-11: "for now cash tracking is main."** C2 is slimmed to money only: import each 20 L customer (name,
+mobile, group) with their **pending amount** as an opening balance (from the owner's 20 L customer pending report), the
+collection screen (payments on the account, cash into the cash book), and what they still owe on the customer page.
+**Left for later:** jars out, security deposits, jar products and per-customer jar rates, monthly 20 L bills. The text
+below is the fuller design; build only the slimmed part now.
 - **Import the 20 L customer list** from the owner's Excel (owner only, preview → confirm, like Zoho import): each row
   becomes (or is matched by mobile to) a Sales customer with a **"20 L" tag** + its group; **"Total due" becomes an
   opening balance** (`OB-…` bill, like Zoho contacts' opening balances); security deposit and jars out are stored on the
