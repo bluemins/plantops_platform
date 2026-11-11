@@ -2186,7 +2186,7 @@ RLS, no DELETE. Platform and SSO token unchanged. Plant 001's real files checked
 ₹22,02,844.00, all paid. Tests: Sales 1123. Notes: `apps/order-capture/NOTES.md`. **Live 2026-11-10:** migration `0016` applied; plant 001's Zoho
 purchases imported (16 vendors, 46 bills ₹22,02,844.00, all paid; `docs/deployments/shared.md`). **Next:** the owner opens Purchases, then P2 (enter vendors, purchase bills and payments; mock-ups first).
 
-### 2026-11-10 — Purchases P2: Accounts enters purchases (v0.61.0) — built
+### 2026-11-10 — Purchases P2: Accounts enters purchases (v0.61.0) — live 2026-11-11 (`e3f94ea`)
 Owner 2026-11-10 ("start building it; the account guy will add the data"). Owner + Accounts: add / edit vendors, **Record
 purchase bill** (items, GST % per line, CGST + SGST or IGST from the vendor's state, rounding, live total, "Paid now"),
 **Pay vendor** (oldest first or ticked, rest = advance used by the next bill), correct a payment's mode (the imported Cash
@@ -2194,7 +2194,7 @@ purchase bill** (items, GST % per line, CGST + SGST or IGST from the vendor's st
 `NOTIFICATION_KINDS`). No migration; SSO token unchanged. Notes: `apps/order-capture/NOTES.md`. **Next:** P3 (Payables +
 Reports → Purchases).
 
-### 2026-11-10 — Purchases P3 + P5 (v0.62.0) — built
+### 2026-11-10 — Purchases P3 + P5 (v0.62.0) — live 2026-11-11 (`e3f94ea`)
 Owner 2026-11-10 ("P3, P4 and P5 together"; decisions in `docs/PURCHASES_PHASE_PLAN.md` section 1, 10–13: expenses in the
 Cash book only, vendor credits later, Floor Stock link later). **Payables** (`/purchases/payables`, owner + Accounts: owed
 per vendor by days late, less advances) and **Reports → Purchases** (owner: by item, by vendor, GST paid per month).
