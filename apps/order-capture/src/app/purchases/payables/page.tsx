@@ -25,7 +25,7 @@ export default async function PayablesPage() {
     <div className="space-y-4 pb-8">
       <div className="space-y-4 print:hidden">
         <Header user={user} plant={plant} />
-        <SectionTabs current="purchases" waiting={waiting} bills={can(user, "ledger_view")} purchases calls={can(user, "calls_view")} />
+        <SectionTabs current="purchases" waiting={waiting} bills={can(user, "ledger_view")} purchases calls={can(user, "calls_view")} cash={can(user, "cash_view")} />
         <PurchaseNav current="payables" user={user} />
       </div>
       <div className="flex items-center justify-between gap-3">

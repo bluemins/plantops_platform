@@ -77,7 +77,12 @@ export type Action =
   | "purchase_enter" // add / edit a vendor, record a purchase bill, pay a vendor, correct a payment's mode (owner 2026-11-10: Accounts enters them)
   | "purchase_cancel" // cancel a purchase bill or a payment made, with a reason
   | "purchases_received" // what was bought (date, vendor, item, quantity), no prices: Store keepers too (P5)
-  | "payables"; // what is owed to vendors, by age (Reports → Payables; P3)
+  | "payables" // what is owed to vendors, by age (Reports → Payables; P3)
+  // Cash book (docs/CASHBOOK_PHASE_PLAN.md, owner 2026-11-10): the plant's petty cash
+  | "cash_view" // the day sheet and the cash book (amounts)
+  | "cash_enter" // an expense, staff cash, money in / out
+  | "cash_close" // close a day: the cash counted in the box
+  | "cash_owner"; // start the cash book, categories / vehicles, cancel an entry, correct a close
 
 export const ACCESS: Record<Action, readonly Who[]> = {
   read: ["owner", "desk", "viewer", "accounts", "support"],
@@ -139,6 +144,10 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   purchase_cancel: ["owner"],
   purchases_received: ["owner", "accounts", "store", "support"],
   payables: ["owner", "accounts", "support"],
+  cash_view: ["owner", "accounts", "support"],
+  cash_enter: ["owner", "accounts"],
+  cash_close: ["owner", "accounts"],
+  cash_owner: ["owner"],
 };
 
 /** What the user is, for this table. null = no Order Capture rights at all (e.g. a store keeper). */
@@ -157,6 +166,7 @@ const LEDGER: Action[] = ["ledger_view", "bill_make", "payment_receive"];
 export function requireAccess(user: Actor, action: Action) {
   if (can(user, action)) return;
   if (user.who === "support") throw forbidden("PlantOps support view is read-only");
+  if (action === "cash_owner") throw forbidden("Only the plant owner can do this");
   if (user.who === "desk" && LEDGER.includes(action)) throw forbidden("Bills and payments need the Accounts role. Ask the owner.");
   if (user.who === "desk") throw forbidden("Only the plant owner can do this");
   if (user.who === "viewer") throw forbidden("You can view orders only. Order desk or the owner does this.");

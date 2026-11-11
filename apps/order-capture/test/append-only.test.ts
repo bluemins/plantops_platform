@@ -182,12 +182,22 @@ describe("append-only for order_app", () => {
       `update order_capture.app_push_outbox set body = 'Changed'`,
       `update order_capture.app_push_outbox set device_id = gen_random_uuid()`,
       `update order_capture.app_push_outbox set dedupe_key = 'x'`,
+      // cash book (0017): an entry never changes except its cancel columns; a close never changes (a correction is a new version)
+      `update order_capture.cash_entries set amount = 1`,
+      `update order_capture.cash_entries set kind = 'other_in'`,
+      `update order_capture.cash_entries set cash_date = '2020-01-01'`,
+      `update order_capture.cash_entries set ref_no = 9999`,
+      `update order_capture.cash_entries set tenant_id = gen_random_uuid()`,
+      `update order_capture.cash_closes set counted = 1`,
+      `update order_capture.cash_closes set version = 9`,
+      `update order_capture.expense_categories set tenant_id = gen_random_uuid()`,
+      `update order_capture.cash_vehicles set created_by = gen_random_uuid()`,
     ];
   };
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(87 + 14 + 19 + 2 + 11 + 6 + 9 + 8 + 6 + 4 + 6 + 4 + 5 + 4 + 6 + 14 + 16); // + the seven purchase tables (delete, truncate) and 16 locked purchase updates (0016); + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008); bill_settings (delete, truncate) and 11 locked bill-field updates (0009); the three customer tables (delete, truncate) and 9 locked updates (0010), and the customer's phone is no longer locked (the owner may change it, D3); the four Drop tables (delete, truncate) and 6 locked updates (0012)
+    expect(list.length).toBe(87 + 14 + 19 + 2 + 11 + 6 + 9 + 8 + 6 + 4 + 6 + 4 + 5 + 4 + 6 + 14 + 16 + 8 + 9); // + the four cash book tables (delete, truncate) and 9 locked cash updates (0017); // + the seven purchase tables (delete, truncate) and 16 locked purchase updates (0016); + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008); bill_settings (delete, truncate) and 11 locked bill-field updates (0009); the three customer tables (delete, truncate) and 9 locked updates (0010), and the customer's phone is no longer locked (the owner may change it, D3); the four Drop tables (delete, truncate) and 6 locked updates (0012)
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 

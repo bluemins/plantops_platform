@@ -667,3 +667,12 @@ Owner 2026-11-09 (plan `docs/CUSTOMER_APP_PHASE_PLAN.md` Phase 4, "Polls tab").
   `purchases` tile view; Sales must know it first).
 - Tests: `test/purchase-reports.test.ts` (10), access +2 rows, the old "store keeper has no Sales rights" tests changed
   to the new rule (access, session); platform `test/order-capture.test.ts` (+2), `test/permissions.test.ts`.
+
+## 2026-11-11 — Cash book C1 (v0.63.0)
+Plan: `docs/CASHBOOK_PHASE_PLAN.md` (section 7a = what C1 built). Files: `db/migrations/0017_cash_book.sql`,
+`src/lib/cash.ts` (rules: expected = last close + entries after it; book days carry the count, else the expected cash),
+`src/server/cash.ts`, `src/server/cash-notify.ts`, `src/server/cash-tenants.ts`, pages `src/app/cash/**`, routes
+`src/app/api/cash/**`, `test/cash.test.ts`. Access rows `cash_view`, `cash_enter`, `cash_close`, `cash_owner`. A **Cash**
+tab (`cash` prop on `SectionTabs`) for owner, Accounts, support. Made while building: entries only on days after the last
+close; closing a day rolls earlier unclosed days into it; only the last close is corrected; staff cash to yourself is
+refused (by user id or the same name); alert limits fixed in code (₹100, ₹2,000).

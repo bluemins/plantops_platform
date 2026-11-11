@@ -71,6 +71,11 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["purchase_cancel", true, false, false, false, false],
   ["purchases_received", true, false, false, true, true],
   ["payables", true, false, false, false, true],
+  // cash book (docs/CASHBOOK_PHASE_PLAN.md): owner + Accounts; support reads; Order desk, plant staff, store keepers nothing
+  ["cash_view", true, false, false, false, true],
+  ["cash_enter", true, false, false, false, false],
+  ["cash_close", true, false, false, false, false],
+  ["cash_owner", true, false, false, false, false],
 ];
 
 describe("who is who", () => {
@@ -152,7 +157,7 @@ describe("the access table", () => {
 describe("Accounts", () => {
   const acc = ocUser(p.owner.tenantId, ["accounts"], "Kedar");
   const both = ocUser(p.owner.tenantId, ["order_desk", "accounts"], "Kedar");
-  const ACCOUNTS_MAY = ["read", "see_amounts", "view_customers", "ledger_view", "account_view", "bill_make", "payment_receive", "location_view", "location_save", "purchases_view", "purchase_enter", "purchases_received", "payables"];
+  const ACCOUNTS_MAY = ["read", "see_amounts", "view_customers", "ledger_view", "account_view", "bill_make", "payment_receive", "location_view", "location_save", "purchases_view", "purchase_enter", "purchases_received", "payables", "cash_view", "cash_enter", "cash_close"];
   it.each(TABLE)("%s: Accounts may only read orders and work on bills / payments", (action) => {
     expect(can(acc, action)).toBe(ACCOUNTS_MAY.includes(action));
   });

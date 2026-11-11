@@ -5,6 +5,7 @@
 //   4 note added after saving (bell)  ·  5 customer called: Delivery staff only (phone + bell)
 // The customer's phone number is never put in a notification (it would show on a lock screen), except a new caller's
 // in 5 (owner, 2026-11-04).
+import { runCashNotClosed } from "./cash-notify";
 import { runPushDaily } from "./drop/push";
 import { phoneDisplay } from "@plantops/module-kit/phone";
 import type { NotificationInput } from "@plantops/types";
@@ -143,5 +144,5 @@ export async function sendCallAlert(tenantId: string, a: CallAlert) {
 
 /** The daily job: resend what waited in the outbox (no scheduled notifications in v1) and waiting WhatsApp thank-yous. */
 export async function runDaily() {
-  return { outbox: await kit.retryOutbox(), whatsapp_thanks: await retryThanks(), drop_push: await runPushDaily() };
+  return { outbox: await kit.retryOutbox(), whatsapp_thanks: await retryThanks(), drop_push: await runPushDaily(), cash_not_closed: await runCashNotClosed() };
 }

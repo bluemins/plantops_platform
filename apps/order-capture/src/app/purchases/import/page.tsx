@@ -16,7 +16,7 @@ export default async function PurchaseImportPage() {
   return (
     <div className="space-y-4">
       <Header user={user} plant={plant} />
-      <SectionTabs current="purchases" waiting={waiting} bills={can(user, "ledger_view")} purchases calls={can(user, "calls_view")} />
+      <SectionTabs current="purchases" waiting={waiting} bills={can(user, "ledger_view")} purchases calls={can(user, "calls_view")} cash={can(user, "cash_view")} />
       <PurchaseNav current="import" user={user} />
       <h1 className="text-2xl font-bold">Import purchases from Zoho</h1>
       <PurchaseImport />

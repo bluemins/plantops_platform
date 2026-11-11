@@ -25,7 +25,7 @@ export default async function PurchaseBillsPage({ searchParams }: { searchParams
   return (
     <div className="space-y-4">
       <Header user={user} plant={plant} />
-      <SectionTabs current="purchases" waiting={waiting} bills={can(user, "ledger_view")} purchases calls={can(user, "calls_view")} />
+      <SectionTabs current="purchases" waiting={waiting} bills={can(user, "ledger_view")} purchases calls={can(user, "calls_view")} cash={can(user, "cash_view")} />
       <PurchaseNav current="bills" user={user} />
 
       <Card className="grid grid-cols-2 gap-3">

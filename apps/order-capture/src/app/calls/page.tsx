@@ -25,7 +25,7 @@ export default async function CallsPage() {
     <div className="space-y-4">
       <AutoRefresh seconds={30} />
       <Header user={user} plant={plant} />
-      {can(user, "read") && <SectionTabs current="calls" waiting={tab.waiting.length} bills={can(user, "ledger_view")} purchases={can(user, "purchases_view")} />}
+      {can(user, "read") && <SectionTabs current="calls" waiting={tab.waiting.length} bills={can(user, "ledger_view")} purchases={can(user, "purchases_view")} cash={can(user, "cash_view")} />}
       <p className="text-sm text-slate-600">
         Today so far: {tab.today.calls} call{tab.today.calls === 1 ? "" : "s"} from {tab.today.numbers} number{tab.today.numbers === 1 ? "" : "s"} ·{" "}
         <b>{tab.waiting.length} waiting</b>

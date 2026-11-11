@@ -150,14 +150,21 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
     values ('${tenantId}', 'plantops', 'PM-0001', 1, '${vendor}', 'Balaji Sales Sambalpur', '2026-11-02', 'cash', 'Petty Cash', 500, '${who}', 'Sujata') returning id`);
   const valloc = await one(`insert into order_capture.vendor_payment_allocations (tenant_id, payment_id, bill_id, amount, allocated_on, created_by, created_by_name)
     values ('${tenantId}', '${vpay}', '${pbill}', 500, '2026-11-02', '${who}', 'Sujata') returning id`);
-  return { pimp, vendor, pitem, pbill, pline, vpay, valloc, device, push, poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
+  // cash book (0017): an expense type, a vehicle, an expense and the opening close
+  const ecat = await one(`insert into order_capture.expense_categories (tenant_id, name, created_by, created_by_name) values ('${tenantId}', 'Diesel', '${who}', 'Sujata') returning id`);
+  const van = await one(`insert into order_capture.cash_vehicles (tenant_id, name, created_by, created_by_name) values ('${tenantId}', 'Mini', '${who}', 'Sujata') returning id`);
+  const centry = await one(`insert into order_capture.cash_entries (tenant_id, ref_no, cash_date, work_date, kind, direction, amount, category_id, vehicle_id, created_by, created_by_name)
+    values ('${tenantId}', 1, '2026-11-09', '2026-11-09', 'expense', 'out', 2000, '${ecat}', '${van}', '${who}', 'Anmol') returning id`);
+  const cclose = await one(`insert into order_capture.cash_closes (tenant_id, cash_date, version, opening, counted, expected, difference, created_by, created_by_name)
+    values ('${tenantId}', '2026-11-07', 1, true, 14435, 14435, 0, '${who}', 'Sujata') returning id`);
+  return { ecat, van, centry, cclose, pimp, vendor, pitem, pbill, pline, vpay, valloc, device, push, poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
 }
 
 /** The tables in the order_capture schema (the guard tests compare against this list). */
 export const TABLES = [
   "app_access_changes", "app_devices", "app_login_codes", "app_phone_changes", "app_push_outbox", "app_sessions",
-  "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
-  "ignored_number_changes", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "points_redemptions", "points_settings", "poll_answers", "polls", "product_rates",
+  "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "cash_closes", "cash_entries", "cash_vehicles", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
+  "expense_categories", "ignored_number_changes", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "points_redemptions", "points_settings", "poll_answers", "polls", "product_rates",
   "purchase_bill_lines", "purchase_bills", "purchase_imports", "purchase_items",
   "reminder_groups", "support_views", "vendor_payment_allocations", "vendor_payments", "vendors", "zoho_contacts", "zoho_imports",
 ];

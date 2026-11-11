@@ -33,7 +33,7 @@ export default async function PurchasesReceivedPage({ searchParams }: { searchPa
         <h1 className="text-2xl font-bold">Purchases received</h1>
       ) : (
         <>
-          <SectionTabs current="purchases" waiting={waiting} bills={can(user, "ledger_view")} purchases calls={can(user, "calls_view")} />
+          <SectionTabs current="purchases" waiting={waiting} bills={can(user, "ledger_view")} purchases calls={can(user, "calls_view")} cash={can(user, "cash_view")} />
           <PurchaseNav current="received" user={user} />
         </>
       )}

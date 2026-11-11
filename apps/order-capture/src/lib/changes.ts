@@ -86,6 +86,24 @@ export function describeChange(action: string, details: Record<string, unknown>)
       return `Purchase bill ${show(details.number)} (${show(details.vendor)}, ₹${show(details.total)}) cancelled: ${show(details.reason)}`;
     case "purchase.payment_cancel":
       return `Payment ${show(details.number)} to ${show(details.vendor)} (₹${show(details.amount)}) cancelled: ${show(details.reason)}`;
+    // cash book (docs/CASHBOOK_PHASE_PLAN.md)
+    case "cash.start":
+      return `Started the cash book on ${show(details.date)} with ₹${show(details.counted)}`;
+    case "cash.entry":
+      return `Cash ${show(details.ref)}: ${show(details.kind)} ₹${show(details.amount)}${details.category ? ` (${show(details.category)})` : ""}${details.person ? ` (${show(details.person)})` : ""} on ${show(details.date)}`;
+    case "cash.cancel":
+      return `Cash ${show(details.ref)} (₹${show(details.amount)}) cancelled: ${show(details.reason)}`;
+    case "cash.close":
+      return `Closed the cash book for ${show(details.date)}: ₹${show(details.counted)} counted, difference ₹${show(details.difference)}`;
+    case "cash.close_fix":
+      return `Corrected the cash close of ${show(details.date)}: ₹${show(details.counted)} counted (${show(details.reason)})`;
+    case "cash.category_add":
+      return `Added expense type "${show(details.name)}"`;
+    case "cash.vehicle_add":
+      return `Added vehicle "${show(details.name)}"`;
+    case "cash.category_edit":
+    case "cash.vehicle_edit":
+      return `${action === "cash.vehicle_edit" ? "Vehicle" : "Expense type"} "${show(details.name)}"${details.was !== details.name ? ` (was "${show(details.was)}")` : ""}${details.active === false ? ", switched off" : ""}`;
     case "export.csv":
       return `Exported the orders (CSV, ${plural(details.orders, "order")}, ${plural(details.lines, "line")})`;
     default:

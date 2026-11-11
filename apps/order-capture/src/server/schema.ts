@@ -732,3 +732,72 @@ export const vendorPaymentAllocations = oc.table("vendor_payment_allocations", {
   createdByName: text("created_by_name").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
+
+// ---------- cash book (0017, docs/CASHBOOK_PHASE_PLAN.md step C1): categories, vehicles, cash entries, day closes ----------
+
+export type CashKind = "expense" | "staff_out" | "staff_in" | "owner_in" | "owner_out" | "bank_deposit" | "other_in" | "other_out";
+export type StaffPurpose = "advance" | "plant" | "salary";
+
+export const expenseCategories = oc.table("expense_categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  name: text("name").notNull(),
+  sort: integer("sort").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+export const cashVehicles = oc.table("cash_vehicles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  name: text("name").notNull(),
+  sort: integer("sort").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+export const cashEntries = oc.table("cash_entries", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  refNo: integer("ref_no").notNull(),
+  cashDate: date("cash_date").notNull(),
+  workDate: date("work_date").notNull(),
+  kind: text("kind").$type<CashKind>().notNull(),
+  direction: text("direction").$type<"in" | "out">().notNull(),
+  amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+  categoryId: uuid("category_id"),
+  vehicleId: uuid("vehicle_id"),
+  personUserId: uuid("person_user_id"),
+  personName: text("person_name"),
+  staffPurpose: text("staff_purpose").$type<StaffPurpose>(),
+  paidTo: text("paid_to"),
+  note: text("note"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  cancelledAt: ts("cancelled_at"),
+  cancelledBy: uuid("cancelled_by"),
+  cancelledByName: text("cancelled_by_name"),
+  cancelReason: text("cancel_reason"),
+});
+
+export const cashCloses = oc.table("cash_closes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  cashDate: date("cash_date").notNull(),
+  version: integer("version").notNull(),
+  opening: boolean("opening").notNull().default(false),
+  counted: numeric("counted", { precision: 14, scale: 2 }).notNull(),
+  expected: numeric("expected", { precision: 14, scale: 2 }).notNull(),
+  difference: numeric("difference", { precision: 14, scale: 2 }).notNull(),
+  reason: text("reason"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});

@@ -29,7 +29,7 @@ export default async function BillsPage({ searchParams }: { searchParams: Search
   return (
     <div className="space-y-4">
       <Header user={user} plant={plant} />
-      <SectionTabs current="bills" waiting={waiting} bills purchases={can(user, "purchases_view")} calls={can(user, "calls_view")} />
+      <SectionTabs current="bills" waiting={waiting} bills purchases={can(user, "purchases_view")} calls={can(user, "calls_view")} cash={can(user, "cash_view")} />
       <nav aria-label="Bills or payments" className="flex gap-4 text-sm font-semibold">
         <span className="border-b-2 border-(--brand) pb-1">Bills</span>
         <a href="/payments" className="pb-1 text-slate-600">Payments</a>

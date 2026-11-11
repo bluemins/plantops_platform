@@ -2202,3 +2202,14 @@ per vendor by days late, less advances) and **Reports → Purchases** (owner: by
 / `pageViewIn` in `packages/types`, `canAccessModule` allows it, Sales `Who = "store"`, tile "Purchases received" with the
 new summary view `purchases` (counts only), never Sales alerts. No migration; SSO token unchanged. **Deploy Sales before
 the platform.** Notes: `apps/order-capture/NOTES.md`.
+
+### 2026-11-11 — Cash book C1: petty cash in Sales (v0.63.0) — built, not deployed
+Owner 2026-11-10: replace the WhatsApp group "RB payments" (petty cash) with a **Cash** tab in Sales. Plan, decisions,
+mock-ups: `docs/CASHBOOK_PHASE_PLAN.md` (C1–C5; C2 20 L customers, C3 van report, C4 Attendance advances, C5 reports).
+C1: owner starts the book with the cash counted; owner + Accounts enter expenses, staff cash, money in / out (C-0001…,
+cash day + work day "for 7 Nov", ≤ 7 days back, only after the last close) and close the day by counting the box
+(expected = last count + in − out; a difference needs a reason); owner cancels entries and corrects the last close (new
+version, reason); month cash book; owner's expense types and vehicles. Sales migration `0017_cash_book.sql` (approved:
+4 new tables, FORCE RLS, no DELETE, `cash_tenants()`). Kinds `order_capture.cash_closed` (bell), `cash_short` (≥ ₹100),
+`cash_expense` (≥ ₹2,000), `cash_not_closed` (Sales daily job 07:00). Staff cash takes a typed name until C4. SSO token and
+platform database unchanged. Tests: Sales 1227 (+15 cash), platform order-capture 13. Checked locally at 390 / 1280 px.
