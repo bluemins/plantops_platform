@@ -9,17 +9,20 @@ Status: **see section 0.**
 ## 0. Status and handover (2026-11-11, read this first)
 - **C1 live** (v0.63.0, `c799a2d`, Sales migration `0017` applied 2026-11-11). Nobody uses it yet: **the owner starts
   the cash book only after C2 and C3 are live** ("when all customers' money, all brands, is counted in cash").
-- **C2 live 2026-11-11** (v0.64.0, `6ab6284`, migration `0018` applied). **Owner to do:** Cash → 20 L → Import list.
+- **C2 live 2026-11-11** (v0.64.0, `6ab6284`, migration `0018` applied). **The owner imported the 20 L list and tested it
+  (2026-11-11).**
   - **Owner, 2026-11-11: a collection must not update the customer's billing directly.** Cash goes into the cash book at
     once; every customer line waits in **Cash → To post** until the owner or Accounts posts it or turns it down.
   - In the file: 17 rows without a mobile + **10 placeholder "mobiles"** (1730445774…) = **27 rows (₹4,036) left out by
     default**; 151 come in (₹60,288) unless their mobile is already a customer (12 on the live copy).
-- **C3 built 2026-11-11 (v0.65.0), not deployed.** Sales migration `0019_van_reports.sql` (approved "Approve 0019").
-  **Deploy: migration first, then Sales.** Design as built: section 6c. **"Not paid" lines wait in To post too** (owner
+- **C3 live 2026-11-11** (v0.65.0, `755687e`, migration `0019_van_reports.sql` applied). Design as built: section 6c.
+  **v0.65.1 (owner, testing live):** the van form takes **one total sales amount** (no products × rates); new customers
+  are entered as a Sales order first. **"Not paid" lines wait in To post too** (owner
   2026-11-11): posting makes the bill.
-- **Owner's to-dos after C3:** start the cash book (count the box), Settings: vehicles Mini + Pickup, check expense
+- **Owner's to-dos now (C1–C3 live):** start the cash book (count the box), Settings: vehicles Mini + Pickup, check expense
   types, give Anmol and Bindu the Accounts role, run alongside the WhatsApp groups, then stop them.
 - **Never commit `refeDocs/payments/`** (the private WhatsApp export and customer files).
+- **Next build:** C4 (staff cash → Attendance advances, "Open with staff"), then C5 (Reports → Cash, tile, stop the group).
 - Open finding for the owner: Pickup report of 1 Nov is ₹1,000 off (₹9,780 worked out vs ₹8,780 posted).
 
 ## 1. What the group does today (plant 001, read 2026-11-10)

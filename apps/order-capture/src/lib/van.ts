@@ -14,6 +14,8 @@ export interface VanSale {
 
 export interface VanFigures {
   sales: VanSale[];
+  /** the trip's total sales typed as one amount (owner, 2026-11-11); used when no product lines are given */
+  sales_total?: string;
   /** not paid (credit given), rupees each */
   not_paid: string[];
   /** collected from customers: cash lines and online lines, rupees each */
@@ -40,7 +42,8 @@ export function byBrand(sales: VanSale[]) {
 
 /** Cash to hand in = sales − not paid + collected cash − online − meal − tiffin − diesel − toll (paise). */
 export function vanSums(f: VanFigures) {
-  const sales = f.sales.reduce((s, l) => s + lineAmount(l), 0n);
+  const byLines = f.sales.reduce((s, l) => s + lineAmount(l), 0n);
+  const sales = f.sales.some((l) => l.quantity > 0) ? byLines : paise(f.sales_total || "0");
   const notPaid = sum(f.not_paid);
   const collectedCash = sum(f.collected_cash);
   const collectedOnline = sum(f.collected_online);
@@ -61,6 +64,7 @@ export function vanWhatsapp(r: {
   vehicle: string;
   person: string;
   sales: VanSale[];
+  sales_total?: string;
   not_paid: { name: string; amount: string }[];
   collected: { name: string; amount: string; mode: "cash" | "upi" }[];
   online: string;
@@ -72,7 +76,7 @@ export function vanWhatsapp(r: {
 }) {
   const rs = (p: bigint) => `${rupees(p).replace(/\.00$/, "")} rs`;
   const d = r.date.split("-").reverse().join("/");
-  const s = vanSums({ sales: r.sales, not_paid: r.not_paid.map((x) => x.amount), collected_cash: r.collected.filter((c) => c.mode === "cash").map((c) => c.amount), collected_online: r.collected.filter((c) => c.mode === "upi").map((c) => c.amount), online: r.online, meal: r.meal, tiffin: r.tiffin, diesel: r.diesel, toll: r.toll });
+  const s = vanSums({ sales: r.sales, sales_total: r.sales_total, not_paid: r.not_paid.map((x) => x.amount), collected_cash: r.collected.filter((c) => c.mode === "cash").map((c) => c.amount), collected_online: r.collected.filter((c) => c.mode === "upi").map((c) => c.amount), online: r.online, meal: r.meal, tiffin: r.tiffin, diesel: r.diesel, toll: r.toll });
   const out = [d, `${r.vehicle} = ${rs(s.sales)} (${r.person})`];
   for (const b of byBrand(r.sales)) out.push(`${b.brand} = ${rs(b.amount)}`);
   if (s.online) out.push(`Online = ${rs(s.online)}`);

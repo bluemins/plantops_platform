@@ -95,6 +95,7 @@ describe("van reports, in the database", () => {
       vehicle_id: mini,
       person_name: "Jay Lal",
       lines: [{ sku_id: b1l, quantity: 83, rate: "150" }],
+      sales_total: "0",
       not_paid: [{ customer_id: jitu, amount: "800" }, { customer_id: dipak, amount: "1800" }, { customer_id: dipak, amount: "700", note: "Google sahu" }],
       collected: [{ customer_id: jitu, amount: "500", mode: "cash" }],
       online: "8500",
@@ -155,7 +156,13 @@ describe("van reports, in the database", () => {
     expect((await refused(() => addVanReport(p.accounts, p.report({ lines: [{ sku_id: b1l, quantity: 1, rate: "1" }, { sku_id: b1l, quantity: 2, rate: "1" }] }), TODAY))).message).toMatch(/twice/);
     expect((await refused(() => addVanReport(p.accounts, p.report({ lines: [{ sku_id: randomUUID(), quantity: 1, rate: "1" }] }), TODAY))).message).toMatch(/active products/);
     expect((await refused(() => addVanReport(p.accounts, p.report({ not_paid: [{ customer_id: randomUUID(), amount: "5" }] }), TODAY))).message).toMatch(/isn't in Sales/);
-    expect((await refused(() => addVanReport(p.accounts, p.report({ lines: [], collected: [] }), TODAY))).message).toMatch(/boxes sold/);
+    // boxes sold are optional (owner, 2026-11-11): a trip with only customers already in Sales
+    const noSales = await addVanReport(p.accounts, p.report({ lines: [], not_paid: [], collected: [{ customer_id: p.jitu, amount: "500", mode: "cash" }], online: "0", handed_in: "500" }), TODAY);
+    expect([noSales.sales, noSales.expected, noSales.difference]).toEqual(["0.00", "500.00", "0.00"]);
+    // one total for the trip (owner, 2026-11-11), no product lines: Mini 21 Oct again
+    const total = await addVanReport(p.accounts, p.report({ lines: [], sales_total: "12450" }), TODAY);
+    expect([total.sales, total.expected, total.difference]).toEqual(["12450.00", "1150.00", "0.00"]);
+    expect((await refused(() => addVanReport(p.accounts, p.report({ sales_total: "12000" }), TODAY))).message).toMatch(/doesn't match/);
     // a product only counted out and back is kept (the placeholder), with no sale
     const v = await addVanReport(p.accounts, p.report({ lines: [{ sku_id: b1l, quantity: 83, rate: "150", loaded: 90, returned: 7 }, { sku_id: dm, quantity: 0, rate: "0", loaded: 10, returned: 10 }, { sku_id: b500, quantity: 0, rate: "140" }] }), TODAY);
     const r = await vanReport(p.owner, v.id);

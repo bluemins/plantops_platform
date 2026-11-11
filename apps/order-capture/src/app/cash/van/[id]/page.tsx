@@ -38,6 +38,7 @@ export default async function VanReportPage({ params, searchParams }: { params: 
     vehicle: r.vehicle,
     person: r.person,
     sales,
+    sales_total: r.sales,
     not_paid: r.credits.map((c) => ({ name: c.customer.name, amount: c.amount })),
     collected: r.collected.map((c) => ({ name: c.customer.name, amount: c.amount, mode: c.mode })),
     online: r.online,
@@ -75,6 +76,7 @@ export default async function VanReportPage({ params, searchParams }: { params: 
         {r.note && <p className="text-slate-600">Note: {r.note}</p>}
       </Card>
 
+      {r.lines.length > 0 && (
       <section className="space-y-2">
         <h2 className="text-xs font-bold tracking-wide text-slate-500 uppercase">Sold by product</h2>
         <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white text-sm">
@@ -89,9 +91,9 @@ export default async function VanReportPage({ params, searchParams }: { params: 
               ))}
             </li>
           ))}
-          {sales.length === 0 && <li className="px-4 py-2 text-slate-500">No boxes sold.</li>}
         </ul>
       </section>
+      )}
 
       {(r.credits.length > 0 || r.collected.length > 0) && (
         <section className="space-y-2">

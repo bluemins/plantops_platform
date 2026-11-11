@@ -58,7 +58,7 @@ export function CustomerSearch({ onPick, placeholder = "Find a customer: name or
           ))}
         </ul>
       )}
-      {q.trim().length >= 2 && shown.length === 0 && <p className="text-sm text-slate-500">No customer found. Add them in Sales → Customers first.</p>}
+      {q.trim().length >= 2 && shown.length === 0 && <p className="text-sm text-slate-500">No customer found. A new customer: enter their sale as a Sales order (New order) first.</p>}
     </div>
   );
 }

@@ -76,6 +76,8 @@ export const VanInput = z.object({
       }),
     )
     .max(200),
+  /** the trip's total sales as one amount (owner, 2026-11-11: "only one field for total sales"); product lines optional */
+  sales_total: Opt,
   not_paid: z.array(Party).max(100).default([]),
   collected: z.array(Party.extend({ mode: z.enum(["cash", "upi"]) })).max(100).default([]),
   online: Opt,
@@ -110,7 +112,7 @@ export async function addVanReport(user: OcUser, input: VanInput, today = istTod
   if (work < addDays(input.cash_date, -31)) throw badRequest("The work day can be at most 31 days earlier");
   if (!input.person_user_id && !input.person_name) throw badRequest("Who drove / sold? Pick or type a name.");
   const lines = input.lines.filter((l) => l.quantity > 0 || l.loaded !== undefined || l.returned !== undefined);
-  if (!lines.some((l) => l.quantity > 0) && !input.collected.length) throw badRequest("Type the boxes sold (or what was collected)");
+  // boxes sold are optional (owner, 2026-11-11): customers already in Sales are covered by "not paid" / "collected"
   if (new Set(lines.map((l) => l.sku_id)).size !== lines.length) throw badRequest("A product is in the list twice");
   for (const x of [...input.not_paid, ...input.collected]) if (paise(x.amount) <= 0n) throw badRequest("Each amount must be more than ₹0");
   const handed = paise(input.handed_in);
@@ -145,8 +147,11 @@ export async function addVanReport(user: OcUser, input: VanInput, today = istTod
     if (found.filter((c) => c.active).length !== ids.length) throw badRequest("A customer on the report isn't in Sales (or is switched off). Pick again.");
 
     const sales: VanSale[] = lines.map((l) => ({ product: rates.get(l.sku_id)!.product, brand: rates.get(l.sku_id)!.brand, quantity: l.quantity, rate: l.rate }));
+    if (sales.some((l) => l.quantity > 0) && paise(input.sales_total) > 0n && sales.reduce((x, l) => x + BigInt(l.quantity) * paise(l.rate), 0n) !== paise(input.sales_total))
+      throw badRequest("Total sales doesn't match the boxes × rates typed. Use one or the other.");
     const s = vanSums({
       sales,
+      sales_total: input.sales_total,
       not_paid: input.not_paid.map((x) => x.amount),
       collected_cash: input.collected.filter((c) => c.mode === "cash").map((c) => c.amount),
       collected_online: input.collected.filter((c) => c.mode === "upi").map((c) => c.amount),

@@ -703,3 +703,8 @@ bill / turn down), pages `src/app/cash/van/**`, To post's "Not paid" section, ro
   else Rates; cash handed in must be > ₹0 (a trip with no cash goes in as + Collection); meal / tiffin / diesel / toll stay
   on the report, not as cash book lines; a van ₹100+ off uses the existing `cash_short` alert; the van entry can't be
   cancelled while a line is billed / posted (`cancelEntry` checks both).
+- **v0.65.1 (owner, 2026-11-11, while testing live):** the van form has **one "Total sales on the trip" field** instead of
+  products × rates ("only one field for total sales"); sold is optional (customers already in Sales go in Not paid /
+  Collected; a new customer is entered as a Sales order first, the form links New order). The server still takes product
+  lines (`sales_total` is used when none are sent; both given and different = refused); the report page shows "Sold by
+  product" only when lines exist. No migration.
