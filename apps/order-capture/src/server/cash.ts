@@ -257,15 +257,23 @@ export async function cancelEntry(user: OcUser, id: string, input: z.infer<typeo
     const [e] = await tx.select().from(cashEntries).where(and(eq(cashEntries.tenantId, user.tenantId), eq(cashEntries.id, id)));
     if (!e) throw notFound("Entry not found");
     if (e.cancelledAt) throw conflict(`${cashRef(e.refNo)} was already cancelled`);
-    if (e.kind === "collection") {
+    if (e.kind === "collection" || e.kind === "van") {
       // a line already posted onto a customer's account keeps the entry: cancel that payment first (C2)
       const posted = await tx.execute<{ number: string }>(sql`
         select pay.number from order_capture.collection_lines l
           join lateral (select * from order_capture.collection_posts x where x.tenant_id = l.tenant_id and x.line_id = l.id order by x.created_at desc limit 1) p on true
           join order_capture.payments pay on pay.tenant_id = l.tenant_id and pay.id = p.payment_id
          where l.tenant_id = ${user.tenantId} and l.cash_entry_id = ${id} and p.outcome = 'posted' and pay.cancelled_at is null`);
-      if (posted.rows.length)
-        throw conflict(`Lines of ${cashRef(e.refNo)} are already on customers' accounts (${posted.rows.map((r) => r.number).join(", ")}). Cancel ${posted.rows.length === 1 ? "that payment" : "those payments"} first.`);
+      // a van report's "not paid" lines already billed (C3)
+      const billed = await tx.execute<{ number: string }>(sql`
+        select b.number from order_capture.van_reports r
+          join order_capture.van_credit_lines c on c.tenant_id = r.tenant_id and c.report_id = r.id
+          join lateral (select * from order_capture.van_credit_posts x where x.tenant_id = c.tenant_id and x.credit_line_id = c.id order by x.created_at desc limit 1) p on true
+          join order_capture.bills b on b.tenant_id = c.tenant_id and b.id = p.bill_id
+         where r.tenant_id = ${user.tenantId} and r.cash_entry_id = ${id} and p.outcome = 'billed' and b.cancelled_at is null`);
+      const live = [...posted.rows, ...billed.rows].map((r) => r.number);
+      if (live.length)
+        throw conflict(`Lines of ${cashRef(e.refNo)} are already on customers' accounts (${live.join(", ")}). Cancel ${live.length === 1 ? "that payment / bill" : "those payments / bills"} first.`);
     }
     await tx.update(cashEntries).set({ cancelledAt: new Date(), cancelledBy: user.userId, cancelledByName: user.name, cancelReason: input.reason }).where(and(eq(cashEntries.tenantId, user.tenantId), eq(cashEntries.id, id)));
     await audit(tx, user, "cash.cancel", id, { ref: cashRef(e.refNo), amount: e.amount, reason: input.reason });

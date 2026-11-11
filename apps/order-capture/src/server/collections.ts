@@ -263,9 +263,20 @@ export async function entryLines(user: OcUser, entryIds: string[]) {
   return withTenant(user.tenantId, (tx) => linesOfEntries(tx, user.tenantId, entryIds));
 }
 
-/** How many lines wait to be posted (the "To post" tab). */
+/** How many lines wait to be posted (the "To post" tab): collection lines + van reports' "not paid" lines. */
 export async function waitingToPost(user: OcUser) {
-  return (await collectionsList(user, "waiting", 1)).waiting.count;
+  const collections = (await collectionsList(user, "waiting", 1)).waiting.count;
+  const credits = await withTenant(user.tenantId, async (tx) => {
+    const r = await tx.execute<{ n: number }>(sql`
+      select count(*)::int as n from order_capture.van_credit_lines c
+        join order_capture.van_reports r on r.tenant_id = c.tenant_id and r.id = c.report_id
+        join order_capture.cash_entries e on e.tenant_id = r.tenant_id and e.id = r.cash_entry_id and e.cancelled_at is null
+        left join lateral (select * from order_capture.van_credit_posts x where x.tenant_id = c.tenant_id and x.credit_line_id = c.id order by x.created_at desc limit 1) p on true
+        left join order_capture.bills b on b.tenant_id = c.tenant_id and b.id = p.bill_id
+       where c.tenant_id = ${user.tenantId} and (p.id is null or (p.outcome = 'billed' and b.cancelled_at is not null))`);
+    return r.rows[0]?.n ?? 0;
+  });
+  return collections + credits;
 }
 
 /** "Collections to post" in Sales: waiting lines (oldest first), or the latest of every status. */

@@ -692,3 +692,14 @@ as the platform's Bank remarks), read in the browser only.
   (default = the word most names end with, "Bijepur"); a collection with only online lines gets no C-number; a collection
   entry can't be cancelled while a line is posted; a posted line whose payment is cancelled waits again; the payment's
   date is the day collected (work day).
+
+## 2026-11-11 — Cash book C3 (v0.65.0): van report
+Plan: `docs/CASHBOOK_PHASE_PLAN.md` (section 6c = what C3 built). Files: `db/migrations/0019_van_reports.sql`,
+`src/lib/van.ts` (cash to hand in, by brand, WhatsApp text), `src/server/van.ts` (form, save, report, list, "not paid"
+bill / turn down), pages `src/app/cash/van/**`, To post's "Not paid" section, routes `src/app/api/cash/van`,
+`src/app/api/van-credits/[id]/**`, `test/van.test.ts`.
+- Owner 2026-11-11: "not paid" lines wait in To post like collections; posting makes the bill (B-number, one line, no GST).
+- Made while building: only products with a brand on Rates show on the form; the rate pre-fills from the last van report,
+  else Rates; cash handed in must be > ₹0 (a trip with no cash goes in as + Collection); meal / tiffin / diesel / toll stay
+  on the report, not as cash book lines; a van ₹100+ off uses the existing `cash_short` alert; the van entry can't be
+  cancelled while a line is billed / posted (`cancelEntry` checks both).

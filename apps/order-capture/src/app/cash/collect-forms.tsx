@@ -14,7 +14,7 @@ const AMOUNT = /^\d{1,8}(\.\d{1,2})?$/;
 const chip = (on: boolean) => `min-h-11 rounded-xl border px-3 text-sm font-semibold ${on ? "border-2 border-(--brand) bg-(--brand-soft) text-(--brand)" : "border-slate-300 bg-white text-slate-700"}`;
 const rs = (s: string) => signedMoney(paise(s));
 
-interface Found {
+export interface Found {
   id: string;
   name: string;
   phone: string;
@@ -26,7 +26,7 @@ interface Found {
 }
 
 /** Search customers (20 L first) and pick one. */
-function CustomerSearch({ onPick, placeholder = "Find a customer: name or mobile" }: { onPick: (c: Found) => void; placeholder?: string }) {
+export function CustomerSearch({ onPick, placeholder = "Find a customer: name or mobile" }: { onPick: (c: Found) => void; placeholder?: string }) {
   const [q, setQ] = useState("");
   const [found, setFound] = useState<Found[]>([]);
   const seq = useRef(0);

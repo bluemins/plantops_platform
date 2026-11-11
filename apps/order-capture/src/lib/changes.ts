@@ -113,6 +113,13 @@ export function describeChange(action: string, details: Record<string, unknown>)
       return `Posted a collection of ₹${show(details.amount)} as ${show(details.payment)} on ${show(details.customer)}'s account`;
     case "collection.turn_down":
       return `Turned down a collection of ₹${show(details.amount)} from ${show(details.customer)}: ${show(details.reason)}`;
+    // cash book C3: van reports
+    case "cash.van":
+      return `Van report ${show(details.ref)}: ${show(details.vehicle)} (${show(details.person)}) on ${show(details.date)}, sold ₹${show(details.sales)}, ₹${show(details.handed_in)} handed in${details.difference !== "0.00" ? ` (difference ₹${show(details.difference)})` : ""}`;
+    case "van.credit_bill":
+      return `Billed a van "not paid" line: ${show(details.bill)} for ${show(details.customer)}, ₹${show(details.amount)} (${show(details.vehicle)}, ${show(details.entry)})`;
+    case "van.credit_turn_down":
+      return `Turned down a van "not paid" line of ₹${show(details.amount)} for ${show(details.customer)}: ${show(details.reason)}`;
     case "export.csv":
       return `Exported the orders (CSV, ${plural(details.orders, "order")}, ${plural(details.lines, "line")})`;
     default:

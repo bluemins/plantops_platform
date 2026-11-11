@@ -61,7 +61,7 @@ const MONEY: [MoneyKind, string][] = [
   ["other_out", "Other money out"],
 ];
 
-/** The entry buttons (+ Collection, + Expense, + Staff cash, + Money in / out) and the form that opens under them. */
+/** The entry buttons (+ Van report, + Collection, + Expense, + Staff cash, + Money in / out) and the form that opens under them. */
 export function EntryButtons({ date, lists }: { date: string; lists: Lists }) {
   const [mode, setMode] = useState<Mode | "collection" | null>(null);
   const [done, setDone] = useState<string>();
@@ -70,6 +70,7 @@ export function EntryButtons({ date, lists }: { date: string; lists: Lists }) {
     <div className="space-y-3">
       {done && <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{done}</p>}
       <div className="grid grid-cols-2 gap-2">
+        <a href={`/cash/van/new?d=${date}`} className={`${btn} col-span-2 flex items-center justify-center`}>+ Van report</a>
         <button type="button" className={btn} onClick={() => { setDone(undefined); setMode("collection"); }}>+ Collection</button>
         <button type="button" className={btn} onClick={() => { setDone(undefined); setMode("expense"); }}>+ Expense</button>
         <button type="button" className={btn} onClick={() => { setDone(undefined); setMode("staff"); }}>+ Staff cash</button>

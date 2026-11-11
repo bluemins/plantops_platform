@@ -2217,7 +2217,7 @@ platform database unchanged. Tests: Sales 1227 (+15 cash), platform order-captur
 migration `0018` approved, incl. `bills.source` 'opening') then C3 (van report per brand per product); the owner starts
 using the cash book after C3. Handover: `docs/CASHBOOK_PHASE_PLAN.md` section 0.
 
-### 2026-11-11 — Cash book C2: 20 L customers and collections (v0.64.0) — built, not deployed
+### 2026-11-11 — Cash book C2: 20 L customers and collections (v0.64.0) — live 2026-11-11 (`6ab6284`)
 Owner 2026-11-11 (C2 "as recommended", migration approved). **Cash → 20 L → Import list** (owner): the 20 L pending report
 (Excel, read in the browser) → preview → confirm: Sales customers with a "20 L" mark and what they owe as an opening bill
 `OB20-<ref>` (no B-number, never a sale; Receivables and statements count it); rows whose mobile is already a customer
@@ -2230,3 +2230,15 @@ payment's rules, maybe on another customer) or turns it down with a reason. Sale
 + INSERT only), `bills.source` + `'opening'`, `cash_entries.kind` + `'collection'`. Platform and SSO token unchanged. Notes:
 `apps/order-capture/NOTES.md`; plan `docs/CASHBOOK_PHASE_PLAN.md` sections 0 + 6b. Tests: Sales 1,253 (+26). **Next:**
 deploy (migration first), the owner imports the 20 L report; then C3 (van report).
+
+### 2026-11-11 — Cash book C3: van report (v0.65.0) — built, not deployed
+Owner 2026-11-11 ("Build C3", migration `0019` approved, "not paid" lines wait in To post). **+ Van report** on the cash
+day sheet: vehicle, who drove, trip day, boxes sold per product grouped by brand (rate = last van report, else Rates;
+optional loaded / returned placeholder), not paid, collected from customers (Cash / Online), online, meal, tiffin, diesel,
+toll; cash to hand in worked out live (Mini 21 Oct = ₹1,150 and 7 Nov = ₹5,200 from the chat), cash handed in, short /
+extra (₹100+ → `cash_short` alert). One `van` cash entry for the cash handed in; collected lines (C2) and **"not paid"
+lines wait in Cash → To post** (posting a not-paid line = a B-number bill "Van sale (Mini, 7 Nov)", no GST, vehicle and
+salesperson set). Report page with Copy as WhatsApp message; Cash → Vans list. Sales migration `0019_van_reports.sql`
+(4 new tables, FORCE RLS, SELECT + INSERT only; `cash_entries.kind` + `'van'`). Platform and SSO token unchanged. Notes:
+`apps/order-capture/NOTES.md`; plan `docs/CASHBOOK_PHASE_PLAN.md` sections 0 + 6c. **Next:** deploy (migration first);
+then the owner starts the cash book (vehicles Mini + Pickup, Accounts for Anmol and Bindu); C4 (Attendance advances).

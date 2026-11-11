@@ -737,7 +737,7 @@ export const vendorPaymentAllocations = oc.table("vendor_payment_allocations", {
 
 // ---------- cash book (0017, docs/CASHBOOK_PHASE_PLAN.md step C1): categories, vehicles, cash entries, day closes ----------
 
-export type CashKind = "expense" | "staff_out" | "staff_in" | "owner_in" | "owner_out" | "bank_deposit" | "other_in" | "other_out" | "collection";
+export type CashKind = "expense" | "staff_out" | "staff_in" | "owner_in" | "owner_out" | "bank_deposit" | "other_in" | "other_out" | "collection" | "van";
 export type StaffPurpose = "advance" | "plant" | "salary";
 
 export const expenseCategories = oc.table("expense_categories", {
@@ -855,6 +855,75 @@ export const collectionPosts = oc.table("collection_posts", {
   lineId: uuid("line_id").notNull(),
   outcome: text("outcome").$type<"posted" | "turned_down">().notNull(),
   paymentId: uuid("payment_id"),
+  reason: text("reason"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+// ---------- van reports (migration 0019, cash book step C3) ----------
+
+const money14 = (name: string) => numeric(name, { precision: 14, scale: 2 });
+
+export const vanReports = oc.table("van_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  cashEntryId: uuid("cash_entry_id").notNull(),
+  vehicleId: uuid("vehicle_id").notNull(),
+  workDate: date("work_date").notNull(),
+  personUserId: uuid("person_user_id"),
+  personName: text("person_name").notNull(),
+  sales: money14("sales").notNull(),
+  notPaid: money14("not_paid").notNull().default("0"),
+  collectedCash: money14("collected_cash").notNull().default("0"),
+  collectedOnline: money14("collected_online").notNull().default("0"),
+  online: money14("online").notNull().default("0"),
+  meal: money14("meal").notNull().default("0"),
+  tiffin: money14("tiffin").notNull().default("0"),
+  diesel: money14("diesel").notNull().default("0"),
+  toll: money14("toll").notNull().default("0"),
+  expected: money14("expected").notNull(),
+  handedIn: money14("handed_in").notNull(),
+  difference: money14("difference").notNull(),
+  note: text("note"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const vanReportLines = oc.table("van_report_lines", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  reportId: uuid("report_id").notNull(),
+  lineNo: integer("line_no").notNull(),
+  skuId: uuid("sku_id").notNull(),
+  productName: text("product_name").notNull(),
+  brand: text("brand").notNull().default(""),
+  unit: text("unit").notNull(),
+  quantity: integer("quantity").notNull(),
+  rate: numeric("rate", { precision: 10, scale: 2 }).notNull(),
+  amount: money14("amount").notNull(),
+  loaded: integer("loaded"),
+  returned: integer("returned"),
+});
+
+export const vanCreditLines = oc.table("van_credit_lines", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  reportId: uuid("report_id").notNull(),
+  lineNo: integer("line_no").notNull(),
+  customerId: uuid("customer_id").notNull(),
+  amount: money14("amount").notNull(),
+  note: text("note"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const vanCreditPosts = oc.table("van_credit_posts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  creditLineId: uuid("credit_line_id").notNull(),
+  outcome: text("outcome").$type<"billed" | "turned_down">().notNull(),
+  billId: uuid("bill_id"),
   reason: text("reason"),
   createdBy: uuid("created_by").notNull(),
   createdByName: text("created_by_name").notNull(),

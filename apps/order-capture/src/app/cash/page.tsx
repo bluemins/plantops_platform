@@ -5,6 +5,7 @@ import { can } from "@/server/access";
 import { addDays, cashLists, daySheet, istToday, type EntryView } from "@/server/cash";
 import { waitingCount } from "@/server/calls-tab";
 import { entryLines, waitingToPost, type CollectionLine } from "@/server/collections";
+import { reportsOfEntries } from "@/server/van";
 import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../header";
@@ -22,10 +23,10 @@ const STATUS: Record<CollectionLine["status"], [string, string]> = {
   void: ["cancelled", "bg-slate-200 text-slate-700"],
 };
 
-function EntryRow({ e, owner, closed, lines = [] }: { e: EntryView; owner: boolean; closed: boolean; lines?: CollectionLine[] }) {
-  const title =
+function EntryRow({ e, owner, closed, lines = [], van }: { e: EntryView; owner: boolean; closed: boolean; lines?: CollectionLine[]; van?: { id: string; vehicle: string; person: string; difference: string } }) {
+  const title = van ? `Van · ${van.vehicle} · ${van.person}` :
     e.kind === "expense" ? `Expense · ${e.category ?? ""}` : e.kind === "staff_out" ? `${e.purpose ? PURPOSE_LABEL[e.purpose] : "Staff cash"} · ${e.person}` : e.kind === "staff_in" ? `Took back · ${e.person}` : KIND_LABEL[e.kind];
-  const detail = [e.ref, e.vehicle, e.paid_to, e.note, `by ${e.by}`].filter(Boolean).join(" · ");
+  const detail = (van ? [e.ref, `by ${e.by}`] : [e.ref, e.vehicle, e.paid_to, e.note, `by ${e.by}`]).filter(Boolean).join(" · ");
   return (
     <li className={`px-4 py-3 ${e.cancelled ? "opacity-60" : ""}`}>
       <div className="flex items-start justify-between gap-3">
@@ -36,6 +37,12 @@ function EntryRow({ e, owner, closed, lines = [] }: { e: EntryView; owner: boole
           </p>
           <p className="text-xs text-slate-500 break-words">{detail}</p>
           {e.cancelled && <p className="text-xs text-red-700">Cancelled by {e.cancelled.by}: {e.cancelled.reason}</p>}
+          {van && (
+            <p className="text-xs">
+              <a href={`/cash/van/${van.id}`} className="font-semibold text-(--brand)">Open the van report →</a>
+              {paise(van.difference) !== 0n && <span className="ml-2 font-semibold text-red-700">{differenceText(paise(van.difference))}</span>}
+            </p>
+          )}
           {lines.length > 0 && (
             <ul className="mt-1 space-y-0.5 text-xs text-slate-600">
               {lines.map((l) => (
@@ -80,7 +87,8 @@ export default async function CashDayPage({ searchParams }: { searchParams: Sear
 
   const ins = sheet.entries.filter((e) => e.direction === "in");
   const linesOf = new Map<string, CollectionLine[]>();
-  for (const l of await entryLines(user, sheet.entries.filter((e) => e.kind === "collection").map((e) => e.id)))
+  const vans = await reportsOfEntries(user, sheet.entries.filter((e) => e.kind === "van").map((e) => e.id));
+  for (const l of await entryLines(user, sheet.entries.filter((e) => e.kind === "collection" || e.kind === "van").map((e) => e.id)))
     if (l.entry) {
       const e = sheet.entries.find((x) => x.ref === l.entry)!;
       linesOf.set(e.id, [...(linesOf.get(e.id) ?? []), l]);
@@ -153,7 +161,7 @@ export default async function CashDayPage({ searchParams }: { searchParams: Sear
             <h2 className="text-xs font-bold tracking-wide text-slate-500 uppercase">Money in · {signedMoney(ins.filter((e) => !e.cancelled).reduce((s, e) => s + paise(e.amount), 0n))}</h2>
             <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
               {ins.length === 0 && <li className="px-4 py-3 text-sm text-slate-500">Nothing yet.</li>}
-              {ins.map((e) => <EntryRow key={e.id} e={e} owner={owner} closed={closed} lines={linesOf.get(e.id)} />)}
+              {ins.map((e) => <EntryRow key={e.id} e={e} owner={owner} closed={closed} lines={linesOf.get(e.id)} van={vans.get(e.id)} />)}
             </ul>
           </section>
           <section className="space-y-2">

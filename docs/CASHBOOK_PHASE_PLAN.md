@@ -9,17 +9,14 @@ Status: **see section 0.**
 ## 0. Status and handover (2026-11-11, read this first)
 - **C1 live** (v0.63.0, `c799a2d`, Sales migration `0017` applied 2026-11-11). Nobody uses it yet: **the owner starts
   the cash book only after C2 and C3 are live** ("when all customers' money, all brands, is counted in cash").
-- **C2 built 2026-11-11 (v0.64.0), not deployed.** Sales migration `0018_jar_customers.sql` (approved; widened by the
-  owner the same day, see section 6b). **Deploy: migration first, then Sales.** Then the owner imports the 20 L report
-  (Cash → 20 L → Import list); the 12 mobiles already in Sales show under "Mobile already in Sales".
-  - **Owner, 2026-11-11 (while building): a collection must not update the customer's billing directly.** The cash goes
-    into the cash book at once; every customer line waits in **Cash → To post** until the owner or Accounts posts it
-    (then it is a payment, oldest bills first, or on another customer) or turns it down with a reason.
-  - Found in the file: besides the 17 rows without a mobile, **10 "mobiles" are the other app's placeholders**
-    (1730445774…), so **27 rows (₹4,036) are left out by default**; 151 come in (₹60,288) on a fresh copy.
-- **Then C3** (van report): per brand per product (boxes, rate from Rates); "not paid" → bill, "collected from customers"
-  (all Sales + 20 L customers) → **collection lines that wait in To post** (same rule as C2, owner 2026-11-11); load out / returned only as an **optional placeholder**; needs its own
-  migration (ask). Design notes in section 3.2.
+- **C2 live 2026-11-11** (v0.64.0, `6ab6284`, migration `0018` applied). **Owner to do:** Cash → 20 L → Import list.
+  - **Owner, 2026-11-11: a collection must not update the customer's billing directly.** Cash goes into the cash book at
+    once; every customer line waits in **Cash → To post** until the owner or Accounts posts it or turns it down.
+  - In the file: 17 rows without a mobile + **10 placeholder "mobiles"** (1730445774…) = **27 rows (₹4,036) left out by
+    default**; 151 come in (₹60,288) unless their mobile is already a customer (12 on the live copy).
+- **C3 built 2026-11-11 (v0.65.0), not deployed.** Sales migration `0019_van_reports.sql` (approved "Approve 0019").
+  **Deploy: migration first, then Sales.** Design as built: section 6c. **"Not paid" lines wait in To post too** (owner
+  2026-11-11): posting makes the bill.
 - **Owner's to-dos after C3:** start the cash book (count the box), Settings: vehicles Mini + Pickup, check expense
   types, give Anmol and Bindu the Accounts role, run alongside the WhatsApp groups, then stop them.
 - **Never commit `refeDocs/payments/`** (the private WhatsApp export and customer files).
@@ -240,6 +237,30 @@ balances get their own numbers ("OB20-3324") instead of using up B-numbers. Plat
 - A collection entry can't be cancelled while a line is on an account (cancel that payment first); cancelling it makes
   its waiting lines void. Online lines never go into the box; a save with only online lines has no C-number.
 - Posting sends the usual "Payment received" bell; saving a collection sends nothing (like other cash entries).
+
+## 6c. Step C3 as built (2026-11-11, v0.65.0)
+- **Migration `0019_van_reports.sql`** (approved): `cash_entries.kind` also `'van'`; `van_reports` (vehicle, trip day,
+  who drove, sales, not paid, collected cash / online, online, meal, tiffin, diesel, toll, cash to hand in, handed in,
+  difference; checks keep the sums honest), `van_report_lines` (per product: boxes, rate, amount = boxes × rate,
+  optional loaded / returned), `van_credit_lines` ("not paid") and `van_credit_posts` (billed → its bill, or turned down
+  → reason). FORCE RLS, SELECT + INSERT only. "Collected from customers" = C2's `collection_lines` (batch = the report,
+  linked to the van's cash entry).
+- Rules `src/lib/van.ts` (cash to hand in = sales − not paid + collected cash − online − meal − tiffin − diesel − toll;
+  checked with Mini 21 Oct = ₹1,150 and Mini 7 Nov = ₹5,200 from the chat; the WhatsApp layout). Server `src/server/van.ts`.
+- Screens: **+ Van report** on the day sheet (`/cash/van/new`): vehicle, who drove, trip day, products grouped by brand
+  (only products with a brand on Rates; rate = the last van report's, else Rates; a "Loaded / returned" tick shows the
+  placeholder boxes and "loaded − returned = N"), not paid, collected (Cash / Online), online / meal / tiffin / diesel /
+  toll, cash to hand in live, cash handed in, short / extra. `/cash/van/[id]`: the report, each customer line's status,
+  **Copy as WhatsApp message**, owner Cancel. **Cash → Vans** list. **To post** has a "Not paid on van trips: to bill"
+  section (Bill, Another customer, Turn down); the tab count includes them.
+- Posting a "not paid" line makes a B-number bill dated the trip day: one line "Van sale (Mini, 7 Nov)", no GST, vehicle
+  and salesperson set (Receivables can filter by them). Cancelling that bill lets the line be billed again.
+- Meal / tiffin / diesel / toll come out of the van's money before hand-in: kept on the report (expense reports in C5),
+  not separate cash book lines. Cash handed in must be more than ₹0.
+- A van ₹100 or more short / extra → the existing `cash_short` phone alert to owners. No new notification kinds, no
+  platform change. The owner cancels a van report through its cash entry, only while none of its lines is on an account.
+- Not in C3: van drivers entering their own report, credit bills by product (one line per not-paid amount), van sales in
+  Reports (C5).
 
 ## 7a. Step C1 as built (2026-11-11, v0.63.0)
 - Sales migration `0017_cash_book.sql`: `expense_categories`, `cash_vehicles`, `cash_entries` (C-numbers, cash day +

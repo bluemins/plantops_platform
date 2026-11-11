@@ -169,7 +169,17 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
     values ('${tenantId}', gen_random_uuid(), 1, '${coll}', '${customer}', 50, 'cash', '2026-11-09', '${who}', 'Anmol') returning id`);
   const cpost = await one(`insert into order_capture.collection_posts (tenant_id, line_id, outcome, reason, created_by, created_by_name)
     values ('${tenantId}', '${cline}', 'turned_down', 'test row', '${who}', 'Sujata') returning id`);
-  return { jimp, obill, jar, coll, cline, cpost, ecat, van, centry, cclose, pimp, vendor, pitem, pbill, pline, vpay, valloc, device, push, poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
+  // van reports (0019): a van cash entry, its report, a product line, a "not paid" line and its post
+  const ventry = await one(`insert into order_capture.cash_entries (tenant_id, ref_no, cash_date, work_date, kind, direction, amount, vehicle_id, created_by, created_by_name)
+    values ('${tenantId}', 3, '2026-11-09', '2026-11-09', 'van', 'in', 1150, '${van}', '${who}', 'bindu') returning id`);
+  const vrep = await one(`insert into order_capture.van_reports (tenant_id, cash_entry_id, vehicle_id, work_date, person_name, sales, not_paid, collected_cash, online, expected, handed_in, difference, created_by, created_by_name)
+    values ('${tenantId}', '${ventry}', '${van}', '2026-11-09', 'Jay Lal', 12450, 3300, 500, 8500, 1150, 1150, 0, '${who}', 'bindu') returning id`);
+  const vline = await one(`insert into order_capture.van_report_lines (tenant_id, report_id, line_no, sku_id, product_name, brand, unit, quantity, rate, amount)
+    values ('${tenantId}', '${vrep}', 1, '${sku1l}', 'Bluemins 1L', 'Bluemins', 'box', 83, 150, 12450) returning id`);
+  const vcredit = await one(`insert into order_capture.van_credit_lines (tenant_id, report_id, line_no, customer_id, amount) values ('${tenantId}', '${vrep}', 1, '${customer}', 800) returning id`);
+  const vpost = await one(`insert into order_capture.van_credit_posts (tenant_id, credit_line_id, outcome, reason, created_by, created_by_name)
+    values ('${tenantId}', '${vcredit}', 'turned_down', 'test row', '${who}', 'Sujata') returning id`);
+  return { ventry, vrep, vline, vcredit, vpost, jimp, obill, jar, coll, cline, cpost, ecat, van, centry, cclose, pimp, vendor, pitem, pbill, pline, vpay, valloc, device, push, poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
 }
 
 /** The tables in the order_capture schema (the guard tests compare against this list). */
@@ -178,7 +188,7 @@ export const TABLES = [
   "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "cash_closes", "cash_entries", "cash_vehicles", "collection_lines", "collection_posts", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
   "expense_categories", "ignored_number_changes", "jar_customers", "jar_imports", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "points_redemptions", "points_settings", "poll_answers", "polls", "product_rates",
   "purchase_bill_lines", "purchase_bills", "purchase_imports", "purchase_items",
-  "reminder_groups", "support_views", "vendor_payment_allocations", "vendor_payments", "vendors", "zoho_contacts", "zoho_imports",
+  "reminder_groups", "support_views", "van_credit_lines", "van_credit_posts", "van_report_lines", "van_reports", "vendor_payment_allocations", "vendor_payments", "vendors", "zoho_contacts", "zoho_imports",
 ];
 
 /**
