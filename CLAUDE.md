@@ -2241,3 +2241,21 @@ lines wait in Cash → To post** (posting a not-paid line = a B-number bill "Van
 salesperson set). Report page with Copy as WhatsApp message; Cash → Vans list. Sales migration `0019_van_reports.sql`
 (4 new tables, FORCE RLS, SELECT + INSERT only; `cash_entries.kind` + `'van'`). Platform and SSO token unchanged. Notes:
 `apps/order-capture/NOTES.md`; plan `docs/CASHBOOK_PHASE_PLAN.md` sections 0 + 6c. **Next:** the owner starts the cash book (vehicles Mini + Pickup, Accounts for Anmol and Bindu); C4 (Attendance advances).
+**v0.65.1 (owner, testing live, 2026-11-11):** the van form takes **one "Total sales on the trip" amount** (no products ×
+rates); a new customer is entered as a Sales order first. No migration.
+
+### 2026-11-11 — Cash book: where things stand (end of day)
+**Live:** C1 (day sheet, close the day, cash book), C2 (20 L customers + collections), C3 (van report), Sales v0.65.1.
+**Owner done 2026-11-11:** 20 L list imported and tested; vehicles Mini + Pickup; Anmol and Bindu = Accounts; **cash book
+started**. **From 2026-11-12:** run alongside the WhatsApp group "RB payments" for about a week, comparing cash in hand each
+evening.
+**Rule (owner, 2026-11-11):** nothing entered in the cash book changes a customer's bills by itself: collections and
+van "not paid" lines wait in **Cash → To post** until the owner or Accounts posts them.
+**Next sessions (handover: `docs/CASHBOOK_PHASE_PLAN.md` section 0):**
+1. **C4:** staff cash "Advance against salary" → Attendance advances automatically (Attendance migration `0013`
+   `salary_advances.source_ref` + a Sales→Attendance key `atc_…`; plan section 5), "Open with staff" list, staff names
+   from Attendance. Plan first; **ask** before the migration and the key.
+2. **C5:** Reports → Cash (cash book by period, expenses by type incl. van meal / diesel, van sales, shorts), the cash
+   tile, then stop the WhatsApp group.
+3. Open: Pickup report of 1 Nov is ₹1,000 off in the chat (₹9,780 worked out vs ₹8,780 posted).
+

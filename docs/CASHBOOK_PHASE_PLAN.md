@@ -6,7 +6,7 @@ PlantOps, the way Floor Stock replaced the evening stock message. It covers van 
 provide the **20 L customer list as an Excel sheet**; jar payments are credited to those customers.
 Status: **see section 0.**
 
-## 0. Status and handover (2026-11-11, read this first)
+## 0. Status and handover (2026-11-11 end of day, read this first)
 - **C1 live** (v0.63.0, `c799a2d`, Sales migration `0017` applied 2026-11-11). Nobody uses it yet: **the owner starts
   the cash book only after C2 and C3 are live** ("when all customers' money, all brands, is counted in cash").
 - **C2 live 2026-11-11** (v0.64.0, `6ab6284`, migration `0018` applied). **The owner imported the 20 L list and tested it
@@ -19,10 +19,19 @@ Status: **see section 0.**
   **v0.65.1 (owner, testing live):** the van form takes **one total sales amount** (no products × rates); new customers
   are entered as a Sales order first. **"Not paid" lines wait in To post too** (owner
   2026-11-11): posting makes the bill.
-- **Owner's to-dos now (C1–C3 live):** start the cash book (count the box), Settings: vehicles Mini + Pickup, check expense
-  types, give Anmol and Bindu the Accounts role, run alongside the WhatsApp groups, then stop them.
+- **Owner, 2026-11-11: done** — 20 L list imported and tested, vehicles Mini + Pickup, Anmol and Bindu = Accounts, **cash
+  book started**. **Runs alongside the WhatsApp group from 2026-11-12** for about a week (compare cash in hand each
+  evening), then the group stops (C5).
 - **Never commit `refeDocs/payments/`** (the private WhatsApp export and customer files).
-- **Next build:** C4 (staff cash → Attendance advances, "Open with staff"), then C5 (Reports → Cash, tile, stop the group).
+- **Next build: C4** (plan first, ask before the migration and the key):
+  1. Staff cash "Advance against salary" → an Attendance advance automatically (Attendance migration `0013`:
+     `salary_advances.source_ref` = the C-number, unique per plant; Attendance `POST /api/cashbook/v1/advances` with a key
+     `atc_…` held by Sales, plant bound to the key, like the bot / call keys; retried from a Sales outbox). "Took back" =
+     an advance correction. Section 5.
+  2. Staff list from Attendance's employees instead of typed names; never to yourself (already enforced).
+  3. **Open with staff**: cash given "for plant spending" not yet settled (by expenses / purchase bills / cash returned).
+- **Then C5:** Reports → Cash (cash book by period, expenses by type incl. the van's meal / tiffin / diesel / toll, van
+  sales by vehicle, shorts and extras), the Sales tile (cash in hand, closed / not closed), stop the WhatsApp group.
 - Open finding for the owner: Pickup report of 1 Nov is ₹1,000 off (₹9,780 worked out vs ₹8,780 posted).
 
 ## 1. What the group does today (plant 001, read 2026-11-10)
