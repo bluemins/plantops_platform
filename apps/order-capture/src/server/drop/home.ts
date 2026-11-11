@@ -11,7 +11,7 @@ import { and, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { boxTotals, type BoxLine } from "@/lib/box-totals";
 import { brandDues } from "@/lib/brand-due";
 import { brandKey, sizeLabel, type BrandProduct } from "@/lib/brand";
-import { billDue, paise } from "@/lib/ledger";
+import { billDue, isOpeningBill, paise } from "@/lib/ledger";
 import { schema, withTenant } from "../db";
 import { kit } from "../kit";
 import { partyFacts } from "../ledger";
@@ -114,7 +114,7 @@ export async function home(s: AppSession, now = new Date()): Promise<Home> {
     if (p) boxLines.push({ date, brand: p.brand, size: sizeLabel(p.volume_ml), ml: p.volume_ml, qty });
   };
   for (const b of data.rows.bills) {
-    if (b.cancelledAt || b.zohoInvoiceId?.startsWith("ob:")) continue;
+    if (b.cancelledAt || isOpeningBill(b)) continue;
     for (const l of linesOf.get(b.id) ?? []) if (!l.free) addBox(b.billDate, productOf({ sku_id: l.skuId, sku_code: l.skuCode, name: l.itemName }), Number(l.quantity));
   }
   for (const o of data.os) {

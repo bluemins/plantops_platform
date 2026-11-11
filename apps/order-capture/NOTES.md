@@ -676,3 +676,19 @@ Plan: `docs/CASHBOOK_PHASE_PLAN.md` (section 7a = what C1 built). Files: `db/mig
 tab (`cash` prop on `SectionTabs`) for owner, Accounts, support. Made while building: entries only on days after the last
 close; closing a day rolls earlier unclosed days into it; only the last close is corrected; staff cash to yourself is
 refused (by user id or the same name); alert limits fixed in code (₹100, ₹2,000).
+
+## 2026-11-11 — Cash book C2 (v0.64.0): 20 L customers and collections
+Plan: `docs/CASHBOOK_PHASE_PLAN.md` (section 6b = what C2 built). Files: `db/migrations/0018_jar_customers.sql`,
+`src/lib/jar-import.ts` (reading the 20 L pending report + the import plan), `src/server/collections.ts` (import,
+collections, post / turn down, 20 L list, search), pages `src/app/cash/jar/**`, `src/app/cash/post/page.tsx`,
+`src/app/cash/collect-forms.tsx`, routes `src/app/api/cash/jar/**`, `src/app/api/cash/collections/**`,
+`src/app/api/collections/[id]/**`, `test/collections.test.ts`. New dependency: `xlsx` (SheetJS 0.20.3, the same tarball
+as the platform's Bank remarks), read in the browser only.
+- **Owner, 2026-11-11:** a collection never changes a customer's bills by itself. Cash → cash book at once; each line
+  waits in **To post** until the owner / Accounts posts it (`receiveInTx`, Receive payment's own code) or turns it down.
+- Opening balances: `bills.source = 'opening'`, number `OB20-<ref>`; test with `isOpeningBill` / `OPENING_SQL`
+  (`src/lib/ledger.ts`) everywhere a Zoho `ob:` bill was left out before.
+- Made while building: placeholder mobiles (not 6-9 + 9 digits) count as "no mobile"; one place for all new customers
+  (default = the word most names end with, "Bijepur"); a collection with only online lines gets no C-number; a collection
+  entry can't be cancelled while a line is posted; a posted line whose payment is cancelled waits again; the payment's
+  date is the day collected (work day).

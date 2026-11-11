@@ -3,7 +3,8 @@
 // entry after that close, up to the day. A close stores what was counted; the next day starts from that count.
 import { paise, rupees } from "./ledger";
 
-export type CashKind = "expense" | "staff_out" | "staff_in" | "owner_in" | "owner_out" | "bank_deposit" | "other_in" | "other_out";
+/** "collection" = cash collected from customers (C2): saved only by the collection screen, never typed as an entry */
+export type CashKind = "expense" | "staff_out" | "staff_in" | "owner_in" | "owner_out" | "bank_deposit" | "other_in" | "other_out" | "collection";
 export type StaffPurpose = "advance" | "plant" | "salary";
 
 /** C-0001: one series per plant. */
@@ -21,11 +22,12 @@ export const KIND_LABEL: Record<CashKind, string> = {
   bank_deposit: "Deposited to bank",
   other_in: "Other money in",
   other_out: "Other money out",
+  collection: "Collection from customers",
 };
 export const PURPOSE_LABEL: Record<StaffPurpose, string> = { advance: "Advance against salary", plant: "For plant spending", salary: "Salary paid in cash" };
 
 /** In or out, from the kind (the database checks the same). */
-export const directionOf = (k: CashKind): "in" | "out" => (k === "staff_in" || k === "owner_in" || k === "other_in" ? "in" : "out");
+export const directionOf = (k: CashKind): "in" | "out" => (k === "staff_in" || k === "owner_in" || k === "other_in" || k === "collection" ? "in" : "out");
 
 /** Alerts to the owner (plan section 4): a close this far off, an expense this big. */
 export const SHORT_ALERT = 10000n; // ₹100, in paise

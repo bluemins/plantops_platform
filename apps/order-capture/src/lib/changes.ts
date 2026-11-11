@@ -104,6 +104,15 @@ export function describeChange(action: string, details: Record<string, unknown>)
     case "cash.category_edit":
     case "cash.vehicle_edit":
       return `${action === "cash.vehicle_edit" ? "Vehicle" : "Expense type"} "${show(details.name)}"${details.was !== details.name ? ` (was "${show(details.was)}")` : ""}${details.active === false ? ", switched off" : ""}`;
+    // cash book C2: 20 L customers and collections
+    case "jar.import":
+      return `Imported 20 L customers from ${show(details.file)}: ${show(details.customers_new)} new, ${show(details.added_to_existing)} added to existing, ₹${show(details.imported)} opening balances${Number(details.left_out) ? `, ${show(details.left_out)} left out` : ""}`;
+    case "cash.collection":
+      return `Collection${details.ref ? ` ${show(details.ref)}` : ""} on ${show(details.cash_date)}: ₹${show(details.cash)} cash${details.online !== "0.00" ? `, ₹${show(details.online)} online` : ""} (${plural(details.lines, "line")}, waiting to post)`;
+    case "collection.post":
+      return `Posted a collection of ₹${show(details.amount)} as ${show(details.payment)} on ${show(details.customer)}'s account`;
+    case "collection.turn_down":
+      return `Turned down a collection of ₹${show(details.amount)} from ${show(details.customer)}: ${show(details.reason)}`;
     case "export.csv":
       return `Exported the orders (CSV, ${plural(details.orders, "order")}, ${plural(details.lines, "line")})`;
     default:

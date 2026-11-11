@@ -157,14 +157,26 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
     values ('${tenantId}', 1, '2026-11-09', '2026-11-09', 'expense', 'out', 2000, '${ecat}', '${van}', '${who}', 'Anmol') returning id`);
   const cclose = await one(`insert into order_capture.cash_closes (tenant_id, cash_date, version, opening, counted, expected, difference, created_by, created_by_name)
     values ('${tenantId}', '2026-11-07', 1, true, 14435, 14435, 0, '${who}', 'Sujata') returning id`);
-  return { ecat, van, centry, cclose, pimp, vendor, pitem, pbill, pline, vpay, valloc, device, push, poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
+  // 20 L customers and collections (0018): an import, a 20 L mark with its opening bill, a collection entry, a line, its post
+  const jimp = await one(`insert into order_capture.jar_imports (tenant_id, file_name, total_due, imported_by, imported_by_name) values ('${tenantId}', 'report.xlsx', 360, '${who}', 'Sujata') returning id`);
+  const obill = await one(`insert into order_capture.bills (tenant_id, source, number, bill_date, customer_id, customer_name, sub_total, total, created_by, created_by_name)
+    values ('${tenantId}', 'opening', 'OB20-3324', '2026-11-11', '${customer}', 'Sri ram hotel', 360, 360, '${who}', 'Sujata') returning id`);
+  const jar = await one(`insert into order_capture.jar_customers (tenant_id, customer_id, source_ref, source_name, group_name, opening_bill_id, opening_due, import_id, created_by, created_by_name)
+    values ('${tenantId}', '${customer}', '3324', 'Sri ram hotel Bijepur', 'Bijepur Area', '${obill}', 360, '${jimp}', '${who}', 'Sujata') returning id`);
+  const coll = await one(`insert into order_capture.cash_entries (tenant_id, ref_no, cash_date, work_date, kind, direction, amount, created_by, created_by_name)
+    values ('${tenantId}', 2, '2026-11-09', '2026-11-09', 'collection', 'in', 50, '${who}', 'Anmol') returning id`);
+  const cline = await one(`insert into order_capture.collection_lines (tenant_id, batch_id, line_no, cash_entry_id, customer_id, amount, mode, work_date, created_by, created_by_name)
+    values ('${tenantId}', gen_random_uuid(), 1, '${coll}', '${customer}', 50, 'cash', '2026-11-09', '${who}', 'Anmol') returning id`);
+  const cpost = await one(`insert into order_capture.collection_posts (tenant_id, line_id, outcome, reason, created_by, created_by_name)
+    values ('${tenantId}', '${cline}', 'turned_down', 'test row', '${who}', 'Sujata') returning id`);
+  return { jimp, obill, jar, coll, cline, cpost, ecat, van, centry, cclose, pimp, vendor, pitem, pbill, pline, vpay, valloc, device, push, poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
 }
 
 /** The tables in the order_capture schema (the guard tests compare against this list). */
 export const TABLES = [
   "app_access_changes", "app_devices", "app_login_codes", "app_phone_changes", "app_push_outbox", "app_sessions",
-  "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "cash_closes", "cash_entries", "cash_vehicles", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
-  "expense_categories", "ignored_number_changes", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "points_redemptions", "points_settings", "poll_answers", "polls", "product_rates",
+  "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "cash_closes", "cash_entries", "cash_vehicles", "collection_lines", "collection_posts", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
+  "expense_categories", "ignored_number_changes", "jar_customers", "jar_imports", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "points_redemptions", "points_settings", "poll_answers", "polls", "product_rates",
   "purchase_bill_lines", "purchase_bills", "purchase_imports", "purchase_items",
   "reminder_groups", "support_views", "vendor_payment_allocations", "vendor_payments", "vendors", "zoho_contacts", "zoho_imports",
 ];

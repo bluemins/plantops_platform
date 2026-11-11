@@ -70,7 +70,7 @@ async function linkOne(tx: OcTx, user: OcUser, orderId: string, pick: { bill_id?
     select number from order_capture.bills where tenant_id = ${user.tenantId} and order_id = ${orderId} and cancelled_at is null`);
   if (has[0]) throw conflict(`${orderRef(o.ref_no)} already has bill ${has[0].number}.`);
   const { rows: bs } = await tx.execute<{ id: string; number: string; source: string; order_id: string | null; cancelled: boolean; ob: boolean; customer_name: string; total: string }>(sql`
-    select id, number, source, order_id, cancelled_at is not null as cancelled, coalesce(zoho_invoice_id, '') like 'ob:%' as ob, customer_name, total::text
+    select id, number, source, order_id, cancelled_at is not null as cancelled, (source = 'opening' or coalesce(zoho_invoice_id, '') like 'ob:%') as ob, customer_name, total::text
       from order_capture.bills
      where tenant_id = ${user.tenantId} and ${pick.bill_id ? sql`id = ${pick.bill_id}` : sql`upper(number) = upper(${pick.number!})`}
      for update`);

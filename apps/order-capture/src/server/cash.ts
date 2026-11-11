@@ -39,7 +39,7 @@ export const BACK_DAYS = 7;
 // ---------- what is saved so far ----------
 
 /** The latest version of each day's close, oldest day first. */
-async function closesOf(tx: OcTx, t: string) {
+export async function closesOf(tx: OcTx, t: string) {
   const rows = await tx.execute<{ id: string; cash_date: string; version: number; opening: boolean; counted: string; expected: string; difference: string; reason: string | null; created_by_name: string; created_at: Date }>(sql`
     select distinct on (cash_date) id, cash_date::text, version, opening, counted::text, expected::text, difference::text, reason, created_by_name, created_at
       from order_capture.cash_closes where tenant_id = ${t}
@@ -64,7 +64,7 @@ async function entriesFrom(tx: OcTx, t: string, from: string | null, to: string)
     .orderBy(asc(cashEntries.cashDate), asc(cashEntries.refNo));
 }
 
-const lock = (tx: OcTx, t: string) => tx.execute(sql`select pg_advisory_xact_lock(hashtext('order_capture.cash'), hashtext(${t}))`);
+export const cashLock = (tx: OcTx, t: string) => tx.execute(sql`select pg_advisory_xact_lock(hashtext('order_capture.cash'), hashtext(${t}))`);
 
 // ---------- lists: categories, vehicles, people ----------
 
@@ -127,7 +127,7 @@ export async function startCashBook(user: OcUser, input: z.infer<typeof StartInp
   if (input.date > today) throw badRequest("The opening count can't be for a day that hasn't come yet");
   if (input.date < addDays(today, -31)) throw badRequest("Start the cash book with a recent day (the last 31 days)");
   return withTenant(user.tenantId, async (tx) => {
-    await lock(tx, user.tenantId);
+    await cashLock(tx, user.tenantId);
     if ((await closesOf(tx, user.tenantId)).length) throw conflict("The cash book has already been started");
     await tx.insert(cashCloses).values({ tenantId: user.tenantId, cashDate: input.date, version: 1, opening: true, counted: input.counted, expected: input.counted, difference: "0", createdBy: user.userId, createdByName: user.name });
     const have = await tx.select({ id: expenseCategories.id }).from(expenseCategories).where(eq(expenseCategories.tenantId, user.tenantId)).limit(1);
@@ -189,7 +189,7 @@ export async function addEntry(user: OcUser, input: EntryInput, today = istToday
 
   return withTenant(user.tenantId, async (tx) => {
     const t = user.tenantId;
-    await lock(tx, t);
+    await cashLock(tx, t);
     const closes = await closesOf(tx, t);
     if (!closes.length) throw badRequest("The cash book hasn't been started yet. The owner starts it with today's cash count.");
     const w = entryWindow(closes.at(-1)!.cash_date, today);
@@ -253,10 +253,20 @@ export const CancelInput = z.object({ reason: Reason });
 export async function cancelEntry(user: OcUser, id: string, input: z.infer<typeof CancelInput>) {
   requireAccess(user, "cash_owner");
   return withTenant(user.tenantId, async (tx) => {
-    await lock(tx, user.tenantId);
+    await cashLock(tx, user.tenantId);
     const [e] = await tx.select().from(cashEntries).where(and(eq(cashEntries.tenantId, user.tenantId), eq(cashEntries.id, id)));
     if (!e) throw notFound("Entry not found");
     if (e.cancelledAt) throw conflict(`${cashRef(e.refNo)} was already cancelled`);
+    if (e.kind === "collection") {
+      // a line already posted onto a customer's account keeps the entry: cancel that payment first (C2)
+      const posted = await tx.execute<{ number: string }>(sql`
+        select pay.number from order_capture.collection_lines l
+          join lateral (select * from order_capture.collection_posts x where x.tenant_id = l.tenant_id and x.line_id = l.id order by x.created_at desc limit 1) p on true
+          join order_capture.payments pay on pay.tenant_id = l.tenant_id and pay.id = p.payment_id
+         where l.tenant_id = ${user.tenantId} and l.cash_entry_id = ${id} and p.outcome = 'posted' and pay.cancelled_at is null`);
+      if (posted.rows.length)
+        throw conflict(`Lines of ${cashRef(e.refNo)} are already on customers' accounts (${posted.rows.map((r) => r.number).join(", ")}). Cancel ${posted.rows.length === 1 ? "that payment" : "those payments"} first.`);
+    }
     await tx.update(cashEntries).set({ cancelledAt: new Date(), cancelledBy: user.userId, cancelledByName: user.name, cancelReason: input.reason }).where(and(eq(cashEntries.tenantId, user.tenantId), eq(cashEntries.id, id)));
     await audit(tx, user, "cash.cancel", id, { ref: cashRef(e.refNo), amount: e.amount, reason: input.reason });
     return { ref: cashRef(e.refNo), amount: e.amount, cash_date: e.cashDate };
@@ -282,7 +292,7 @@ export async function closeDay(user: OcUser, input: z.infer<typeof CloseInput>, 
   if (input.date > today) throw badRequest("You can't close a day that hasn't come yet");
   return withTenant(user.tenantId, async (tx) => {
     const t = user.tenantId;
-    await lock(tx, t);
+    await cashLock(tx, t);
     const closes = await closesOf(tx, t);
     const last = closes.at(-1);
     if (!last) throw badRequest("The cash book hasn't been started yet. The owner starts it with today's cash count.");

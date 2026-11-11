@@ -2216,3 +2216,17 @@ platform database unchanged. Tests: Sales 1227 (+15 cash), platform order-captur
 **Next (owner 2026-11-11):** C2 (20 L customers from the Pure Pani pending report, as opening balances + collections;
 migration `0018` approved, incl. `bills.source` 'opening') then C3 (van report per brand per product); the owner starts
 using the cash book after C3. Handover: `docs/CASHBOOK_PHASE_PLAN.md` section 0.
+
+### 2026-11-11 — Cash book C2: 20 L customers and collections (v0.64.0) — built, not deployed
+Owner 2026-11-11 (C2 "as recommended", migration approved). **Cash → 20 L → Import list** (owner): the 20 L pending report
+(Excel, read in the browser) → preview → confirm: Sales customers with a "20 L" mark and what they owe as an opening bill
+`OB20-<ref>` (no B-number, never a sale; Receivables and statements count it); rows whose mobile is already a customer
+add to them; rows with no real mobile (plant 001: 17 empty + 10 placeholders, ₹4,036) left out unless a mobile is typed;
+the same file again adds nothing. **+ Collection** on the day sheet (owner, Accounts): customers + amount + Cash / Online;
+the cash goes into the cash book at once (kind `collection`, C-number). **Owner, 2026-11-11: a collection must not update
+billing directly**: each line waits in **Cash → To post** until the owner or Accounts posts it (a payment, Receive
+payment's rules, maybe on another customer) or turns it down with a reason. Sales migration `0018_jar_customers.sql`
+(approved, widened the same day): `jar_imports`, `jar_customers`, `collection_lines`, `collection_posts` (FORCE RLS, SELECT
++ INSERT only), `bills.source` + `'opening'`, `cash_entries.kind` + `'collection'`. Platform and SSO token unchanged. Notes:
+`apps/order-capture/NOTES.md`; plan `docs/CASHBOOK_PHASE_PLAN.md` sections 0 + 6b. Tests: Sales 1,253 (+26). **Next:**
+deploy (migration first), the owner imports the 20 L report; then C3 (van report).

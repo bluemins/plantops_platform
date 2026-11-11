@@ -13,6 +13,8 @@ import {
   billDue,
   billRef,
   billStatus,
+  isOpeningBill,
+  OPENING_SQL,
   ledgerTotals,
   orderLedgerStatus,
   paise,
@@ -114,9 +116,10 @@ function timeline(
   const rs = (s: string) => `₹${Number(s).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const out: TimelineItem[] = [];
   for (const b of rows.bills) {
-    const ob = b.zohoInvoiceId?.startsWith("ob:") ?? false;
+    const ob = isOpeningBill(b);
     const order = b.orderId && refOf.get(b.orderId) ? ` (${refOf.get(b.orderId)})` : "";
-    if (b.source === "zoho") out.push({ at: b.billDate, text: ob ? `Opening balance ${rs(b.total)}` : `Invoice ${b.number}, ${rs(b.total)}${order}`, by: "from Zoho", href: `/bills/${b.id}` });
+    if (b.source === "opening") out.push({ at: b.billDate, text: `Opening balance ${rs(b.total)} (${b.number}, brought in)`, by: b.createdByName, href: `/bills/${b.id}` });
+    else if (b.source === "zoho") out.push({ at: b.billDate, text: ob ? `Opening balance ${rs(b.total)}` : `Invoice ${b.number}, ${rs(b.total)}${order}`, by: "from Zoho", href: `/bills/${b.id}` });
     else out.push({ at: b.createdAt.toISOString(), text: `Bill ${b.number} made, ${rs(b.total)}${order}`, by: b.createdByName, href: `/bills/${b.id}` });
     if (b.cancelledAt) out.push({ at: b.cancelledAt.toISOString(), text: `Bill ${b.number} cancelled: ${b.cancelReason ?? ""}`, by: b.cancelledByName, href: `/bills/${b.id}` });
   }
@@ -170,7 +173,7 @@ export async function account(user: OcUser, party: Party, range: { from?: string
           id: b.id,
           number: b.number,
           source: r.source,
-          opening_balance: r.zohoInvoiceId?.startsWith("ob:") ?? false,
+          opening_balance: isOpeningBill(r),
           bill_date: b.bill_date,
           due_date: b.due_date,
           total: rupees(b.total),
@@ -303,7 +306,7 @@ async function buyingAndPaying(
   today: string,
   fy: number | undefined,
 ) {
-  const real = rows.bills.filter((b) => !b.cancelledAt && !b.zohoInvoiceId?.startsWith("ob:") && P(b.total) > 0n);
+  const real = rows.bills.filter((b) => !b.cancelledAt && !isOpeningBill(b) && P(b.total) > 0n);
   // only the latest purchases need their lines (basket: 5, stopped buying: 13)
   const lastDates = new Set([...new Set(real.map((b) => b.billDate))].sort().slice(-13));
   const recentBills = real.filter((b) => lastDates.has(b.billDate));
@@ -326,7 +329,7 @@ async function buyingAndPaying(
     lines: ol.filter((l) => l.orderId === o.id && l.version === o.version && !l.free).map((l) => ({ key: keyOf(l.skuId, l.productName), name: l.productName, unit: l.unit, quantity: l.quantity })),
   }));
   return customerInsights({
-    bills: rows.bills.map((b) => ({ id: b.id, bill_date: b.billDate, due_date: b.dueDate, total: P(b.total), cancelled: !!b.cancelledAt, opening: b.zohoInvoiceId?.startsWith("ob:") ?? false })),
+    bills: rows.bills.map((b) => ({ id: b.id, bill_date: b.billDate, due_date: b.dueDate, total: P(b.total), cancelled: !!b.cancelledAt, opening: isOpeningBill(b) })),
     settles: [
       ...rows.allocations.map((a) => ({ bill_id: a.billId, amount: P(a.amount), on: a.allocatedOn })),
       ...rows.adjustments.map((a) => ({ bill_id: a.billId, amount: P(a.amount), on: a.adjustedOn })),
@@ -361,7 +364,7 @@ export async function billsList(user: OcUser, f: { show?: BillFilter; q?: string
                     (b.total - coalesce(p.s, 0) - coalesce(a.s, 0)) as due_n, b.cancelled_at is not null as cancelled,
                     b.order_id, o.ref_no, coalesce(cu.name, zc.name, b.customer_name) as name, cu.id as customer_id,
                     case when cu.id is null then zc.id end as contact_id, coalesce(cu.phone, zc.mobile) as phone,
-                    coalesce(b.zoho_invoice_id like 'ob:%', false) as ob
+                    ${sql.raw(OPENING_SQL("b"))} as ob
                from order_capture.bills b
                left join paid p on p.bill_id = b.id
                left join adj a on a.bill_id = b.id
@@ -465,7 +468,7 @@ export async function billDetail(user: OcUser, id: string) {
       id: b.id,
       number: b.number,
       source: b.source,
-      opening_balance: b.zohoInvoiceId?.startsWith("ob:") ?? false,
+      opening_balance: isOpeningBill(b),
       bill_date: b.billDate,
       due_date: b.dueDate,
       status: billStatus(L, due, istToday()),
@@ -540,7 +543,16 @@ export async function receivePayment(user: OcUser, input: z.infer<typeof Receive
   const amount = paise(input.amount);
   if (amount <= 0n) throw badRequest("Amount: more than ₹0");
   if (input.payment_date > istToday()) throw badRequest("The payment date can't be in the future.");
-  return withTenant(user.tenantId, async (tx) => {
+  return withTenant(user.tenantId, (tx) => receiveInTx(tx, user, input));
+}
+
+/**
+ * Receive payment inside a transaction: also used when the owner / Accounts posts a cash book collection line
+ * (src/server/collections.ts), so both follow the same rules. The caller checks access and the amount.
+ */
+export async function receiveInTx(tx: OcTx, user: OcUser, input: z.infer<typeof ReceivePaymentInput>) {
+  const amount = paise(input.amount);
+  {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext('order_capture.payment'), hashtext(${user.tenantId}))`);
     const scope = await partyScope(tx, user.tenantId, { kind: "customer", id: input.customer_id });
     const { L } = await partyFacts(tx, user.tenantId, scope.customer!.id, scope.contactIds);
@@ -574,7 +586,7 @@ export async function receivePayment(user: OcUser, input: z.infer<typeof Receive
     const paid = allocations.map((a) => open.find((b) => b.id === a.bill_id)!.number);
     await audit(tx, user, "payment.receive", p!.id, { number: p!.number, customer: scope.customer!.name, amount: p!.amount, mode: p!.mode, bills: paid, advance: rupees(unused) });
     return { id: p!.id, number: p!.number, amount: p!.amount, customer: scope.customer!.name, mode: p!.mode, bills: paid, advance: rupees(unused) };
-  });
+  }
 }
 
 export const CancelInput = z.object({ reason: z.string().trim().min(3, "Reason: at least 3 letters").max(300) });
@@ -664,7 +676,7 @@ export async function billsCsvRows(user: OcUser) {
   const { bills: list } = await billsList(user, { show: "all" }, 100_000);
   return [
     ["Bill", "Source", "Date", "Customer", "Order", "Total", "Due", "Status"],
-    ...list.map((b) => [b.number, b.opening_balance ? "Zoho opening balance" : b.source === "zoho" ? "Zoho" : "PlantOps", b.bill_date, b.name, b.order_ref ?? "", b.total, b.due, b.status]),
+    ...list.map((b) => [b.number, b.source === "opening" ? "Opening balance (brought in)" : b.opening_balance ? "Zoho opening balance" : b.source === "zoho" ? "Zoho" : "PlantOps", b.bill_date, b.name, b.order_ref ?? "", b.total, b.due, b.status]),
   ];
 }
 

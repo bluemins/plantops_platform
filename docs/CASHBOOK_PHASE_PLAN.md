@@ -9,24 +9,16 @@ Status: **see section 0.**
 ## 0. Status and handover (2026-11-11, read this first)
 - **C1 live** (v0.63.0, `c799a2d`, Sales migration `0017` applied 2026-11-11). Nobody uses it yet: **the owner starts
   the cash book only after C2 and C3 are live** ("when all customers' money, all brands, is counted in cash").
-- **C2 approved** (owner 2026-11-11: "as recommended" + migration "approved"); design in **section 6a**. Next session:
-  build C2.
-  1. Migration `apps/order-capture/db/migrations/0018_jar_customers.sql`: `jar_imports`, `jar_customers` (FORCE RLS, no
-     DELETE, SELECT + INSERT) and `bills.source` also `'opening'` (numbers `OB20-<Pure Pani ref>`, no `ref_no`, no
-     Zoho ids). **Before writing it, check every reader of `bills.source` / `ref_no`** in `src/` (bill pages, lists,
-     statements, Receivables, Order to Payment, Link bills, GST invoices, customer insights, reports, Zoho re-import
-     fingerprints): an `'opening'` bill must show like Zoho's `OB-…` bills and never count as a sale.
-  2. Import from the owner's Excel (`refeDocs/payments/WhatsApp Chat with Payments/customer_remaining_payment_report_11_2026_*.xlsx`,
-     sheet "Remaining Payment", 178 customers, ₹64,324): preview → confirm, owner only; the 12 mobiles already in Sales:
-     per row "add the due to that customer" or "type another mobile"; the 17 without a mobile (₹2,774): type one or leave
-     out (they stay in Pure Pani); 13 rows have an old invoice ref ("#000123811/ Nov-2024") as Ref. No.; totals must
-     equal the file. Same file again adds nothing.
-  3. Cash → + 20 L collection (owner, Accounts) → payments on the account (oldest due first), cash lines into the cash
-     book; a "20 L" list with due per customer.
-  4. Tests (isolation, access, the import plan with the real file's counts, re-import, append-only), screen check, then
-     ask the owner before deploying (migration first).
+- **C2 built 2026-11-11 (v0.64.0), not deployed.** Sales migration `0018_jar_customers.sql` (approved; widened by the
+  owner the same day, see section 6b). **Deploy: migration first, then Sales.** Then the owner imports the 20 L report
+  (Cash → 20 L → Import list); the 12 mobiles already in Sales show under "Mobile already in Sales".
+  - **Owner, 2026-11-11 (while building): a collection must not update the customer's billing directly.** The cash goes
+    into the cash book at once; every customer line waits in **Cash → To post** until the owner or Accounts posts it
+    (then it is a payment, oldest bills first, or on another customer) or turns it down with a reason.
+  - Found in the file: besides the 17 rows without a mobile, **10 "mobiles" are the other app's placeholders**
+    (1730445774…), so **27 rows (₹4,036) are left out by default**; 151 come in (₹60,288) on a fresh copy.
 - **Then C3** (van report): per brand per product (boxes, rate from Rates); "not paid" → bill, "collected from customers"
-  (all Sales + 20 L customers) → payment; load out / returned only as an **optional placeholder**; needs its own
+  (all Sales + 20 L customers) → **collection lines that wait in To post** (same rule as C2, owner 2026-11-11); load out / returned only as an **optional placeholder**; needs its own
   migration (ask). Design notes in section 3.2.
 - **Owner's to-dos after C3:** start the cash book (count the box), Settings: vehicles Mini + Pickup, check expense
   types, give Anmol and Bindu the Accounts role, run alongside the WhatsApp groups, then stop them.
@@ -202,7 +194,7 @@ C-0123)". Platform and **SSO token unchanged**.
 
 Staff advances: never for yourself (like Office staff in Attendance).
 
-## 6a. Step C2 design (2026-11-11, waiting for the owner's answers + migration approval)
+## 6a. Step C2 design (2026-11-11, approved; as built: section 6b)
 **The owner's file:** `refeDocs/payments/WhatsApp Chat with Payments/customer_remaining_payment_report_11_2026_*.xlsx`
 (Pure Pani "Remaining Payment", 11 Nov 2026): **178 customers, ₹64,324 due** (every row has a due), 161 with a mobile,
 17 without (₹2,774: events, police, old customers), 13 rows with an old invoice ref ("#000123811/ Nov-2024") instead of a
@@ -230,6 +222,24 @@ Sales customers** (some the same shop: "Raja Tea Stall" = "Raja Tea"; some not: 
 `jar_customers` (customer, Pure Pani ref, group, preference, opening bill, import), FORCE RLS, no DELETE; **one change
 to an existing table:** `bills.source` also allows `'opening'` (today only `'zoho'` / `'plantops'`), so the opening
 balances get their own numbers ("OB20-3324") instead of using up B-numbers. Platform and SSO token unchanged.
+
+## 6b. Step C2 as built (2026-11-11, v0.64.0)
+- **Migration `0018_jar_customers.sql`** (approved; the owner added "collection" and "post later" the same day):
+  `bills.source` also `'opening'` (OB20-<ref>, no B-number, no lines, customer only); `jar_imports`, `jar_customers`
+  (the "20 L" mark: Pure Pani ref, group, preference, opening bill); `cash_entries.kind` also `'collection'`;
+  `collection_lines` (each customer line as typed, with its cash entry when cash) and `collection_posts` (posted → its
+  payment, or turned down → reason; append-only, a cancelled payment lets the line be posted again). FORCE RLS, SELECT +
+  INSERT only, no DELETE.
+- **One rule for "opening balance"**: `isOpeningBill` / `OPENING_SQL` in `src/lib/ledger.ts` (Zoho's `ob:` and the new
+  `'opening'`), used by Buying & paying, the timeline, Bills list / bill page / statement labels, Link bills, sales
+  reports and Drop's box totals. Receivables and the Customers tile count them as money owed.
+- Rules `src/lib/jar-import.ts`; server `src/server/collections.ts`; pages `/cash/jar` (20 L list: owe, waiting),
+  `/cash/jar/import` (owner), `/cash/post` (To post), "+ Collection" on the day sheet (customer search, 20 L first, last
+  amount pre-filled, Cash / Online). Receive payment's inside is shared (`receiveInTx`), so posting follows its rules.
+- Access rows `jar_import` (owner) and `collection_post` (owner, Accounts); entering a collection = `cash_enter`.
+- A collection entry can't be cancelled while a line is on an account (cancel that payment first); cancelling it makes
+  its waiting lines void. Online lines never go into the box; a save with only online lines has no C-number.
+- Posting sends the usual "Payment received" bell; saving a collection sends nothing (like other cash entries).
 
 ## 7a. Step C1 as built (2026-11-11, v0.63.0)
 - Sales migration `0017_cash_book.sql`: `expense_categories`, `cash_vehicles`, `cash_entries` (C-numbers, cash day +

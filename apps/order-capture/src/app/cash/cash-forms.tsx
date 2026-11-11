@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { Button, ErrorText } from "@plantops/ui";
 import { api } from "@/lib/api";
 import { differenceText, paise, signedMoney } from "@/lib/cash";
+import { CollectionForm } from "./collect-forms";
 
 const field = "min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-base focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)";
 const label = "mb-1 block text-sm font-medium text-slate-700";
@@ -60,20 +61,22 @@ const MONEY: [MoneyKind, string][] = [
   ["other_out", "Other money out"],
 ];
 
-/** The three entry buttons and the form that opens under them. */
+/** The entry buttons (+ Collection, + Expense, + Staff cash, + Money in / out) and the form that opens under them. */
 export function EntryButtons({ date, lists }: { date: string; lists: Lists }) {
-  const [mode, setMode] = useState<Mode | null>(null);
+  const [mode, setMode] = useState<Mode | "collection" | null>(null);
   const [done, setDone] = useState<string>();
   const btn = "min-h-14 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-(--brand)";
   return (
     <div className="space-y-3">
       {done && <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{done}</p>}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" className={btn} onClick={() => { setDone(undefined); setMode("collection"); }}>+ Collection</button>
         <button type="button" className={btn} onClick={() => { setDone(undefined); setMode("expense"); }}>+ Expense</button>
         <button type="button" className={btn} onClick={() => { setDone(undefined); setMode("staff"); }}>+ Staff cash</button>
         <button type="button" className={btn} onClick={() => { setDone(undefined); setMode("money"); }}>+ Money in / out</button>
       </div>
-      {mode && <EntryForm key={mode} mode={mode} date={date} lists={lists} onClose={() => setMode(null)} onDone={(t) => { setDone(t); setMode(null); }} />}
+      {mode === "collection" && <CollectionForm date={date} onClose={() => setMode(null)} onDone={(t) => { setDone(t); setMode(null); }} />}
+      {mode && mode !== "collection" && <EntryForm key={mode} mode={mode} date={date} lists={lists} onClose={() => setMode(null)} onDone={(t) => { setDone(t); setMode(null); }} />}
     </div>
   );
 }

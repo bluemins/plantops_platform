@@ -24,6 +24,15 @@ export function rupees(p: bigint) {
 
 /** A PlantOps bill / payment number as people see it: B-0001, P-0042 (one series each per plant). */
 export const billRef = (n: number) => `B-${String(n).padStart(4, "0")}`;
+
+/**
+ * An opening balance, not a sale: a Zoho contact's balance from before Zoho ("OB-…", zoho_invoice_id "ob:…") or a balance
+ * brought in from another app's report (source 'opening', "OB20-…", cash book C2). Sales reports and "Buying & paying"
+ * leave them out; Receivables and statements count them.
+ */
+export const isOpeningBill = (b: { source: string; zohoInvoiceId?: string | null }) => b.source === "opening" || (b.zohoInvoiceId?.startsWith("ob:") ?? false);
+/** The same test in SQL, for a bills row aliased `alias`. */
+export const OPENING_SQL = (alias: string) => `(${alias}.source = 'opening' or coalesce(${alias}.zoho_invoice_id, '') like 'ob:%')`;
 export const paymentRef = (n: number) => `P-${String(n).padStart(4, "0")}`;
 
 export type LedgerBill = {

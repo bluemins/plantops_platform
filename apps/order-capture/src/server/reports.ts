@@ -15,7 +15,7 @@ import {
   type ReportKind,
   type SalesLine,
 } from "@/lib/report";
-import { paise } from "@/lib/ledger";
+import { OPENING_SQL, paise } from "@/lib/ledger";
 import {
   AS_OFS,
   asOfDate,
@@ -106,7 +106,7 @@ async function salesLines(tenantId: string, from: string, to: string): Promise<S
         left join order_capture.product_rates pr on pr.tenant_id = b.tenant_id and pr.sku_id = l.sku_id
        where b.tenant_id = ${tenantId}
          and b.cancelled_at is null
-         and coalesce(b.zoho_invoice_id, '') not like 'ob:%'
+         and not ${sql.raw(OPENING_SQL("b"))}
          and b.bill_date between ${from}::date and ${to}::date`);
     return rows.map((r) => {
       const p = r.sku_id ? products.get(r.sku_id) : undefined;

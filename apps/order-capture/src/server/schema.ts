@@ -269,6 +269,8 @@ export const ignoredNumberChanges = oc.table("ignored_number_changes", {
 
 // ---------- sales ledger (0008): bills, payments, allocations, adjustments, Zoho contacts + imports ----------
 export type LedgerSource = "zoho" | "plantops";
+/** a bill may also be an opening balance from another app's report (migration 0018: the 20 L pending report, OB20-…) */
+export type BillSource = LedgerSource | "opening";
 export type PaymentMode = "cash" | "upi" | "bank" | "cheque" | "other";
 export type AdjustmentKind = "zoho_closed" | "write_off" | "discount";
 
@@ -309,7 +311,7 @@ const cancelCols = {
 export const bills = oc.table("bills", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull(),
-  source: text("source").$type<LedgerSource>().notNull(),
+  source: text("source").$type<BillSource>().notNull(),
   number: text("number").notNull(),
   refNo: integer("ref_no"),
   zohoInvoiceId: text("zoho_invoice_id"),
@@ -735,7 +737,7 @@ export const vendorPaymentAllocations = oc.table("vendor_payment_allocations", {
 
 // ---------- cash book (0017, docs/CASHBOOK_PHASE_PLAN.md step C1): categories, vehicles, cash entries, day closes ----------
 
-export type CashKind = "expense" | "staff_out" | "staff_in" | "owner_in" | "owner_out" | "bank_deposit" | "other_in" | "other_out";
+export type CashKind = "expense" | "staff_out" | "staff_in" | "owner_in" | "owner_out" | "bank_deposit" | "other_in" | "other_out" | "collection";
 export type StaffPurpose = "advance" | "plant" | "salary";
 
 export const expenseCategories = oc.table("expense_categories", {
@@ -796,6 +798,63 @@ export const cashCloses = oc.table("cash_closes", {
   counted: numeric("counted", { precision: 14, scale: 2 }).notNull(),
   expected: numeric("expected", { precision: 14, scale: 2 }).notNull(),
   difference: numeric("difference", { precision: 14, scale: 2 }).notNull(),
+  reason: text("reason"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+// ---------- 20 L customers and collections (migration 0018, cash book step C2) ----------
+
+export const jarImports = oc.table("jar_imports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  fileName: text("file_name").notNull(),
+  counts: jsonb("counts").$type<Record<string, number | string>>().notNull().default({}),
+  totalDue: numeric("total_due", { precision: 18, scale: 2 }).notNull(),
+  importedBy: uuid("imported_by").notNull(),
+  importedByName: text("imported_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const jarCustomers = oc.table("jar_customers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  customerId: uuid("customer_id").notNull(),
+  sourceRef: text("source_ref").notNull(),
+  sourceName: text("source_name").notNull(),
+  groupName: text("group_name"),
+  paymentPref: text("payment_pref"),
+  openingBillId: uuid("opening_bill_id"),
+  openingDue: numeric("opening_due", { precision: 18, scale: 2 }).notNull().default("0"),
+  importId: uuid("import_id").notNull(),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const collectionLines = oc.table("collection_lines", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  batchId: uuid("batch_id").notNull(),
+  lineNo: integer("line_no").notNull(),
+  cashEntryId: uuid("cash_entry_id"),
+  customerId: uuid("customer_id").notNull(),
+  amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+  mode: text("mode").$type<"cash" | "upi">().notNull(),
+  workDate: date("work_date").notNull(),
+  note: text("note"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const collectionPosts = oc.table("collection_posts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  lineId: uuid("line_id").notNull(),
+  outcome: text("outcome").$type<"posted" | "turned_down">().notNull(),
+  paymentId: uuid("payment_id"),
   reason: text("reason"),
   createdBy: uuid("created_by").notNull(),
   createdByName: text("created_by_name").notNull(),

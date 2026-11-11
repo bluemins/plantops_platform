@@ -4,6 +4,7 @@ import { differenceText, KIND_LABEL, paise, PURPOSE_LABEL, signedMoney } from "@
 import { can } from "@/server/access";
 import { addDays, cashLists, daySheet, istToday, type EntryView } from "@/server/cash";
 import { waitingCount } from "@/server/calls-tab";
+import { entryLines, waitingToPost, type CollectionLine } from "@/server/collections";
 import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../header";
@@ -14,7 +15,14 @@ import { CashNav, longDay, shortDay } from "./parts";
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
-function EntryRow({ e, owner, closed }: { e: EntryView; owner: boolean; closed: boolean }) {
+const STATUS: Record<CollectionLine["status"], [string, string]> = {
+  waiting: ["not posted yet", "bg-amber-100 text-amber-900"],
+  posted: ["posted", "bg-green-100 text-green-800"],
+  turned_down: ["turned down", "bg-slate-200 text-slate-700"],
+  void: ["cancelled", "bg-slate-200 text-slate-700"],
+};
+
+function EntryRow({ e, owner, closed, lines = [] }: { e: EntryView; owner: boolean; closed: boolean; lines?: CollectionLine[] }) {
   const title =
     e.kind === "expense" ? `Expense · ${e.category ?? ""}` : e.kind === "staff_out" ? `${e.purpose ? PURPOSE_LABEL[e.purpose] : "Staff cash"} · ${e.person}` : e.kind === "staff_in" ? `Took back · ${e.person}` : KIND_LABEL[e.kind];
   const detail = [e.ref, e.vehicle, e.paid_to, e.note, `by ${e.by}`].filter(Boolean).join(" · ");
@@ -28,6 +36,16 @@ function EntryRow({ e, owner, closed }: { e: EntryView; owner: boolean; closed: 
           </p>
           <p className="text-xs text-slate-500 break-words">{detail}</p>
           {e.cancelled && <p className="text-xs text-red-700">Cancelled by {e.cancelled.by}: {e.cancelled.reason}</p>}
+          {lines.length > 0 && (
+            <ul className="mt-1 space-y-0.5 text-xs text-slate-600">
+              {lines.map((l) => (
+                <li key={l.id} className="break-words">
+                  {l.customer.name} {signedMoney(paise(l.amount))}{l.mode === "upi" ? " online (not in the box)" : ""}{" "}
+                  <span className={`rounded px-1 font-semibold ${STATUS[l.status][1]}`}>{l.status === "posted" ? `posted ${l.payment!.number}` : STATUS[l.status][0]}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <span className={`shrink-0 font-bold ${e.direction === "in" ? "text-green-700" : "text-red-700"} ${e.cancelled ? "line-through" : ""}`}>
           {e.direction === "in" ? "+" : "−"}
@@ -46,7 +64,7 @@ export default async function CashDayPage({ searchParams }: { searchParams: Sear
   const today = istToday();
   const d = one((await searchParams).d);
   const date = /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today ? d : today;
-  const [plant, sheet, lists, waiting] = await Promise.all([kit.branding(user.tenantId), daySheet(user, date, today), cashLists(user), waitingCount(user)]);
+  const [plant, sheet, lists, waiting, toPost] = await Promise.all([kit.branding(user.tenantId), daySheet(user, date, today), cashLists(user), waitingCount(user), waitingToPost(user)]);
   const owner = can(user, "cash_owner");
   const enter = can(user, "cash_enter");
 
@@ -61,13 +79,19 @@ export default async function CashDayPage({ searchParams }: { searchParams: Sear
     );
 
   const ins = sheet.entries.filter((e) => e.direction === "in");
+  const linesOf = new Map<string, CollectionLine[]>();
+  for (const l of await entryLines(user, sheet.entries.filter((e) => e.kind === "collection").map((e) => e.id)))
+    if (l.entry) {
+      const e = sheet.entries.find((x) => x.ref === l.entry)!;
+      linesOf.set(e.id, [...(linesOf.get(e.id) ?? []), l]);
+    }
   const outs = sheet.entries.filter((e) => e.direction === "out");
   const closed = sheet.close !== null;
   return (
     <div className="space-y-4">
       <Header user={user} plant={plant} />
       {tabs}
-      <CashNav current="day" owner={owner} />
+      <CashNav current="day" owner={owner} toPost={toPost} />
 
       <nav aria-label="Day" className="flex items-center justify-between gap-2">
         <a href={`/cash?d=${addDays(date, -1)}`} aria-label="Previous day" className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-lg text-(--brand)">‹</a>
@@ -129,7 +153,7 @@ export default async function CashDayPage({ searchParams }: { searchParams: Sear
             <h2 className="text-xs font-bold tracking-wide text-slate-500 uppercase">Money in · {signedMoney(ins.filter((e) => !e.cancelled).reduce((s, e) => s + paise(e.amount), 0n))}</h2>
             <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
               {ins.length === 0 && <li className="px-4 py-3 text-sm text-slate-500">Nothing yet.</li>}
-              {ins.map((e) => <EntryRow key={e.id} e={e} owner={owner} closed={closed} />)}
+              {ins.map((e) => <EntryRow key={e.id} e={e} owner={owner} closed={closed} lines={linesOf.get(e.id)} />)}
             </ul>
           </section>
           <section className="space-y-2">

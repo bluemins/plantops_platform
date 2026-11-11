@@ -82,7 +82,9 @@ export type Action =
   | "cash_view" // the day sheet and the cash book (amounts)
   | "cash_enter" // an expense, staff cash, money in / out
   | "cash_close" // close a day: the cash counted in the box
-  | "cash_owner"; // start the cash book, categories / vehicles, cancel an entry, correct a close
+  | "cash_owner" // start the cash book, categories / vehicles, cancel an entry, correct a close
+  | "jar_import" // bring the 20 L customers and what they owe in from the 20 L pending report (cash book C2)
+  | "collection_post"; // post a collection line from the cash book onto the customer's account (or turn it down)
 
 export const ACCESS: Record<Action, readonly Who[]> = {
   read: ["owner", "desk", "viewer", "accounts", "support"],
@@ -148,6 +150,8 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   cash_enter: ["owner", "accounts"],
   cash_close: ["owner", "accounts"],
   cash_owner: ["owner"],
+  jar_import: ["owner"],
+  collection_post: ["owner", "accounts"],
 };
 
 /** What the user is, for this table. null = no Order Capture rights at all (e.g. a store keeper). */

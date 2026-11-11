@@ -4,6 +4,7 @@
 // earlier ones — each box once, free boxes never. Used by the poll results (buying size) and their CSV.
 import { sql } from "drizzle-orm";
 import { brandKey, type BrandProduct, type LineRef } from "@/lib/brand";
+import { OPENING_SQL } from "@/lib/ledger";
 import type { OcTx } from "../db";
 
 /** The plant's last Zoho invoice date (null = never used Zoho). */
@@ -22,7 +23,7 @@ export async function boxesByShop(tx: OcTx, tenantId: string, of: (l: LineRef) =
       from order_capture.bills b
       join order_capture.bill_lines l on l.tenant_id = b.tenant_id and l.bill_id = b.id and not l.free
       left join order_capture.zoho_contacts zc on zc.tenant_id = b.tenant_id and zc.id = b.zoho_contact_id
-     where b.tenant_id = ${tenantId} and b.cancelled_at is null and coalesce(b.zoho_invoice_id, '') not like 'ob:%'
+     where b.tenant_id = ${tenantId} and b.cancelled_at is null and not ${sql.raw(OPENING_SQL("b"))}
        and b.bill_date between ${from}::date and ${to}::date
        and coalesce(b.customer_id, zc.customer_id) is not null`);
   const unbilled = await tx.execute<{ cust: string; sku_id: string; item_name: string; qty: string }>(sql`
