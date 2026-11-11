@@ -2203,7 +2203,7 @@ per vendor by days late, less advances) and **Reports → Purchases** (owner: by
 new summary view `purchases` (counts only), never Sales alerts. No migration; SSO token unchanged. **Deploy Sales before
 the platform.** Notes: `apps/order-capture/NOTES.md`.
 
-### 2026-11-11 — Cash book C1: petty cash in Sales (v0.63.0) — built, not deployed
+### 2026-11-11 — Cash book C1: petty cash in Sales (v0.63.0) — live 2026-11-11 (`c799a2d`)
 Owner 2026-11-10: replace the WhatsApp group "RB payments" (petty cash) with a **Cash** tab in Sales. Plan, decisions,
 mock-ups: `docs/CASHBOOK_PHASE_PLAN.md` (C1–C5; C2 20 L customers, C3 van report, C4 Attendance advances, C5 reports).
 C1: owner starts the book with the cash counted; owner + Accounts enter expenses, staff cash, money in / out (C-0001…,
