@@ -63,6 +63,11 @@ The top shows **Expected cash in hand** worked out live: last close + cash in �
 **C-0001…**, saved at once, never changed; a wrong entry is cancelled with a reason (owner), like payments.
 
 ### 3.2 Van report (vehicle per day)
+**Owner, 2026-11-11:** sales are entered **per brand per product** (boxes of each product, grouped under its brand:
+Bluemins 1 L / 500 ml / 250 ml, DM Water, ...; rate from Rates, rupees worked out), not one rupee total per brand. The van's
+**load is counted when it leaves and when it returns**; today that is tracked in a separate WhatsApp group. Proposed for
+C3 (to confirm when C3 is planned): load out and returned per product on the van report, so boxes sold = loaded −
+returned, checked against the boxes entered as sold ("2 boxes of 1 L not accounted for").
 - **Vehicle** (plant's own list on Settings; plant 001: **Mini, Pickup**; switched off, never deleted), **who drove / sold** (plant user).
 - **Sales by brand** (the brands on Rates: Bluemins, DM Water, …), one amount each.
 - **Not paid** lines: customer (search the Sales customer list; "new customer" with name + phone) + amount → **a bill on
