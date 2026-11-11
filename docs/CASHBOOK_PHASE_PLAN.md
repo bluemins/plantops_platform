@@ -4,7 +4,34 @@ Asked by the owner 2026-11-10: replace the WhatsApp group **"RB payments"** (the
 PlantOps, the way Floor Stock replaced the evening stock message. It covers van day totals, expenses, cash given to staff
 (linked to Attendance advances), credit sales and 20 L jar payments on the customer's account in Sales. The owner will
 provide the **20 L customer list as an Excel sheet**; jar payments are credited to those customers.
-Status: **plan, waiting for the owner's answers (section 8) and approval of the migrations (section 5).** No code yet.
+Status: **see section 0.**
+
+## 0. Status and handover (2026-11-11, read this first)
+- **C1 live** (v0.63.0, `c799a2d`, Sales migration `0017` applied 2026-11-11). Nobody uses it yet: **the owner starts
+  the cash book only after C2 and C3 are live** ("when all customers' money, all brands, is counted in cash").
+- **C2 approved** (owner 2026-11-11: "as recommended" + migration "approved"); design in **section 6a**. Next session:
+  build C2.
+  1. Migration `apps/order-capture/db/migrations/0018_jar_customers.sql`: `jar_imports`, `jar_customers` (FORCE RLS, no
+     DELETE, SELECT + INSERT) and `bills.source` also `'opening'` (numbers `OB20-<Pure Pani ref>`, no `ref_no`, no
+     Zoho ids). **Before writing it, check every reader of `bills.source` / `ref_no`** in `src/` (bill pages, lists,
+     statements, Receivables, Order to Payment, Link bills, GST invoices, customer insights, reports, Zoho re-import
+     fingerprints): an `'opening'` bill must show like Zoho's `OB-…` bills and never count as a sale.
+  2. Import from the owner's Excel (`refeDocs/payments/WhatsApp Chat with Payments/customer_remaining_payment_report_11_2026_*.xlsx`,
+     sheet "Remaining Payment", 178 customers, ₹64,324): preview → confirm, owner only; the 12 mobiles already in Sales:
+     per row "add the due to that customer" or "type another mobile"; the 17 without a mobile (₹2,774): type one or leave
+     out (they stay in Pure Pani); 13 rows have an old invoice ref ("#000123811/ Nov-2024") as Ref. No.; totals must
+     equal the file. Same file again adds nothing.
+  3. Cash → + 20 L collection (owner, Accounts) → payments on the account (oldest due first), cash lines into the cash
+     book; a "20 L" list with due per customer.
+  4. Tests (isolation, access, the import plan with the real file's counts, re-import, append-only), screen check, then
+     ask the owner before deploying (migration first).
+- **Then C3** (van report): per brand per product (boxes, rate from Rates); "not paid" → bill, "collected from customers"
+  (all Sales + 20 L customers) → payment; load out / returned only as an **optional placeholder**; needs its own
+  migration (ask). Design notes in section 3.2.
+- **Owner's to-dos after C3:** start the cash book (count the box), Settings: vehicles Mini + Pickup, check expense
+  types, give Anmol and Bindu the Accounts role, run alongside the WhatsApp groups, then stop them.
+- **Never commit `refeDocs/payments/`** (the private WhatsApp export and customer files).
+- Open finding for the owner: Pickup report of 1 Nov is ₹1,000 off (₹9,780 worked out vs ₹8,780 posted).
 
 ## 1. What the group does today (plant 001, read 2026-11-10)
 Chat export `refeDocs/payments/WhatsApp Chat with Payments/` (Mar 2023 – 9 Nov 2026, ~7,500 messages; bindu ~5,400,

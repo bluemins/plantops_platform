@@ -2213,3 +2213,6 @@ version, reason); month cash book; owner's expense types and vehicles. Sales mig
 4 new tables, FORCE RLS, no DELETE, `cash_tenants()`). Kinds `order_capture.cash_closed` (bell), `cash_short` (≥ ₹100),
 `cash_expense` (≥ ₹2,000), `cash_not_closed` (Sales daily job 07:00). Staff cash takes a typed name until C4. SSO token and
 platform database unchanged. Tests: Sales 1227 (+15 cash), platform order-capture 13. Checked locally at 390 / 1280 px.
+**Next (owner 2026-11-11):** C2 (20 L customers from the Pure Pani pending report, as opening balances + collections;
+migration `0018` approved, incl. `bills.source` 'opening') then C3 (van report per brand per product); the owner starts
+using the cash book after C3. Handover: `docs/CASHBOOK_PHASE_PLAN.md` section 0.
