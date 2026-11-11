@@ -1,7 +1,7 @@
 # Purchases (in Sales): plan
 
 Asked by the owner 2026-11-10: "add all the purchases to PlantOps" (Zoho Books → Purchases: Vendors, Bills, Payments
-Made, Expenses, Vendor Credits). Status: **P1 live 2026-11-10 (v0.60.0), Zoho data imported; P2 built 2026-11-10 (v0.61.0): owner + Accounts enter purchases.** Answers to section 6 and
+Made, Expenses, Vendor Credits). Status: **P1 live 2026-11-10 (v0.60.0), Zoho data imported; P2 built 2026-11-10 (v0.61.0): owner + Accounts enter purchases; P3 + P5 built 2026-11-10 (v0.62.0); P4 split (section 1, decisions 10–13).** Answers to section 6 and
 the migration approved by the owner 2026-11-10 (section 1, decisions 5–9).
 
 ## 1. Decisions (owner, 2026-11-10)
@@ -19,6 +19,12 @@ the migration approved by the owner 2026-11-10 (section 1, decisions 5–9).
 8. **From 1 Nov 2026 purchases are entered in PlantOps** (P2); Zoho's numbers 1–46 → PB-0001…, new ones from PB-0047;
    payments PM-….
 9. **Bill photos (P6) after P3**; build order P1 → P2 → P3, then P4 / P5 after a few weeks of use.
+10. **Expenses live in the Cash book only** (owner, 2026-11-10; `docs/CASHBOOK_PHASE_PLAN.md`): built once there,
+    Purchases reports include them once the Cash book is live.
+11. **Vendor credits later**, when the first one happens (none in 9 months of Zoho): until then cancel the bill and
+    record the corrected one. Its migration is asked again then.
+12. **Store keepers: a "Purchases received" page in Sales** (section 6 Q1 option a; permission change approved).
+13. **The Floor Stock link waits** for the module-to-module design (with the batch lookup).
 
 ## 2. The Zoho files (plant 001, exported 2026-11-10, `refeDocs/zoho-purchases-2026-11/`)
 | File | Rows | Facts |

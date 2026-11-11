@@ -1,7 +1,7 @@
 // The owner's "Who can do what" screen (/admin/permissions): what each person is in each module switched on for the
 // plant. Worked out from the SAME rules the servers enforce (roleWorksIn / viewOnlyIn in packages/types), so the
 // screen can't say something different from what actually happens. Text only; nothing here grants access.
-import { MODULE_IDS, NOTIFICATION_KINDS, OWNER_ONLY_ALERTS, ROLE_IDS, ROLE_MODULE, VIEW_ROLE_MODULE, getsAlertsIn, roleWorksIn, viewOnlyIn, type ModuleId, type RoleId, type ViewRole } from "@plantops/types";
+import { MODULE_IDS, NOTIFICATION_KINDS, OWNER_ONLY_ALERTS, ROLE_IDS, ROLE_MODULE, VIEW_ROLE_MODULE, getsAlertsIn, pageViewIn, roleWorksIn, viewOnlyIn, type ModuleId, type RoleId, type ViewRole } from "@plantops/types";
 import { ROLE_LABELS } from "./api";
 import { moduleLabel } from "./modules";
 
@@ -41,6 +41,8 @@ export function cellFor(roles: readonly string[], alertModules: readonly string[
   const labelOf = (r: RoleId) => (r === "delivery_staff" ? "Delivery staff · Calls + shop locations" : (ROLE_LABELS[r] ?? r));
   if (working.length) return { kind: working.includes("lab_lead") ? "lead" : "work", label: working.map(labelOf).join(", "), alerts };
   if (viewOnlyIn(rs, moduleId)) return { kind: "view", label: VIEW_LABELS[moduleId] ?? "View only", alerts: alerts && rs.some((r) => getsAlertsIn(r, moduleId)) };
+  // one page of another module (a Store keeper's purchases received in Sales): never its alerts
+  if (pageViewIn(rs, moduleId)) return { kind: "view", label: "Purchases received (no prices)", alerts: false };
   return null;
 }
 
@@ -52,6 +54,7 @@ const ROLE_HINTS: Partial<Record<RoleId, string>> = {
   office_staff: "Attendance: marks for others, fixes times, advances (no salaries)",
   supervisor: "Attendance: Today board, IN / OUT alerts, marks and fixes Office staff",
   hr_desk: "Job applications: see and call applicants",
+  store_keeper: "Floor Stock count; in Sales, purchases received (no prices)",
   stock_viewer: "Floor Stock, view only: the sections the owner picks",
   document_viewer: "Document Store, view only",
   order_viewer: "Sales, view only: no amounts",

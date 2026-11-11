@@ -18,6 +18,7 @@ const field = "min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-whi
 export default async function HomePage({ searchParams }: { searchParams: Search }) {
   const user = await requirePageUser("/");
   if (user.who === "delivery") redirect("/calls"); // Delivery staff work in Calls only
+  if (user.who === "store") redirect("/purchases/received"); // Store keepers: purchases received only
   if (user.who === "marketing") redirect("/customers"); // Marketing staff work on customers, never orders
   const sp = await searchParams;
   const tab = (TABS.find(([t]) => t === one(sp.tab))?.[0] ?? "pending") as Tab;

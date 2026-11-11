@@ -87,6 +87,10 @@ through the Lab Records API.
   (GST details and payment terms owner-only), comments, contact persons, shop location. Never orders, the Bills section,
   plant totals, Reports or CSV; never ticked for alerts. Tile view `marketing` (customer numbers, no plant money);
   with an order role too, a separate Customers card on the launcher (v0.46.1).
+- **Store keeper in Sales** (owner, 2026-11-10; v0.62.0, `docs/PURCHASES_PHASE_PLAN.md` P5): a Store keeper (Floor Stock's
+  role) also opens Sales for **"Purchases received"** only (date, vendor, item, quantity; never prices, payments, orders or
+  customers). Rule `PAGE_VIEW_ROLES` / `pageViewIn` (`packages/types`); never works there, never its alerts; tile view
+  `purchases` (counts only).
 - A user can hold **more than one role** (e.g. lab technician AND store keeper in a small plant). tenant_admin
   is a role in `users`/`user_roles`, not a separate account type.
 - Login: plant users log in with **plant code + username + secret**. Staff use a 6-digit **PIN**; anyone holding
@@ -2189,3 +2193,12 @@ purchase bill** (items, GST % per line, CGST + SGST or IGST from the vendor's st
 / Petty Cash ones). Owner only: cancel a purchase bill / payment with a reason. Owners get bells (3 new
 `NOTIFICATION_KINDS`). No migration; SSO token unchanged. Notes: `apps/order-capture/NOTES.md`. **Next:** P3 (Payables +
 Reports → Purchases).
+
+### 2026-11-10 — Purchases P3 + P5 (v0.62.0) — built
+Owner 2026-11-10 ("P3, P4 and P5 together"; decisions in `docs/PURCHASES_PHASE_PLAN.md` section 1, 10–13: expenses in the
+Cash book only, vendor credits later, Floor Stock link later). **Payables** (`/purchases/payables`, owner + Accounts: owed
+per vendor by days late, less advances) and **Reports → Purchases** (owner: by item, by vendor, GST paid per month).
+**Store keepers open Sales for "Purchases received" only** (date, vendor, item, quantity; never prices): `PAGE_VIEW_ROLES`
+/ `pageViewIn` in `packages/types`, `canAccessModule` allows it, Sales `Who = "store"`, tile "Purchases received" with the
+new summary view `purchases` (counts only), never Sales alerts. No migration; SSO token unchanged. **Deploy Sales before
+the platform.** Notes: `apps/order-capture/NOTES.md`.

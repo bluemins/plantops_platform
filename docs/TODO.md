@@ -86,12 +86,16 @@ accounts, then 31 Oct ("See as worker" for each person before marking paid).
 | Area list (villages served) for the bot | bot taking new customers | |
 | Lab Records WhatsApp alerts | Meta approval | |
 | Lab Records Form 3 "Record of Test Report" column | a plant saying what goes there | bug B-14 |
+| Purchases: **vendor credits** (a return or price correction from a vendor, used on the next payment) | the first vendor credit (none in 9 months of Zoho) | Owner 2026-11-10. Until then: cancel the purchase bill and record the corrected one. Needs a Sales migration (ask then). `docs/PURCHASES_PHASE_PLAN.md` P4 |
+| Purchases: **link purchase items to Floor Stock materials** (Preform 18.5 g in kg = "Preform 18.5" counted in packets, 1 pkt = 25 kg): purchase vs count checks, later cost per box | the module-to-module design (with the batch lookup below) | Owner 2026-11-10. `purchase_items.stock_item_id` is ready (0016). `docs/PURCHASES_PHASE_PLAN.md` P5 |
+| Purchases: **expenses** (diesel, power, freight, repairs, tea) | the Cash book (`docs/CASHBOOK_PHASE_PLAN.md`) | Owner 2026-11-10: built once, inside the Cash book; Reports → Purchases adds them once it is live |
 
 ## Later (features)
 
 | Work | Where | Status | Notes |
 |---|---|---|---|
 | Demo plant set-up script (fake users, products, sample data) | Platform | idea | helps selling; demo plant 999 exists |
+| Purchases: **photo of the vendor's bill** on a purchase bill (P6) | Sales | idea | Owner 2026-11-10: after P3. Needs file storage + nightly backup in Sales (today it stores no files). `docs/PURCHASES_PHASE_PLAN.md` P6 |
 | Hindi / Odia screens, staff modules first (Floor Stock count, Attendance scan, Order Capture), then Lab Records, Salary, Job applications public page | All | idea | CLAUDE.md UX |
 | Fewer, better alerts: daily summary option | Platform | idea | most alerts go unread (B-07) |
 | Floor Stock dispatch entries with the Lab Records batch check + batch lookup API | Floor Stock + Lab Records | idea | module-to-module design (the field day lookup ticket can be reused): ask first |

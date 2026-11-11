@@ -15,7 +15,7 @@ describe("a cell of the permissions grid", () => {
     [["plant_staff", "store_keeper"], [], "floor_stock", { kind: "work", label: "Store keeper", alerts: false }],
     [["plant_staff"], [], "order_capture", { kind: "view", label: "View only, no amounts", alerts: false }],
     [["plant_staff", "order_desk"], ["order_capture"], "order_capture", { kind: "work", label: "Order desk", alerts: true }],
-    [["store_keeper"], [], "order_capture", null],
+    [["store_keeper"], [], "order_capture", { kind: "view", label: "Purchases received (no prices)", alerts: false }],
     [["complaint_desk"], [], "complaint_box", { kind: "work", label: "Complaint desk", alerts: false }],
     [[], [], "floor_stock", null],
   ] as const)("%j (alerts %j) in %s", (roles, alerts, mod, expected) => {
@@ -34,7 +34,7 @@ describe("role buttons on Add / Edit user", () => {
     const c = roleChoices(plant, []);
     expect(c.map((x) => x.role)).toEqual(["tenant_admin", "lab_technician", "lab_lead", "store_keeper", "order_desk", "plant_staff", "stock_viewer", "order_viewer", "delivery_staff", "accounts", "marketing_staff"]);
     expect(c.find((x) => x.role === "stock_viewer")).toMatchObject({ hint: "Floor Stock, view only: the sections the owner picks", off: false });
-    expect(c.find((x) => x.role === "store_keeper")).toMatchObject({ hint: "Floor Stock", off: false });
+    expect(c.find((x) => x.role === "store_keeper")).toMatchObject({ hint: "Floor Stock count; in Sales, purchases received (no prices)", off: false });
     expect(c.find((x) => x.role === "lab_lead")?.hint).toBe("Lab Records");
     expect(c.some((x) => x.role === "document_keeper" || x.role === "maintenance_technician")).toBe(false);
   });

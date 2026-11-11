@@ -9,9 +9,11 @@ import { forbidden } from "./http";
  * after delivery; orders read-only with amounts; owner 2026-11-06: "only users with Accounts see the Bills section");
  * support = PlantOps, read-only; marketing = Marketing staff (owner, 2026-11-07: customers and their details incl. the
  * mobile, a customer's bills / payments / statement read-only; never orders; GST details and payment terms owner-only).
+ * store = a Store keeper (Floor Stock's role) opening Sales for "Purchases received" only: what was bought, never prices,
+ * payments, orders or customers (owner, 2026-11-10; pageViewIn in packages/types).
  * A person can hold Order desk AND Accounts (or Marketing staff): `also` adds the other sets of rights.
  */
-export type Who = "owner" | "desk" | "viewer" | "delivery" | "accounts" | "marketing" | "support";
+export type Who = "owner" | "desk" | "viewer" | "delivery" | "accounts" | "marketing" | "store" | "support";
 
 export type Action =
   | "read" // the order list, an order
@@ -73,7 +75,9 @@ export type Action =
   | "purchases_view" // the Purchases tab: vendors, purchase bills, payments made, a vendor's page, a bill's page
   | "purchase_import" // bring Zoho's vendors, purchase items, bills and payments made into Purchases
   | "purchase_enter" // add / edit a vendor, record a purchase bill, pay a vendor, correct a payment's mode (owner 2026-11-10: Accounts enters them)
-  | "purchase_cancel"; // cancel a purchase bill or a payment made, with a reason
+  | "purchase_cancel" // cancel a purchase bill or a payment made, with a reason
+  | "purchases_received" // what was bought (date, vendor, item, quantity), no prices: Store keepers too (P5)
+  | "payables"; // what is owed to vendors, by age (Reports → Payables; P3)
 
 export const ACCESS: Record<Action, readonly Who[]> = {
   read: ["owner", "desk", "viewer", "accounts", "support"],
@@ -133,6 +137,8 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   purchase_import: ["owner"],
   purchase_enter: ["owner", "accounts"],
   purchase_cancel: ["owner"],
+  purchases_received: ["owner", "accounts", "store", "support"],
+  payables: ["owner", "accounts", "support"],
 };
 
 /** What the user is, for this table. null = no Order Capture rights at all (e.g. a store keeper). */
@@ -155,6 +161,7 @@ export function requireAccess(user: Actor, action: Action) {
   if (user.who === "desk") throw forbidden("Only the plant owner can do this");
   if (user.who === "viewer") throw forbidden("You can view orders only. Order desk or the owner does this.");
   if (user.who === "delivery") throw forbidden("Delivery staff work in Calls only.");
+  if (user.who === "store") throw forbidden("Store keepers see purchases received only.");
   if (user.who === "accounts") throw forbidden("Accounts works on bills and payments. Order desk or the owner does this.");
   if (user.who === "marketing") throw forbidden("Marketing staff work on customers. Order desk or the owner does this.");
   throw forbidden("You don't have access to Sales");

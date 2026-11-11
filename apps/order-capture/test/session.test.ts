@@ -44,11 +44,11 @@ describe("login", () => {
     }
   });
 
-  it("a store keeper or a complaint desk (no Order Capture role) are refused", async () => {
-    for (const role of ["store_keeper", "complaint_desk"] as const) {
-      platform.nextToken = await platform.loginToken([role]);
-      expect((await cb("?code=abc")).status, role).toBe(403);
-    }
+  it("a complaint desk (no Sales role) is refused; a store keeper comes in for purchases received (P5)", async () => {
+    platform.nextToken = await platform.loginToken(["complaint_desk"]);
+    expect((await cb("?code=abc")).status).toBe(403);
+    platform.nextToken = await platform.loginToken(["store_keeper"]);
+    expect((await cb("?code=abc")).status).toBe(307);
   });
 
   it("a token for another module is refused", async () => {

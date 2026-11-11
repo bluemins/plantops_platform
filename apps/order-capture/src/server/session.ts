@@ -1,7 +1,7 @@
 // Who is using Order Capture right now (from the module kit's session cookies). What they may do is in access.ts.
 import { redirect } from "next/navigation";
 import type { ModuleSession } from "@plantops/auth";
-import { viewOnlyIn, type RoleId } from "@plantops/types";
+import { pageViewIn, viewOnlyIn, type RoleId } from "@plantops/types";
 import type { Who } from "./access";
 import { schema, withTenant } from "./db";
 import { HttpError } from "./http";
@@ -34,7 +34,9 @@ export function whoFor(roles: RoleId[]): Who | null {
   if (roles.includes("marketing_staff")) return "marketing";
   // Calls only, also with Plant staff / Order viewer (owner, 2026-11-04)
   if (roles.includes("delivery_staff")) return "delivery";
-  return viewOnlyIn(roles, "order_capture") ? "viewer" : null;
+  if (viewOnlyIn(roles, "order_capture")) return "viewer";
+  // a Store keeper: "Purchases received" only (owner, 2026-11-10; docs/PURCHASES_PHASE_PLAN.md P5)
+  return pageViewIn(roles, "order_capture") ? "store" : null;
 }
 
 export function toOcUser(s: ModuleSession): OcUser {
@@ -43,6 +45,8 @@ export function toOcUser(s: ModuleSession): OcUser {
   if (who === "desk" && s.roles.includes("accounts")) also.push("accounts");
   if ((who === "desk" || who === "accounts") && s.roles.includes("marketing_staff")) also.push("marketing");
   if (who === "marketing" && s.roles.includes("delivery_staff")) also.push("delivery");
+  // a Store keeper who also has another Sales role keeps "Purchases received" (owner, 2026-11-10)
+  if (who && who !== "owner" && who !== "store" && s.roles.includes("store_keeper")) also.push("store");
   return { tenantId: s.tenant_id, userId: s.user_id, name: s.display_name ?? "Sales user", roles: s.roles, who, also, isOwner: who === "owner", isSupport: false };
 }
 
@@ -61,6 +65,7 @@ export function roleLabel(user: OcUser) {
   if (user.isSupport) return "Read-only";
   if (user.who === "viewer") return "View only";
   if (user.who === "delivery") return "Delivery staff";
+  if (user.who === "store") return "Store keeper";
   if (user.who === "marketing") return user.also?.includes("delivery") ? "Marketing + Delivery" : "Marketing staff";
   if (user.who === "accounts") return user.also?.includes("marketing") ? "Accounts + Marketing" : "Accounts";
   if (user.also?.includes("accounts")) return user.also.includes("marketing") ? "Order desk + Accounts + Marketing" : "Order desk + Accounts";

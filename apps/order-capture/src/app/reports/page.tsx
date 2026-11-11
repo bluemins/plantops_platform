@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import { REC_ABOUT, REC_KINDS, REC_TITLE } from "@/lib/receivables";
+import { PURCHASE_REPORT_ABOUT, PURCHASE_REPORT_KINDS, PURCHASE_REPORT_TITLE } from "@/server/purchase-reports";
 import { can } from "@/server/access";
 import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../header";
 import { BackLink } from "../parts";
 
-type Section = "sales" | "receivables";
+type Section = "sales" | "receivables" | "purchases";
 const SECTIONS: { id: Section; name: string; title: string; about: string; reports: { href: string; name: string; about: string }[]; filters: string }[] = [
   {
     id: "sales",
@@ -31,6 +32,17 @@ const SECTIONS: { id: Section; name: string; title: string; about: string; repor
     reports: REC_KINDS.map((k) => ({ href: `/reports/receivables/${k}`, name: REC_TITLE[k], about: REC_ABOUT[k] })),
     filters:
       "period or “as of” a date (today, end of last month / quarter / financial year, custom) · age by due date or bill date · 15- or 30-day bands · salesperson · place · vehicle · group by.",
+  },
+  {
+    id: "purchases",
+    name: "Purchases",
+    title: "Purchases",
+    about: "From purchase bills: the Zoho history (Feb – Oct 2026) and bills recorded in PlantOps. Cancelled bills are left out.",
+    reports: [
+      ...PURCHASE_REPORT_KINDS.map((k) => ({ href: `/reports/purchases/${k}`, name: PURCHASE_REPORT_TITLE[k], about: PURCHASE_REPORT_ABOUT[k] })),
+      { href: "/purchases/payables", name: "Payables", about: "What you owe each vendor today, by how late" },
+    ],
+    filters: "period (month, quarter, financial year, custom) · print.",
   },
 ];
 const LATER = ["Payments received", "GST", "Stock", "Attendance & salary"];

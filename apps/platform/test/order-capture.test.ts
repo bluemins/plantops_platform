@@ -9,7 +9,9 @@ import { sha256 } from "@/server/crypto";
 import { ROLE_LABELS } from "@/lib/api";
 import { MODULES, roleLine } from "@/lib/modules";
 import { summaryViewFor } from "@/server/summary";
-import { MODULE_IDS, PLANT_STAFF_MODULES, getsAlertsIn, roleWorksIn, viewOnlyIn } from "@plantops/types";
+import { MODULE_IDS, PLANT_STAFF_MODULES, getsAlertsIn, pageViewIn, roleWorksIn, viewOnlyIn } from "@plantops/types";
+import { canAccessModule } from "@plantops/auth";
+import { cellFor } from "@/lib/permissions";
 import { asOwner, call, makePlant, makeStaff, type Handler } from "./helpers";
 
 const OC_SECRET = "order-module-test-secret";
@@ -42,12 +44,12 @@ describe("module and role", () => {
     expect(MODULES.order_capture).toMatchObject({ label: "Sales", staff: "Take an order", setup: { path: "/rates" } });
   });
 
-  it("Order desk opens Order Capture; plant staff open it view-only; a store keeper doesn't", async () => {
+  it("Order desk opens Order Capture; plant staff open it view-only; a store keeper opens it for purchases received only", async () => {
     expect((await handoff(desk.cookie, "order_capture")).status).toBe(200);
     expect((await handoff(desk.cookie, "floor_stock")).status).toBe(403);
     expect((await handoff(general.cookie, "order_capture")).status).toBe(200); // view-only (the module hides amounts)
     expect((await handoff(general.cookie, "floor_stock")).status).toBe(403); // plant staff alone: not Floor Stock
-    expect((await handoff(keeper.cookie, "order_capture")).status).toBe(403);
+    expect((await handoff(keeper.cookie, "order_capture")).status).toBe(200); // purchases received only (P5, owner 2026-11-10)
   });
 
   it("only when the plant's plan includes it", async () => {
@@ -141,5 +143,32 @@ describe("Delivery staff", () => {
     expect((await settings(delivery.cookie))[0]).toMatchObject({ urgent: false, bell_only: false });
     expect((await settings(desk.cookie)).some((s) => s.kind === "order_capture.call")).toBe(false);
     expect((await settings(A.adminCookie)).some((s) => s.kind === "order_capture.call")).toBe(false);
+  });
+});
+
+// Purchases P5 (docs/PURCHASES_PHASE_PLAN.md, owner 2026-11-10): a Store keeper opens Sales for "Purchases received" only
+// (no prices), never works there and never gets its alerts; with an order role the order role wins the tile.
+describe("Store keeper in Sales (purchases received)", () => {
+  it("opens Sales for one page only; works in Floor Stock; never Sales alerts", async () => {
+    expect(pageViewIn(["store_keeper"], "order_capture")).toBe(true);
+    expect(pageViewIn(["store_keeper"], "floor_stock")).toBe(false);
+    expect(pageViewIn(["store_keeper", "order_desk"], "order_capture")).toBe(false); // the order role says more
+    expect(pageViewIn(["store_keeper", "plant_staff"], "order_capture")).toBe(false); // the orders view says more
+    expect(pageViewIn(["store_keeper", "tenant_admin"], "order_capture")).toBe(false);
+    expect(roleWorksIn("store_keeper", "order_capture")).toBe(false);
+    expect(getsAlertsIn("store_keeper", "order_capture")).toBe(false);
+    expect(canAccessModule(["store_keeper"], ["floor_stock", "order_capture"], "order_capture")).toBe(true);
+    expect(canAccessModule(["store_keeper"], ["floor_stock"], "order_capture")).toBe(false); // Sales not switched on
+  });
+
+  it("tile 'Purchases received' with the purchases numbers; the Permissions screen says so", async () => {
+    const keeper = await makeStaff(A, "keeperp", ["store_keeper"]);
+    expect((await handoff(keeper.cookie, "order_capture")).status).toBe(200);
+    const mine = await call(launcherRoute.GET as Handler, { cookie: keeper.cookie });
+    expect(mine.body.tiles.find((t: { module: string }) => t.module === "order_capture")).toMatchObject({ state: "open", view: "staff", subtitle: "Purchases received" });
+    expect(summaryViewFor(["store_keeper"], "order_capture")).toBe("purchases");
+    expect(summaryViewFor(["store_keeper", "order_desk"], "order_capture")).toBe("staff");
+    expect(roleLine("order_capture", ["store_keeper", "order_desk"])).toBeNull();
+    expect(cellFor(["store_keeper"], [], "order_capture")).toEqual({ kind: "view", label: "Purchases received (no prices)", alerts: false });
   });
 });

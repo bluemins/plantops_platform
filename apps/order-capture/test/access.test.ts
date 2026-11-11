@@ -69,10 +69,12 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["purchase_import", true, false, false, false, false],
   ["purchase_enter", true, false, false, false, false],
   ["purchase_cancel", true, false, false, false, false],
+  ["purchases_received", true, false, false, true, true],
+  ["payables", true, false, false, false, true],
 ];
 
 describe("who is who", () => {
-  it("owner wins; Order desk is desk; plant staff are viewers; a store keeper or a complaint desk have no rights", () => {
+  it("owner wins; Order desk is desk; plant staff are viewers; a store keeper is store (purchases received only); a complaint desk has no rights", () => {
     expect(whoFor(["tenant_admin", "order_desk"])).toBe("owner");
     expect(whoFor(["tenant_admin"])).toBe("owner");
     expect(whoFor(["order_desk"])).toBe("desk");
@@ -89,7 +91,7 @@ describe("who is who", () => {
     expect(whoFor(["delivery_staff", "order_viewer"])).toBe("delivery");
     expect(whoFor(["delivery_staff", "order_desk"])).toBe("desk");
     expect(whoFor(["delivery_staff", "tenant_admin"])).toBe("owner");
-    expect(whoFor(["store_keeper"])).toBeNull();
+    expect(whoFor(["store_keeper"])).toBe("store");
     expect(whoFor(["complaint_desk"])).toBeNull();
     expect(whoFor(["lab_technician", "lab_lead"])).toBeNull();
     expect(p.support.who).toBe("support");
@@ -127,7 +129,8 @@ describe("the access table", () => {
     expect(await refused(() => requireAccess(p.support, "enter"))).toEqual({ status: 403, message: "PlantOps support view is read-only" });
     expect(await refused(() => requireAccess(p.desk, "undo_delivered"))).toEqual({ status: 403, message: "Only the plant owner can do this" });
     expect(await refused(() => requireAccess(p.staff, "deliver"))).toEqual({ status: 403, message: "You can view orders only. Order desk or the owner does this." });
-    expect(await refused(() => requireAccess(p.keeper, "read"))).toEqual({ status: 403, message: "You don't have access to Sales" });
+    expect(await refused(() => requireAccess(p.keeper, "read"))).toEqual({ status: 403, message: "Store keepers see purchases received only." });
+    expect(await refused(() => requireAccess(ocUser(p.owner.tenantId, ["complaint_desk"], "Rina"), "read"))).toEqual({ status: 403, message: "You don't have access to Sales" });
     expect(() => requireAccess(p.owner, "export")).not.toThrow();
   });
 
@@ -149,7 +152,7 @@ describe("the access table", () => {
 describe("Accounts", () => {
   const acc = ocUser(p.owner.tenantId, ["accounts"], "Kedar");
   const both = ocUser(p.owner.tenantId, ["order_desk", "accounts"], "Kedar");
-  const ACCOUNTS_MAY = ["read", "see_amounts", "view_customers", "ledger_view", "account_view", "bill_make", "payment_receive", "location_view", "location_save", "purchases_view", "purchase_enter"];
+  const ACCOUNTS_MAY = ["read", "see_amounts", "view_customers", "ledger_view", "account_view", "bill_make", "payment_receive", "location_view", "location_save", "purchases_view", "purchase_enter", "purchases_received", "payables"];
   it.each(TABLE)("%s: Accounts may only read orders and work on bills / payments", (action) => {
     expect(can(acc, action)).toBe(ACCOUNTS_MAY.includes(action));
   });

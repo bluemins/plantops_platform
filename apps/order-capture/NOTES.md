@@ -643,3 +643,27 @@ Owner 2026-11-09 (plan `docs/CUSTOMER_APP_PHASE_PLAN.md` Phase 4, "Polls tab").
 - **No migration** (P1's grants already cover it). Tests: `test/purchase-entry.test.ts` (15), access +2 rows.
 - Made while building: due date defaults to the bill date ("Due on Receipt", as every Zoho vendor has); no line
   discounts (Zoho's 46 bills had none); "Paid now" is dated the bill date.
+
+### 2026-11-10 — Purchases P3 + P5: Payables, Reports → Purchases, Store keepers' "Purchases received" (v0.62.0)
+- Owner 2026-11-10: "start working on P3, P4 and P5 together", then decided (questions answered the same day):
+  **Expenses live in the Cash book only** (`docs/CASHBOOK_PHASE_PLAN.md`; Purchases reports use them once it is live);
+  **vendor credits later**, when the first one happens (none in 9 months of Zoho; meanwhile cancel the bill and record
+  the corrected one); **Store keepers get a "Purchases received" page in Sales** (a permission change, approved);
+  **the Floor Stock link waits** for the module-to-module design (with the batch lookup). So P4 = nothing yet.
+- **P3 Payables** `/purchases/payables` (owner, Accounts, support; access row `payables`): what is owed per vendor today,
+  split by days late after the due date (not due, 1–15, 16–30, 31–45, over 45), less advances, each vendor's open bills
+  oldest first, print. **Reports → Purchases** (owner, support; the `reports` row): Purchases by Item (quantity per unit,
+  average rate when bought in one unit, vendors, last bought), by Vendor (before GST, GST, total, paid, to pay), GST paid
+  per month (CGST / SGST / IGST, for GSTR-2B), period filter + print; Payables listed there too. Rules
+  `src/lib/purchase-report.ts`; reads `src/server/purchase-reports.ts`.
+- **P5 Purchases received** `/purchases/received` (owner, Accounts, **Store keeper**, support; row `purchases_received`):
+  date, vendor, item, quantity, unit, bill no.; never rates, amounts, GST or payments (no money field leaves the
+  server); last 30 days by default, search. Shared rule `PAGE_VIEW_ROLES` / `pageViewIn` in `packages/types`
+  (`canAccessModule` in `packages/auth` allows it); Sales `Who = "store"` (`whoFor`), lands on the page from `/`; a
+  Store keeper who also holds Order desk / Plant staff / Accounts keeps it (`also: ["store"]`). Never Sales alerts
+  (roleWorksIn false). Platform: tile line "Purchases received", summary view **`purchases`** (counts only: "N
+  purchases this week", "Last: vendor, date"), Permissions screen cell "Purchases received (no prices)", role hint.
+- No migration; SSO token unchanged. **Deploy Sales before the platform** (the platform starts asking for the new
+  `purchases` tile view; Sales must know it first).
+- Tests: `test/purchase-reports.test.ts` (10), access +2 rows, the old "store keeper has no Sales rights" tests changed
+  to the new rule (access, session); platform `test/order-capture.test.ts` (+2), `test/permissions.test.ts`.

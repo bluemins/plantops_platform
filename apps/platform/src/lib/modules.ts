@@ -1,4 +1,4 @@
-import { viewOnlyIn, type ModuleId, type RoleId } from "@plantops/types";
+import { pageViewIn, viewOnlyIn, type ModuleId, type RoleId } from "@plantops/types";
 
 /**
  * How each module appears on tiles. Text only - access rules live on the server.
@@ -35,6 +35,8 @@ export const moduleLabel = (id: string) => MODULES[id as ModuleId]?.label ?? id;
  */
 export function roleLine(moduleId: ModuleId, roles: readonly RoleId[]): string | null {
   if (viewOnlyIn(roles, moduleId)) return MODULES[moduleId].viewer ?? "View only";
+  // in Sales for one page only (a Store keeper's purchases received)
+  if (pageViewIn(roles, moduleId)) return "Purchases received";
   const by = Object.entries(MODULES[moduleId].staffBy ?? {}).find(([r]) => roles.includes(r as RoleId));
   return by ? by[1] : null;
 }

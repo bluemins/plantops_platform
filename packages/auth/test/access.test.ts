@@ -31,7 +31,8 @@ describe("canAccessModule", () => {
     [["order_desk"], "floor_stock", false],
     [["plant_staff"], "order_capture", true], // plant staff open Order Capture view-only (no amounts, no writes)
     [["plant_staff", "order_desk"], "order_capture", true], // Order desk still opens it
-    [["store_keeper"], "order_capture", false],
+    [["store_keeper"], "order_capture", true], // "Purchases received" only (pageViewIn, owner 2026-11-10)
+    [["store_keeper"], "lab_records", false],
     [["complaint_desk"], "order_capture", false],
     [["tenant_admin"], "order_capture", true],
     // view-only roles (owner, 2026-10-19): each opens its own module only

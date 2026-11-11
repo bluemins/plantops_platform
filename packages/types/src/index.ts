@@ -142,6 +142,18 @@ export function viewOnlyIn(roles: readonly RoleId[], moduleId: ModuleId): boolea
 }
 
 /**
+ * Roles that may open ANOTHER module for one page only (owner, 2026-11-10; docs/PURCHASES_PHASE_PLAN.md P5): a Store
+ * keeper opens Sales for "Purchases received" (date, vendor, item, quantity; never prices, payments, orders or
+ * customers). Like a view role, it never works there (roleWorksIn false) and gets none of its alerts.
+ */
+export const PAGE_VIEW_ROLES: Partial<Record<RoleId, ModuleId>> = { store_keeper: "order_capture" };
+
+/** Does this person open this module only for their one page (and hold no owner, working or view role there)? */
+export function pageViewIn(roles: readonly RoleId[], moduleId: ModuleId): boolean {
+  return roles.some((r) => PAGE_VIEW_ROLES[r] === moduleId) && !roles.includes("tenant_admin") && !roles.some((r) => roleWorksIn(r, moduleId)) && !viewOnlyIn(roles, moduleId);
+}
+
+/**
  * Is this person an employee (tracked in Attendance, paid through Salary, marks their own attendance)? Only Plant
  * staff: Office staff and Supervisors work in Attendance but are tracked only when they also hold Plant staff.
  */
@@ -243,7 +255,7 @@ export const SUMMARY_TOKEN_SECONDS = 60;
  */
 /** "reports" (v0.43.0) / "customers" (v0.44.0): the owner's Reports and Customers cards on the dashboard; only Order Capture
  * (Sales) is asked for them. "marketing" (v0.46.0): a Marketing staff tile in Sales (customer numbers, no plant money) */
-export const SummaryView = z.enum(["owner", "staff", "desk", "viewer", "reports", "customers", "marketing"]);
+export const SummaryView = z.enum(["owner", "staff", "desk", "viewer", "reports", "customers", "marketing", "purchases"]);
 export type SummaryView = z.infer<typeof SummaryView>;
 export const SummaryRequestPayload = z.object({
   iss: z.literal(TOKEN_ISSUER),

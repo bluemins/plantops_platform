@@ -2,7 +2,7 @@
 // Never stored (CLAUDE.md: owner tiles show the same data staff enter, never a copy).
 import { eq } from "drizzle-orm";
 import { canAccessModule } from "@plantops/auth";
-import { DESK_ROLES, viewOnlyIn, MODULE_SUMMARY_PATH, ModuleSummary, SUMMARY_TOKEN_SECONDS, type ModuleId, type RoleId, type SummaryView } from "@plantops/types";
+import { DESK_ROLES, pageViewIn, viewOnlyIn, MODULE_SUMMARY_PATH, ModuleSummary, SUMMARY_TOKEN_SECONDS, type ModuleId, type RoleId, type SummaryView } from "@plantops/types";
 import type { CurrentUser } from "./auth";
 import { appDb, schema, superDb, withTenant } from "./db";
 import { forbidden } from "./http";
@@ -48,6 +48,8 @@ export function summaryViewFor(roles: readonly RoleId[], moduleId: ModuleId): Su
   if (moduleId === "order_capture" && roles.includes("marketing_staff") && !roles.some((r) => r === "order_desk" || r === "accounts" || r === "delivery_staff"))
     return "marketing";
   if (viewOnlyIn(roles, moduleId)) return "viewer";
+  // a Store keeper in Sales (purchases received only): purchase counts, never money or orders
+  if (pageViewIn(roles, moduleId)) return "purchases";
   return DESK_ROLES[moduleId]?.some((r) => roles.includes(r)) ? "desk" : "staff";
 }
 
