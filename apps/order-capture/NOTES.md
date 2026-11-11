@@ -708,3 +708,8 @@ bill / turn down), pages `src/app/cash/van/**`, To post's "Not paid" section, ro
   Collected; a new customer is entered as a Sales order first, the form links New order). The server still takes product
   lines (`sales_total` is used when none are sent; both given and different = refused); the report page shows "Sold by
   product" only when lines exist. No migration.
+
+## 2026-11-11 — Calls tab hidden from the top bar (v0.65.2)
+Owner 2026-11-11: "remove the Calls on the top from the UI for now". `SHOW_CALLS_TAB = false` in `src/app/parts.tsx`
+(`SectionTabs`); set it back to `true` to show the tab again. `/calls` itself, the calls API (MacroDroid), "Customer
+called" alerts and Delivery staff landing in Calls are unchanged. No migration.

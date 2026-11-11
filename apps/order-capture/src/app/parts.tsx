@@ -64,6 +64,7 @@ export function LinkRow({ href, children, note }: { href: string; children: Reac
  * the ledger (amounts), Calls the Calls tab; Calls shows the waiting count.
  */
 type Section = "orders" | "bills" | "purchases" | "cash" | "calls";
+const SHOW_CALLS_TAB = false;
 const COLS: Record<number, string> = { 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-4", 5: "grid-cols-5" };
 
 /** Orders | Bills | Purchases | Cash | Calls, as the person's rights allow (purchases, cash: owner, Accounts, support). */
@@ -72,7 +73,8 @@ export function SectionTabs({ current, waiting, bills = false, purchases = false
   if (bills) tabs.push(["bills", "/bills", "Bills"]);
   if (purchases) tabs.push(["purchases", "/purchases", "Purchases"]);
   if (cash) tabs.push(["cash", "/cash", "Cash"]);
-  if (calls) tabs.push(["calls", "/calls", "📞 Calls"]);
+  // Calls tab hidden from the top bar for now (owner, 2026-11-11); /calls itself still works (Delivery staff land there).
+  if (calls && SHOW_CALLS_TAB) tabs.push(["calls", "/calls", "📞 Calls"]);
   if (tabs.length < 2) return null;
   return (
     <nav aria-label="Orders, bills, purchases, cash or calls" className={`grid gap-1 rounded-xl border border-slate-200 bg-white p-1 ${COLS[tabs.length] ?? "grid-cols-2"}`}>
