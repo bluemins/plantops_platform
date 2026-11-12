@@ -270,7 +270,7 @@ export const ignoredNumberChanges = oc.table("ignored_number_changes", {
 // ---------- sales ledger (0008): bills, payments, allocations, adjustments, Zoho contacts + imports ----------
 export type LedgerSource = "zoho" | "plantops";
 /** a bill may also be an opening balance from another app's report (migration 0018: the 20 L pending report, OB20-…) */
-export type BillSource = LedgerSource | "opening";
+export type BillSource = LedgerSource | "opening" | "jar_month";
 export type PaymentMode = "cash" | "upi" | "bank" | "cheque" | "other";
 export type AdjustmentKind = "zoho_closed" | "write_off" | "discount";
 
@@ -282,6 +282,22 @@ export const zohoImports = oc.table("zoho_imports", {
   exportDate: date("export_date"),
   importedBy: uuid("imported_by").notNull(),
   importedByName: text("imported_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+export const jarMonthLines = oc.table("jar_month_lines", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  importId: uuid("import_id").notNull(),
+  jarCustomerId: uuid("jar_customer_id").notNull(),
+  customerId: uuid("customer_id").notNull(),
+  sourceRef: text("source_ref").notNull(),
+  sheetDue: numeric("sheet_due", { precision: 18, scale: 2 }).notNull(),
+  plantopsDue: numeric("plantops_due", { precision: 18, scale: 2 }).notNull(),
+  action: text("action").$type<"billed" | "matches" | "flagged" | "left">().notNull(),
+  reason: text("reason").$type<"lower" | "negative" | "mixed" | "typed">(),
+  billed: numeric("billed", { precision: 18, scale: 2 }),
+  billId: uuid("bill_id"),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 
@@ -854,6 +870,10 @@ export const jarImports = oc.table("jar_imports", {
   importedBy: uuid("imported_by").notNull(),
   importedByName: text("imported_by_name").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
+  /** 'opening' = the first import (opening balances); 'month' = a month update (migration 0021, cash book C5) */
+  kind: text("kind").$type<"opening" | "month">().notNull().default("opening"),
+  /** a month update: the month's first day */
+  month: date("month"),
 });
 
 export const jarCustomers = oc.table("jar_customers", {

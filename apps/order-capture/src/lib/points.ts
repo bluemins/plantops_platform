@@ -85,7 +85,7 @@ export function mainValue(lines: ValueLine[], subTotal: bigint, discount: bigint
 
 export type PointsBill = {
   id: string;
-  source: "plantops" | "zoho" | "opening";
+  source: "plantops" | "zoho" | "opening" | "jar_month";
   bill_date: string;
   /** India date the bill's order was delivered; null = no delivered order (the bill date counts) */
   delivered_on: string | null;

@@ -415,7 +415,7 @@ export async function jarList(user: OcUser, q = "") {
         due: rupees(list.reduce((s, r) => s + paise(r.due), 0n)),
         waiting: rupees(list.reduce((s, r) => s + paise(r.waiting), 0n)),
       },
-      imports: (await tx.select().from(jarImports).where(eq(jarImports.tenantId, t))).map((i) => ({ file: i.fileName, by: i.importedByName, at: i.createdAt.toISOString(), total: i.totalDue, counts: i.counts })),
+      imports: (await tx.select().from(jarImports).where(and(eq(jarImports.tenantId, t), eq(jarImports.kind, "opening")))).map((i) => ({ file: i.fileName, by: i.importedByName, at: i.createdAt.toISOString(), total: i.totalDue, counts: i.counts })),
     };
   });
 }

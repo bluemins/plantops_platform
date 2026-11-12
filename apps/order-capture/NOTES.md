@@ -741,3 +741,25 @@ daily retry), `src/server/cash.ts` (`addEntry`, `cancelEntry`, `openAdvances`, e
 - Made while building: `staff_in` may carry purpose `advance` / `plant` (old rows: none); Attendance stores the cash
   book's number as `source_ref` (the same send twice = one row); the payload sends the entry's **work day** as the
   advance date; the advance is "by <name> (cash book)" in Attendance.
+
+## 2026-11-12 — Cash book C5 (v0.68.0): 20 L month update
+Plan: `docs/CASHBOOK_PHASE_PLAN.md` section 9 (C5). Owner 2026-11-12: "I will import customer remaining each month";
+the other app also records the payments collected in PlantOps (so its Remaining is the true balance); migration `0021`
+approved "as described"; customers who also buy boxes are **always left for the owner**; a month bill is **due the same
+day**. Files: `db/migrations/0021_jar_months.sql`, `jarMonthPlan` / `monthNumber` / `monthEnd` in `src/lib/jar-import.ts`,
+`src/server/jar-month.ts`, pages `src/app/cash/jar/month/**`, routes `src/app/api/cash/jar/month/**`,
+`test/jar-month.test.ts`.
+- **Cash → 20 L → Month update** (owner only): pick the month (default last month), upload the same Remaining Payment
+  report. Per 20 L ref: PlantOps' 20 L due = unpaid on its OB20 opening bill + earlier month bills. Report higher → a
+  bill `J20-<ref>-<YYYY-MM>` for the difference (source `jar_month`, no lines / GST / B-number, dated the month's last
+  day or today if earlier, due the same day); same → nothing; lower or negative → flagged, nothing saved; **also buys
+  boxes** (any other bill not cancelled, incl. Zoho) or **shares the Sales customer with another 20 L ref** → left for
+  the owner, who may type that month's amount (billed, reason `typed`). The owner may also "Leave" any billed row.
+- New refs in the file are listed (Import list adds them from the same file, as before); refs not in the file are
+  listed, nothing changes for them. The file's Total row must equal its rows (negatives included).
+- **Once per month:** a month with a month bill not cancelled is refused; **Undo <month>** (owner, reason) cancels its
+  month bills, refused while any has a payment; the next import of that month numbers `…-2`.
+- Month bills count in Receivables, statements, the customer's due and Sales by Customer (not "opening"); no points.
+  Shown as "20 L month bill" on bill lists, bill pages, the account and the CSV. The 20 L list's due already counts them.
+- Made while building: the month page lists every month brought in (billed / match / flagged / left, undone) and a page
+  per month with each customer; only first imports show in the 20 L page's "Imported:" line.

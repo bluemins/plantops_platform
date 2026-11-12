@@ -119,6 +119,7 @@ function timeline(
     const ob = isOpeningBill(b);
     const order = b.orderId && refOf.get(b.orderId) ? ` (${refOf.get(b.orderId)})` : "";
     if (b.source === "opening") out.push({ at: b.billDate, text: `Opening balance ${rs(b.total)} (${b.number}, brought in)`, by: b.createdByName, href: `/bills/${b.id}` });
+    else if (b.source === "jar_month") out.push({ at: b.billDate, text: `20 L month bill ${b.number}, ${rs(b.total)}`, by: b.createdByName, href: `/bills/${b.id}` });
     else if (b.source === "zoho") out.push({ at: b.billDate, text: ob ? `Opening balance ${rs(b.total)}` : `Invoice ${b.number}, ${rs(b.total)}${order}`, by: "from Zoho", href: `/bills/${b.id}` });
     else out.push({ at: b.createdAt.toISOString(), text: `Bill ${b.number} made, ${rs(b.total)}${order}`, by: b.createdByName, href: `/bills/${b.id}` });
     if (b.cancelledAt) out.push({ at: b.cancelledAt.toISOString(), text: `Bill ${b.number} cancelled: ${b.cancelReason ?? ""}`, by: b.cancelledByName, href: `/bills/${b.id}` });
@@ -676,7 +677,7 @@ export async function billsCsvRows(user: OcUser) {
   const { bills: list } = await billsList(user, { show: "all" }, 100_000);
   return [
     ["Bill", "Source", "Date", "Customer", "Order", "Total", "Due", "Status"],
-    ...list.map((b) => [b.number, b.source === "opening" ? "Opening balance (brought in)" : b.opening_balance ? "Zoho opening balance" : b.source === "zoho" ? "Zoho" : "PlantOps", b.bill_date, b.name, b.order_ref ?? "", b.total, b.due, b.status]),
+    ...list.map((b) => [b.number, b.source === "opening" ? "Opening balance (brought in)" : b.source === "jar_month" ? "20 L month bill" : b.opening_balance ? "Zoho opening balance" : b.source === "zoho" ? "Zoho" : "PlantOps", b.bill_date, b.name, b.order_ref ?? "", b.total, b.due, b.status]),
   ];
 }
 

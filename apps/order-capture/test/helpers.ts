@@ -182,14 +182,17 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
   const asend = await one(`insert into order_capture.attendance_sends (tenant_id, cash_entry_id, action, source_ref, payload) values ('${tenantId}', '${centry}', 'advance', 'C-0001', '{}') returning id`);
   const spend = await one(`insert into order_capture.staff_cash_spends (tenant_id, person_name, spent_on, category_id, amount, created_by, created_by_name)
     values ('${tenantId}', 'Maheshwar', '2026-11-09', '${ecat}', 450, '${who}', 'Sujata') returning id`);
-  return { asend, spend, ventry, vrep, vline, vcredit, vpost, jimp, obill, jar, coll, cline, cpost, ecat, van, centry, cclose, pimp, vendor, pitem, pbill, pline, vpay, valloc, device, push, poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
+  const jmonth = await one(`insert into order_capture.jar_imports (tenant_id, kind, month, file_name, total_due, imported_by, imported_by_name) values ('${tenantId}', 'month', '2026-11-01', 'nov.xlsx', 0, '${who}', 'Sujata') returning id`);
+  const jline = await one(`insert into order_capture.jar_month_lines (tenant_id, import_id, jar_customer_id, customer_id, source_ref, sheet_due, plantops_due, action)
+    values ('${tenantId}', '${jmonth}', '${jar}', '${customer}', '3324', 360, 360, 'matches') returning id`);
+  return { jmonth, jline, asend, spend, ventry, vrep, vline, vcredit, vpost, jimp, obill, jar, coll, cline, cpost, ecat, van, centry, cclose, pimp, vendor, pitem, pbill, pline, vpay, valloc, device, push, poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
 }
 
 /** The tables in the order_capture schema (the guard tests compare against this list). */
 export const TABLES = [
   "app_access_changes", "app_devices", "app_login_codes", "app_phone_changes", "app_push_outbox", "app_sessions",
   "attendance_sends", "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "cash_closes", "cash_entries", "cash_vehicles", "collection_lines", "collection_posts", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
-  "expense_categories", "ignored_number_changes", "jar_customers", "jar_imports", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "points_redemptions", "points_settings", "poll_answers", "polls", "product_rates",
+  "expense_categories", "ignored_number_changes", "jar_customers", "jar_imports", "jar_month_lines", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "points_redemptions", "points_settings", "poll_answers", "polls", "product_rates",
   "purchase_bill_lines", "purchase_bills", "purchase_imports", "purchase_items",
   "reminder_groups", "staff_cash_spends", "support_views", "van_credit_lines", "van_credit_posts", "van_report_lines", "van_reports", "vendor_payment_allocations", "vendor_payments", "vendors", "zoho_contacts", "zoho_imports",
 ];

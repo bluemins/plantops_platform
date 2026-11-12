@@ -75,7 +75,7 @@ export default async function BillsPage({ searchParams }: { searchParams: Search
               <span className="min-w-0">
                 <span className="block font-semibold break-words">{b.name}</span>
                 <span className="block text-sm text-slate-500">
-                  {b.number}{b.opening_balance ? " · opening balance" : b.source === "zoho" ? " · Zoho" : ""}{b.order_ref ? ` · ${b.order_ref}` : ""} · {day(b.bill_date)}
+                  {b.number}{b.source === "jar_month" ? " · 20 L month" : b.opening_balance ? " · opening balance" : b.source === "zoho" ? " · Zoho" : ""}{b.order_ref ? ` · ${b.order_ref}` : ""} · {day(b.bill_date)}
                 </span>
               </span>
               <span className="shrink-0 text-right">

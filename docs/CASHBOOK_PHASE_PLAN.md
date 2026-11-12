@@ -33,7 +33,13 @@ Status: **see section 0.**
   **Deploy order:** both migrations → `pnpm --filter attendance-salary cashbook:key <plant 001 id>` → its two values +
   `ATTEND_URL` on the services → deploy Attendance, then Sales, then the platform (new bell kind) → check `/health` of both
   has no `warnings` → one test advance to a person with a salary (it shows "In Attendance ✓" and on Staff → person).
-- **Next build: C5** (20 L monthly "Remaining" import, before 1 Dec; section 9). The C4 list below is the older outline:
+- **C4 live 2026-11-12** (v0.67.0, `8444a57`; Railway variables set, key checked; owner's test advance open).
+- **C5 built 2026-11-12 (v0.68.0), not deployed:** Cash → 20 L → **Month update** (Sales migration `0021`, approved).
+  Owner's choices: customers who also buy boxes always left to the owner (type the amount or leave); month bills due the
+  same day. Notes: `apps/order-capture/NOTES.md` (2026-11-12, C5). **Deploy:** `railway-migrate.sh shared` (0021) → push
+  `v0.68.0:production` → check Sales `/health`. **Owner, at the start of December:** Month update for November with the
+  Remaining report.
+- **Next build: C6** (automatic lines from cash payments; section 9). The C4 list below is the older outline:
   1. Staff cash "Advance against salary" → an Attendance advance automatically (Attendance migration `0013`:
      `salary_advances.source_ref` = the C-number, unique per plant; Attendance `POST /api/cashbook/v1/advances` with a key
      `atc_…` held by Sales, plant bound to the key, like the bot / call keys; retried from a Sales outbox). "Took back" =

@@ -4,6 +4,14 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.68.0 — 2026-11-12 — Cash book C5: 20 L month update
+
+Owner, 2026-11-12. **Migration:** Sales `0021_jar_months.sql` (bills may be `jar_month`; `jar_imports.kind` + `month`; new
+table `jar_month_lines`, FORCE RLS, SELECT + INSERT only). Platform and SSO token unchanged.
+- **Cash → 20 L → Month update** (owner): upload the 20 L app's Remaining report for a month; what it shows more than
+  PlantOps becomes that month's 20 L bill (J20-…); lower ones are flagged; customers who also buy boxes are left for the
+  owner to type. Undo a month (while none of its bills has a payment) to bring it in again.
+
 ## v0.67.0 — 2026-11-12 — Cash book C4: staff advances linked to Attendance + With staff
 
 Owner, 2026-11-12. **Migrations:** Sales `0020_staff_cash_link.sql` (two new tables `attendance_sends`,

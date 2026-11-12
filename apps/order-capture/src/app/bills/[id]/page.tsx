@@ -36,7 +36,7 @@ export default async function BillPage({ params }: { params: Params }) {
         <BillBadge status={b.status} due={money(b.due)} />
       </div>
       <p className="text-sm text-slate-600">
-        {plant?.name} · {b.source === "opening" ? `Opening balance brought in by ${b.created_by}` : b.opening_balance ? "Opening balance from Zoho" : b.source === "zoho" ? "Imported from Zoho" : `Made by ${b.created_by}`} · {day(b.bill_date)}
+        {plant?.name} · {b.source === "opening" ? `Opening balance brought in by ${b.created_by}` : b.source === "jar_month" ? `20 L month bill brought in by ${b.created_by}` : b.opening_balance ? "Opening balance from Zoho" : b.source === "zoho" ? "Imported from Zoho" : `Made by ${b.created_by}`} · {day(b.bill_date)}
         {b.due_date ? ` · due ${day(b.due_date)}` : ""}{b.terms ? ` (${TERMS_LABEL[b.terms as BillTerms]})` : ""}
       </p>
 
@@ -64,7 +64,7 @@ export default async function BillPage({ params }: { params: Params }) {
       </Card>
 
       <Card className="space-y-2">
-        {b.lines.length === 0 && <p className="text-sm text-slate-500">{b.source === "opening" ? "What the customer owed before PlantOps (from the list it was brought in from)." : b.opening_balance ? "What the customer owed before Zoho." : "No lines."}</p>}
+        {b.lines.length === 0 && <p className="text-sm text-slate-500">{b.source === "opening" ? "What the customer owed before PlantOps (from the list it was brought in from)." : b.source === "jar_month" ? "20 L deliveries for the month, from the 20 L report's Remaining (see the note)." : b.opening_balance ? "What the customer owed before Zoho." : "No lines."}</p>}
         {b.lines.map((l) => (
           <div key={l.line_no} className={`flex justify-between gap-3 text-sm ${l.free ? "rounded-lg bg-green-50 px-2 py-1" : ""}`}>
             <span className="break-words">

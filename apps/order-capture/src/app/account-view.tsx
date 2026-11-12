@@ -266,7 +266,7 @@ export function AccountView({
                         <span className="min-w-0">
                           <span className="block font-semibold">
                             {b.number}
-                            <span className="font-normal text-slate-500">{b.source === "opening" ? " · opening balance (brought in)" : b.opening_balance ? " · opening balance" : b.source === "zoho" ? " · from Zoho" : ""}{b.order ? ` · ${b.order.ref}` : ""}</span>
+                            <span className="font-normal text-slate-500">{b.source === "opening" ? " · opening balance (brought in)" : b.source === "jar_month" ? " · 20 L month bill" : b.opening_balance ? " · opening balance" : b.source === "zoho" ? " · from Zoho" : ""}{b.order ? ` · ${b.order.ref}` : ""}</span>
                           </span>
                           <span className="block text-sm text-slate-500">{day(b.bill_date)}{b.gst_invoice_no ? ` · GST ${b.gst_invoice_no}` : ""}</span>
                         </span>
@@ -297,7 +297,7 @@ export function AccountView({
                           <td className="px-3 py-2 whitespace-nowrap">{day(b.bill_date)}</td>
                           <td className="px-3 py-2 whitespace-nowrap"><a href={`/bills/${b.id}`} className="font-semibold text-(--brand) hover:underline">{b.number}</a>{b.gst_invoice_no ? <span className="block text-xs text-slate-500">GST {b.gst_invoice_no}</span> : null}</td>
                           <td className="px-3 py-2 whitespace-nowrap">{b.order ? (can(user, "read") ? <a href={`/o/${b.order.id}`} className="text-(--brand) hover:underline">{b.order.ref}</a> : b.order.ref) : <Dash />}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">{b.source === "opening" ? "Opening (brought in)" : b.opening_balance ? "Zoho (opening)" : b.source === "zoho" ? "Zoho" : "PlantOps"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{b.source === "opening" ? "Opening (brought in)" : b.source === "jar_month" ? "20 L month" : b.opening_balance ? "Zoho (opening)" : b.source === "zoho" ? "Zoho" : "PlantOps"}</td>
                           <td className="px-3 py-2 text-right whitespace-nowrap">{money(b.total)}</td>
                           <td className="px-3 py-2 text-right whitespace-nowrap">{b.status === "cancelled" ? <Dash /> : money(b.due)}</td>
                           <td className="px-3 py-2"><BillBadge status={b.status} /></td>

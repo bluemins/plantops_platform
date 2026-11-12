@@ -34,12 +34,13 @@ export interface JarSheet {
 const NEED = ["Ref. No.", "Customer Name", "Mobile No.", "Total Due"];
 const norm = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim();
 
-/** Rupees from a cell: 360, "360", "1,250.50". Throws on anything else (the file must be the report, unchanged). */
-function money(v: unknown, where: string): string {
+/** Rupees from a cell: 360, "360", "1,250.50". Throws on anything else (the file must be the report, unchanged). A
+ * negative due (paid ahead) is refused for opening balances; a month update reads it (and flags it). */
+function money(v: unknown, where: string, negative = false): string {
   const s = norm(v).replace(/,/g, "");
   if (s === "" || s === "-") return "0.00";
   if (!/^-?\d{1,9}(\.\d{1,2})?$/.test(s)) throw new Error(`${where}: "${norm(v)}" is not an amount`);
-  if (s.startsWith("-")) throw new Error(`${where}: a negative due (${s}) can't be an opening balance`);
+  if (s.startsWith("-") && !negative) throw new Error(`${where}: a negative due (${s}) can't be an opening balance`);
   return rupees(paise(s));
 }
 
@@ -50,7 +51,8 @@ export const groupName = (g: string) => norm(g).replace(/^\d+\s+/, "");
  * The sheet as rows of cells (SheetJS `sheet_to_json(ws, { header: 1, raw: true })`) → the 20 L rows. The header row is
  * found by its column names; the "Total" row is read as the file's total, not as a customer.
  */
-export function readJarSheet(aoa: unknown[][]): JarSheet {
+export function readJarSheet(aoa: unknown[][], opts: { negative?: boolean } = {}): JarSheet {
+  const neg = opts.negative ?? false;
   const h = aoa.findIndex((r) => NEED.every((n) => r.some((c) => norm(c).startsWith(n))));
   if (h < 0) throw new Error(`This isn't the 20 L pending report: it needs the columns ${NEED.join(", ")}.`);
   const head = aoa[h]!.map(norm);
@@ -66,7 +68,7 @@ export function readJarSheet(aoa: unknown[][]): JarSheet {
     const name = cell(at.name);
     if (!ref && !name) {
       // the Total row: empty ref and name, "Total" in one of the cells
-      if (r.some((c) => norm(c).toLowerCase() === "total")) fileTotal = money(r[at.due], `Row ${i + 1} (Total)`);
+      if (r.some((c) => norm(c).toLowerCase() === "total")) fileTotal = money(r[at.due], `Row ${i + 1} (Total)`, neg);
       continue;
     }
     if (!ref) throw new Error(`Row ${i + 1} (${name}) has no Ref. No.`);
@@ -74,7 +76,7 @@ export function readJarSheet(aoa: unknown[][]): JarSheet {
     if (ref.length > 60 || name.length > 200) throw new Error(`Row ${i + 1}: Ref. No. or name is too long`);
     if (seen.has(ref)) throw new Error(`Ref. No. ${ref} is in the file twice`);
     seen.add(ref);
-    rows.push({ ref, name, mobile_typed: cell(at.mobile), group: groupName(cell(at.group)).slice(0, 60), pref: cell(at.pref) === "-" ? "" : cell(at.pref).slice(0, 30), due: money(r[at.due], `Row ${i + 1} (${name})`) });
+    rows.push({ ref, name, mobile_typed: cell(at.mobile), group: groupName(cell(at.group)).slice(0, 60), pref: cell(at.pref) === "-" ? "" : cell(at.pref).slice(0, 30), due: money(r[at.due], `Row ${i + 1} (${name})`, neg) });
   }
   if (!rows.length) throw new Error("No customers found under the header row.");
   return { rows, file_total: fileTotal };
@@ -167,6 +169,115 @@ export function jarPlan(sheet: JarSheet, customerOf: (phone: string) => PlanCust
       opening_bills: rows.filter((r) => live(r) && paise(r.due) > 0n).length,
     },
     totals: { file: sheet.file_total, rows: totalRows, imported: sum(live), left_out: sum((r) => r.result === "skip"), already: sum((r) => r.result === "already") },
+    total_mismatch: sheet.file_total !== null && sheet.file_total !== totalRows,
+  };
+}
+
+// ---------- month update (cash book step C5, docs/CASHBOOK_PHASE_PLAN.md section 9; owner 2026-11-12) ----------
+// Each month the owner uploads the same report again. The other app also records the payments collected in PlantOps,
+// so its Remaining is the true balance. Per 20 L customer already imported (by Ref. No.):
+//   sheet higher than PlantOps' 20 L due → a month bill for the difference; the same → nothing; lower → flagged;
+//   negative → flagged; a customer who also buys boxes or shares the Sales customer with another 20 L ref → left for the
+//   owner (owner: "always leave them for me"), who may type that month's amount (then it is billed).
+// Refs in the file not imported yet are listed: "Import list" (same file) adds them as new 20 L customers.
+
+/** "J20-3324-2026-11"; a second number for the same ref and month (after an undo) gets "-2", "-3"... */
+export function monthNumber(ref: string, month: string, n = 1): string {
+  const head = ref.split("/")[0]!.replace(/[^0-9A-Za-z-]/g, "") || ref.replace(/[^0-9A-Za-z]/g, "");
+  const tail = `-${month}${n > 1 ? `-${n}` : ""}`;
+  return `J20-${head.slice(0, 40 - 4 - tail.length)}${tail}`;
+}
+
+/** The last day of a month ("2026-11" → "2026-11-30"). */
+export function monthEnd(month: string): string {
+  const d = new Date(`${month}-01T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + 1);
+  d.setUTCDate(0);
+  return d.toISOString().slice(0, 10);
+}
+
+export interface KnownJar {
+  jar_customer_id: string;
+  customer_id: string;
+  customer_name: string;
+  /** unpaid on this ref's 20 L bills (OB20 + earlier month bills), paise */
+  due: bigint;
+  /** why the owner decides this one: also buys boxes / the Sales customer holds another 20 L ref too */
+  mixed: "boxes" | "shared" | null;
+}
+
+/** The owner's choice for one row: leave it as it is, or (a mixed one) bill this amount. */
+export type MonthChoice = { action: "leave" } | { action: "bill"; amount: string };
+
+export interface MonthRow {
+  ref: string;
+  name: string;
+  /** the sheet's Remaining (may be negative) */
+  sheet: string;
+  jar_customer_id: string;
+  customer_id: string;
+  customer_name: string;
+  /** PlantOps' 20 L due before this month */
+  plantops: string;
+  action: "billed" | "matches" | "flagged" | "left";
+  reason: "lower" | "negative" | "mixed" | "typed" | null;
+  mixed: KnownJar["mixed"];
+  /** the month bill (rupees) when billed */
+  bill: string | null;
+  /** what the rule gives (sheet − PlantOps), shown for flagged / left rows */
+  difference: string;
+  error: string | null;
+}
+
+export interface MonthPlan {
+  rows: MonthRow[];
+  /** refs in the file not imported yet (Import list adds them) */
+  new_refs: { ref: string; name: string; due: string }[];
+  /** 20 L customers imported before but not in this file (nothing changes for them) */
+  missing: { ref: string; name: string }[];
+  counts: { billed: number; matches: number; flagged: number; left: number; new_refs: number; missing: number; errors: number };
+  totals: { file: string | null; rows: string; billed: string };
+  total_mismatch: boolean;
+}
+
+const AMOUNT = /^\d{1,9}(\.\d{1,2})?$/;
+
+export function jarMonthPlan(sheet: JarSheet, known: Map<string, KnownJar>, allRefs: Map<string, string>, choices: Record<string, MonthChoice> = {}): MonthPlan {
+  const rows: MonthRow[] = [];
+  const fresh: MonthPlan["new_refs"] = [];
+  for (const r of sheet.rows) {
+    const k = known.get(r.ref);
+    if (!k) {
+      fresh.push({ ref: r.ref, name: r.name, due: r.due });
+      continue;
+    }
+    const S = paise(r.due);
+    const diff = S - k.due;
+    const base = { ref: r.ref, name: r.name, sheet: r.due, jar_customer_id: k.jar_customer_id, customer_id: k.customer_id, customer_name: k.customer_name, plantops: rupees(k.due), mixed: k.mixed, difference: rupees(diff), bill: null, error: null };
+    const c = choices[r.ref];
+    if (k.mixed) {
+      if (c?.action === "bill") {
+        const ok = AMOUNT.test(c.amount.trim()) && paise(c.amount.trim()) > 0n;
+        rows.push(ok ? { ...base, action: "billed", reason: "typed", bill: rupees(paise(c.amount.trim())) } : { ...base, action: "left", reason: "mixed", error: `"${c.amount}" is not an amount in rupees` });
+      } else rows.push({ ...base, action: "left", reason: "mixed" });
+      continue;
+    }
+    if (S < 0n) rows.push({ ...base, action: "flagged", reason: "negative" });
+    else if (diff < 0n) rows.push({ ...base, action: "flagged", reason: "lower" });
+    else if (diff === 0n) rows.push({ ...base, action: "matches", reason: null });
+    else if (c?.action === "leave") rows.push({ ...base, action: "left", reason: null });
+    else rows.push({ ...base, action: "billed", reason: null, bill: rupees(diff) });
+  }
+  const inFile = new Set(sheet.rows.map((r) => r.ref));
+  const missing = [...allRefs.entries()].filter(([ref]) => !inFile.has(ref)).map(([ref, name]) => ({ ref, name }));
+  const n = (a: MonthRow["action"]) => rows.filter((r) => r.action === a).length;
+  const totalRows = rupees(sheet.rows.reduce((s, r) => s + paise(r.due), 0n));
+  return {
+    rows,
+    new_refs: fresh,
+    missing,
+    counts: { billed: n("billed"), matches: n("matches"), flagged: n("flagged"), left: n("left"), new_refs: fresh.length, missing: missing.length, errors: rows.filter((r) => r.error).length },
+    totals: { file: sheet.file_total, rows: totalRows, billed: rupees(rows.reduce((s, r) => s + (r.bill ? paise(r.bill) : 0n), 0n)) },
     total_mismatch: sheet.file_total !== null && sheet.file_total !== totalRows,
   };
 }

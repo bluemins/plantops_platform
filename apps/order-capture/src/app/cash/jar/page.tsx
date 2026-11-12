@@ -30,14 +30,19 @@ export default async function JarPage({ searchParams }: { searchParams: Search }
       <Card className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm font-medium text-slate-600">20 L customers owe</p>
-          {can(user, "jar_import") && <a href="/cash/jar/import" className="text-sm font-semibold text-(--brand)">Import list</a>}
+          {can(user, "jar_import") && (
+            <span className="flex gap-3 text-sm font-semibold">
+              <a href="/cash/jar/month" className="text-(--brand)">Month update</a>
+              <a href="/cash/jar/import" className="text-(--brand)">Import list</a>
+            </span>
+          )}
         </div>
         <p className="text-4xl font-bold tracking-tight">{rs(list.totals.due)}</p>
         <p className="text-sm text-slate-600">
           {list.totals.count} customers
           {paise(list.totals.waiting) > 0n && <> · {rs(list.totals.waiting)} collected, <a href="/cash/post" className="font-semibold text-(--brand)">not posted yet</a></>}
         </p>
-        <p className="text-xs text-slate-500">Only collections lower what they owe. New 20 L deliveries are still billed in the other app (monthly 20 L bills come later).</p>
+        <p className="text-xs text-slate-500">Collections lower what they owe. Each month the owner brings in the month&apos;s 20 L bills from the other app&apos;s Remaining report (Month update).</p>
       </Card>
 
       <form className="flex gap-2">
