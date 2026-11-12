@@ -6,49 +6,45 @@ PlantOps, the way Floor Stock replaced the evening stock message. It covers van 
 provide the **20 L customer list as an Excel sheet**; jar payments are credited to those customers.
 Status: **see section 0.**
 
-## 0. Status and handover (2026-11-11 end of day, read this first)
-- **C1 live** (v0.63.0, `c799a2d`, Sales migration `0017` applied 2026-11-11). Nobody uses it yet: **the owner starts
-  the cash book only after C2 and C3 are live** ("when all customers' money, all brands, is counted in cash").
-- **C2 live 2026-11-11** (v0.64.0, `6ab6284`, migration `0018` applied). **The owner imported the 20 L list and tested it
-  (2026-11-11).**
-  - **Owner, 2026-11-11: a collection must not update the customer's billing directly.** Cash goes into the cash book at
-    once; every customer line waits in **Cash → To post** until the owner or Accounts posts it or turns it down.
-  - In the file: 17 rows without a mobile + **10 placeholder "mobiles"** (1730445774…) = **27 rows (₹4,036) left out by
-    default**; 151 come in (₹60,288) unless their mobile is already a customer (12 on the live copy).
-- **C3 live 2026-11-11** (v0.65.0, `755687e`, migration `0019_van_reports.sql` applied). Design as built: section 6c.
-  **v0.65.1 (owner, testing live):** the van form takes **one total sales amount** (no products × rates); new customers
-  are entered as a Sales order first. **"Not paid" lines wait in To post too** (owner
-  2026-11-11): posting makes the bill.
-- **Owner, 2026-11-11: done** — 20 L list imported and tested, vehicles Mini + Pickup, Anmol and Bindu = Accounts, **cash
-  book started**. **Runs alongside the WhatsApp group from 2026-11-12** for about a week (compare cash in hand each
-  evening), then the group stops (C5).
-- **Never commit `refeDocs/payments/`** (the private WhatsApp export and customer files).
-- **2026-11-12: plan for everything left approved by the owner: section 9** (C4 Attendance link + Open with staff, C5
-  20 L monthly "Remaining" import before 1 Dec, C6 automatic lines from Receive payment / Pay vendor in cash, C7 Reports →
-  Cash + tile + limits, C8 only if asked). Each step asks before its migration. The "Next build" list below and section 7 are the older
-  outline; section 9 wins where they differ.
-- **C4 built 2026-11-12 (v0.67.0), not deployed** (Sales migration `0020`, Attendance `0013`, key `atc_…`, all approved).
-  Owner's choices: cash advances only in the cash book; cash brought back for a paid month refused; advances typed before
-  the link stay as they are. Notes: `apps/order-capture/NOTES.md` + `apps/attendance-salary/NOTES.md` (2026-11-12).
-  **Deploy order:** both migrations → `pnpm --filter attendance-salary cashbook:key <plant 001 id>` → its two values +
-  `ATTEND_URL` on the services → deploy Attendance, then Sales, then the platform (new bell kind) → check `/health` of both
-  has no `warnings` → one test advance to a person with a salary (it shows "In Attendance ✓" and on Staff → person).
-- **C4 live 2026-11-12** (v0.67.0, `8444a57`; Railway variables set, key checked; owner's test advance open).
-- **C5 built 2026-11-12 (v0.68.0), not deployed:** Cash → 20 L → **Month update** (Sales migration `0021`, approved).
-  Owner's choices: customers who also buy boxes always left to the owner (type the amount or leave); month bills due the
-  same day. Notes: `apps/order-capture/NOTES.md` (2026-11-12, C5). **Deploy:** `railway-migrate.sh shared` (0021) → push
-  `v0.68.0:production` → check Sales `/health`. **Owner, at the start of December:** Month update for November with the
-  Remaining report.
-- **Next build: C6** (automatic lines from cash payments; section 9). The C4 list below is the older outline:
-  1. Staff cash "Advance against salary" → an Attendance advance automatically (Attendance migration `0013`:
-     `salary_advances.source_ref` = the C-number, unique per plant; Attendance `POST /api/cashbook/v1/advances` with a key
-     `atc_…` held by Sales, plant bound to the key, like the bot / call keys; retried from a Sales outbox). "Took back" =
-     an advance correction. Section 5.
-  2. Staff list from Attendance's employees instead of typed names; never to yourself (already enforced).
-  3. **Open with staff**: cash given "for plant spending" not yet settled (by expenses / purchase bills / cash returned).
-- **Then C5:** Reports → Cash (cash book by period, expenses by type incl. the van's meal / tiffin / diesel / toll, van
-  sales by vehicle, shorts and extras), the Sales tile (cash in hand, closed / not closed), stop the WhatsApp group.
-- Open finding for the owner: Pickup report of 1 Nov is ₹1,000 off (₹9,780 worked out vs ₹8,780 posted).
+## 0. Status and handover (2026-11-12 end of day, read this first)
+**Live: Sales v0.68.0** (`production` = `f650a1a`). Plan for everything left: **section 9** (approved by the owner
+2026-11-12; it wins over the older outline in sections 3–7). Each step: plan → **ask before its migration** → tests →
+`next build` → notes → deploy only when the owner says.
+
+| Step | What | Status |
+|---|---|---|
+| C1 | Day sheet, expenses, staff cash, money in / out, close the day, cash book | live v0.63.0 (migration `0017`) |
+| C2 | 20 L customers (Import list, OB20 opening bills) + collections → **To post** | live v0.64.0 (`0018`) |
+| C3 | Van report (one total sales amount since v0.65.1); "not paid" waits in To post | live v0.65.0 / v0.65.1 (`0019`) |
+| C4 | Advance against salary → Attendance (key `atc_…`), Took back for an advance, **With staff** tab | live v0.67.0 (Sales `0020`, Attendance `0013`; Railway variables set and key checked 2026-11-12) |
+| C5 | Cash → 20 L → **Month update** (Remaining report → J20 month bills; mixed customers left to the owner; Undo) | live v0.68.0 (`0021`, applied 2026-11-12) |
+| **C6** | **Cash payments into the cash book only when ticked** | **next** (section 9 C6; needs migration `0022`: ask) |
+| C7 | Reports → Cash, cash tile, editable ₹100 / ₹2,000 limits, `cash_credit` bell; then stop the WhatsApp group | after C6 |
+| C8 | Handover between holders, van drivers' own report | only if the owner asks |
+
+**C6, decided by the owner 2026-11-12 (start here next session):**
+- **Pay vendor / purchase bill "Paid now": the bank by default.** Only a ticked **"Paid from the cash book"** reaches the
+  cash book, then "Cash box" (a `vendor_payment` out line) or "Cash given to <person>" (a C4 "spent" row, box unchanged).
+- **Receive payment: the same rule.** A tick **"Put in the cash book"**, off by default → a `sale_payment` in line.
+  Posting from To post never adds a line (that cash is already in the book).
+- The line goes on the first open day (work day = the payment date); cancelling the payment cancels its line; the line
+  alone can't be cancelled. Migration `0022` (to show the owner first): `cash_entries.kind` + `sale_payment`,
+  `vendor_payment`, `payment_id` / `vendor_payment_id` (unique when set), and the `cash_settings` table for C7's limits.
+- Code to touch: `src/server/ledger.ts` (`receivePayment` / `receiveInTx` / `cancelPayment`), `src/server/purchase-entry.ts`
+  (Pay vendor, "Paid now", cancel), `src/server/cash.ts` (`cancelEntry` refuses linked lines), `src/server/staff-cash.ts`
+  (`addSpend` from a vendor payment), the two payment forms.
+
+**Owner to do:**
+- C4: a ₹1 "Advance against salary" for someone with a salary in Attendance → shows "In Attendance ✓"; then cancel it.
+  Save the key from `.env.railway.shared.cashbook.paste` in the password manager, then delete that file (or ask Claude).
+- C5: open Cash → 20 L → Month update once (proves the new build); at the start of December bring in November.
+- Run the cash book next to the WhatsApp group "RB payments" (from 2026-11-12, about a week), cash in hand each evening.
+- Pickup report of 1 Nov is ₹1,000 off in the chat (₹9,780 worked out vs ₹8,780 posted).
+
+**Rules that stay:** nothing in the cash book changes a customer's bills by itself (collections and van "not paid" wait
+in To post); cash advances only in the cash book; never commit `refeDocs/` (now in `.gitignore`).
+Details per step: sections 6b (C2), 6c (C3), 7a (C1), 9 (C4–C8) and `apps/order-capture/NOTES.md`,
+`apps/attendance-salary/NOTES.md`.
 
 ## 1. What the group does today (plant 001, read 2026-11-10)
 Chat export `refeDocs/payments/WhatsApp Chat with Payments/` (Mar 2023 – 9 Nov 2026, ~7,500 messages; bindu ~5,400,

@@ -2271,7 +2271,7 @@ holds the manifest, icons and build notes (not deployed); key in `~/projects/and
 permission, tenant or SSO token change. Tests: auth 90. **Leftovers (TODO, low):** Job applications redeploy (still 404),
 the phone checklist, HANDBOOK section.
 
-### 2026-11-12 — Cash book C4: staff advances linked to Attendance + "With staff" — built (v0.67.0), not deployed
+### 2026-11-12 — Cash book C4: staff advances linked to Attendance + "With staff" — live (v0.67.0)
 Plan for everything left in the cash book (C4–C8) approved by the owner 2026-11-12: `docs/CASHBOOK_PHASE_PLAN.md` section 9.
 - **Sales:** an "Advance against salary" goes to a picked employee (Plant staff) and is sent to Attendance after the save
   (sent ✓ / refused with the reason + owners' bell `order_capture.cash_advance_failed` + Send again / waiting, retried by
@@ -2286,10 +2286,10 @@ Plan for everything left in the cash book (C4–C8) approved by the owner 2026-1
   for a paid month refused; advances typed before the link stay as they are. The owner also imports the 20 L "Remaining"
   report each month (C5, next).
 - SSO token unchanged; platform: one notification kind. Tests: Sales 1,275 (+12), Attendance 506 (+6), platform 428;
-  typecheck and all three builds pass. Checked locally: the new Attendance address answers without a login (401 for a
-  wrong key). **Not yet:** deployed; a real advance between the two live services.
+  typecheck and all three builds pass. **Live 2026-11-12** (`8444a57`; Railway variables set, Attendance accepts plant 001's
+  key). **Not yet:** the owner's test advance between the two live services.
 
-### 2026-11-12 — Cash book C5: 20 L month update — built (v0.68.0), not deployed
+### 2026-11-12 — Cash book C5: 20 L month update — live (v0.68.0)
 Owner 2026-11-12 ("I will import customer remaining each month"). Cash → 20 L → **Month update** (owner only): the other
 app's Remaining report per month; per 20 L customer the report's Remaining minus PlantOps' 20 L due (OB20 + earlier
 month bills) becomes a **20 L month bill** `J20-<ref>-<YYYY-MM>` (source `jar_month`, dated the month end, due the same
@@ -2297,5 +2297,5 @@ day); same = nothing; lower / negative = flagged; customers who also buy boxes (
 ref) are **left for the owner** to type an amount. Once per month; "Undo <month>" cancels its bills (not while one has a
 payment). Sales migration `0021_jar_months.sql` (approved: `bills.source` + `jar_month`, `jar_imports.kind` / `month`, new
 append-only `jar_month_lines`, FORCE RLS). Platform and SSO token unchanged. Notes: `apps/order-capture/NOTES.md`.
-Tests: Sales 1,281 (+6, `test/jar-month.test.ts`); typecheck and build pass. **Next:** deploy; the owner runs November's update at the start of December.
+Tests: Sales 1,281 (+6, `test/jar-month.test.ts`); typecheck and build pass. **Live 2026-11-12** (migration `0021` applied, `production` = `f650a1a`). **Next:** C6 (cash payments into the cash book only when ticked, owner 2026-11-12); handover: `docs/CASHBOOK_PHASE_PLAN.md` section 0. The owner runs November's month update at the start of December.
 
