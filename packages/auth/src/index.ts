@@ -2,3 +2,4 @@ export * from "./access";
 export * from "./verify";
 export * from "./client";
 export * from "./session";
+export * from "./assetlinks";

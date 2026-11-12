@@ -1,0 +1,51 @@
+{
+  "packageId": "life.bluemins.plantops",
+  "host": "app.bluemins.life",
+  "name": "Drop",
+  "launcherName": "Drop",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#1D4ED8",
+  "themeColorDark": "#1D4ED8",
+  "navigationColor": "#FFFFFF",
+  "navigationColorDark": "#000000",
+  "navigationDividerColor": "#FFFFFF",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#FFFFFF",
+  "enableNotifications": true,
+  "startUrl": "/home",
+  "iconUrl": "https://app.bluemins.life/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "/home/rocky/projects/android-tools/keys/plantops-staff.keystore",
+    "alias": "plantops-staff"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://app.bluemins.life/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": { "enabled": true }
+  },
+  "alphaDependencies": { "enabled": false },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://app.bluemins.life/",
+  "minSdkVersion": 24,
+  "additionalTrustedOrigins": [
+    "lab.bluemins.life",
+    "docs.bluemins.life",
+    "stock.bluemins.life",
+    "complaints.bluemins.life",
+    "orders.bluemins.life",
+    "attendance.bluemins.life",
+    "jobs.bluemins.life"
+  ],
+  "retainedBundles": [],
+  "fingerprints": [
+    { "name": "plantops-staff", "value": "44:5D:61:29:C6:47:42:0C:19:BB:52:D6:C1:68:EF:7F:E2:48:3F:33:07:AF:AB:E4:4E:17:3E:42:87:99:06:90" }
+  ]
+}

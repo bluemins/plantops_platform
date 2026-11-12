@@ -10,5 +10,5 @@ export function proxy(req: NextRequest) {
 export const config = {
   // Not for: Next's own files, the login/support callbacks, the platform's tile-number call (own signed ticket),
   // the health check and the scheduled-job endpoint (own secret).
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|sso/|api/plantops/|api/cron/|health).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|sso/|api/plantops/|api/cron/|.well-known/|health).*)"],
 };
