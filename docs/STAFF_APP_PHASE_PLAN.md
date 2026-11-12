@@ -11,6 +11,9 @@ steps. It is **separate from Drop** (the customer app). The approved plan is in 
   `~/projects/staff-apk/Drop-staff-1.0.0.apk` (minSdk 24; `bubblewrap build` refuses our SDK layout, so Gradle +
   apksigner, see the README). Fingerprint
   `44:5D:61:29:C6:47:42:0C:19:BB:52:D6:C1:68:EF:7F:E2:48:3F:33:07:AF:AB:E4:4E:17:3E:42:87:99:06:90`.
+- **Renamed "PureVibe" with its own icon (owner, 2026-11-12):** water drop on a blue-to-aqua tile, `apps/staff-app/icons/`;
+  APK `~/projects/staff-apk/PureVibe-staff-1.0.1.apk` (version code 2, installs over the Drop build). v0.66.0 live
+  (`81a3be9`); `STAFF_APP_SHA256` set by the owner.
 - **Left:** `STAFF_APP_SHA256` on all 8 Railway services (until then the app shows an address bar), then the phone
   checklist (section 4), the HANDBOOK section and the CLAUDE.md status note.
 

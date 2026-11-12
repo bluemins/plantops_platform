@@ -3,3 +3,5 @@
 !.gitignore
 !twa-manifest.json
 !README.md
+!icons/
+!icons/**

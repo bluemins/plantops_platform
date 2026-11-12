@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1f6b"/><stop offset="0.5" stop-color="#1d4ed8"/><stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.52" r="0.5">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#0369a1"/>
+    </linearGradient>
+    <clipPath id="drop"><path d="M256 92 C256 92 144 220 144 302 A112 112 0 0 0 368 302 C368 220 256 92 256 92 Z"/></clipPath>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <circle cx="256" cy="268" r="210" fill="url(#glow)"/>
+  <path d="M256 92 C256 92 144 220 144 302 A112 112 0 0 0 368 302 C368 220 256 92 256 92 Z" fill="#ffffff"/>
+  <g clip-path="url(#drop)">
+    <path d="M120 300 C170 270 210 330 256 300 C302 270 342 330 392 300 L392 430 L120 430 Z" fill="url(#water)"/>
+    <path d="M120 336 C170 310 210 364 256 338 C302 312 342 366 392 338 L392 430 L120 430 Z" fill="#0c4a6e" opacity="0.35"/>
+  </g>
+  <ellipse cx="208" cy="236" rx="16" ry="36" transform="rotate(28 208 236)" fill="#bae6fd" opacity="0.9"/>
+  <path d="M378 120 L386 144 L410 152 L386 160 L378 184 L370 160 L346 152 L370 144 Z" fill="#ffffff" opacity="0.95"/>
+  <circle cx="132" cy="150" r="7" fill="#ffffff" opacity="0.6"/>
+</svg>

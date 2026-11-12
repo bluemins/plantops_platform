@@ -1,8 +1,8 @@
 {
   "packageId": "life.bluemins.plantops",
   "host": "app.bluemins.life",
-  "name": "Drop",
-  "launcherName": "Drop",
+  "name": "PureVibe",
+  "launcherName": "PureVibe",
   "display": "standalone",
   "orientation": "portrait",
   "themeColor": "#1D4ED8",
@@ -14,22 +14,26 @@
   "backgroundColor": "#FFFFFF",
   "enableNotifications": true,
   "startUrl": "/home",
-  "iconUrl": "https://app.bluemins.life/icon-512.png",
+  "iconUrl": "http://localhost:8765/icon-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "/home/rocky/projects/android-tools/keys/plantops-staff.keystore",
     "alias": "plantops-staff"
   },
-  "appVersionName": "1.0.0",
-  "appVersionCode": 1,
+  "appVersionName": "1.0.1",
+  "appVersionCode": 2,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://app.bluemins.life/manifest.webmanifest",
   "fallbackType": "customtabs",
   "features": {
-    "locationDelegation": { "enabled": true }
+    "locationDelegation": {
+      "enabled": true
+    }
   },
-  "alphaDependencies": { "enabled": false },
+  "alphaDependencies": {
+    "enabled": false
+  },
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
@@ -46,6 +50,11 @@
   ],
   "retainedBundles": [],
   "fingerprints": [
-    { "name": "plantops-staff", "value": "44:5D:61:29:C6:47:42:0C:19:BB:52:D6:C1:68:EF:7F:E2:48:3F:33:07:AF:AB:E4:4E:17:3E:42:87:99:06:90" }
-  ]
+    {
+      "name": "plantops-staff",
+      "value": "44:5D:61:29:C6:47:42:0C:19:BB:52:D6:C1:68:EF:7F:E2:48:3F:33:07:AF:AB:E4:4E:17:3E:42:87:99:06:90"
+    }
+  ],
+  "maskableIconUrl": "http://localhost:8765/icon-512.png",
+  "monochromeIconUrl": "http://localhost:8765/mono-512.png"
 }
