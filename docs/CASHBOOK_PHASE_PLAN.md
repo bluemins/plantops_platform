@@ -428,12 +428,17 @@ list** the screen asks: "First import (opening balances)" or "**Month update**".
   file (never committed: `refeDocs/payments/` stays out of git).
 
 ### C6 — Automatic cash book lines (no typing twice)
-- **Receive payment with mode Cash**, typed on the Sales payment screen, adds a cash-book line "Payment P-0123 from
-  <customer>" (kind `sale_payment`, in). Posting a collection or van line from **To post** never adds one: that cash is
-  already in the book.
-- **Pay vendor / purchase bill "Paid now"** with mode Cash asks "Paid from: Cash box / Cash given to <person>":
+- **Receive payment: only when ticked too (owner, 2026-11-12, same rule as vendors).** A tick **"Put in the cash
+  book"** on Receive payment, off by default; ticked → a cash-book line "Payment P-0123 from <customer>" (kind
+  `sale_payment`, in). Not ticked = cash that went to the office or bank, never in the box. Posting a collection or van
+  line from **To post** never adds one: that cash is already in the book.
+- **Pay vendor / purchase bill "Paid now": the bank by default (owner, 2026-11-12: "only if pay from cash book is
+  marked, otherwise we always pay from bank").** Nothing reaches the cash book unless the person ticks **"Paid from the
+  cash book"**; the tick then asks "Cash box / Cash given to <person>":
   - Cash box → a line "Vendor payment PM-0045 to <vendor>" (kind `vendor_payment`, out)
   - cash given to a person → a "spent" row against that person (C4)
+  - not ticked (the default) → no cash-book line, whatever the payment's mode says (Zoho's old Cash / Petty Cash modes
+    never create lines either)
 - The line goes on the first open day (cash day), with the payment date as the work day. A payment dated more than 31
   days back can't be Cash ("record it in the cash book by hand").
 - Cancelling the payment cancels its line (reason copied). Cancelling the line alone is refused: "cancel the payment
