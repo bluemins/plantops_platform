@@ -93,6 +93,10 @@ export function describeChange(action: string, details: Record<string, unknown>)
       return `Cash ${show(details.ref)}: ${show(details.kind)} ₹${show(details.amount)}${details.category ? ` (${show(details.category)})` : ""}${details.person ? ` (${show(details.person)})` : ""} on ${show(details.date)}`;
     case "cash.cancel":
       return `Cash ${show(details.ref)} (₹${show(details.amount)}) cancelled: ${show(details.reason)}`;
+    case "cash.spent":
+      return `Spent from cash given: ${show(details.person)} ₹${show(details.amount)} (${show(details.category)}) on ${show(details.date)}`;
+    case "cash.spent_cancel":
+      return `Spent from cash given (${show(details.person)}, ₹${show(details.amount)}) cancelled: ${show(details.reason)}`;
     case "cash.close":
       return `Closed the cash book for ${show(details.date)}: ₹${show(details.counted)} counted, difference ₹${show(details.difference)}`;
     case "cash.close_fix":

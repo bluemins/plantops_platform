@@ -179,16 +179,19 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
   const vcredit = await one(`insert into order_capture.van_credit_lines (tenant_id, report_id, line_no, customer_id, amount) values ('${tenantId}', '${vrep}', 1, '${customer}', 800) returning id`);
   const vpost = await one(`insert into order_capture.van_credit_posts (tenant_id, credit_line_id, outcome, reason, created_by, created_by_name)
     values ('${tenantId}', '${vcredit}', 'turned_down', 'test row', '${who}', 'Sujata') returning id`);
-  return { ventry, vrep, vline, vcredit, vpost, jimp, obill, jar, coll, cline, cpost, ecat, van, centry, cclose, pimp, vendor, pitem, pbill, pline, vpay, valloc, device, push, poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
+  const asend = await one(`insert into order_capture.attendance_sends (tenant_id, cash_entry_id, action, source_ref, payload) values ('${tenantId}', '${centry}', 'advance', 'C-0001', '{}') returning id`);
+  const spend = await one(`insert into order_capture.staff_cash_spends (tenant_id, person_name, spent_on, category_id, amount, created_by, created_by_name)
+    values ('${tenantId}', 'Maheshwar', '2026-11-09', '${ecat}', 450, '${who}', 'Sujata') returning id`);
+  return { asend, spend, ventry, vrep, vline, vcredit, vpost, jimp, obill, jar, coll, cline, cpost, ecat, van, centry, cclose, pimp, vendor, pitem, pbill, pline, vpay, valloc, device, push, poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
 }
 
 /** The tables in the order_capture schema (the guard tests compare against this list). */
 export const TABLES = [
   "app_access_changes", "app_devices", "app_login_codes", "app_phone_changes", "app_push_outbox", "app_sessions",
-  "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "cash_closes", "cash_entries", "cash_vehicles", "collection_lines", "collection_posts", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
+  "attendance_sends", "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "cash_closes", "cash_entries", "cash_vehicles", "collection_lines", "collection_posts", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
   "expense_categories", "ignored_number_changes", "jar_customers", "jar_imports", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "points_redemptions", "points_settings", "poll_answers", "polls", "product_rates",
   "purchase_bill_lines", "purchase_bills", "purchase_imports", "purchase_items",
-  "reminder_groups", "support_views", "van_credit_lines", "van_credit_posts", "van_report_lines", "van_reports", "vendor_payment_allocations", "vendor_payments", "vendors", "zoho_contacts", "zoho_imports",
+  "reminder_groups", "staff_cash_spends", "support_views", "van_credit_lines", "van_credit_posts", "van_report_lines", "van_reports", "vendor_payment_allocations", "vendor_payments", "vendors", "zoho_contacts", "zoho_imports",
 ];
 
 /**

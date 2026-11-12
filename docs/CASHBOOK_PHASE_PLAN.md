@@ -27,7 +27,13 @@ Status: **see section 0.**
   20 L monthly "Remaining" import before 1 Dec, C6 automatic lines from Receive payment / Pay vendor in cash, C7 Reports →
   Cash + tile + limits, C8 only if asked). Each step asks before its migration. The "Next build" list below and section 7 are the older
   outline; section 9 wins where they differ.
-- **Next build: C4** (plan first, ask before the migration and the key):
+- **C4 built 2026-11-12 (v0.67.0), not deployed** (Sales migration `0020`, Attendance `0013`, key `atc_…`, all approved).
+  Owner's choices: cash advances only in the cash book; cash brought back for a paid month refused; advances typed before
+  the link stay as they are. Notes: `apps/order-capture/NOTES.md` + `apps/attendance-salary/NOTES.md` (2026-11-12).
+  **Deploy order:** both migrations → `pnpm --filter attendance-salary cashbook:key <plant 001 id>` → its two values +
+  `ATTEND_URL` on the services → deploy Attendance, then Sales, then the platform (new bell kind) → check `/health` of both
+  has no `warnings` → one test advance to a person with a salary (it shows "In Attendance ✓" and on Staff → person).
+- **Next build: C5** (20 L monthly "Remaining" import, before 1 Dec; section 9). The C4 list below is the older outline:
   1. Staff cash "Advance against salary" → an Attendance advance automatically (Attendance migration `0013`:
      `salary_advances.source_ref` = the C-number, unique per plant; Attendance `POST /api/cashbook/v1/advances` with a key
      `atc_…` held by Sales, plant bound to the key, like the bot / call keys; retried from a Sales outbox). "Took back" =

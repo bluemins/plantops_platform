@@ -780,6 +780,45 @@ export const cashEntries = oc.table("cash_entries", {
   staffPurpose: text("staff_purpose").$type<StaffPurpose>(),
   paidTo: text("paid_to"),
   note: text("note"),
+  /** "Took back" for an advance: the advance (staff_out) entry the cash came back for (migration 0020) */
+  returnsEntryId: uuid("returns_entry_id"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  cancelledAt: ts("cancelled_at"),
+  cancelledBy: uuid("cancelled_by"),
+  cancelledByName: text("cancelled_by_name"),
+  cancelReason: text("cancel_reason"),
+});
+
+// ---------- staff cash linked to Attendance (migration 0020, cash book step C4) ----------
+
+export const attendanceSends = oc.table("attendance_sends", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  cashEntryId: uuid("cash_entry_id").notNull(),
+  action: text("action").$type<"advance" | "return" | "cancel">().notNull(),
+  sourceRef: text("source_ref").notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  status: text("status").$type<"waiting" | "sent" | "refused">().notNull().default("waiting"),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  attendanceId: uuid("attendance_id"),
+  sentAt: ts("sent_at"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+export const staffCashSpends = oc.table("staff_cash_spends", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  personUserId: uuid("person_user_id"),
+  personName: text("person_name").notNull(),
+  spentOn: date("spent_on").notNull(),
+  categoryId: uuid("category_id").notNull(),
+  amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+  paidTo: text("paid_to"),
+  note: text("note"),
   createdBy: uuid("created_by").notNull(),
   createdByName: text("created_by_name").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),

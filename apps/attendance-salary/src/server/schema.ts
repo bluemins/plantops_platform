@@ -162,6 +162,8 @@ export const salaryAdvances = at.table("salary_advances", {
   note: text("note"),
   correctsId: uuid("corrects_id"),
   reason: text("reason"),
+  /** the cash book's number when the advance came from Sales' cash book (migration 0013), else null */
+  sourceRef: text("source_ref"),
   createdBy: uuid("created_by").notNull(),
   createdByName: text("created_by_name").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),

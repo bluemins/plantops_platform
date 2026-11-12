@@ -877,3 +877,17 @@ so Dussehra 20 Oct is not paid).
 - **Owner to do after deploy:** Staff → Ramu → Holidays → Paste from Excel (Start from November 2026) → Add; mark the
   Oct–Dec choice leave when he takes one; then cancel the 8 h added on 8 Nov (he didn't work Diwali) so the day shows
   as the paid holiday. Rows for 2027 need the 2027 sheet.
+
+## 2026-11-12: advances from Sales' cash book (v0.67.0)
+Plan: `docs/CASHBOOK_PHASE_PLAN.md` section 9 (C4); Sales side in `apps/order-capture/NOTES.md`. Owner 2026-11-12:
+migration `0013_cash_book_link.sql` and the key approved; **cash advances are entered in the cash book only** (the advance
+form here stays for bank / UPI advances); cash brought back for an advance whose month is paid is refused.
+- `POST /api/cashbook/v1/advances` (`src/server/cashbook.ts`), outside the login proxy, key `atc_…` in
+  `ATTEND_CASHBOOK_KEYS` (`[{id, tenant_id, sha256, label}]`, only the SHA-256; the plant comes from the key). Make one:
+  `pnpm --filter attendance-salary cashbook:key <plant tenant uuid>` (prints the complete value for both services).
+- Actions: `advance` (same rules as the owner's form: active employee, a salary set, not before the first salary month,
+  not in the future; plus at most 2 months back), `return` (a correction of that advance, ≤ what is left, refused 409 once
+  the advance's month is paid; `check: true` only answers), `cancel` (corrects whatever is left; nothing left = nothing).
+- `salary_advances.source_ref` = the cash book's number, unique per plant: a second send returns the saved row (200).
+  Rows show "by <name> (cash book)"; audit actor `cashbook:<user id>` with the usual `salary.advance` / `salary.correction`
+  texts in Recent changes. `/health` lists a broken `ATTEND_CASHBOOK_KEYS` under `warnings`.

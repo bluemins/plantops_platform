@@ -1,3 +1,4 @@
+import { attendanceLinkProblem } from "@/server/attendance-link";
 import { fcmProblem } from "@/server/drop/fcm";
 import { botKeysProblem } from "@/server/bot";
 import { callKeysProblem } from "@/server/calls";
@@ -12,6 +13,6 @@ import { whatsappSettingsProblem } from "@/server/thanks";
  */
 export async function GET() {
   const db = await databaseReachable();
-  const warnings = [whatsappSettingsProblem(), botKeysProblem(), callKeysProblem(), dropSettingsProblem(), fcmProblem()].filter((w): w is string => w !== null);
+  const warnings = [whatsappSettingsProblem(), botKeysProblem(), callKeysProblem(), dropSettingsProblem(), fcmProblem(), attendanceLinkProblem()].filter((w): w is string => w !== null);
   return Response.json({ ok: db, module: "order_capture", database: db ? "ok" : "unreachable", warnings }, { status: db ? 200 : 503 });
 }

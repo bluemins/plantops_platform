@@ -10,7 +10,7 @@ import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../header";
 import { SectionTabs } from "../parts";
-import { CancelEntry, CloseDay, EntryButtons, StartCashBook } from "./cash-forms";
+import { attendanceText, CancelEntry, CloseDay, EntryButtons, SendAgain, StartCashBook } from "./cash-forms";
 import { CashNav, longDay, shortDay } from "./parts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
@@ -23,9 +23,9 @@ const STATUS: Record<CollectionLine["status"], [string, string]> = {
   void: ["cancelled", "bg-slate-200 text-slate-700"],
 };
 
-function EntryRow({ e, owner, closed, lines = [], van }: { e: EntryView; owner: boolean; closed: boolean; lines?: CollectionLine[]; van?: { id: string; vehicle: string; person: string; difference: string } }) {
+function EntryRow({ e, owner, enter, closed, lines = [], van }: { e: EntryView; owner: boolean; enter?: boolean; closed: boolean; lines?: CollectionLine[]; van?: { id: string; vehicle: string; person: string; difference: string } }) {
   const title = van ? `Van · ${van.vehicle} · ${van.person}` :
-    e.kind === "expense" ? `Expense · ${e.category ?? ""}` : e.kind === "staff_out" ? `${e.purpose ? PURPOSE_LABEL[e.purpose] : "Staff cash"} · ${e.person}` : e.kind === "staff_in" ? `Took back · ${e.person}` : KIND_LABEL[e.kind];
+    e.kind === "expense" ? `Expense · ${e.category ?? ""}` : e.kind === "staff_out" ? `${e.purpose ? PURPOSE_LABEL[e.purpose] : "Staff cash"} · ${e.person}` : e.kind === "staff_in" ? `Took back${e.purpose === "advance" ? ` (advance ${e.returns_ref ?? ""})` : e.purpose === "plant" ? " (plant spending)" : ""} · ${e.person}` : KIND_LABEL[e.kind];
   const detail = (van ? [e.ref, `by ${e.by}`] : [e.ref, e.vehicle, e.paid_to, e.note, `by ${e.by}`]).filter(Boolean).join(" · ");
   return (
     <li className={`px-4 py-3 ${e.cancelled ? "opacity-60" : ""}`}>
@@ -37,6 +37,12 @@ function EntryRow({ e, owner, closed, lines = [], van }: { e: EntryView; owner: 
           </p>
           <p className="text-xs text-slate-500 break-words">{detail}</p>
           {e.cancelled && <p className="text-xs text-red-700">Cancelled by {e.cancelled.by}: {e.cancelled.reason}</p>}
+          {e.attendance && !(e.cancelled && e.attendance.status !== "sent") && (
+            <p className={`mt-0.5 text-xs font-semibold ${e.attendance.status === "sent" ? "text-green-700" : e.attendance.status === "refused" ? "text-red-700" : "text-amber-800"}`}>
+              {attendanceText(e.attendance)}
+              {enter && !e.cancelled && e.attendance.status !== "sent" && <span className="ml-2"><SendAgain id={e.id} /></span>}
+            </p>
+          )}
           {van && (
             <p className="text-xs">
               <a href={`/cash/van/${van.id}`} className="font-semibold text-(--brand)">Open the van report →</a>
@@ -161,14 +167,14 @@ export default async function CashDayPage({ searchParams }: { searchParams: Sear
             <h2 className="text-xs font-bold tracking-wide text-slate-500 uppercase">Money in · {signedMoney(ins.filter((e) => !e.cancelled).reduce((s, e) => s + paise(e.amount), 0n))}</h2>
             <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
               {ins.length === 0 && <li className="px-4 py-3 text-sm text-slate-500">Nothing yet.</li>}
-              {ins.map((e) => <EntryRow key={e.id} e={e} owner={owner} closed={closed} lines={linesOf.get(e.id)} van={vans.get(e.id)} />)}
+              {ins.map((e) => <EntryRow key={e.id} e={e} owner={owner} enter={enter} closed={closed} lines={linesOf.get(e.id)} van={vans.get(e.id)} />)}
             </ul>
           </section>
           <section className="space-y-2">
             <h2 className="text-xs font-bold tracking-wide text-slate-500 uppercase">Money out · {signedMoney(outs.filter((e) => !e.cancelled).reduce((s, e) => s + paise(e.amount), 0n))}</h2>
             <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
               {outs.length === 0 && <li className="px-4 py-3 text-sm text-slate-500">Nothing yet.</li>}
-              {outs.map((e) => <EntryRow key={e.id} e={e} owner={owner} closed={closed} />)}
+              {outs.map((e) => <EntryRow key={e.id} e={e} owner={owner} enter={enter} closed={closed} />)}
             </ul>
           </section>
 

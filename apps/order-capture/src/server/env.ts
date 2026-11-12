@@ -58,6 +58,18 @@ export const env = {
   get callKeys() {
     return process.env.ORDER_CALL_KEYS ?? "";
   },
+  /**
+   * Cash book → Attendance advances (docs/CASHBOOK_PHASE_PLAN.md section 9 C4): JSON {"<plant tenant uuid>": "atc_…"},
+   * the key Sales sends for each plant (Attendance holds only its SHA-256). Empty / a plant missing = advances from that
+   * plant's cash book are not sent (the cash book works as before). Made by `pnpm --filter attendance-salary cashbook:key`.
+   */
+  get attendCashbookKeys() {
+    return process.env.ATTEND_CASHBOOK_KEYS ?? "";
+  },
+  /** Attendance's address, e.g. https://attendance.bluemins.life (no trailing slash needed). */
+  get attendUrl() {
+    return (process.env.ATTEND_URL ?? "").replace(/\/+$/, "");
+  },
   /** "off" = the bot may not create orders (403 ordering_off); its reads and alerts keep working */
   get botOrdersOff() {
     return (process.env.ORDER_BOT_ORDERS ?? "").trim().toLowerCase() === "off";

@@ -12,7 +12,7 @@ const DAY_MARK_COLUMNS = ["id", "tenant_id", "user_id", "user_name", "day", "mar
 const HOLIDAY_COLUMNS = ["id", "tenant_id", "user_id", "user_name", "day", "action", "name", "paid", "choice_group", "created_by", "created_by_name", "created_at"];
 
 const SALARY_COLUMNS: Record<string, string[]> = {
-  salary_advances: ["id", "tenant_id", "user_id", "user_name", "on_date", "amount_paise", "note", "corrects_id", "reason", "created_by", "created_by_name", "created_at"],
+  salary_advances: ["id", "tenant_id", "user_id", "user_name", "on_date", "amount_paise", "note", "corrects_id", "reason", "created_by", "created_by_name", "created_at", "source_ref"],
   salary_claim_decisions: ["id", "tenant_id", "claim_id", "decision", "reason", "created_by", "created_by_name", "created_at"],
   salary_claim_files: ["id", "tenant_id", "claim_id", "storage_key", "content_type", "size_bytes", "sha256", "created_by", "created_by_name", "created_at"],
   salary_claims: ["id", "tenant_id", "user_id", "user_name", "kind", "on_date", "km_tenths", "amount_paise", "note", "created_by", "created_by_name", "created_at", "wants_da"],
@@ -106,7 +106,7 @@ describe("append-only for attendance_app", () => {
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(178); // person_holidays (0012): delete, truncate, 12 columns; + field_staff (0005), staff_type (0006), wants_da (0007); day_marks (0008): delete, truncate, 9 columns; lunch_minutes (0009); work_start_minutes (0011)
+    expect(list.length).toBe(179); // + salary_advances.source_ref (0013); person_holidays (0012): delete, truncate, 12 columns; + field_staff (0005), staff_type (0006), wants_da (0007); day_marks (0008): delete, truncate, 9 columns; lunch_minutes (0009); work_start_minutes (0011)
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 

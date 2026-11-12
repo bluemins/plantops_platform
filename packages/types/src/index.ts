@@ -418,6 +418,7 @@ export const NOTIFICATION_KINDS: Record<
   "order_capture.cash_short": { module: "order_capture", label: "Cash book: count short or extra" },
   "order_capture.cash_expense": { module: "order_capture", label: "Cash book: big expense" },
   "order_capture.cash_not_closed": { module: "order_capture", label: "Cash book: a day not closed" },
+  "order_capture.cash_advance_failed": { module: "order_capture", label: "Cash book: an advance didn't reach Attendance", bellOnly: true },
   "order_capture.drop_redeem": { module: "order_capture", label: "Drop: a shop asked for a free box (points)" },
   "order_capture.drop_push_failed": { module: "order_capture", label: "Drop: pushes to shops' phones are failing", bellOnly: true },
   "attendance_salary.corrected": { module: "attendance_salary", label: "Your attendance was changed", aboutYou: true },

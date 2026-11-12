@@ -20,8 +20,39 @@ const chip = (on: boolean) =>
 export interface Lists {
   categories: { id: string; name: string; active: boolean }[];
   vehicles: { id: string; name: string; active: boolean }[];
-  people: { id: string; name: string }[];
+  people: { id: string; name: string; employee: boolean }[];
   names: string[];
+  /** this plant's advances go to Attendance (C4) */
+  link: boolean;
+  /** advances against salary with something left, for "Took back" */
+  advances: { id: string; ref: string; person: string; date: string; amount: string; left: string; attendance: { status: string; message: string | null } | null }[];
+}
+
+type SendStatus = { status: "waiting" | "sent" | "refused"; message: string | null };
+/** After a save or a send: what Attendance did, in plain words. */
+export const attendanceText = (a: SendStatus) =>
+  a.status === "sent" ? "In Attendance ✓" : a.status === "refused" ? `Not in Attendance: ${a.message ?? "refused"}` : `Waiting for Attendance (${a.message ?? "will try again"})`;
+
+/** Owner, Accounts: send a refused / waiting advance to Attendance again. */
+export function SendAgain({ id }: { id: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string>();
+  async function send() {
+    setBusy(true);
+    setMsg(undefined);
+    const r = await api<SendStatus>(`/api/cash/entries/${id}/send`, { body: {} });
+    setBusy(false);
+    if (!r.ok) return setMsg(r.error);
+    setMsg(attendanceText(r.data));
+    router.refresh();
+  }
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <button type="button" disabled={busy} onClick={send} className="min-h-9 rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold text-(--brand)">{busy ? "Sending…" : "Send again"}</button>
+      {msg && <span className="text-xs text-slate-600">{msg}</span>}
+    </span>
+  );
 }
 
 /** Owner, first time: the cash counted in the box today is the opening balance. */
@@ -94,6 +125,9 @@ function EntryForm({ mode, date, lists, onClose, onDone }: { mode: Mode; date: s
     person: "",
     staff_dir: "out" as "out" | "in",
     staff_purpose: "advance" as "advance" | "plant" | "salary",
+    back_for: "advance" as "advance" | "plant",
+    returns_entry_id: "",
+    person_id: "",
     money_kind: "owner_in" as MoneyKind,
     paid_to: "",
     note: "",
@@ -101,6 +135,11 @@ function EntryForm({ mode, date, lists, onClose, onDone }: { mode: Mode; date: s
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
+  // an advance against salary with the Attendance link on: picked from the plant's employees, never typed
+  const pickEmployee = mode === "staff" && lists.link && f.staff_dir === "out" && f.staff_purpose === "advance";
+  const employees = lists.people.filter((p) => p.employee);
+  const pickAdvance = mode === "staff" && f.staff_dir === "in" && f.back_for === "advance";
+  const advance = lists.advances.find((a) => a.id === f.returns_entry_id);
 
   async function save() {
     setError(undefined);
@@ -111,20 +150,28 @@ function EntryForm({ mode, date, lists, onClose, onDone }: { mode: Mode; date: s
       if (!f.category_id) return setError("Pick what the expense was for");
       Object.assign(body, { kind: "expense", category_id: f.category_id, vehicle_id: f.vehicle_id || undefined, paid_to: f.paid_to.trim() || undefined });
     } else if (mode === "staff") {
-      const name = f.person.trim();
-      if (!name) return setError("Who was the cash given to?");
-      const known = lists.people.find((p) => p.name.toLowerCase() === name.toLowerCase());
-      Object.assign(body, {
-        kind: f.staff_dir === "out" ? "staff_out" : "staff_in",
-        ...(known ? { person_user_id: known.id } : { person_name: name }),
-        ...(f.staff_dir === "out" ? { staff_purpose: f.staff_purpose } : {}),
-      });
+      if (pickEmployee) {
+        if (!f.person_id) return setError("Pick the person from the list");
+        Object.assign(body, { kind: "staff_out", staff_purpose: "advance", person_user_id: f.person_id });
+      } else if (f.staff_dir === "in" && f.back_for === "advance") {
+        if (!f.returns_entry_id) return setError("Pick which advance the cash was brought back for");
+        Object.assign(body, { kind: "staff_in", staff_purpose: "advance", returns_entry_id: f.returns_entry_id });
+      } else {
+        const name = f.person.trim();
+        if (!name) return setError("Who was the cash given to?");
+        const known = lists.people.find((p) => p.name.toLowerCase() === name.toLowerCase());
+        Object.assign(body, {
+          kind: f.staff_dir === "out" ? "staff_out" : "staff_in",
+          ...(known ? { person_user_id: known.id } : { person_name: name }),
+          staff_purpose: f.staff_dir === "out" ? f.staff_purpose : f.back_for,
+        });
+      }
     } else Object.assign(body, { kind: f.money_kind });
     setBusy(true);
-    const r = await api<{ ref: string; amount: string }>("/api/cash/entries", { body });
+    const r = await api<{ ref: string; amount: string; attendance?: SendStatus | null }>("/api/cash/entries", { body });
     setBusy(false);
     if (!r.ok) return setError(r.error);
-    onDone(`${r.data.ref} saved: ${signedMoney(paise(r.data.amount))}.`);
+    onDone(`${r.data.ref} saved: ${signedMoney(paise(r.data.amount))}.${r.data.attendance ? ` ${attendanceText(r.data.attendance)}` : ""}`);
     router.refresh();
   }
 
@@ -160,6 +207,26 @@ function EntryForm({ mode, date, lists, onClose, onDone }: { mode: Mode; date: s
 
       {mode === "staff" && (
         <>
+          {pickEmployee ? (
+            <label className="block">
+              <span className={label}>Person (Plant staff)</span>
+              <select value={f.person_id} onChange={set("person_id")} className={field}>
+                <option value="">Pick the person</option>
+                {employees.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              {employees.length === 0 && <span className="mt-1 block text-xs text-amber-800">No employees found. An advance against salary is only for people with the Plant staff role (Manage users).</span>}
+            </label>
+          ) : pickAdvance ? (
+            <label className="block">
+              <span className={label}>Which advance</span>
+              <select value={f.returns_entry_id} onChange={set("returns_entry_id")} className={field}>
+                <option value="">Pick the advance</option>
+                {lists.advances.map((a) => <option key={a.id} value={a.id}>{a.ref} · {a.person} · ₹{a.left} left of ₹{a.amount}</option>)}
+              </select>
+              {lists.advances.length === 0 && <span className="mt-1 block text-xs text-slate-500">No advances with anything left.</span>}
+              {advance?.attendance && advance.attendance.status !== "sent" && <span className="mt-1 block text-xs text-amber-800">{advance.ref} isn&apos;t in Attendance yet. Send it first.</span>}
+            </label>
+          ) : (
           <label className="block">
             <span className={label}>Person</span>
             <input value={f.person} onChange={set("person")} list="cash-people" maxLength={100} className={field} placeholder="Type or pick a name" />
@@ -167,6 +234,7 @@ function EntryForm({ mode, date, lists, onClose, onDone }: { mode: Mode; date: s
               {[...new Set([...lists.people.map((p) => p.name), ...lists.names])].map((n) => <option key={n} value={n} />)}
             </datalist>
           </label>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <button type="button" className={chip(f.staff_dir === "out")} onClick={() => setF({ ...f, staff_dir: "out" })}>Gave cash</button>
             <button type="button" className={chip(f.staff_dir === "in")} onClick={() => setF({ ...f, staff_dir: "in" })}>Took back</button>
@@ -175,7 +243,7 @@ function EntryForm({ mode, date, lists, onClose, onDone }: { mode: Mode; date: s
             <fieldset className="space-y-2">
               <legend className={label}>What for</legend>
               {([
-                ["advance", "Advance against salary", "Recovered from salary. It goes to Attendance automatically once that link is on (step C4)."],
+                ["advance", "Advance against salary", lists.link ? "Goes to Attendance automatically and is recovered from salary." : "Recovered from salary (enter it in Attendance too: the link isn't set up for this plant)."],
                 ["plant", "For plant spending", "e.g. \"mess lagi 5000\". Stays with that person until settled."],
                 ["salary", "Salary paid in cash", "Only in the cash book; mark paid in Attendance as usual."],
               ] as const).map(([k, t, d]) => (
@@ -186,6 +254,13 @@ function EntryForm({ mode, date, lists, onClose, onDone }: { mode: Mode; date: s
               ))}
             </fieldset>
           )}
+          {f.staff_dir === "in" && (
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" className={chip(f.back_for === "advance")} onClick={() => setF({ ...f, back_for: "advance" })}>For an advance</button>
+              <button type="button" className={chip(f.back_for === "plant")} onClick={() => setF({ ...f, back_for: "plant" })}>Plant spending</button>
+            </div>
+          )}
+          {f.staff_dir === "in" && f.back_for === "advance" && lists.link && <p className="text-xs text-slate-500">Lowers that advance in Attendance. Refused once that month&apos;s salary is paid.</p>}
           <p className="text-xs text-slate-500">Nobody can enter cash given to themselves.</p>
         </>
       )}

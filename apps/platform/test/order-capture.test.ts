@@ -83,13 +83,13 @@ describe("alerts and notification settings", () => {
   it("the settings page lists the Order Capture kinds (WhatsApp-bot alerts, reminders stopped, sales ledger, purchases, cash book); delivered, cancelled, note, the ledger and purchase ones are bell only, none urgent", async () => {
     const list = (await settings(desk.cookie)).filter((s) => s.kind.startsWith("order_capture."));
     expect(list.map((s) => s.kind).sort()).toEqual([
-      "order_capture.bill_cancelled", "order_capture.cancelled", "order_capture.cash_closed", "order_capture.cash_expense", "order_capture.cash_not_closed", "order_capture.cash_short",
+      "order_capture.bill_cancelled", "order_capture.cancelled", "order_capture.cash_advance_failed", "order_capture.cash_closed", "order_capture.cash_expense", "order_capture.cash_not_closed", "order_capture.cash_short",
       "order_capture.delivered", "order_capture.drop_push_failed", "order_capture.drop_redeem", "order_capture.feedback_low", "order_capture.handoff",
       "order_capture.new", "order_capture.note", "order_capture.payment", "order_capture.payment_cancelled", "order_capture.purchase_bill", "order_capture.purchase_cancelled",
       "order_capture.reminder_failed", "order_capture.vendor_payment",
     ]);
     expect(list.filter((s) => s.bell_only).map((s) => s.kind).sort()).toEqual([
-      "order_capture.bill_cancelled", "order_capture.cancelled", "order_capture.cash_closed", "order_capture.delivered", "order_capture.drop_push_failed", "order_capture.note", "order_capture.payment", "order_capture.payment_cancelled",
+      "order_capture.bill_cancelled", "order_capture.cancelled", "order_capture.cash_advance_failed", "order_capture.cash_closed", "order_capture.delivered", "order_capture.drop_push_failed", "order_capture.note", "order_capture.payment", "order_capture.payment_cancelled",
       "order_capture.purchase_bill", "order_capture.purchase_cancelled", "order_capture.vendor_payment",
     ]);
     expect(list.some((s) => s.urgent)).toBe(false);

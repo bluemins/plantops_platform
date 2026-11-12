@@ -713,3 +713,31 @@ bill / turn down), pages `src/app/cash/van/**`, To post's "Not paid" section, ro
 Owner 2026-11-11: "remove the Calls on the top from the UI for now". `SHOW_CALLS_TAB = false` in `src/app/parts.tsx`
 (`SectionTabs`); set it back to `true` to show the tab again. `/calls` itself, the calls API (MacroDroid), "Customer
 called" alerts and Delivery staff landing in Calls are unchanged. No migration.
+
+## 2026-11-12 — Cash book C4 (v0.67.0): staff cash linked to Attendance + With staff
+Plan: `docs/CASHBOOK_PHASE_PLAN.md` section 9 (C4). Owner 2026-11-12: migrations `0020` (here) and Attendance `0013` and
+the key approved "as described"; cash advances go in the cash book only; cash brought back for an advance whose month is
+paid is refused; advances typed before the link stay as they are (not sent, no button).
+Files: `db/migrations/0020_staff_cash_link.sql`, `src/server/attendance-link.ts` (settings, one call, deliver, Send again,
+daily retry), `src/server/cash.ts` (`addEntry`, `cancelEntry`, `openAdvances`, entry status), `src/server/staff-cash.ts`
+(With staff, "spent"), pages `src/app/cash/staff/**`, the staff cash form and day sheet rows, routes
+`src/app/api/cash/entries/[id]/send`, `src/app/api/cash/spends/**`, `test/staff-cash-link.test.ts`.
+- **Settings on order-capture:** `ATTEND_CASHBOOK_KEYS` = `{"<plant tenant uuid>": "atc_…"}` and `ATTEND_URL`. Both from
+  `pnpm --filter attendance-salary cashbook:key <plant>` (it prints Attendance's value too). A plant without a key: the
+  cash book works as before (typed names, nothing sent). Broken settings show under `/health` `warnings`.
+- **Advance against salary** (with the link): the person is picked from the plant's employees (Plant staff), never typed;
+  saved first, then sent (5 s). Attendance's answer: sent ✓ / refused with its reason (red, bell
+  `order_capture.cash_advance_failed` to owners, **Send again** for owner / Accounts) / unreachable → waiting, the daily
+  job (`runDaily` → `retrySends`, ≤ 30 tries) sends it.
+- **Took back → For an advance:** names the advance (only those with something left); the person is the advance's; never
+  more than is left; the advance must already be in Attendance; Attendance is asked first (`check: true`) and a refusal
+  (month paid, or Attendance down) saves nothing. **Took back → Plant spending** lowers what is open with the person.
+- **Cancel:** an advance in Attendance sends `C-0123/cancel` (Attendance corrects what is left); one that never got there
+  is marked "Cancelled in the cash book before it reached Attendance". Cash brought back that is in Attendance can't be
+  cancelled (a correction can't be undone: give the cash again as a new advance).
+- **With staff** (`/cash/staff`, owner + Accounts, support reads): plant-spending cash per person, given − brought back −
+  spent; **+ Spent from this cash** (`staff_cash_spends`, never moves the box, never more than is open, never your own);
+  the owner cancels a wrong one with a reason. Open advances with their Attendance status.
+- Made while building: `staff_in` may carry purpose `advance` / `plant` (old rows: none); Attendance stores the cash
+  book's number as `source_ref` (the same send twice = one row); the payload sends the entry's **work day** as the
+  advance date; the advance is "by <name> (cash book)" in Attendance.

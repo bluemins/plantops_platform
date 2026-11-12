@@ -2270,3 +2270,22 @@ Screens and pushes still come from the server, so every release reaches the app 
 holds the manifest, icons and build notes (not deployed); key in `~/projects/android-tools/keys/`. No database,
 permission, tenant or SSO token change. Tests: auth 90. **Leftovers (TODO, low):** Job applications redeploy (still 404),
 the phone checklist, HANDBOOK section.
+
+### 2026-11-12 — Cash book C4: staff advances linked to Attendance + "With staff" — built (v0.67.0), not deployed
+Plan for everything left in the cash book (C4–C8) approved by the owner 2026-11-12: `docs/CASHBOOK_PHASE_PLAN.md` section 9.
+- **Sales:** an "Advance against salary" goes to a picked employee (Plant staff) and is sent to Attendance after the save
+  (sent ✓ / refused with the reason + owners' bell `order_capture.cash_advance_failed` + Send again / waiting, retried by
+  the daily job). "Took back" for an advance names it, ≤ what is left, after Attendance's yes. Cancelling an advance
+  sends a correction. **With staff** (`/cash/staff`): plant-spending cash per person (given − brought back − spent) with
+  "+ Spent from this cash", open advances with their Attendance status. Migration `0020_staff_cash_link.sql` (approved:
+  `attendance_sends`, `staff_cash_spends`, `cash_entries.returns_entry_id`, "Took back" purpose; FORCE RLS, no DELETE).
+- **Attendance:** `POST /api/cashbook/v1/advances` with a per-plant key `atc_…` (`ATTEND_CASHBOOK_KEYS`, SHA-256 only;
+  `pnpm --filter attendance-salary cashbook:key`); same rules as the owner's advance form; a return refused once that
+  month is paid (owner). Migration `0013_cash_book_link.sql` (approved: `salary_advances.source_ref`, unique per plant).
+- **Decisions (owner, 2026-11-12):** cash advances only in the cash book (Attendance's form for bank / UPI); a cash return
+  for a paid month refused; advances typed before the link stay as they are. The owner also imports the 20 L "Remaining"
+  report each month (C5, next).
+- SSO token unchanged; platform: one notification kind. Tests: Sales 1,275 (+12), Attendance 506 (+6), platform 428;
+  typecheck and all three builds pass. Checked locally: the new Attendance address answers without a login (401 for a
+  wrong key). **Not yet:** deployed; a real advance between the two live services.
+

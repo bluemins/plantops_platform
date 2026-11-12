@@ -2,7 +2,7 @@
 // count; owner and Accounts enter expenses, staff cash and money in / out, and close each day by counting the box. Cash in
 // hand is worked out, never stored (src/lib/cash.ts). Nothing is deleted: the owner cancels a wrong entry with a reason;
 // a wrong close is corrected by the owner as a new version with a reason. Entries go on days after the last close only.
-import { and, asc, desc, eq, gt, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   bookDays,
@@ -17,14 +17,16 @@ import {
   type MathEntry,
   type StaffPurpose,
 } from "@/lib/cash";
+import { isEmployee } from "@plantops/types";
 import { requireAccess } from "./access";
+import { checkReturn, deliver, dropUnsent, linkOn, queueSend, statusOf, type SendStatus } from "./attendance-link";
 import { audit } from "./audit";
 import { schema, withTenant, type OcTx } from "./db";
 import { badRequest, conflict, notFound } from "./http";
 import { kit } from "./kit";
 import type { OcUser } from "./session";
 
-const { cashCloses, cashEntries, cashVehicles, expenseCategories } = schema;
+const { attendanceSends, cashCloses, cashEntries, cashVehicles, expenseCategories } = schema;
 
 const IST = "Asia/Kolkata";
 export const istToday = (now = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: IST }).format(now);
@@ -78,9 +80,11 @@ export async function cashLists(user: OcUser) {
     })),
     kit.contacts(user.tenantId),
   ]);
-  // people with a Sales role or owners (the platform's list); other employees are typed by name until the Attendance link (C4)
-  const people = (contacts ?? []).filter((c) => c.user_id !== user.userId).map((c) => ({ id: c.user_id, name: c.display_name }));
-  return { ...lists, people };
+  const advances = await openAdvances(user);
+  // the plant's people (the platform's list), never yourself; `employee` = Plant staff, the only people an advance against
+  // salary can go to (Attendance tracks and pays them). Others are picked or typed for plant spending.
+  const people = (contacts ?? []).filter((c) => c.user_id !== user.userId).map((c) => ({ id: c.user_id, name: c.display_name, employee: isEmployee(c.roles) }));
+  return { ...lists, people, link: linkOn(user.tenantId), advances };
 }
 
 export const ListInput = z.object({ list: z.enum(["category", "vehicle"]), name: z.string().trim().min(1).max(60) });
@@ -150,6 +154,8 @@ export const EntryInput = z.object({
   person_user_id: z.uuid().optional(),
   person_name: z.string().trim().min(1).max(100).optional(),
   staff_purpose: z.enum(["advance", "plant", "salary"]).optional(),
+  /** "Took back" for an advance: the advance entry (staff_out) the cash came back for */
+  returns_entry_id: z.uuid().optional(),
   paid_to: z.string().trim().max(100).optional(),
   note: z.string().trim().max(300).optional(),
 });
@@ -167,6 +173,8 @@ export interface SavedEntry {
   purpose: StaffPurpose | null;
   paid_to: string | null;
   note: string | null;
+  /** sent to Attendance (advances and advances brought back; null / absent = not sent, e.g. no link for this plant) */
+  attendance?: SendStatus | null;
 }
 
 /** Days an entry may go on now: after the last close, up to today, at most BACK_DAYS back. */
@@ -184,10 +192,20 @@ export async function addEntry(user: OcUser, input: EntryInput, today = istToday
   if (k === "expense" && !input.category_id) throw badRequest("Pick what the expense was for");
   const staff = k === "staff_out" || k === "staff_in";
   if (k === "staff_out" && !input.staff_purpose) throw badRequest("Pick what the cash was for: advance, plant spending or salary");
-  if (staff && !input.person_user_id && !input.person_name) throw badRequest("Who was the cash given to?");
+  if (k === "staff_in" && input.staff_purpose === "salary") throw badRequest("Cash brought back is for an advance or for plant spending");
+  const purpose = k === "staff_out" || k === "staff_in" ? (input.staff_purpose ?? null) : null;
+  const returning = k === "staff_in" && purpose === "advance";
+  if (returning && !input.returns_entry_id) throw badRequest("Pick which advance the cash was brought back for");
+  if (!returning && input.returns_entry_id) throw badRequest("Only cash brought back for an advance names an advance");
+  if (staff && !returning && !input.person_user_id && !input.person_name) throw badRequest("Who was the cash given to?");
+  const link = linkOn(user.tenantId);
+  // an advance against salary goes to one of the plant's employees (Attendance pays them); with the link on, picked, never typed
+  if (k === "staff_out" && purpose === "advance" && link && !input.person_user_id) throw badRequest("Pick the person from the list: an advance goes to Attendance, so it needs one of the plant's employees");
   const contacts = staff && input.person_user_id ? await kit.contacts(user.tenantId) : null;
+  // cash brought back for an advance: Attendance must take it first (refused once that month is paid; owner 2026-11-12)
+  if (returning && link) await preflightReturn(user, input.returns_entry_id!, input.amount);
 
-  return withTenant(user.tenantId, async (tx) => {
+  const r = await withTenant(user.tenantId, async (tx) => {
     const t = user.tenantId;
     await cashLock(tx, t);
     const closes = await closesOf(tx, t);
@@ -209,16 +227,31 @@ export async function addEntry(user: OcUser, input: EntryInput, today = istToday
     }
     let personId: string | null = null;
     let personName: string | null = null;
-    if (staff) {
+    let advance: typeof cashEntries.$inferSelect | null = null;
+    if (returning) {
+      // cash brought back for an advance: the person is the advance's; never more than is left of it
+      advance = (await tx.select().from(cashEntries).where(and(eq(cashEntries.tenantId, t), eq(cashEntries.id, input.returns_entry_id!))))[0] ?? null;
+      if (!advance || advance.kind !== "staff_out" || advance.staffPurpose !== "advance") throw badRequest("That isn't an advance against salary. Pick again.");
+      if (advance.cancelledAt) throw badRequest(`${cashRef(advance.refNo)} was cancelled`);
+      const left = paise(advance.amount) - (await returnedOf(tx, t, advance.id));
+      if (paise(input.amount) > left) throw badRequest(left > 0n ? `Only ${rupees(left)} of ${cashRef(advance.refNo)} is left to bring back` : `Nothing is left of ${cashRef(advance.refNo)}`);
+      if (link) {
+        const [s] = await tx.select().from(attendanceSends).where(and(eq(attendanceSends.tenantId, t), eq(attendanceSends.cashEntryId, advance.id), eq(attendanceSends.action, "advance")));
+        if (s && s.status !== "sent") throw badRequest(`${cashRef(advance.refNo)} isn't in Attendance yet. Send it first (Send again on that entry).`);
+      }
+      personId = advance.personUserId;
+      personName = advance.personName;
+    } else if (staff) {
       if (input.person_user_id) {
         const c = (contacts ?? []).find((x) => x.user_id === input.person_user_id);
         if (!c) throw badRequest("That person isn't one of the plant's people. Pick again or type the name.");
+        if (k === "staff_out" && purpose === "advance" && link && !isEmployee(c.roles)) throw badRequest(`${c.display_name} isn't Plant staff, so Attendance doesn't pay them. An advance against salary is only for employees.`);
         personId = c.user_id;
         personName = c.display_name;
       } else personName = input.person_name!;
-      if (personId === user.userId || personName.trim().toLowerCase() === user.name.trim().toLowerCase())
-        throw badRequest("You can't enter cash given to yourself. The owner or someone else enters it.");
     }
+    if (staff && (personId === user.userId || (personName ?? "").trim().toLowerCase() === user.name.trim().toLowerCase()))
+      throw badRequest("You can't enter cash given to yourself. The owner or someone else enters it.");
 
     const [{ n }] = (await tx.execute<{ n: number }>(sql`select coalesce(max(ref_no), 0)::int + 1 as n from order_capture.cash_entries where tenant_id = ${t}`)).rows as [{ n: number }];
     const [row] = await tx
@@ -235,16 +268,54 @@ export async function addEntry(user: OcUser, input: EntryInput, today = istToday
         vehicleId: input.vehicle_id ?? null,
         personUserId: personId,
         personName,
-        staffPurpose: k === "staff_out" ? input.staff_purpose! : null,
+        staffPurpose: purpose,
+        returnsEntryId: returning ? advance!.id : null,
         paidTo: input.paid_to || null,
         note: input.note || null,
         createdBy: user.userId,
         createdByName: user.name,
       })
       .returning({ id: cashEntries.id, amount: cashEntries.amount });
-    const saved: SavedEntry = { id: row!.id, ref: cashRef(n), kind: k, amount: row!.amount, cash_date: input.cash_date, work_date: work, category: categoryName, person: personName, purpose: k === "staff_out" ? input.staff_purpose! : null, paid_to: input.paid_to || null, note: input.note || null };
+    const saved: SavedEntry = { id: row!.id, ref: cashRef(n), kind: k, amount: row!.amount, cash_date: input.cash_date, work_date: work, category: categoryName, person: personName, purpose, paid_to: input.paid_to || null, note: input.note || null, attendance: null };
     await audit(tx, user, "cash.entry", row!.id, { ref: saved.ref, kind: k, amount: saved.amount, date: input.cash_date, ...(categoryName ? { category: categoryName } : {}), ...(personName ? { person: personName } : {}) });
-    return saved;
+    // Attendance (C4): an advance, or cash brought back for one; sent right after the save, retried by the daily job
+    let sendId: string | null = null;
+    const by = { by_id: user.userId, by_name: user.name };
+    if (link && k === "staff_out" && purpose === "advance")
+      sendId = await queueSend(tx, t, row!.id, "advance", saved.ref, { user_id: personId, ...by, on_date: work, amount: saved.amount, ...(saved.note ? { note: saved.note.slice(0, 150) } : {}) });
+    if (link && returning && personId)
+      sendId = await queueSend(tx, t, row!.id, "return", saved.ref, { user_id: personId, ...by, of_ref: cashRef(advance!.refNo), amount: saved.amount });
+    return { saved, sendId };
+  });
+  if (r.sendId) r.saved.attendance = await deliver(user.tenantId, r.sendId);
+  return r.saved;
+}
+
+/** What is already brought back for an advance (returns not cancelled), in paise. */
+async function returnedOf(tx: OcTx, t: string, advanceId: string) {
+  const rows = await tx.select({ amount: cashEntries.amount }).from(cashEntries).where(and(eq(cashEntries.tenantId, t), eq(cashEntries.returnsEntryId, advanceId), isNull(cashEntries.cancelledAt)));
+  return rows.reduce((s, x) => s + paise(x.amount), 0n);
+}
+
+async function preflightReturn(user: OcUser, advanceId: string, amount: string) {
+  const adv = await withTenant(user.tenantId, async (tx) => (await tx.select().from(cashEntries).where(and(eq(cashEntries.tenantId, user.tenantId), eq(cashEntries.id, advanceId))))[0]);
+  if (!adv || adv.kind !== "staff_out" || adv.staffPurpose !== "advance" || !adv.personUserId) return; // the save refuses it with its own message
+  await checkReturn(user.tenantId, { action: "return", source_ref: `${cashRef(adv.refNo)}/check`, user_id: adv.personUserId, by_id: user.userId, by_name: user.name, of_ref: cashRef(adv.refNo), amount });
+}
+
+/** Open advances of a person for "Took back": advances against salary not cancelled, with what is left of each. */
+export async function openAdvances(user: OcUser) {
+  requireAccess(user, "cash_view");
+  return withTenant(user.tenantId, async (tx) => {
+    const t = user.tenantId;
+    const advs = await tx.select().from(cashEntries).where(and(eq(cashEntries.tenantId, t), eq(cashEntries.kind, "staff_out"), eq(cashEntries.staffPurpose, "advance"), isNull(cashEntries.cancelledAt))).orderBy(desc(cashEntries.cashDate), desc(cashEntries.refNo)).limit(300);
+    const status = await statusOf(tx, t, advs.map((a) => a.id));
+    const out = [];
+    for (const a of advs) {
+      const left = paise(a.amount) - (await returnedOf(tx, t, a.id));
+      if (left > 0n) out.push({ id: a.id, ref: cashRef(a.refNo), person: a.personName ?? "", person_user_id: a.personUserId, date: a.workDate, amount: a.amount, left: rupees(left), attendance: status.get(a.id) ?? null });
+    }
+    return out;
   });
 }
 
@@ -252,7 +323,7 @@ export const CancelInput = z.object({ reason: Reason });
 
 export async function cancelEntry(user: OcUser, id: string, input: z.infer<typeof CancelInput>) {
   requireAccess(user, "cash_owner");
-  return withTenant(user.tenantId, async (tx) => {
+  const r = await withTenant(user.tenantId, async (tx) => {
     await cashLock(tx, user.tenantId);
     const [e] = await tx.select().from(cashEntries).where(and(eq(cashEntries.tenantId, user.tenantId), eq(cashEntries.id, id)));
     if (!e) throw notFound("Entry not found");
@@ -275,10 +346,25 @@ export async function cancelEntry(user: OcUser, id: string, input: z.infer<typeo
       if (live.length)
         throw conflict(`Lines of ${cashRef(e.refNo)} are already on customers' accounts (${live.join(", ")}). Cancel ${live.length === 1 ? "that payment / bill" : "those payments / bills"} first.`);
     }
+    // Attendance (C4): cash brought back that is already there stays (a correction can't be undone); an advance there is
+    // corrected for what is left; one that never got there is simply not sent
+    const [sent] = await tx.select().from(attendanceSends).where(and(eq(attendanceSends.tenantId, user.tenantId), eq(attendanceSends.cashEntryId, id), eq(attendanceSends.action, e.kind === "staff_in" ? "return" : "advance")));
+    if (e.kind === "staff_in" && sent?.status === "sent")
+      throw conflict(`${cashRef(e.refNo)} is already in Attendance (it lowered that advance). If it was a mistake, give the cash again as a new advance.`);
+    if (e.kind === "staff_out" && e.staffPurpose === "advance") {
+      const back = await tx.select({ ref: cashEntries.refNo }).from(cashEntries).where(and(eq(cashEntries.tenantId, user.tenantId), eq(cashEntries.returnsEntryId, id), isNull(cashEntries.cancelledAt)));
+      if (back.length && sent?.status !== "sent") throw conflict(`Cancel ${back.map((b) => cashRef(b.ref)).join(", ")} (cash brought back for it) first.`);
+    }
     await tx.update(cashEntries).set({ cancelledAt: new Date(), cancelledBy: user.userId, cancelledByName: user.name, cancelReason: input.reason }).where(and(eq(cashEntries.tenantId, user.tenantId), eq(cashEntries.id, id)));
     await audit(tx, user, "cash.cancel", id, { ref: cashRef(e.refNo), amount: e.amount, reason: input.reason });
-    return { ref: cashRef(e.refNo), amount: e.amount, cash_date: e.cashDate };
+    let sendId: string | null = null;
+    if (sent && sent.status !== "sent") await dropUnsent(tx, user.tenantId, id);
+    else if (sent && e.kind === "staff_out" && e.personUserId)
+      sendId = await queueSend(tx, user.tenantId, id, "cancel", `${cashRef(e.refNo)}/cancel`, { user_id: e.personUserId, by_id: user.userId, by_name: user.name, of_ref: cashRef(e.refNo), reason: input.reason.slice(0, 200) });
+    return { result: { ref: cashRef(e.refNo), amount: e.amount, cash_date: e.cashDate }, sendId };
   });
+  if (r.sendId) await deliver(user.tenantId, r.sendId);
+  return r.result;
 }
 
 // ---------- close a day (count the box) ----------
@@ -350,11 +436,19 @@ export interface EntryView {
   by: string;
   at: string;
   cancelled: { by: string; reason: string } | null;
+  /** sent to Attendance (advances, cash brought back for one); null = not sent */
+  attendance: SendStatus | null;
+  /** "Took back" for an advance: that advance's number */
+  returns_ref: string | null;
 }
 
 async function entryViews(tx: OcTx, t: string, rows: Awaited<ReturnType<typeof entriesFrom>>): Promise<EntryView[]> {
   const cats = new Map((await tx.select({ id: expenseCategories.id, name: expenseCategories.name }).from(expenseCategories).where(eq(expenseCategories.tenantId, t))).map((c) => [c.id, c.name]));
   const vans = new Map((await tx.select({ id: cashVehicles.id, name: cashVehicles.name }).from(cashVehicles).where(eq(cashVehicles.tenantId, t))).map((c) => [c.id, c.name]));
+  const staffIds = rows.filter((e) => e.kind === "staff_out" || e.kind === "staff_in").map((e) => e.id);
+  const sent = await statusOf(tx, t, staffIds);
+  const advIds = [...new Set(rows.flatMap((e) => (e.returnsEntryId ? [e.returnsEntryId] : [])))];
+  const advRefs = new Map(advIds.length ? (await tx.select({ id: cashEntries.id, n: cashEntries.refNo }).from(cashEntries).where(and(eq(cashEntries.tenantId, t), inArray(cashEntries.id, advIds)))).map((a) => [a.id, cashRef(a.n)]) : []);
   return rows.map((e) => ({
     id: e.id,
     ref: cashRef(e.refNo),
@@ -372,6 +466,8 @@ async function entryViews(tx: OcTx, t: string, rows: Awaited<ReturnType<typeof e
     by: e.createdByName,
     at: e.createdAt.toISOString(),
     cancelled: e.cancelledAt ? { by: e.cancelledByName ?? "", reason: e.cancelReason ?? "" } : null,
+    attendance: sent.get(e.id) ?? null,
+    returns_ref: e.returnsEntryId ? (advRefs.get(e.returnsEntryId) ?? null) : null,
   }));
 }
 
