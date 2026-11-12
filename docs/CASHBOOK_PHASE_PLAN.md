@@ -23,6 +23,10 @@ Status: **see section 0.**
   book started**. **Runs alongside the WhatsApp group from 2026-11-12** for about a week (compare cash in hand each
   evening), then the group stops (C5).
 - **Never commit `refeDocs/payments/`** (the private WhatsApp export and customer files).
+- **2026-11-12: plan for everything left approved by the owner: section 9** (C4 Attendance link + Open with staff, C5
+  20 L monthly "Remaining" import before 1 Dec, C6 automatic lines from Receive payment / Pay vendor in cash, C7 Reports →
+  Cash + tile + limits, C8 only if asked). Each step asks before its migration. The "Next build" list below and section 7 are the older
+  outline; section 9 wins where they differ.
 - **Next build: C4** (plan first, ask before the migration and the key):
   1. Staff cash "Advance against salary" → an Attendance advance automatically (Attendance migration `0013`:
      `salary_advances.source_ref` = the C-number, unique per plant; Attendance `POST /api/cashbook/v1/advances` with a key
@@ -317,3 +321,152 @@ Tests with each: tenant isolation, access rows, append-only refusals, the arithm
 8. **Short / big-expense limits:** recommended ₹100 short and ₹2,000 expense; changeable on Settings.
 9. **20 L products in PlantOps:** Capsule Jar, Chiller Jar, Dispenser, Bluemins 20 L. **Recommended: add the missing ones
    in Business details → Products** (brand "Bluemins 20L" on Rates), so jar rates use the same products as everything else.
+
+## 9. Everything left: C4–C8 (approved by the owner 2026-11-12)
+Decided by the owner 2026-11-12 (also: "I will import customer remaining each month"):
+- **20 L monthly:** Pure Pani also records the payments collected in PlantOps, so its "Remaining" is the true balance.
+- **Cash advances go in the cash book only.** Attendance's own advance form stays for advances not paid from the cash
+  box (bank / UPI). Nothing is entered twice.
+
+Checked in the code:
+- Receive payment (mode Cash) and Pay vendor (mode Cash) do **not** reach the cash book yet.
+- Sales already gets every plant user with their roles (`kit.contacts`). Attendance builds its employee list the same
+  way (`activeEmployees`, `apps/attendance-salary/src/server/people.ts:46`), so the staff list needs no call to
+  Attendance.
+- An Attendance advance correction must point at the advance it lowers (`corrects_id`, `salary-edit.ts:saveAdvance`).
+  So "Took back" has to name which advance the cash came back for.
+
+Every step: plan → **ask before each migration / key** → tests (tenant isolation, access rows, append-only refusals,
+arithmetic, once-only) → `next build` for each changed app → release note in CLAUDE.md + NOTES.md.
+
+---
+
+### C4 — Staff cash linked to Attendance (Sales + Attendance, v0.67.0)
+1. **Staff list = Attendance's employees.** The person picker on staff cash shows plant users holding Plant staff
+   (`isEmployee` from `packages/types`) through `kit.contacts`. The typed name stays only as a fallback, and **never
+   for an advance**. Never yourself (already enforced). File: `src/server/cash.ts:cashLists`.
+2. **Advance against salary → Attendance.**
+   - The cash entry saves at once. Its row in a new Sales `attendance_outbox` is sent after the answer and retried by
+     Sales' daily job (same pattern as `notification_outbox` / `kit.retryOutbox`).
+   - Attendance gets `POST /api/cashbook/v1/advances`, outside the login proxy. It needs a key `atc_…`:
+     `ATTEND_CASHBOOK_KEYS` (SHA-256 hashes, plant bound to the key) on attendance-salary, and
+     `ATTEND_CASHBOOK_KEY` + `ATTEND_URL` on order-capture. It is built like the bot / call keys
+     (`src/server/bot.ts`, `calls.ts`), rate-limited and audited.
+   - Attendance reuses `saveAdvance`'s rules: a salary must be set and the date must not be before the first salary
+     month. The advance is stored with `source_ref` = the C-number, so a second send of the same entry returns the
+     same row.
+   - The advance shows in Attendance as "by bindu (cash book C-0123)".
+   - **Refused** (e.g. no salary set): the entry shows a red "Not in Attendance yet: set Ramu's salary first" and a
+     **Send again** button (owner / Accounts). The owners get the bell kind `order_capture.cash_advance_failed`.
+3. **Took back (advance):**
+   - The person picks which of their cash-book advances the money is for (only those with something left).
+   - This sends a correction to Attendance against that advance, with the reason "Cash returned (C-0130)".
+   - Cancelling a cash-book advance sends a correction for the full amount. If a paid month already counted it, it
+     flows to the next month (Attendance's existing rule).
+4. **Open with staff** (owner + Accounts, `/cash/staff`):
+   - Each person's "for plant spending" cash given − returned − spent = what they still hold.
+   - **Spent** is a new kind of record: "Spent from cash given" (person, date, expense type, amount, note). It doesn't
+     move money in the box; the cash already left the box when it was given.
+   - It is entered from the person's row, or from Pay vendor ("paid from cash given to <person>", see C6).
+   - Each person's page lists what was given, returned and spent.
+5. **Migrations (ask first):**
+   - **Sales `0020_staff_cash_link.sql`:**
+     - `attendance_outbox` (entry, payload, tries, status sent / refused, answer)
+     - `staff_cash_spends`
+     - `cash_entries.returns_entry_id`
+     - widen the check so `staff_in` may carry purpose `advance` / `plant`
+     - FORCE RLS, SELECT + INSERT, retry columns only
+   - **Attendance `0013_cash_book_link.sql`:** `salary_advances.source_ref`, unique per plant when set. Grants
+     unchanged.
+6. **Platform:** one notification kind. The SSO token is unchanged.
+7. **Tests:**
+   - same C-number twice → one advance
+   - refused → Send again works after the salary is set
+   - took back → the correction never exceeds what's left
+   - key bound to its plant (a plant A key can't write plant B)
+   - Open with staff arithmetic
+
+### C5 — 20 L monthly "Remaining" import (needed by 1 Dec)
+The owner imports Pure Pani's "Remaining Payment" report every month (same file as C2). On **Cash → 20 L → Import
+list** the screen asks: "First import (opening balances)" or "**Month update**".
+- For each customer already marked 20 L (matched by Ref. No.), the import compares:
+  - **sheet Remaining** (S)
+  - **PlantOps 20 L due** (P) = unpaid amount of that customer's 20 L bills (OB20 + earlier month bills)
+- **S > P:** a bill for the difference, numbered `J20-<ref>-<Mon-YY>`. It is dated the import's month end, labelled
+  "20 L deliveries, Nov 2026", has no lines and no GST, and is counted in Receivables and the statement (like OB20).
+- **S = P:** nothing to do (shown as "matches").
+- **S < P:** **flagged, nothing saved for that row.** PlantOps shows more due than Pure Pani, usually a payment
+  collected outside the cash book. The owner sees the list and can **post a payment** later (To post / Receive
+  payment) or leave it.
+- **New Ref. Nos.** in the file are added like the first import (customer + OB20 opening bill). Refs no longer in the
+  file are listed "not in this month's file", with no change.
+- A **negative Remaining** (customer paid ahead) is treated as 0 and flagged.
+- **The same month can't be imported twice**: same plant + month → "Already imported on 1 Dec by …". A corrected file
+  is handled by cancelling that month's J20 bills (owner, reason), then importing again.
+- The preview shows every row with S, P and what will happen. The file's Total row must equal the rows added up (as
+  today). Confirm saves everything or nothing.
+- **Migration (ask): Sales `0021_jar_months.sql`:**
+  - `jar_imports.kind` ('opening' | 'month') + `month`, unique per plant + month for month imports
+  - `bills.source` + `'jar_month'`
+  - `jar_month_lines` (import, customer, S, P, action, bill)
+  - SELECT + INSERT only
+- Files: `src/lib/jar-import.ts` (a new `jarMonthPlan`, pure), `src/server/collections.ts` (preview / import),
+  `src/app/cash/jar/import/jar-import.tsx`, plus the Receivables and statement source lists (`src/lib/receivables.ts`).
+- Tests: S>P / S=P / S<P / new ref / negative / same month twice / totals, using a copy of plant 001's real November
+  file (never committed: `refeDocs/payments/` stays out of git).
+
+### C6 — Automatic cash book lines (no typing twice)
+- **Receive payment with mode Cash**, typed on the Sales payment screen, adds a cash-book line "Payment P-0123 from
+  <customer>" (kind `sale_payment`, in). Posting a collection or van line from **To post** never adds one: that cash is
+  already in the book.
+- **Pay vendor / purchase bill "Paid now"** with mode Cash asks "Paid from: Cash box / Cash given to <person>":
+  - Cash box → a line "Vendor payment PM-0045 to <vendor>" (kind `vendor_payment`, out)
+  - cash given to a person → a "spent" row against that person (C4)
+- The line goes on the first open day (cash day), with the payment date as the work day. A payment dated more than 31
+  days back can't be Cash ("record it in the cash book by hand").
+- Cancelling the payment cancels its line (reason copied). Cancelling the line alone is refused: "cancel the payment
+  instead".
+- **Migration (ask): Sales `0022_cash_links.sql`:** `cash_entries.kind` + `'sale_payment'`, `'vendor_payment'`;
+  `payment_id`, `vendor_payment_id` (unique when set).
+- Files: `src/server/ledger.ts` (receive / cancel payment), `src/server/purchase-entry.ts`, `src/server/cash.ts`.
+- Tests: one line per payment, a payment posted from To post adds no line, cancel both ways, closed day → next open
+  day.
+
+### C7 — Reports → Cash, tile, settings, last alert; stop the group
+- **Reports → Cash** (owner only, support reads; in the existing `/reports` section like Sales / Purchases):
+  - Cash book by period (opening, every line, closing, difference; CSV + print)
+  - Expenses by type and month: cash expenses + the van's meal / tiffin / diesel / toll + staff "spent" rows
+  - Van sales by vehicle and day
+  - Shorts and extras (closes + van reports)
+  - Open with staff
+- **Sales tile:** "Cash in hand ₹26,825 · Closed 6:24 pm" / "Not closed today" / "N to post". Shown on the owner's and
+  Accounts' tiles, never to Order desk.
+- **Settings:** the short limit (₹100) and big-expense limit (₹2,000) become editable on Cash → Settings (owner,
+  audited). Today they are fixed in `src/lib/cash.ts`. This needs `cash_settings` (one row per plant): add it to the
+  C6 migration so there's one migration less.
+- **`order_capture.cash_credit`** (bell, owners): a van report with "not paid" lines.
+- Then the owner stops the WhatsApp group. Add the status note.
+
+### C8 — Only if you ask later (recommend: don't build now)
+- **Handover between cash holders** with a receiver's confirm tap. With one box per plant (your choice), it records
+  who holds the cash but doesn't change any number. Worth it only if you want a box per person.
+- **Van drivers entering their own report:** Delivery staff would need cash access; today Accounts enters it from the
+  driver's message.
+- **Dropped:** "not paid" bills by product. v0.65.1 removed products from the van form (one total amount).
+
+### Not a build
+The Pickup report of 1 Nov is ₹1,000 off (₹9,780 worked out vs ₹8,780 posted). For you to check in the chat.
+
+### Order and size
+C4 (biggest: two apps and a key) → **C5 before 1 Dec** (it can go first if C4 slips) → C6 → C7. Each is its own
+release with its own migration approval. Status of each step goes into section 0.
+
+### Verification (each step)
+- `pnpm --filter order-capture test` (and `attendance-salary` for C4, `platform` for the new kinds); typecheck;
+  `next build` of every changed app.
+- On `pnpm dev`, plant 002 with temporary users, all removed afterwards:
+  - **C4:** advance in the cash book → appears in Attendance → Staff → person; refused without a salary → set it →
+    Send again.
+  - **C5:** import a test November file, then a December file with each case.
+  - **C6:** Receive payment in cash → cash line; cancel → line cancelled.
+  - **C7:** reports at 390 / 1280 px, tile through the platform.
