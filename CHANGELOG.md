@@ -4,6 +4,19 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.67.0 — 2026-11-12 — Cash book C4: staff advances linked to Attendance + With staff
+
+Owner, 2026-11-12. **Migrations:** Sales `0020_staff_cash_link.sql` (two new tables `attendance_sends`,
+`staff_cash_spends`; `cash_entries.returns_entry_id`; "Took back" may say advance / plant spending; FORCE RLS, no DELETE)
+and Attendance `0013_cash_book_link.sql` (`salary_advances.source_ref`). Platform: one new alert kind
+(`order_capture.cash_advance_failed`). SSO token unchanged.
+- **Sales cash book:** an advance against salary goes to a picked employee and reaches Attendance automatically (or shows
+  why not, with Send again); "Took back" for an advance; a new **With staff** tab (cash given for plant spending, what
+  came back, what was spent).
+- **Attendance:** receives those advances (`POST /api/cashbook/v1/advances`, key `atc_…` per plant). New settings:
+  `ATTEND_CASHBOOK_KEYS` on attendance-salary and on order-capture, `ATTEND_URL` on order-capture
+  (`pnpm --filter attendance-salary cashbook:key <plant>`). Without them nothing is sent (the cash book works as before).
+
 ## v0.55.0 — 2026-11-09 — Drop Phase 6: push notifications + the bottle's look
 
 Owner, 2026-11-09. **Migration:** Sales `0015_drop_push.sql` (two new tables, FORCE RLS, SELECT + INSERT, retry /
