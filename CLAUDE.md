@@ -2259,3 +2259,14 @@ van "not paid" lines wait in **Cash → To post** until the owner or Accounts po
    tile, then stop the WhatsApp group.
 3. Open: Pickup report of 1 Nov is ₹1,000 off in the chat (₹9,780 worked out vs ₹8,780 posted).
 
+
+### 2026-11-12 — Staff app for Android ("PureVibe" APK) — live (v0.66.0), plan closed
+Owner 2026-11-11 / 11-12: an APK so employees install PlantOps without "Add to Home Screen", shared on WhatsApp (no Play
+Store). Plan `docs/STAFF_APP_PHASE_PLAN.md` (complete). A Trusted Web Activity (Bubblewrap) around `app.bluemins.life`
+plus the 7 module addresses; package `life.bluemins.plantops`, named **PureVibe** on the phone with its own icon (water
+drop, one for all brands); separate from the customer app Drop. Every app serves `/.well-known/assetlinks.json`
+(`assetLinksResponse()` in `packages/auth`, outside each login gate; `STAFF_APP_SHA256` on each service, empty = 404).
+Screens and pushes still come from the server, so every release reaches the app with no reinstall. `apps/staff-app/`
+holds the manifest, icons and build notes (not deployed); key in `~/projects/android-tools/keys/`. No database,
+permission, tenant or SSO token change. Tests: auth 90. **Leftovers (TODO, low):** Job applications redeploy (still 404),
+the phone checklist, HANDBOOK section.

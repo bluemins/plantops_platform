@@ -94,6 +94,7 @@ accounts, then 31 Oct ("See as worker" for each person before marking paid).
 
 | Work | Where | Status | Notes |
 |---|---|---|---|
+| **Staff app (PureVibe APK) leftovers** (low priority): Job applications redeploy so `jobs.` serves `/.well-known/assetlinks.json` (404 on 2026-11-12); the phone checklist (`docs/STAFF_APP_PHASE_PLAN.md` section 4: no address bar on every tile, test push, Attendance QR + location, photo upload, back / Logout); HANDBOOK section "Staff app (Android)"; later Play Store (after D-U-N-S) and a "Get the app" link on the login page | Platform / `apps/staff-app` | low | Plan closed by the owner 2026-11-12; v0.66.0 live, APK `~/projects/staff-apk/PureVibe-staff-1.0.1.apk`. Rebuild: `apps/staff-app/README.md`. Key in `~/projects/android-tools/keys/` (copy to the password manager) |
 | Demo plant set-up script (fake users, products, sample data) | Platform | idea | helps selling; demo plant 999 exists |
 | Purchases: **photo of the vendor's bill** on a purchase bill (P6) | Sales | idea | Owner 2026-11-10: after P3. Needs file storage + nightly backup in Sales (today it stores no files). `docs/PURCHASES_PHASE_PLAN.md` P6 |
 | Hindi / Odia screens, staff modules first (Floor Stock count, Attendance scan, Order Capture), then Lab Records, Salary, Job applications public page | All | idea | CLAUDE.md UX |

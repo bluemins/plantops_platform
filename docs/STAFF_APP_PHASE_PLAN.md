@@ -3,7 +3,13 @@
 Asked by the owner 2026-11-11: an APK so that employees can install PlantOps easily, without the "Add to Home Screen"
 steps. It is **separate from Drop** (the customer app). The approved plan is in this file; status is in **section 0**.
 
-## 0. Status (2026-11-12: built, v0.66.0; read this first)
+## 0. Status: COMPLETE (2026-11-12, closed by the owner; leftovers in docs/TODO.md, low priority)
+- **Live:** v0.66.0 (`81a3be9`); `STAFF_APP_SHA256` set on Railway; 7 of 8 addresses serve the file (Job applications
+  had not redeployed yet). APK **"PureVibe" 1.0.1** at `~/projects/staff-apk/PureVibe-staff-1.0.1.apk`, shared with staff
+  by the owner. Not done (moved to TODO, low): Job applications redeploy + check, the phone checklist (section 4),
+  HANDBOOK section, Play Store, "Get the app" link.
+
+### Build notes (2026-11-12)
 - **2026-11-12 (owner):** the APK is shared directly with staff (no Play Store). The app is named **"Drop"** on the
   phone (owner's choice, same name as the customer app; package `life.bluemins.plantops`, so both install side by
   side). Steps 1–5 below are done: routes + login-gate exclusions in all 8 apps, tests / typecheck / `next build` pass,
