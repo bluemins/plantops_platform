@@ -19,6 +19,8 @@ type Lookup = {
   last_rates: Record<string, string>;
   /** a free box the shop asked for with Drop points, not on an order yet */
   reward_asked: { id: string; label: string; points: number } | null;
+  /** their pending order: no second order while one is pending (owner, 2026-11-13); change it instead */
+  pending_order: { id: string; ref: string; created_at: string } | null;
 };
 type Match = { id: string; name: string; phone: string; place: string; active: boolean };
 const spaced = (p: string) => `${p.slice(0, 5)} ${p.slice(5)}`;
@@ -120,11 +122,13 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
   const free = freeUnitsOf(lines, products);
   const isNew = Boolean(normal && found && !found.customer);
   const off = Boolean(found?.customer && !found.customer.active);
+  const pending = found?.customer?.active ? found.pending_order : null;
 
   function problem(): string | null {
     if (!normal) return "Pick the customer from the list, or enter their 10-digit mobile number";
     if (!found) return "Checking the customer…";
     if (off) return `${found.customer!.name} is switched off. Switch them back on first.`;
+    if (pending) return `${found.customer!.name} already has order ${pending.ref} pending. Change that order instead.`;
     if (isNew && (name.trim().length < 2 || place.trim().length < 2)) return "Enter the new customer's name and place";
     return linesProblem(lines, products);
   }
@@ -214,6 +218,17 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
               {found.customer.place} · {found.last_order_at ? `last order ${day(found.last_order_at)}` : "no orders yet"}
             </p>
           </div>
+        </div>
+      )}
+      {pending && (
+        <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+          <p className="font-semibold">
+            Order {pending.ref} is still pending ({day(pending.created_at)})
+          </p>
+          <p className="text-sm text-slate-700">A customer can have only one pending order. Add the extra boxes to that order.</p>
+          <a href={`/o/${pending.id}/change`} className="flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-white font-semibold text-(--brand)">
+            Change {pending.ref}
+          </a>
         </div>
       )}
       {found?.customer?.active && found.reward_asked && (

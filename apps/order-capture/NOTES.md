@@ -763,3 +763,19 @@ day**. Files: `db/migrations/0021_jar_months.sql`, `jarMonthPlan` / `monthNumber
   Shown as "20 L month bill" on bill lists, bill pages, the account and the CSV. The 20 L list's due already counts them.
 - Made while building: the month page lists every month brought in (billed / match / flagged / left, undone) and a page
   per month with each customer; only first imports show in the 20 L page's "Imported:" line.
+
+## 2026-11-13 — One pending order per customer (v0.68.1)
+Owner 2026-11-13: "it should not be allowed" (a second order for a customer who already has one pending).
+- **Staff only** (owner's choice): owner and Order desk can't save a new order for a customer with a pending order;
+  409 "<name> already has order O-0123 pending (12 Nov). Change that order instead of entering a new one." **No
+  override**, not even the owner (owner's choice). Delivered or cancelled orders don't count.
+- **The WhatsApp bot is unchanged:** it may still add a second order, with its own "You already have an order waiting;
+  this will be another order." line.
+- Checked inside `saveOrder`'s per-plant lock (staff `customer` step in `createOrder`), so two phones saving at once
+  can't both get through; a repeated request key (double tap) still returns its order. Extra Drop phones are the same
+  customer, so they count too.
+- New order screen: the customer lookup answers `pending_order`; an amber box "Order O-0123 is still pending" with a
+  **Change O-0123** button (`/o/<id>/change`), and Save says why.
+- Orders already pending twice on the live copy stay as they are.
+- No migration; platform and SSO token unchanged. Tests: Sales 1,286 (+5; older tests that entered two pending orders
+  for one shop now deliver / cancel the first or use another shop).

@@ -217,7 +217,7 @@ describe("Drop points", () => {
     const r = (await rewardsList(p.owner)).open[0]!;
     const o = await newOrder(p);
     await addRewardToOrder(p.desk, r.id, o.id);
-    const o2 = await newOrder(p);
+    const o2 = await newOrder(p, { customer: { phone: "9437000009", name: "Second Shop", place: "Bargarh" } }); // one pending order per customer
     expect(await dbError(asApp(p.tenantId, `update order_capture.points_redemptions set order_id = '${o2.id}' where id = '${r.id}'`))).toMatch(/only once/);
     await cancelReward(p.owner, r.id, { reason: "Not needed" });
     expect(await dbError(asApp(p.tenantId, `update order_capture.points_redemptions set cancel_reason = 'Other reason' where id = '${r.id}'`))).toMatch(/only once/);

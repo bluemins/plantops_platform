@@ -82,6 +82,7 @@ describe("make bill, receive payment, advances, cancel", () => {
   it("a pending order can't get a bill", async () => {
     const p = await createOrder(a.desk, OrderInput.parse({ request_key: `ledger-p-${Date.now()}`, customer: { phone: "9876543210", name: "x", place: "y" }, lines: [{ sku_id: b500.id, quantity: 1, rate: "90" }] }));
     expect((await refused(() => makeBill(a.owner, { order_id: p.id }))).status).toBe(409);
+    await asApp(a.tenantId, `update order_capture.orders set status = 'cancelled' where id = '${p.id}'`); // one pending order per customer
   });
 
   it("a payment pays the oldest bill first (the Zoho one), then the next; notifications say so", async () => {

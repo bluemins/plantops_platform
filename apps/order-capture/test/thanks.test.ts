@@ -226,8 +226,9 @@ describe("sending on Delivered", () => {
   describe("only for some brands (thanks_brands, owner 2026-11-07)", () => {
     const jar = SKUS[2]!;
     const brands = (t: string, list: unknown) => (process.env.TWILIO_WHATSAPP_SENDERS = JSON.stringify({ [t]: { from: FROM, content_sid: CONTENT, thanks_brands: list } }));
-    const order = (p: ReturnType<typeof plant>, skus: string[]) =>
-      createOrder(p.desk, OrderInput.parse({ request_key: `thanks-b-${Date.now()}-${++k}`, customer: { phone: "9876543210", name: "Gayatri shop", place: "bhatli" }, lines: skus.map((sku_id) => ({ sku_id, quantity: 2, rate: "100" })) }));
+    // a new shop per order: a customer can have only one pending order (owner, 2026-11-13)
+    const order = (p: ReturnType<typeof plant>, skus: string[], n = ++k) =>
+      createOrder(p.desk, OrderInput.parse({ request_key: `thanks-b-${Date.now()}-${n}`, customer: { phone: `9876${String(n).padStart(6, "0")}`, name: "Gayatri shop", place: "bhatli" }, lines: skus.map((sku_id) => ({ sku_id, quantity: 2, rate: "100" })) }));
 
     it("a Bluemins order gets the tick box (any letter case); a Jar-only order doesn't and says why; a mixed order does", async () => {
       const p = plant();

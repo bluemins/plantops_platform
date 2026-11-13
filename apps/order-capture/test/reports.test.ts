@@ -161,7 +161,6 @@ describe("Order to Payment on real rows", () => {
         lines: [{ sku_id: b1l.id, quantity: 10, rate }],
       }));
     const deliver = (id: string) => deliverOrder(a.desk, id, DeliverInput.parse({ expected: { status: "pending", version: 1 } }));
-    await shop("10"); // pending ₹100
     await deliver((await shop("20")).id); // delivered, not billed ₹200
     const billedOnly = await shop("30");
     first = billedOnly.id;
@@ -182,6 +181,7 @@ describe("Order to Payment on real rows", () => {
     const imp = ((await asApp(a.tenantId, `select id from order_capture.zoho_imports where tenant_id = '${a.tenantId}' limit 1`)).rows[0] as { id: string }).id;
     await asApp(a.tenantId, `insert into order_capture.bills (tenant_id, source, number, zoho_invoice_id, bill_date, due_date, customer_id, customer_name, order_id, sub_total, total, import_id, created_by, created_by_name)
       values ('${a.tenantId}', 'zoho', 'INV-009001', 'zi-9001', '2026-01-05', '2026-01-05', '${customer}', 'Flow shop', '${zohoOrder.id}', 630, 630, '${imp}', gen_random_uuid(), 'Sujata')`);
+    await shop("10"); // pending ₹100 (last: a customer can have only one pending order)
   });
 
   it("each stage with what it counts; a Zoho bill counts like a PlantOps one; oldest money first", async () => {

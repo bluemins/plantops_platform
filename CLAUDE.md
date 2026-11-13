@@ -2299,3 +2299,8 @@ payment). Sales migration `0021_jar_months.sql` (approved: `bills.source` + `jar
 append-only `jar_month_lines`, FORCE RLS). Platform and SSO token unchanged. Notes: `apps/order-capture/NOTES.md`.
 Tests: Sales 1,281 (+6, `test/jar-month.test.ts`); typecheck and build pass. **Live 2026-11-12** (migration `0021` applied, `production` = `f650a1a`). **Next:** C6 (cash payments into the cash book only when ticked, owner 2026-11-12); handover: `docs/CASHBOOK_PHASE_PLAN.md` section 0. The owner runs November's month update at the start of December.
 
+### 2026-11-13 — Sales: one pending order per customer (v0.68.1) — built, not deployed
+Owner 2026-11-13. Staff (owner + Order desk) can't enter a new order for a customer who has a pending one: 409 naming it,
+and the New order screen shows the pending order with "Change O-0123". No override (owner). The WhatsApp bot may still
+add a second order (owner: "staff only"). Checked under the per-plant save lock. No migration; SSO token unchanged.
+Notes: `apps/order-capture/NOTES.md`. Tests: Sales 1,286 (+5).

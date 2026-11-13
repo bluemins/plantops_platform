@@ -7,7 +7,9 @@
 //     new customer is created with the order, the reference is the plant's next number (O-0001…), lines version 1
 //     and the "created" event are written together
 //   * the order keeps copies of the customer and of each product's name / unit, so later edits never change it
-//   * the WhatsApp bot's orders (bot.ts) go through the same `saveOrder`, with their own checks in front
+//   * staff can't enter a second order for a customer with a pending one (owner, 2026-11-13): they change it instead
+//   * the WhatsApp bot's orders (bot.ts) go through the same `saveOrder`, with their own checks in front (the bot may
+//     still add a second order; owner 2026-11-13: "staff only")
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { normalisePhone } from "@plantops/module-kit/phone";
@@ -112,13 +114,31 @@ export async function searchForOrder(user: OcUser, q: string) {
   return { customers: found, more };
 }
 
+/**
+ * The customer's pending order, if any (oldest first). Staff may not enter a second order while one is pending (owner,
+ * 2026-11-13): they change that order instead. The WhatsApp bot is not limited (owner: "staff only").
+ */
+export async function pendingOrderOf(tx: OcTx, tenantId: string, customerId: string) {
+  const [p] = await tx
+    .select({ id: orders.id, refNo: orders.refNo, at: orders.createdAt })
+    .from(orders)
+    .where(and(eq(orders.tenantId, tenantId), eq(orders.customerId, customerId), eq(orders.status, "pending")))
+    .orderBy(orders.createdAt)
+    .limit(1);
+  return p ? { id: p.id, ref: formatRef(p.refNo), created_at: p.at.toISOString() } : null;
+}
+
+const shortDay = (iso: string) => new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short" }).format(new Date(iso));
+export const pendingRefusal = (name: string, p: { ref: string; created_at: string }) =>
+  `${name} already has order ${p.ref} pending (${shortDay(p.created_at)}). Change that order instead of entering a new one.`;
+
 export async function lookupCustomer(user: OcUser, typedPhone: string) {
   requireAccess(user, "enter");
   const phone = normalisePhone(typedPhone);
   if (!phone) throw badRequest("Enter a 10-digit mobile number");
   return withTenant(user.tenantId, async (tx) => {
     const c = await findByPhone(tx, user.tenantId, phone);
-    if (!c) return { phone, customer: null, last_order_at: null, last_rates: {} as Record<string, string>, reward_asked: null };
+    if (!c) return { phone, customer: null, last_order_at: null, last_rates: {} as Record<string, string>, reward_asked: null, pending_order: null };
     const [last] = await tx
       .select({ at: orders.createdAt })
       .from(orders)
@@ -131,6 +151,7 @@ export async function lookupCustomer(user: OcUser, typedPhone: string) {
       last_order_at: last?.at.toISOString() ?? null,
       last_rates: await lastRates(tx, user.tenantId, c.id),
       reward_asked: can(user, "drop_rewards") ? await askedFor(tx, user.tenantId, c.id) : null,
+      pending_order: await pendingOrderOf(tx, user.tenantId, c.id),
     };
   });
 }
@@ -189,7 +210,13 @@ export async function createOrder(user: OcUser, input: z.infer<typeof OrderInput
     customer: async (tx, next) => {
       const found = await findByPhone(tx, user.tenantId, phone);
       if (found && !found.active) throw conflict(`${found.name} is switched off. Switch them back on first.`);
-      if (found) return found;
+      if (found) {
+        // one pending order per customer for staff (owner, 2026-11-13); checked under the plant lock, so two phones
+        // saving at once can't both get through. A repeated request key never reaches here (it returns its order).
+        const pending = await pendingOrderOf(tx, user.tenantId, found.id);
+        if (pending) throw conflict(pendingRefusal(found.name, pending));
+        return found;
+      }
       const name = NewName.safeParse(input.customer.name ?? "");
       if (!name.success) throw badRequest(name.error.issues[0]!.message);
       const place = NewPlace.safeParse(input.customer.place ?? "");

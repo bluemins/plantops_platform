@@ -462,6 +462,16 @@ describe("confirmed orders (contract 3.3, 3.4)", () => {
     await settle();
   });
 
+  it("a customer with a pending order can still order on WhatsApp: a second order (owner 2026-11-13: the one-pending rule is staff only)", async () => {
+    const b = botPlant();
+    const c = await customer(b.tenantId);
+    expect((await orderCall(b.key, body(c))).status).toBe(201);
+    const second = await orderCall(b.key, body(c));
+    expect(second.status).toBe(201);
+    expect(await second.json()).toMatchObject({ created: true, order: { ref: "O-0002" } });
+    expect((await ordersOf(b.tenantId)).map((o) => o.status)).toEqual(["pending", "pending"]);
+  });
+
   it("replay: the same key again = the same order (200, created false), no second order or alert", async () => {
     const b = botPlant();
     const c = await customer(b.tenantId);

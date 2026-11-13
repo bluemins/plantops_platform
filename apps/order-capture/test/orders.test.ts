@@ -44,6 +44,57 @@ const order = (u: Who, over: Partial<{ phone: string; name: string; place: strin
     }),
   );
 const count = async (table: string, tenantId: string) => Number((await asOwner(`select count(*)::int as n from order_capture.${table} where tenant_id = $1`, [tenantId])).rows[0]!.n);
+/** Marks an order delivered straight in the database (the screens' Delivered flow has its own tests in handling.test.ts). */
+const delivered = (tenantId: string, id: string) =>
+  asApp(tenantId, `update order_capture.orders set status = 'delivered', delivered_at = now(), delivered_by = gen_random_uuid(), delivered_by_name = 'Test' where id = '${id}'`);
+
+describe("one pending order per customer (owner, 2026-11-13)", () => {
+  it("a second order while one is pending: 409 naming that order, nothing saved; owner refused too", async () => {
+    const p = plant();
+    const first = await order(p.desk);
+    const msg = /^Sri ram hotel already has order O-0001 pending \(\d{1,2} [A-Z][a-z]{2}\)\. Change that order instead of entering a new one\.$/;
+    for (const u of [p.desk, p.owner]) {
+      const r = await refused(() => order(u, { phone: "+91 98765 43210", lines: [{ sku_id: jar.id, quantity: 2, rate: "50" }] }));
+      expect(r.status).toBe(409);
+      expect(r.message).toMatch(msg);
+    }
+    expect([await count("orders", p.tenantId), await count("order_lines", p.tenantId)]).toEqual([1, 2]);
+    // a double tap of the first order still answers with that order, not the refusal
+    expect((await order(p.desk, { request_key: (await asOwner("select request_key from order_capture.orders where id = $1", [first.id])).rows[0]!.request_key as string })).id).toBe(first.id);
+  });
+
+  it("the form's lookup names the pending order; delivered or cancelled = a new order is fine", async () => {
+    const p = plant();
+    const first = await order(p.desk);
+    expect((await lookupCustomer(p.desk, "9876543210")).pending_order).toEqual({ id: first.id, ref: "O-0001", created_at: expect.any(String) });
+    await delivered(p.tenantId, first.id);
+    expect((await lookupCustomer(p.desk, "9876543210")).pending_order).toBeNull();
+    const second = await order(p.desk);
+    expect(second.ref).toBe("O-0002");
+    await asApp(p.tenantId, `update order_capture.orders set status = 'cancelled' where id = '${second.id}'`);
+    expect((await order(p.desk)).ref).toBe("O-0003");
+    // another customer is never held up by this one's pending order
+    expect((await order(p.desk, { phone: "9123456780", name: "Maa Tarini Store", place: "Bargarh" })).ref).toBe("O-0004");
+  });
+
+  it("two phones saving at the same moment for one customer (different keys): one order, the other refused", async () => {
+    const p = plant();
+    await createCustomer(p.owner, CustomerInput.parse({ name: "Sri ram hotel", phone: "9876543210", place: "bijepur" }));
+    const both = await Promise.allSettled([order(p.desk), order(p.owner)]);
+    expect(both.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(await count("orders", p.tenantId)).toBe(1);
+  });
+
+  it("through the API: 409 with the message", async () => {
+    const p = plant();
+    signInAs(p.desk);
+    const body = () => ({ request_key: key(), customer: { phone: "9876543210", name: "Sri ram hotel", place: "bijepur" }, lines: SAMPLE });
+    expect((await POST(jsonReq("POST", "/api/orders", body()), undefined as never)).status).toBe(201);
+    const res = await POST(jsonReq("POST", "/api/orders", body()), undefined as never);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/already has order O-0001 pending/);
+  });
+});
 
 describe("the owner's sample order", () => {
   it("Sri ram hotel: 1 box × ₹90 + 3 box × ₹140 = ₹510, O-0001, new customer, lines v1, 'created' event, copies kept", async () => {
@@ -114,7 +165,9 @@ describe("the order note", () => {
 
   it("is optional: no note and a blank note both save null", async () => {
     const p = plant();
-    expect((await order(p.desk)).note).toBeNull();
+    const first = await order(p.desk);
+    expect(first.note).toBeNull();
+    await asApp(p.tenantId, `update order_capture.orders set status = 'cancelled' where id = '${first.id}'`); // one pending order per customer
     expect((await withNote(p.desk, "  \n  ")).note).toBeNull();
     expect((await asOwner("select order_note from order_capture.orders where tenant_id = $1", [p.tenantId])).rows).toEqual([{ order_note: null }, { order_note: null }]);
   });
@@ -209,7 +262,8 @@ describe("references and the one-time request key", () => {
     const again = await order(p.desk, { request_key: k1, lines: [{ sku_id: jar.id, quantity: 9, rate: "1" }] });
     expect([again.id, again.ref, again.created, again.total]).toEqual([first.id, "O-0001", false, "510.00"]);
     const k2 = key();
-    const both = await Promise.all([order(p.desk, { request_key: k2 }), order(p.desk, { request_key: k2 })]);
+    const other = { request_key: k2, phone: "9123456780", name: "Maa Tarini Store", place: "Bargarh" }; // O-0001 is still pending
+    const both = await Promise.all([order(p.desk, other), order(p.desk, other)]);
     expect(both[0]!.id).toBe(both[1]!.id);
     expect(both.map((o) => o.created).sort()).toEqual([false, true]);
     expect(await count("orders", p.tenantId)).toBe(2);
@@ -255,7 +309,7 @@ describe("the customer", () => {
 describe("rate pre-fill: this customer's last rate, else the default", () => {
   it("no orders and no default: nothing to pre-fill", async () => {
     const p = plant();
-    expect(await lookupCustomer(p.desk, "9876543210")).toEqual({ phone: "9876543210", customer: null, last_order_at: null, last_rates: {}, reward_asked: null });
+    expect(await lookupCustomer(p.desk, "9876543210")).toEqual({ phone: "9876543210", customer: null, last_order_at: null, last_rates: {}, reward_asked: null, pending_order: null });
     expect((await formProducts(p.desk)).find((r) => r.sku_id === b500.id)!.default_rate).toBeNull();
   });
 
@@ -268,7 +322,8 @@ describe("rate pre-fill: this customer's last rate, else the default", () => {
   it("their last order's rate wins over the default; a later cancelled order is skipped; others' orders don't count", async () => {
     const p = plant();
     await saveRates(p.owner, { rates: [{ sku_id: b500.id, unit: "box", default_rate: "88" }] });
-    await order(p.desk, { lines: [{ sku_id: b500.id, quantity: 1, rate: "90" }, { sku_id: jar.id, quantity: 2, rate: "50" }] });
+    const first = await order(p.desk, { lines: [{ sku_id: b500.id, quantity: 1, rate: "90" }, { sku_id: jar.id, quantity: 2, rate: "50" }] });
+    await delivered(p.tenantId, first.id); // one pending order per customer
     const later = await order(p.desk, { lines: [{ sku_id: b500.id, quantity: 1, rate: "95" }] });
     await order(p.desk, { phone: "9123456780", name: "Maa Tarini Store", place: "Bargarh", lines: [{ sku_id: b500.id, quantity: 1, rate: "70" }] });
     let found = await lookupCustomer(p.desk, "098765 43210");
