@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { csv } from "@plantops/module-kit/csv";
-import { zohoCsvRows } from "@/server/bill-make";
+import { zohoCsvRows, zohoCsvText } from "@/server/bill-make";
 import { handle, readJson } from "@/server/http";
 import { requireApiUser } from "@/server/session";
 
@@ -14,7 +13,8 @@ export const POST = handle(async (req) => {
   const user = await requireApiUser();
   const { which } = await readJson(req, z.object({ which: z.enum(["new", "again"]) }));
   const { rows, count } = await zohoCsvRows(user, which);
-  return new Response(csv(rows), {
+  // No BOM here (B-26): Zoho reads UTF-8 without it, and with it the first column name ("Invoice Date") doesn't match
+  return new Response(zohoCsvText(rows), {
     headers: {
       "content-type": "text/csv; charset=utf-8",
       "content-disposition": `attachment; filename="zoho-invoices-${istDay()}.csv"`,

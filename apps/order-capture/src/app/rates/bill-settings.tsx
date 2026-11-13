@@ -8,11 +8,11 @@ import { BILL_TERMS, TERMS_LABEL, type BillTerms } from "@/lib/ledger";
 const field = "min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-base focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)";
 const label = "mb-1 block text-sm font-medium text-slate-700";
 
-type Settings = { rates_include_gst: boolean; default_terms: BillTerms; default_notes: string | null };
+type Settings = { rates_include_gst: boolean; default_terms: BillTerms; default_notes: string | null; gst_salesperson: string | null };
 
 /** Owner (support reads): what every new bill starts with (mock-up 5). Each bill can still change them. */
 export function BillSettingsCard({ value, canEdit }: { value: Settings; canEdit: boolean }) {
-  const [f, setF] = useState({ ...value, default_notes: value.default_notes ?? "" });
+  const [f, setF] = useState({ ...value, default_notes: value.default_notes ?? "", gst_salesperson: value.gst_salesperson ?? "" });
   const [error, setError] = useState<string>();
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -48,6 +48,12 @@ export function BillSettingsCard({ value, canEdit }: { value: Settings; canEdit:
         <span className={label}>Usual customer notes (printed on the bill)</span>
         <textarea className={`${field} py-2`} rows={2} maxLength={2000} disabled={!canEdit} value={f.default_notes} placeholder="Thanks for your business."
           onChange={(e) => { setF({ ...f, default_notes: e.target.value }); setSaved(false); }} />
+      </label>
+      <label className="block">
+        <span className={label}>Salesperson on GST invoices (Zoho file)</span>
+        <input className={field} maxLength={100} disabled={!canEdit} value={f.gst_salesperson} placeholder="Empty = each bill's own salesperson"
+          onChange={(e) => { setF({ ...f, gst_salesperson: e.target.value }); setSaved(false); }} />
+        <span className="mt-1 block text-xs text-slate-500">Every GST bill goes to Zoho with this name. Type it exactly as in Zoho&apos;s salesperson list.</span>
       </label>
       <ErrorText>{error}</ErrorText>
       {saved && <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">Saved.</p>}

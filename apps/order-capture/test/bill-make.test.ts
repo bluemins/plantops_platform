@@ -5,7 +5,7 @@
 // is typed); who may; what the database refuses; another plant sees nothing.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { TenantSku } from "@plantops/types";
-import { billForm, gstQueue, makeBill, setBillSettings, zohoCsvRows } from "@/server/bill-make";
+import { billForm, gstQueue, makeBill, setBillSettings, zohoCsvRows, zohoCsvText } from "@/server/bill-make";
 import { DeliverInput, deliverOrder } from "@/server/handling";
 import { billDetail, setGstInvoice } from "@/server/ledger";
 import { createOrder, OrderInput } from "@/server/orders";
@@ -151,6 +151,17 @@ describe("GST invoices to make → Zoho", () => {
     expect(col("Is Inclusive Tax")).toBe("false");
     expect([col("Item Name"), col("Item Desc"), col("Quantity"), col("Item Price"), col("Item Tax"), col("Item Tax %"), col("HSN/SAC")]).toEqual(["Jar (20 L)", "Oct month", "92.000", "55.00", "GST5", "5.00", "002201"]);
     expect(col("Invoice Status")).toBe("Draft");
+    // B-26: Zoho must match the first column and the salesperson; no BOM in front of "Invoice Date"
+    expect(head[0]).toBe("Invoice Date");
+    expect(head).toContain("Salesperson");
+    const text = zohoCsvText(file.rows);
+    expect(text.charCodeAt(0)).not.toBe(0xfeff);
+    expect(text.startsWith("Invoice Date,")).toBe(true);
+    // Invoice Date = the day the file is made (the Zoho import day); due on receipt = the same day
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+    expect(col("Invoice Date")).toBe(today);
+    expect(col("Due Date")! >= today).toBe(true);
+    expect(col("Salesperson")).toBe(""); // no plant setting and no salesperson on this bill
     expect((file.rows[3] as string[])[head.indexOf("GST Treatment")]).toBe("consumer");
     expect((file.rows[3] as string[])[head.indexOf("Billing Address")]).toBe("");
     expect((file.rows[4] as string[])[head.indexOf("Item Tax")]).toBe("IGST5");
@@ -187,8 +198,20 @@ describe("bill settings", () => {
   it("owner only; audited", async () => {
     expect((await refused(() => setBillSettings(acct, { rates_include_gst: false, default_terms: "receipt", default_notes: "" }))).status).toBe(403);
     const s = await setBillSettings(a.owner, { rates_include_gst: false, default_terms: "eom", default_notes: "" });
-    expect(s).toEqual({ rates_include_gst: false, default_terms: "eom", default_notes: null });
+    expect(s).toEqual({ rates_include_gst: false, default_terms: "eom", default_notes: null, gst_salesperson: null });
     expect((await auditRows(a.tenantId)).some((r) => r.action === "bill.settings")).toBe(true);
+  });
+
+  it("salesperson on GST invoices goes into every row of the Zoho file; left out = kept; empty = each bill's own (B-26)", async () => {
+    const s = await setBillSettings(a.owner, { rates_include_gst: false, default_terms: "eom", default_notes: "", gst_salesperson: " Dillip " });
+    expect(s.gst_salesperson).toBe("Dillip");
+    // an older page that doesn't send the field keeps it
+    expect((await setBillSettings(a.owner, { rates_include_gst: false, default_terms: "eom", default_notes: "" })).gst_salesperson).toBe("Dillip");
+    const file = await zohoCsvRows(a.owner, "again");
+    const [head, ...lines] = file.rows as string[][];
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines.every((l) => l[head!.indexOf("Salesperson")] === "Dillip")).toBe(true);
+    expect((await setBillSettings(a.owner, { rates_include_gst: false, default_terms: "eom", default_notes: "", gst_salesperson: "" })).gst_salesperson).toBeNull();
   });
 });
 

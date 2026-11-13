@@ -2309,3 +2309,11 @@ Notes: `apps/order-capture/NOTES.md`. Tests: Sales 1,286 (+5).
 Owner 2026-11-13. Accounts (not only owners) may Undo delivered (still refused while the order has an open bill), cancel a
 bill and cancel a payment, each with a reason. Order desk alone still can't. No migration; SSO token unchanged. Notes:
 `apps/order-capture/NOTES.md`. Tests: Sales 1,286.
+
+### 2026-11-13 — Sales: Zoho GST invoices file fixed (B-26, v0.69.0)
+Owner 2026-11-13 (raised to P1). Zoho's import left the required **Invoice Date** unmapped: the BOM at the start of the
+file was glued to that column name. The Zoho file now has no BOM; "Salesperson" uses Zoho's import name; **Invoice Date =
+the day the file is made** (the Zoho import day; due date from the bill's terms); **Salesperson on GST invoices** set once
+on Rates → Bill settings (owner: "Dillip"). Invoice numbers stay B-numbers; Zoho auto-generates INV numbers (owner). Sales
+migration `0022_gst_salesperson.sql` (approved: one column on `bill_settings`). Platform and SSO token unchanged. Notes:
+`apps/order-capture/NOTES.md`.

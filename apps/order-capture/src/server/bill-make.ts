@@ -4,6 +4,7 @@
 // file Zoho imports. Nothing on a saved bill changes later except "sent to Zoho" (once) and the Zoho GST invoice no.
 import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
+import { csv } from "@plantops/module-kit/csv";
 import { GST_STATES, gstinProblem, gstinState, normaliseGstin } from "@plantops/types";
 import {
   BILL_TERMS,
@@ -40,12 +41,14 @@ const istDay = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/K
 
 // ---------- the plant's bill settings ----------
 
-export type BillSettings = { rates_include_gst: boolean; default_terms: BillTerms; default_notes: string | null };
-const DEFAULT_SETTINGS: BillSettings = { rates_include_gst: true, default_terms: "receipt", default_notes: null };
+export type BillSettings = { rates_include_gst: boolean; default_terms: BillTerms; default_notes: string | null; gst_salesperson: string | null };
+const DEFAULT_SETTINGS: BillSettings = { rates_include_gst: true, default_terms: "receipt", default_notes: null, gst_salesperson: null };
 
 async function readSettings(tx: OcTx, tenantId: string): Promise<BillSettings> {
   const [s] = await tx.select().from(billSettings).where(eq(billSettings.tenantId, tenantId));
-  return s ? { rates_include_gst: s.ratesIncludeGst, default_terms: s.defaultTerms, default_notes: s.defaultNotes } : DEFAULT_SETTINGS;
+  return s
+    ? { rates_include_gst: s.ratesIncludeGst, default_terms: s.defaultTerms, default_notes: s.defaultNotes, gst_salesperson: s.gstSalesperson }
+    : DEFAULT_SETTINGS;
 }
 
 export async function getBillSettings(user: OcUser) {
@@ -57,6 +60,7 @@ export const BillSettingsInput = z.object({
   rates_include_gst: z.boolean(),
   default_terms: z.enum(BILL_TERMS as [BillTerms, ...BillTerms[]]),
   default_notes: z.string().trim().max(2000),
+  gst_salesperson: z.string().trim().max(100, "Salesperson on GST invoices: at most 100 characters").optional(),
 });
 
 /** Owner: the usual "rates include GST", terms and customer notes for new bills. */
@@ -68,6 +72,8 @@ export async function setBillSettings(user: OcUser, input: z.infer<typeof BillSe
       ratesIncludeGst: input.rates_include_gst,
       defaultTerms: input.default_terms,
       defaultNotes: input.default_notes || null,
+      // left out of the request (an older page) = keep what is saved
+      ...(input.gst_salesperson !== undefined ? { gstSalesperson: input.gst_salesperson.trim() || null } : {}),
       updatedBy: user.userId,
       updatedByName: user.name,
       updatedAt: new Date(),
@@ -429,13 +435,17 @@ export type GstQueue = Awaited<ReturnType<typeof gstQueue>>;
 
 export const ZOHO_COLUMNS = [
   "Invoice Date", "Invoice Number", "Invoice Status", "Customer Name", "GST Treatment", "GST Identification Number (GSTIN)",
-  "Place of Supply", "Payment Terms", "Payment Terms Label", "Due Date", "Sales person", "PurchaseOrder", "Subject",
+  // "Salesperson" as Zoho's import field is named (its export says "Sales person", which the import doesn't match; B-26)
+  "Place of Supply", "Payment Terms", "Payment Terms Label", "Due Date", "Salesperson", "PurchaseOrder", "Subject",
   "Is Inclusive Tax", "Discount Type", "Is Discount Before Tax", "Entity Discount Amount", "Adjustment", "Notes",
   "Currency Code", "Item Name", "SKU", "Item Desc", "HSN/SAC", "Quantity", "Usage unit", "Item Price", "Discount Amount",
   "Item Tax", "Item Tax %", "Item Tax Type", "Item Type",
   // the GST details' address (D8, v0.45.0); Zoho also keeps the address on its contact
   "Billing Address", "Billing City", "Billing State", "Billing Code", "Billing Country",
 ] as const;
+
+/** The Zoho file's text: plain UTF-8 without the BOM our other CSVs carry (with it Zoho can't match "Invoice Date"). */
+export const zohoCsvText = (rows: unknown[][]) => csv(rows).replace(/^﻿/, "");
 
 /**
  * The CSV Zoho Books imports as invoices (one row per line, Zoho's own column names, as in the plant's Zoho export), for
@@ -459,6 +469,10 @@ export async function zohoCsvRows(user: OcUser, which: "new" | "again") {
       )
       .orderBy(bills.billDate, bills.refNo);
     const rows: string[][] = [[...ZOHO_COLUMNS]];
+    const { gst_salesperson } = await readSettings(tx, user.tenantId);
+    // Invoice Date = the day the file is made, i.e. the day it goes into Zoho (owner, 2026-11-13, B-26), not the bill
+    // date; the due date follows the bill's terms from that day
+    const invoiceDay = istToday();
     for (const b of list) {
       const lines = await tx.select().from(billLines).where(and(eq(billLines.tenantId, user.tenantId), eq(billLines.billId, b.id))).orderBy(billLines.lineNo);
       const terms = (b.terms ?? "receipt") as BillTerms;
@@ -466,8 +480,8 @@ export async function zohoCsvRows(user: OcUser, which: "new" | "again") {
       for (const l of lines) {
         rows.push([
           // "Customer Name" = the legal name (Zoho finds its contact by it); bills before v0.45.0 had only the calling name
-          b.billDate, b.number, "Draft", b.billToName ?? b.customerName, b.gstTreatment ? ZOHO_TREATMENT[b.gstTreatment] : b.gstin ? "business_gst" : "consumer", b.gstin ?? "",
-          ZOHO_STATE[b.placeOfSupply ?? ""] ?? "", ZOHO_TERMS[terms], TERMS_LABEL[terms], b.dueDate ?? b.billDate, b.salesperson ?? "",
+          invoiceDay, b.number, "Draft", b.billToName ?? b.customerName, b.gstTreatment ? ZOHO_TREATMENT[b.gstTreatment] : b.gstin ? "business_gst" : "consumer", b.gstin ?? "",
+          ZOHO_STATE[b.placeOfSupply ?? ""] ?? "", ZOHO_TERMS[terms], TERMS_LABEL[terms], dueFromTerms(invoiceDay, terms), gst_salesperson ?? b.salesperson ?? "",
           b.referenceNo ?? "", `PlantOps ${b.number}`,
           b.taxInclusive ? "true" : "false", "entity_level", "true", b.discount, b.adjustment, b.notes ?? "",
           "INR", l.itemName, l.skuCode ?? "", l.description ?? "", l.hsn ?? "", l.quantity, l.unit ?? "", l.rate, l.discount,

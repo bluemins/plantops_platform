@@ -787,3 +787,16 @@ Owner 2026-11-13 (Anmol, Accounts at plant 001, couldn't undo a delivered order)
 - Undo delivered is still refused while the order has a bill that isn't cancelled ("Cancel the bill first, then undo the
   delivery."); a reason is still required for all three. The cancel bells go to the owners (not whoever cancelled).
 - No migration; platform and SSO token unchanged. Tests: Sales 1,286 (access table + ledger tests updated).
+
+## 2026-11-13 — Zoho GST invoices file fixed (B-26, v0.69.0)
+Owner 2026-11-13: the "Download for Zoho" file stopped at Zoho's Map Fields step (Invoice Date not matched).
+- **No BOM in the Zoho file** (`zohoCsvText` in `src/server/bill-make.ts`): the hidden UTF-8 mark our other CSVs carry
+  for Excel was glued to the first column name, so Zoho read "﻿Invoice Date" and left the required field unmapped.
+- **"Salesperson"** (Zoho's import field name) instead of "Sales person" (its export's), so Zoho maps it.
+- **Invoice Date = the day the file is made** (= the day it goes into Zoho; owner), not the bill date; Due Date follows
+  the bill's terms from that day. The bill itself keeps its own date and due date.
+- **Salesperson on GST invoices** (owner: "Dillip"): Rates → Bill settings, owner; every row of the Zoho file carries it;
+  empty = each bill's own salesperson. Must match a salesperson in Zoho. Sales migration `0022_gst_salesperson.sql`
+  (approved: one column on `bill_settings` + its UPDATE grant).
+- Invoice numbers stay the B-number; Zoho's import auto-generates its INV number (owner: option B, already set so).
+- Platform and SSO token unchanged. Tests: Sales 1,287 (+1; the Zoho file test checks the new columns too).

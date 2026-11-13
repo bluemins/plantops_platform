@@ -404,6 +404,8 @@ export const billSettings = oc.table("bill_settings", {
   ratesIncludeGst: boolean("rates_include_gst").notNull().default(true),
   defaultTerms: text("default_terms").$type<BillTerms>().notNull().default("receipt"),
   defaultNotes: text("default_notes"),
+  /** Salesperson on every GST bill's row in the Zoho file (0022, B-26); null = each bill's own. */
+  gstSalesperson: text("gst_salesperson"),
   updatedBy: uuid("updated_by").notNull(),
   updatedByName: text("updated_by_name").notNull(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
