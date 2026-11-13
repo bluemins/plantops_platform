@@ -95,7 +95,7 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   customers: ["owner", "desk", "marketing"],
   deliver: ["owner", "desk"],
   cancel: ["owner", "desk"],
-  undo_delivered: ["owner"],
+  undo_delivered: ["owner", "accounts"], // Accounts too (owner, 2026-11-13); refused while the order has an open bill
   add_note: ["owner", "desk"],
   rates: ["owner"],
   view_rates: ["owner", "support"],
@@ -116,9 +116,9 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   ledger_view: ["owner", "accounts", "support"],
   account_view: ["owner", "accounts", "marketing", "support"],
   bill_make: ["owner", "accounts"],
-  bill_cancel: ["owner"],
+  bill_cancel: ["owner", "accounts"], // Accounts too (owner, 2026-11-13)
   payment_receive: ["owner", "accounts"],
-  payment_cancel: ["owner"],
+  payment_cancel: ["owner", "accounts"], // Accounts too (owner, 2026-11-13)
   ledger_export: ["owner"],
   ledger_totals: ["owner", "support"],
   reports: ["owner", "support"],

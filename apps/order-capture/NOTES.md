@@ -779,3 +779,11 @@ Owner 2026-11-13: "it should not be allowed" (a second order for a customer who 
 - Orders already pending twice on the live copy stay as they are.
 - No migration; platform and SSO token unchanged. Tests: Sales 1,286 (+5; older tests that entered two pending orders
   for one shop now deliver / cancel the first or use another shop).
+
+## 2026-11-13 — Accounts may undo a delivery and cancel bills / payments (v0.68.2)
+Owner 2026-11-13 (Anmol, Accounts at plant 001, couldn't undo a delivered order).
+- `undo_delivered`, `bill_cancel`, `payment_cancel` in `src/server/access.ts`: owner **and Accounts** (were owner only).
+  Order desk alone still can't; Order desk + Accounts can.
+- Undo delivered is still refused while the order has a bill that isn't cancelled ("Cancel the bill first, then undo the
+  delivery."); a reason is still required for all three. The cancel bells go to the owners (not whoever cancelled).
+- No migration; platform and SSO token unchanged. Tests: Sales 1,286 (access table + ledger tests updated).

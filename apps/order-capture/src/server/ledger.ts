@@ -613,7 +613,7 @@ async function reverse(tx: OcTx, user: OcUser, where: { billId?: string; payment
   return live.length;
 }
 
-/** Owner: cancel a bill (final). What payments paid on it goes back to those payments as advance. */
+/** Owner and Accounts (owner, 2026-11-13): cancel a bill (final). What payments paid on it goes back to those payments as advance. */
 export async function cancelBill(user: OcUser, id: string, input: z.infer<typeof CancelInput>) {
   requireAccess(user, "bill_cancel");
   return withTenant(user.tenantId, async (tx) => {
@@ -630,7 +630,7 @@ export async function cancelBill(user: OcUser, id: string, input: z.infer<typeof
   });
 }
 
-/** Owner: cancel a payment (typed twice, cheque bounced): the bills it paid are due again. */
+/** Owner and Accounts (owner, 2026-11-13): cancel a payment (typed twice, cheque bounced): the bills it paid are due again. */
 export async function cancelPayment(user: OcUser, id: string, input: z.infer<typeof CancelInput>) {
   requireAccess(user, "payment_cancel");
   return withTenant(user.tenantId, async (tx) => {

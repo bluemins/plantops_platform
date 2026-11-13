@@ -97,7 +97,7 @@ export function paymentNotification(user: OcUser, p: { id: string; number: strin
   };
 }
 
-/** 7. A bill or a payment cancelled (owner only acts): the other owners + ticked people. Bell only. */
+/** 7. A bill or a payment cancelled (an owner or Accounts acts): the owners + ticked people. Bell only. */
 export function ledgerCancelNotification(user: OcUser, what: "bill" | "payment", id: string, x: { number: string; customer: string; amount: string; reason: string }): NotificationInput {
   return {
     kind: what === "bill" ? "order_capture.bill_cancelled" : "order_capture.payment_cancelled",

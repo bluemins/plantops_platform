@@ -122,10 +122,10 @@ describe("make bill, receive payment, advances, cancel", () => {
     expect((await refused(() => receivePayment(a.desk, { customer_id: customerId, amount: "10", payment_date: "2026-11-06", mode: "cash", bill_ids: [] }))).status).toBe(403);
   });
 
-  it("owner cancels a payment: the bills it paid are due again; Order desk can't", async () => {
+  it("Accounts cancels a payment (owner, 2026-11-13): the bills it paid are due again; Order desk can't", async () => {
     const p = (await asApp(a.tenantId, "select id from order_capture.payments where number = 'P-0002'")).rows[0]!.id as string;
-    expect((await refused(() => cancelPayment(acct, p, { reason: "typed twice" }))).status).toBe(403);
-    await cancelPayment(a.owner, p, { reason: "typed twice" });
+    expect((await refused(() => cancelPayment(a.desk, p, { reason: "typed twice" }))).status).toBe(403);
+    await cancelPayment(acct, p, { reason: "typed twice" });
     expect((await refused(() => cancelPayment(a.owner, p, { reason: "again" }))).status).toBe(409);
     const acc = await account(a.owner, { kind: "customer", id: customerId });
     // P-0002 paid ₹250 on B-0001 and ₹50 (as advance) on B-0002: both due again
@@ -133,12 +133,14 @@ describe("make bill, receive payment, advances, cancel", () => {
     expect(acc.payments.find((x) => x.number === "P-0002")).toMatchObject({ cancelled: true, cancel_reason: "typed twice", unused: "0.00" });
   });
 
-  it("Undo delivered is refused while the order has a bill; owner cancels the bill (payments freed as advance), then undo works", async () => {
-    const undo = () => undoDelivered(a.owner, o1.id, ReasonInput.parse({ expected: { status: "delivered", version: 1 }, reason: "wrong customer" }));
+  it("Undo delivered is refused while the order has a bill; Accounts cancels the bill (payments freed as advance), then undoes", async () => {
+    // Accounts may undo a delivery and cancel a bill (owner, 2026-11-13); Order desk still may not
+    const undo = () => undoDelivered(acct, o1.id, ReasonInput.parse({ expected: { status: "delivered", version: 1 }, reason: "wrong customer" }));
     expect((await refused(undo)).message).toBe("This order has bill B-0001. Cancel the bill first, then undo the delivery.");
     const bill1 = (await asApp(a.tenantId, "select id from order_capture.bills where number = 'B-0001'")).rows[0]!.id as string;
-    expect((await refused(() => cancelBill(acct, bill1, { reason: "wrong customer" }))).status).toBe(403);
-    await cancelBill(a.owner, bill1, { reason: "wrong customer" });
+    expect((await refused(() => cancelBill(a.desk, bill1, { reason: "wrong customer" }))).status).toBe(403);
+    expect((await refused(() => undoDelivered(a.desk, o1.id, ReasonInput.parse({ expected: { status: "delivered", version: 1 }, reason: "wrong customer" })))).status).toBe(403);
+    await cancelBill(acct, bill1, { reason: "wrong customer" });
     const acc = await account(a.owner, { kind: "customer", id: customerId });
     // P-0001 had paid ₹100 on B-0001: now an advance
     expect(acc.totals).toMatchObject({ advance: "100.00" });

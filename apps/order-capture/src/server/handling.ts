@@ -234,7 +234,7 @@ export async function cancelOrder(user: OcUser, id: string, input: z.infer<typeo
   });
 }
 
-/** Owner only: back to Pending. The delivery's note / invoice no. stay in the "delivered" event. */
+/** Owner and Accounts (owner, 2026-11-13): back to Pending, never while the order has an open bill. The delivery's note / invoice no. stay in the "delivered" event. */
 export async function undoDelivered(user: OcUser, id: string, input: z.infer<typeof ReasonInput>) {
   return act(user, "undo_delivered", async (tx) => {
     const o = await lockAsSeen(tx, user, id, input.expected, "delivered");

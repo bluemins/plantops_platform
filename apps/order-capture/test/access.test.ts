@@ -160,7 +160,7 @@ describe("the access table", () => {
 describe("Accounts", () => {
   const acc = ocUser(p.owner.tenantId, ["accounts"], "Kedar");
   const both = ocUser(p.owner.tenantId, ["order_desk", "accounts"], "Kedar");
-  const ACCOUNTS_MAY = ["read", "see_amounts", "view_customers", "ledger_view", "account_view", "bill_make", "payment_receive", "location_view", "location_save", "purchases_view", "purchase_enter", "purchases_received", "payables", "cash_view", "cash_enter", "cash_close", "collection_post"];
+  const ACCOUNTS_MAY = ["read", "see_amounts", "view_customers", "ledger_view", "account_view", "bill_make", "payment_receive", "undo_delivered", "bill_cancel", "payment_cancel", "location_view", "location_save", "purchases_view", "purchase_enter", "purchases_received", "payables", "cash_view", "cash_enter", "cash_close", "collection_post"];
   it.each(TABLE)("%s: Accounts may only read orders and work on bills / payments", (action) => {
     expect(can(acc, action)).toBe(ACCOUNTS_MAY.includes(action));
   });
@@ -171,7 +171,10 @@ describe("Accounts", () => {
     expect([roleLabel(acc), roleLabel(both)]).toEqual(["Accounts", "Order desk + Accounts"]);
     expect(await refused(() => requireAccess(acc, "enter"))).toEqual({ status: 403, message: "Accounts works on bills and payments. Order desk or the owner does this." });
     expect(await refused(() => requireAccess(p.desk, "ledger_view"))).toEqual({ status: 403, message: "Bills and payments need the Accounts role. Ask the owner." });
-    expect(can(both, "bill_cancel") || can(both, "ledger_totals") || can(both, "ledger_export")).toBe(false);
+    expect(can(both, "ledger_totals") || can(both, "ledger_export")).toBe(false);
+    // owner, 2026-11-13: Accounts may undo a delivery and cancel bills / payments; Order desk alone still may not
+    expect([can(acc, "undo_delivered"), can(acc, "bill_cancel"), can(acc, "payment_cancel")]).toEqual([true, true, true]);
+    expect([can(p.desk, "undo_delivered"), can(p.desk, "bill_cancel"), can(p.desk, "payment_cancel")]).toEqual([false, false, false]);
   });
 });
 

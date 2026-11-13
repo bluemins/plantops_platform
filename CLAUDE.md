@@ -2304,3 +2304,8 @@ Owner 2026-11-13. Staff (owner + Order desk) can't enter a new order for a custo
 and the New order screen shows the pending order with "Change O-0123". No override (owner). The WhatsApp bot may still
 add a second order (owner: "staff only"). Checked under the per-plant save lock. No migration; SSO token unchanged.
 Notes: `apps/order-capture/NOTES.md`. Tests: Sales 1,286 (+5).
+
+### 2026-11-13 — Sales: Accounts may undo a delivery and cancel bills / payments (v0.68.2)
+Owner 2026-11-13. Accounts (not only owners) may Undo delivered (still refused while the order has an open bill), cancel a
+bill and cancel a payment, each with a reason. Order desk alone still can't. No migration; SSO token unchanged. Notes:
+`apps/order-capture/NOTES.md`. Tests: Sales 1,286.
