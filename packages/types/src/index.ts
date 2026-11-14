@@ -484,6 +484,41 @@ export const SupportTokenPayload = z.object({
 });
 export type SupportTokenPayload = z.infer<typeof SupportTokenPayload>;
 
+// ---------- module-to-module lookups (docs/FIELD_DAY_PHASE_PLAN.md "the lookup ticket") ----------
+
+/** What one module may ask of another, server to server. */
+export const LookupScope = z.enum(["customers", "customer_location"]);
+export type LookupScope = z.infer<typeof LookupScope>;
+/**
+ * The only module pairs that may ask each other anything: from → to → scopes. Attendance's field day log reads Sales'
+ * customer list (name / place only) and saves a shop's location from a field visit. Anything not listed is refused.
+ */
+export const LOOKUPS: Partial<Record<ModuleId, Partial<Record<ModuleId, readonly LookupScope[]>>>> = {
+  attendance_salary: { order_capture: ["customers", "customer_location"] },
+};
+export function lookupAllowed(from: ModuleId, to: ModuleId, scope: LookupScope): boolean {
+  return LOOKUPS[from]?.[to]?.includes(scope) ?? false;
+}
+export const LOOKUP_TOKEN_SECONDS = 60;
+/** A 60-second platform-signed ticket for one plant, one scope, one target module. Never a login. */
+export const LookupTicketPayload = z.object({
+  iss: z.literal(TOKEN_ISSUER),
+  aud: ModuleId,
+  iat: z.number(),
+  exp: z.number(),
+  jti: z.uuid(),
+  purpose: z.literal("lookup"),
+  tenant_id: z.uuid(),
+  from: ModuleId,
+  scope: LookupScope,
+});
+export type LookupTicketPayload = z.infer<typeof LookupTicketPayload>;
+/** POST /api/m/tenants/:tid/lookup-ticket { to, scope } */
+export const LookupTicketRequest = z.object({ to: ModuleId, scope: LookupScope }).strict();
+/** The ticket and the target module's address (its registered base URL). */
+export const LookupTicketAnswer = z.object({ ticket: z.string().min(1), url: z.string().url() });
+export type LookupTicketAnswer = z.infer<typeof LookupTicketAnswer>;
+
 // ---------- error log (STABILITY_PLAN B-09) ----------
 
 /**

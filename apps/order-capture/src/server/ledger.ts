@@ -6,6 +6,7 @@
 // A customer's account = rows of the customer plus rows of every Zoho contact linked to them (imported bills point at
 // the contact, so linking a contact on the Match screen moves its history here). A Zoho contact not matched yet has the
 // same page, read-only for payments (a payment needs a customer).
+import { locationHow } from "@/lib/changes";
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -142,7 +143,7 @@ function timeline(
       const keys = Object.keys((d.changes as Record<string, unknown>) ?? {}).sort((x, y) => (order.indexOf(x) + 1 || 99) - (order.indexOf(y) + 1 || 99));
       text = `Details changed: ${keys.map((k) => FIELD_WORDS[k] ?? k).join(", ") || "—"}${typeof d.reason === "string" ? ` (${d.reason})` : ""}`;
     } else if (a.action === "customer.location")
-      text = d.kind === "clear" ? `Shop location cleared: ${String(d.reason ?? "")}` : `Shop location saved${d.source === "map_link" ? " from a Maps link" : typeof d.accuracy_m === "number" ? ` (±${d.accuracy_m} m)` : ""}`;
+      text = d.kind === "clear" ? `Shop location cleared: ${String(d.reason ?? "")}` : `Shop location saved${locationHow(d)}`;
     else if (a.action === "customer.person") text = d.active === undefined ? `Contact person added: ${String(d.person ?? "")}` : `Contact person ${String(d.person ?? "")} switched ${d.active ? "on" : "off"}`;
     else if (a.action === "zoho.match") text = `Zoho contact "${String(d.contact ?? "")}" linked`;
     else text = `Zoho contact "${String(d.contact ?? "")}" unlinked`;

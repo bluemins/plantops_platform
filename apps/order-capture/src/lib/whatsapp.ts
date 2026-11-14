@@ -16,6 +16,8 @@ export interface CopyOrder {
   rewards?: string[];
   /** null = hidden from this person */
   total: string | null;
+  /** the shop's Google Maps link (a line of its own, for the driver); null / absent = no shop location */
+  map?: string | null;
 }
 
 const dayText = (now: Date) => new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short" }).format(now);
@@ -55,6 +57,7 @@ export function whatsappText(orders: CopyOrder[], now = new Date()): string {
     const block = [
       `*${o.ref}* · ${o.customer}`,
       `${phoneText(o.phone)} · ${o.place}`,
+      ...(o.map ? [`📍 ${o.map}`] : []),
       // free boxes (scheme) say FREE, never a rate; the load totals below count them (they leave the plant too)
       ...o.lines.map((l) => `- ${l.product}: ${l.quantity.toLocaleString("en-IN")} ${l.unit}${l.free ? " FREE" : l.rate === null ? "" : ` × ${money(l.rate)}`}`),
     ];

@@ -3,7 +3,7 @@
 // the shop location ("Save my location here" by whoever stands at the shop; a pasted Google Maps link by the owner).
 // Rules (D8): the customer's name is the CALLING name everywhere in Sales; the GST details are a separate block used
 // only by GST bills and the Zoho file. Every change is audited; comments and locations are never changed or deleted.
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { normalisePhone } from "@plantops/module-kit/phone";
 import { GST_STATES, gstinProblem, gstinState, normaliseGstin } from "@plantops/types";
@@ -307,6 +307,20 @@ export async function latestLocation(tx: OcTx, tenantId: string, customerId: str
     .limit(1);
   if (!r || r.kind === "clear") return null;
   return { lat: r.lat!, lng: r.lng!, accuracy_m: r.accuracyM, source: r.source!, by: r.byName, at: r.createdAt.toISOString() };
+}
+
+/** The shop locations now of many customers, in one query (customers without one, or cleared, are left out). */
+export async function latestLocations(tx: OcTx, tenantId: string, customerIds: string[]): Promise<Map<string, LocationView>> {
+  const out = new Map<string, LocationView>();
+  if (!customerIds.length) return out;
+  const rows = await tx
+    .selectDistinctOn([customerLocations.customerId])
+    .from(customerLocations)
+    .where(and(eq(customerLocations.tenantId, tenantId), inArray(customerLocations.customerId, [...new Set(customerIds)])))
+    .orderBy(customerLocations.customerId, desc(customerLocations.createdAt));
+  for (const r of rows)
+    if (r.kind === "set") out.set(r.customerId, { lat: r.lat!, lng: r.lng!, accuracy_m: r.accuracyM, source: r.source!, by: r.byName, at: r.createdAt.toISOString() });
+  return out;
 }
 
 async function mustExist(tx: OcTx, tenantId: string, id: string) {

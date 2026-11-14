@@ -7,6 +7,14 @@ const phone = (v: unknown) => (typeof v === "string" && v.length === 10 ? `${v.s
 const plural = (n: unknown, word: string) => `${show(n)} ${word}${n === 1 ? "" : "s"}`;
 
 /** One audit row as a sentence. */
+/** " (field visit, ±8 m)", " from a Maps link", " (±12 m)" */
+export function locationHow(d: Record<string, unknown>): string {
+  const acc = typeof d.accuracy_m === "number" ? `±${d.accuracy_m} m` : null;
+  if (d.source === "map_link") return " from a Maps link";
+  if (d.source === "field_visit") return ` (field visit${acc ? `, ${acc}` : ""})`;
+  return acc ? ` (${acc})` : "";
+}
+
 export function describeChange(action: string, details: Record<string, unknown>): string {
   const changes = (details.changes ?? {}) as Record<string, Change>;
   switch (action) {
@@ -60,6 +68,10 @@ export function describeChange(action: string, details: Record<string, unknown>)
       if (changes.active) parts.push(changes.active.to ? "switched on" : "switched off");
       return `Customer ${show(details.name)} (${phone(details.phone)}): ${parts.join(", ")}`;
     }
+    case "customer.location":
+      return details.kind === "clear"
+        ? `Shop location cleared for ${show(details.name)}: ${show(details.reason)}`
+        : `Shop location saved for ${show(details.name)}${locationHow(details)}`;
     case "customer.reminders":
       return `Customer ${show(details.name)} (${phone(details.phone)}): ${details.reminders ? "agreed to WhatsApp reminders (on the phone)" : "WhatsApp reminders stopped"}`;
     case "customers.upload":

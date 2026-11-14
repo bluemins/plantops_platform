@@ -201,7 +201,8 @@ describe("customer context (contract 3.2)", () => {
     const c = await customer(b.tenantId);
     await order(b.tenantId, c, { status: "delivered", lines: [[PV1.id, 5]] });
     const text = await (await context(b.key, { phone: "9876543210" })).text();
-    expect(text).not.toMatch(/rate|total|amount|137|note|Atharv|entered/i);
+    // \b: a random id may contain "137" (e.g. "…b82713777694"); the rate would stand on its own
+    expect(text).not.toMatch(/rate|total|amount|\b137\b|note|Atharv|entered/i);
   });
 
   it("a pending order sets has_pending_order; no delivered order = last_delivered null; no support filled = null", async () => {

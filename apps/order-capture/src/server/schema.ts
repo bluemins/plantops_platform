@@ -92,6 +92,8 @@ export const customerLocations = oc.table("customer_locations", {
   accuracyM: integer("accuracy_m"),
   source: text("source").$type<"phone" | "map_link" | "field_visit">(),
   reason: text("reason"),
+  /** Attendance's field visit that saved it (source field_visit only; unique per plant, so a retry saves once) */
+  visitId: uuid("visit_id"),
   byUser: uuid("by_user").notNull(),
   byName: text("by_name").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),

@@ -23,7 +23,7 @@ corrections append-only with a reason (person same day, owner any day); the pers
 CSV of visits; `field_not_ended` bell to owners at 07:00; the Claims card shows "claimed 90 km · meter 84.3 km"
 (read-only).
 
-**Mock-ups (2026-10-19, not yet approved):** https://claude.ai/artifact/EutRdTDJaBw7tHpHLXcUCq
+**Mock-ups (approved by the owner 2026-11-14, updated the same day with A4b, A5 phone and section D):** https://claude.ai/artifact/EutRdTDJaBw7tHpHLXcUCq
 A1 before start · A2 Start my day · A3 during the round · A4 Shop visited (customer search + **meeting notes**,
 added by the owner 2026-10-19) · A5 weak GPS / list unavailable · A6 End my day · A7 fixing a mistake · B1 Today
 board "In the field" · B2 person page → Field days · B3 day page (map links, photos, meeting notes) · C1 claims card
@@ -155,7 +155,7 @@ The first time Attendance **writes** to another module, so it is its own scope w
   Pending tab's "Copy as WhatsApp message" (one map link per shop, for the delivery driver; owner, 2026-10-19); "Shop location saved
   12 Oct by Ravi (field visit) ±18 m". Owner and Order desk can **clear** it with a reason (a wrong pin); clearing is
   a new row, never a delete. Recent changes lists every save / clear.
-- **Customer CSV** (owner): Latitude, Longitude, "Location saved on".
+- ~~**Customer CSV** (owner): Latitude, Longitude, "Location saved on".~~ Dropped 2026-11-14: Sales has no customer CSV.
 - **No notification** for a saved location (bell noise); it appears in Order Capture's Recent changes.
 
 ### Notifications (N5+)
@@ -208,6 +208,8 @@ Re-check this plan against the code (F1 may have changed the person page / Today
 answer the ❓ points.
 
 ### Phase 1: Lookup ticket (platform, auth, Order Capture)
+**Built 2026-11-14 (v0.71.0, not deployed):** see `apps/order-capture/NOTES.md`. Clear-with-reason and Recent changes
+already existed (Sales v0.45.0).
 `LOOKUPS` (both scopes), the platform endpoint, `fetchLookupTicket` / `verifyLookupRequest`, Order Capture's customers
 endpoint (name / place / phone search), Sales migration `0023` (`visit_id`, shown first), the location endpoint, the 📍 Map
 link, clear with a reason, Recent changes and CSV columns.

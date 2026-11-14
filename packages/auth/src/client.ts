@@ -1,4 +1,4 @@
-import { AlertContact, ErrorReport, NotificationInput, NotificationResult, PublicPlant, TenantBranding, TenantPlan, TenantSku, UserStatus, type ModuleId } from "@plantops/types";
+import { AlertContact, ErrorReport, LookupTicketAnswer, NotificationInput, NotificationResult, PublicPlant, TenantBranding, TenantPlan, TenantSku, UserStatus, type LookupScope, type ModuleId } from "@plantops/types";
 
 /** How a module app identifies itself to the platform (server-to-server only, never from the browser). */
 export interface ModuleCredentials {
@@ -67,6 +67,22 @@ export async function fetchPlantByCode(c: ModuleCredentials, code: string): Prom
     return PublicPlant.parse(await call(c, `/api/m/plants/by-code/${encodeURIComponent(code)}`));
   } catch (err) {
     if (err instanceof PlatformRequestError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+/**
+ * A 60-second ticket to ask another module something for one plant (docs/FIELD_DAY_PHASE_PLAN.md), plus that module's
+ * address. null = refused (the pair isn't allowed, or one of the two modules is off for the plant). Throws if the
+ * platform can't answer.
+ */
+export async function fetchLookupTicket(c: ModuleCredentials, tenantId: string, to: ModuleId, scope: LookupScope): Promise<LookupTicketAnswer | null> {
+  try {
+    return LookupTicketAnswer.parse(
+      await call(c, `/api/m/tenants/${tenantId}/lookup-ticket`, { method: "POST", body: JSON.stringify({ to, scope }), signal: AbortSignal.timeout(3_000) }),
+    );
+  } catch (err) {
+    if (err instanceof PlatformRequestError && err.status === 403) return null;
     throw err;
   }
 }

@@ -17,6 +17,7 @@ import { fromPaise, toPaise } from "@/lib/money";
 import { cleanNote, NOTE_MAX } from "@/lib/note";
 import { formatRef } from "@/lib/ref";
 import { can, requireAccess, type Action } from "./access";
+import { latestLocation, type LocationView } from "./customer-details";
 import { schema, withTenant, type OcTx } from "./db";
 import { badRequest, conflict, notFound } from "./http";
 import { openBillNumber } from "./ledger";
@@ -56,7 +57,8 @@ export interface OrderDetail {
   ref: string;
   status: OrderStatus;
   version: number;
-  customer: { name: string; phone: string; place: string };
+  /** location = the shop's location now (Sales customer page / a field visit); null = none */
+  customer: { name: string; phone: string; place: string; location: LocationView | null };
   /** typed with the order, fixed once saved */
   note: string | null;
   lines: LineView[];
@@ -103,7 +105,7 @@ export async function getOrder(user: OcUser, id: string): Promise<OrderDetail> {
       ref: formatRef(o.refNo),
       status: o.status,
       version: o.version,
-      customer: { name: o.customerName, phone: o.customerPhone, place: o.customerPlace },
+      customer: { name: o.customerName, phone: o.customerPhone, place: o.customerPlace, location: await latestLocation(tx, user.tenantId, o.customerId) },
       note: o.orderNote,
       lines: versions.find((v) => v.version === o.version)?.lines ?? [],
       total: amounts ? o.total : null,

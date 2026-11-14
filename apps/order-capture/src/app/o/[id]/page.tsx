@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Card } from "@plantops/ui";
 import { fmtDateTime } from "@plantops/module-kit/format";
 import { eventText, lineKey, loadText, productsText, thanksText } from "@/lib/history";
+import { mapsLink } from "@/lib/customer-page";
 import { money } from "@/lib/money";
 import { can } from "@/server/access";
 import { getOrder } from "@/server/handling";
@@ -62,9 +63,21 @@ export default async function OrderPage({ params }: { params: Params }) {
       <Card className="space-y-1">
         <p className="text-xl font-semibold break-words">{o.customer.name}</p>
         <p className="text-slate-600">{o.customer.place}</p>
-        <p className="pt-1">
+        <p className="flex flex-wrap items-center gap-x-4 pt-1">
           <PhoneLink phone={o.customer.phone} plain={user.isSupport} prefix="Call +91 " />
+          {o.customer.location && (
+            <a href={mapsLink(o.customer.location.lat, o.customer.location.lng)} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center font-semibold text-(--brand)">
+              📍 Map
+            </a>
+          )}
         </p>
+        {o.customer.location && (
+          <p className="text-xs text-slate-500">
+            Shop location saved {fmtDateTime(o.customer.location.at)} by {o.customer.location.by}
+            {o.customer.location.source === "map_link" ? " (from a Maps link)" : o.customer.location.source === "field_visit" ? " (field visit)" : ""}
+            {o.customer.location.accuracy_m !== null ? ` ±${o.customer.location.accuracy_m} m` : ""}
+          </p>
+        )}
         {(o.note || notes.length > 0) && (
           <div className="mt-2 space-y-2 rounded-lg bg-amber-50 px-3 py-2 text-amber-950">
             <p className="text-sm font-semibold">{o.note && notes.length === 0 ? "Note" : "Notes"}</p>

@@ -1,5 +1,5 @@
 import { createLocalJWKSet, createRemoteJWKSet, jwtVerify, type JSONWebKeySet, type JWTVerifyGetKey } from "jose";
-import { SummaryRequestPayload, SupportTokenPayload, TOKEN_ISSUER, TokenPayload, type ModuleId } from "@plantops/types";
+import { LookupTicketPayload, SummaryRequestPayload, SupportTokenPayload, TOKEN_ISSUER, TokenPayload, type LookupScope, type ModuleId } from "@plantops/types";
 
 export class InvalidTokenError extends Error {
   constructor(message: string) {
@@ -86,6 +86,32 @@ export async function verifySupportToken(token: string, opts: { audience: Module
     });
     const parsed = SupportTokenPayload.safeParse(payload);
     if (!parsed.success) throw new InvalidTokenError("Not a support token");
+    return parsed.data;
+  } catch (err) {
+    if (err instanceof InvalidTokenError) throw err;
+    throw new InvalidTokenError(err instanceof Error ? err.message : "Invalid token");
+  }
+}
+
+/**
+ * Verifies a module-to-module lookup ticket (docs/FIELD_DAY_PHASE_PLAN.md): signed by the platform for this module, one
+ * plant and exactly this scope, at most 60 seconds old. Pass the Authorization header. Login, summary and support tokens
+ * are refused, and so is a ticket for another scope.
+ */
+export async function verifyLookupRequest(authorization: string | null | undefined, opts: { audience: ModuleId; keys: KeySource; scope: LookupScope }) {
+  const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : "";
+  if (!token) throw new InvalidTokenError("Missing lookup ticket");
+  try {
+    const { payload } = await jwtVerify(token, keyGetter(opts.keys), {
+      algorithms: ["EdDSA"],
+      issuer: TOKEN_ISSUER,
+      audience: opts.audience,
+      requiredClaims: ["exp", "iat", "jti"],
+      maxTokenAge: "70s",
+    });
+    const parsed = LookupTicketPayload.safeParse(payload);
+    if (!parsed.success) throw new InvalidTokenError("Not a lookup ticket");
+    if (parsed.data.scope !== opts.scope) throw new InvalidTokenError("Lookup ticket for another purpose");
     return parsed.data;
   } catch (err) {
     if (err instanceof InvalidTokenError) throw err;

@@ -10,12 +10,14 @@ import { and, asc, desc, eq, ilike, inArray, like, or, sql, type SQL } from "dri
 import { csv, csvTime } from "@plantops/module-kit/csv";
 import { normalisePhone } from "@plantops/module-kit/phone";
 import { effectiveBrand } from "@/lib/brand";
+import { mapsLink } from "@/lib/customer-page";
 import { ageOf, withoutAmounts, type LineView } from "@/lib/history";
 import { fromPaise, toPaise, unitsText } from "@/lib/money";
 import { rewardsOnOrders } from "./drop/points";
 import { formatRef } from "@/lib/ref";
 import { can, requireAccess } from "./access";
 import { audit } from "./audit";
+import { latestLocations } from "./customer-details";
 import { schema, withTenant, type OcTx } from "./db";
 import type { OrderStatus } from "./schema";
 import type { OcUser } from "./session";
@@ -52,6 +54,8 @@ export interface ListRow {
   lines: LineView[];
   /** free boxes asked with Drop points that go with this order (never order lines) */
   rewards: string[];
+  /** the shop's Google Maps link when the customer has a shop location (for the driver), else null */
+  map: string | null;
   /** null = hidden from this person */
   total: string | null;
   created_at: string;
@@ -133,6 +137,7 @@ export async function listOrders(user: OcUser, f: ListFilters = {}, now = Date.n
           .orderBy(asc(orderLines.lineNo))
       : [];
     const rewards = await rewardsOnOrders(tx, user.tenantId, shown.map((o) => o.id));
+    const shops = await latestLocations(tx, user.tenantId, shown.map((o) => o.customerId));
     // delivered orders whose bill (not cancelled) is fully paid: "Closed"
     const closedIds = new Set<string>();
     if (amounts && tab === "delivered" && shown.length) {
@@ -160,6 +165,7 @@ export async function listOrders(user: OcUser, f: ListFilters = {}, now = Date.n
         brands: [...new Set(current.map((l) => bySku.get(l.sku_id) ?? "").filter(Boolean))],
         lines: amounts ? current : withoutAmounts(current),
         rewards: (rewards.get(o.id) ?? []).map((r) => r.label),
+        map: shops.has(o.customerId) ? mapsLink(shops.get(o.customerId)!.lat, shops.get(o.customerId)!.lng) : null,
         total: amounts ? o.total : null,
         created_at: o.createdAt.toISOString(),
         status_changed_at: o.statusChangedAt.toISOString(),

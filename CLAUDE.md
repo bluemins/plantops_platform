@@ -2329,3 +2329,22 @@ header (`BoardLink` in `packages/ui`, `kit.boardUrl()`), so staff who skip the l
 `0028_plant_board.sql` (approved: `board_cards`, FORCE RLS, SELECT + INSERT and UPDATE on text / done / removed columns
 only, no DELETE; a removed card keeps its row; edits and removals audited `board.edit` / `board.remove`). Not in the
 support view. SSO token unchanged. Code `apps/platform/src/server/board.ts`. Tests: platform board 9.
+
+### 2026-11-14 — Field day log Phase 1: lookup ticket + 📍 Map on orders (v0.71.0) — built, not deployed
+Phase 0 done the same day (`docs/FIELD_DAY_PHASE_PLAN.md`: ❓ points decided as proposed, mock-ups approved,
+https://claude.ai/artifact/EutRdTDJaBw7tHpHLXcUCq). Phase 1 = the Sales / platform half; Attendance's screens are Phases 2–3.
+- **Lookup ticket** (owner's choice over a per-plant key): `LOOKUPS` / `lookupAllowed` / `LookupTicketPayload` in
+  `packages/types` (only Attendance → Sales, scopes `customers` and `customer_location`); platform
+  `POST /api/m/tenants/:tid/lookup-ticket` (module credentials, plant active, both modules on; 60 s, `purpose: "lookup"`,
+  answers the target's base URL; nothing stored); `fetchLookupTicket` / `verifyLookupRequest` in `packages/auth`.
+  Never a login, summary or support token. **SSO token unchanged.**
+- **Sales:** `GET /api/plantops/customers?q=` (name / place / phone search, never the phone in the answer) and
+  `POST /api/plantops/customers/:id/location` (field visit, once per visit, ±150 m). Sales migration
+  `0023_field_visit_location.sql` (approved: `customer_locations.visit_id` + unique per plant + two checks; no grant change).
+  📍 Map on the order page and a map line per shop in "Copy as WhatsApp message", for everyone who sees the order;
+  Recent changes now words location saves. The plan's customer CSV columns dropped (Sales has no customer CSV).
+- Tests: Sales 1,296 (+9), platform 442 (+5), auth 96 (+6); typecheck and both builds pass. Checked on `pnpm dev` (plant 002,
+  modules switched on and a temporary shop only for the check, all removed): ticket, name / phone search, two saves =
+  one row, order page and WhatsApp copy at 390 px, Recent changes.
+- **Deploy order:** Sales migration `0023`, then Sales, then the platform. Not deployed.
+- **Next:** Phase 2 (Attendance migration `0014_field_day.sql`, shown first; access rows; server functions).

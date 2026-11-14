@@ -800,3 +800,27 @@ Owner 2026-11-13: the "Download for Zoho" file stopped at Zoho's Map Fields step
   (approved: one column on `bill_settings` + its UPDATE grant).
 - Invoice numbers stay the B-number; Zoho's import auto-generates its INV number (owner: option B, already set so).
 - Platform and SSO token unchanged. Tests: Sales 1,287 (+1; the Zoho file test checks the new columns too).
+
+## 2026-11-14 — Field day log Phase 1: Attendance's lookup + 📍 Map on orders (v0.71.0)
+Owner 2026-11-14 (`docs/FIELD_DAY_PHASE_PLAN.md`, mock-ups approved). Sales half of the field day log; Attendance's
+screens come in Phases 2–3.
+- **Two endpoints for Attendance, outside the login** (`api/plantops/` was already outside the proxy), each needing a
+  60-second **platform lookup ticket** (`verifyLookupRequest`, `packages/auth`) for one plant and one scope:
+  - `GET /api/plantops/customers?q=` (scope `customers`): switched-on customers by name / place, or phone with 6+ digits;
+    up to 20, A–Z; answers `{ id, name, place, location: { at, by, source } | null }`. **Never the phone** (also for a
+    phone search), orders, amounts or the position.
+  - `POST /api/plantops/customers/:id/location` (scope `customer_location`): `{ lat, lng, accuracy_m ≤ 150, visit_id,
+    set_by_user_id, set_by_name }`; saves `source 'field_visit'` once per visit (`{ saved, already }`); another plant's
+    or a switched-off customer → 404. Audited `customer.location` under the field staff's own id and name.
+  - Code: `src/server/plantops-lookup.ts`.
+- **Sales migration `0023_field_visit_location.sql`** (approved 2026-11-14): `customer_locations.visit_id` + unique per
+  plant; a field visit must have a visit id and an accuracy, nothing else may have a visit id. No grant change.
+- **📍 Map** on the order page (with "Shop location saved … by … (field visit) ±8 m") and a `📍 <link>` line per shop in
+  "Copy as WhatsApp message", for everyone who sees the order (plant staff and viewers too). `latestLocations()` in
+  `src/server/customer-details.ts` reads many customers' locations in one query (list rows' `map`).
+- **Recent changes** now words location saves / clears ("Shop location saved for Sai Stores (field visit, ±8 m)"); before
+  this they showed the raw action name.
+- Not done: the plan's customer CSV columns (Sales has no customer CSV).
+- Also: `bot.test.ts` "no rates or amounts" no longer fails when a random id contains "137".
+- Platform: `POST /api/m/tenants/:tid/lookup-ticket`; SSO token unchanged. Tests: Sales 1,296 (+9), platform 442 (+5),
+  auth 96 (+6).
