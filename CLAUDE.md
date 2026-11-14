@@ -2318,7 +2318,7 @@ on Rates → Bill settings (owner: "Dillip"). Invoice numbers stay B-numbers; Zo
 migration `0022_gst_salesperson.sql` (approved: one column on `bill_settings`). Platform and SSO token unchanged. Notes:
 `apps/order-capture/NOTES.md`.
 
-### 2026-11-14 — Plant board: a whiteboard for every role (v0.70.0) — built, not deployed
+### 2026-11-14 — Plant board: a whiteboard for every role (v0.70.0) — live 2026-11-14 (`4820407`)
 Asked by the owner 2026-11-14 ("a white board, anyone of any role can write; staff plan the next day"); mock-up
 https://claude.ai/artifact/2wTvFMEyHQBDS153j5EiNZ. Inside the **platform** (`/board`), no new service (owner: no extra
 cost). Every logged-in plant user, any role (Plant staff only too), reads and writes: cards for today up to 7 days
