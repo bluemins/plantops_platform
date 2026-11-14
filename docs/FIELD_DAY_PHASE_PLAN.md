@@ -1,8 +1,62 @@
 # Field day log (Attendance & Salary): Phase Plan and Build Prompts
 
-**Status:** Asked by the owner on 2026-10-19; four answers given the same day (below). **Phase 0 started
-2026-11-14** (F1 is live: Mark days v0.28.0, holidays v0.53.0). Release number set when the build starts. Mock-ups to
-be approved before Phase 1.
+## 0. Handover: where things stand (read this first)
+_Updated 2026-11-14, end of session._
+
+| Phase | What | State |
+|---|---|---|
+| 0 | Re-check, ❓ points, mock-ups | **Done 2026-11-14.** All ❓ points decided as proposed; mock-ups approved |
+| 1 | Lookup ticket (platform + auth), Sales customer search + field-visit location, 📍 Map on orders / WhatsApp copy, Sales migration `0023` | **Built 2026-11-14, v0.71.0 (`04208eb`, tagged), NOT deployed** |
+| 2 | Attendance migration `0014_field_day.sql`, access rows, server functions | **Next** |
+| 3 | Worker screen `/my/field` | to do |
+| 4 | Owner / supervisor screens, CSV, Claims card line | to do |
+| 5 | `field_not_ended` notification, photo backup, docs, release | to do |
+
+**Deploying v0.71.0 (only when the owner says so):**
+1. Sales migration `0023_field_visit_location.sql` on the shared copy (adds `customer_locations.visit_id`; no grant change).
+2. Deploy the Sales service (`order-capture`), then the platform. Sales first: the platform part (the ticket endpoint)
+   is unused until Attendance calls it, so either order is safe, but the migration must come before Sales.
+3. Checks: `/health` on both; `POST /api/m/tenants/<tid>/lookup-ticket` without credentials → 401; Sales
+   `GET /api/plantops/customers?q=ab` without a ticket → 401; an order of a customer with a shop location shows 📍 Map.
+4. No new Railway variables. Attendance already has its module secret; Sales' address comes from the platform's
+   module registry in the ticket answer.
+
+**What Phase 1 left for later phases to use:**
+- `fetchLookupTicket(kit creds, tenantId, "order_capture", scope)` → `{ ticket, url }` or `null` (module off). Call it
+  from Attendance's **server** only; the browser never sees the ticket.
+- Search: `GET <url>/api/plantops/customers?q=` with `Authorization: Bearer <ticket>` (scope `customers`); q 2–60
+  chars; answer `{ customers: [{ id, name, place, location: { at, by, source } | null }] }`. 3 s timeout in Attendance;
+  on failure show "Customer list unavailable, type the shop name" (mock-up A5).
+- Save: `POST <url>/api/plantops/customers/<id>/location` (scope `customer_location`) with `{ lat, lng, accuracy_m ≤ 150,
+  visit_id, set_by_user_id, set_by_name }` → `{ saved: true, already }`; 404 = customer gone / switched off; 400 = too
+  rough. Send after the visit is saved; failure → "Shop location not saved" + **Try again** on that visit (same
+  `visit_id`, so never twice). Whether a visit's location was taken is read from Sales, never stored in Attendance.
+- Code: `apps/order-capture/src/server/plantops-lookup.ts`, `apps/platform/src/server/lookup.ts`,
+  `packages/auth/src/verify.ts` (`verifyLookupRequest`), `packages/types` (`LOOKUPS`).
+
+**Phase 2: how to start the next session.** Use the Phase 2 prompt below ("Shared header. Phase 2: show me migration
+`0014_field_day.sql` first…"), in plan mode. Read first in `apps/attendance-salary`:
+- `NOTES.md`
+- `src/server/access.ts` (add `field_own` / `field_view`)
+- `db/migrations/0004_claims.sql` (the `salary_claim_files` shape to copy for meter photos) and `0012_person_holidays.sql`
+  (the latest table pattern)
+- `src/lib/locate.ts` (`bestLocation`)
+- the Field staff tick (`salary_settings.field_staff`, newest row from that month, as for claims)
+- the claim photo upload path (storage in `ATTEND_STORAGE_DIR` / bucket) and the backup route (`backupNewFiles`), so the
+  meter photos follow the same path.
+
+The database design for `0014` is in "Database" below (`field_events`, `field_event_files`, `field_event_cancels`;
+SELECT + INSERT only; FORCE RLS). **Ask the owner before running it** (CLAUDE.md working rules).
+
+**Local dev note:** `.env` `PLATFORM_URL` is the LAN address `http://192.168.1.2:3000`, which can't be reached when the
+machine is off that Wi-Fi. Then a module can't fetch the platform's keys and refuses every ticket. For local checks,
+start the module with `PLATFORM_URL=http://localhost:3000 pnpm dev`. Plant 002 has neither Attendance nor Sales
+switched on: switch them on only for a check and restore the plan afterwards (the 2026-11-14 check did that).
+
+---
+
+**Status:** Asked by the owner on 2026-10-19; four answers given the same day (below). **Phase 0 done
+2026-11-14** (F1 is live: Mark days v0.28.0, holidays v0.53.0). Phase 1 built 2026-11-14 as v0.71.0 (handover above).
 
 **Phase 0 re-check (2026-11-14), what changed since the plan was written:**
 - **Shop location already exists in Sales:** `order_capture.customer_locations` (Sales migration `0010`, v0.45.0) with
