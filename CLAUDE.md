@@ -2317,3 +2317,15 @@ the day the file is made** (the Zoho import day; due date from the bill's terms)
 on Rates → Bill settings (owner: "Dillip"). Invoice numbers stay B-numbers; Zoho auto-generates INV numbers (owner). Sales
 migration `0022_gst_salesperson.sql` (approved: one column on `bill_settings`). Platform and SSO token unchanged. Notes:
 `apps/order-capture/NOTES.md`.
+
+### 2026-11-14 — Plant board: a whiteboard for every role (v0.70.0) — built, not deployed
+Asked by the owner 2026-11-14 ("a white board, anyone of any role can write; staff plan the next day"); mock-up
+https://claude.ai/artifact/2wTvFMEyHQBDS153j5EiNZ. Inside the **platform** (`/board`), no new service (owner: no extra
+cost). Every logged-in plant user, any role (Plant staff only too), reads and writes: cards for today up to 7 days
+ahead, ≤ 300 characters; the writer edits / removes their own card while its day hasn't passed; the owner removes any;
+anyone ticks done (shows who). Board shows 7 days back. Opens on Today before noon IST, Tomorrow after. No notifications
+(owner). Launcher card "Plant board" for everyone (`/api/board/summary`), and a 📝 link next to the 🔔 in every module
+header (`BoardLink` in `packages/ui`, `kit.boardUrl()`), so staff who skip the launcher reach it. Platform migration
+`0028_plant_board.sql` (approved: `board_cards`, FORCE RLS, SELECT + INSERT and UPDATE on text / done / removed columns
+only, no DELETE; a removed card keeps its row; edits and removals audited `board.edit` / `board.remove`). Not in the
+support view. SSO token unchanged. Code `apps/platform/src/server/board.ts`. Tests: platform board 9.

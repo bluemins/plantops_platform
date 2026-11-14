@@ -218,6 +218,21 @@ export const fixDaysBack = platform.table(
   (t) => [primaryKey({ columns: [t.tenantId, t.userId] })],
 );
 
+/** Plant board cards (migration 0028): everyone's whiteboard, one card per row for one India date. */
+export const boardCards = platform.table("board_cards", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  forDate: date("for_date", { mode: "string" }).notNull(),
+  body: text("body").notNull(),
+  createdBy: uuid("created_by").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  editedAt: ts("edited_at"),
+  doneBy: uuid("done_by"),
+  doneAt: ts("done_at"),
+  removedBy: uuid("removed_by"),
+  removedAt: ts("removed_at"),
+});
+
 /** One person's launcher tile order (migration 0020); no row = the usual order. */
 export const tileOrder = platform.table(
   "tile_order",

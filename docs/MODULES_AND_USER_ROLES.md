@@ -17,7 +17,7 @@ enforced by the module server.
 | AMC | Manage annual maintenance contracts, service visits, renewals and invoicing. | No AMC-specific plant operating role is currently defined in the platform. |
 | Attendance & Salary | Record attendance and overtime, manage salary and claims, and support attendance desk and supervisor workflows. | Plant staff, Office staff and Supervisor; owners manage plant-wide settings and salary. |
 | Job Applications | Publish plant job openings and receive and manage applicant records. | HR desk; applicants use the public application page without a PlantOps account. |
-| Marketing Contacts | Manage marketing contacts and follow-ups. | No Marketing Contacts-specific plant role is currently defined in the platform. A Sales team role is planned, but is not yet supported. |
+| Marketing Insights (planned; existing module ID `marketing_contacts`) | Owner-only public social listening and weekly insights pilot; no module app is built yet. | Owner-only pilot; no Insights-specific staff role. The existing Marketing staff role is for Sales and does not grant Insights access. |
 
 ## Supported users and roles
 

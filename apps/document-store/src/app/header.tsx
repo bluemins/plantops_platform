@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { TenantBranding } from "@plantops/types";
-import { NotificationsLink } from "@plantops/ui";
+import { BoardLink, NotificationsLink } from "@plantops/ui";
 import { kit } from "@/server/kit";
 import type { DocUser } from "@/server/session";
 import type { Locale } from "@/lib/i18n";
@@ -45,6 +45,7 @@ export async function Header({ user, plant, locale }: { user: DocUser; plant: Te
         </Link>
         <div className="flex flex-wrap items-center justify-end gap-3">
           <LanguageSelector />
+          {!user.isSupport && <BoardLink href={kit.boardUrl()} />}
           {!user.isSupport && <NotificationsLink href={kit.notificationsUrl()} unread={unread} />}
           <a href={user.isSupport ? "/sso/support-exit" : kit.accountUrl()} className="flex items-center gap-2 text-right" title={user.isSupport ? t("exitSupportTitle") : t("accountTitle")}>
             <span className="hidden sm:block">

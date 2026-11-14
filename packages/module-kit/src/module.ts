@@ -117,6 +117,8 @@ export function createModule(config: ModuleConfig) {
 
   /** The platform's notifications page (the bell in every module header links here; staff skip the launcher). */
   const notificationsUrl = () => new URL("/notifications", env.platformUrl()).toString();
+  /** The platform's Plant board (the 📝 in every module header; everyone's whiteboard, owner 2026-11-14). */
+  const boardUrl = () => new URL("/board", env.platformUrl()).toString();
 
   // Caches survive hot reloads in dev; one per module.
   const g = globalThis as unknown as Record<string, Cache<unknown> | undefined>;
@@ -382,6 +384,7 @@ a{display:inline-block;margin-top:12px;padding:12px 18px;border-radius:12px;back
     retryOutbox,
     unread,
     notificationsUrl,
+    boardUrl,
     sealCookie,
     openCookie,
     readSession,

@@ -53,6 +53,18 @@ export function ErrorText({ children }: { children: ReactNode }) {
 }
 
 /**
+ * The 📝 in a module's header: links to the PlantOps Plant board (everyone's whiteboard, owner 2026-11-14). Staff
+ * with one module skip the launcher, so this is how they reach it. Never shown in a support view.
+ */
+export function BoardLink({ href }: { href: string }) {
+  return (
+    <a href={href} aria-label="Plant board" title="Plant board" className="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-slate-200 bg-white text-lg">
+      <span aria-hidden="true">📝</span>
+    </a>
+  );
+}
+
+/**
  * The 🔔 in a module's header: links to the PlantOps notifications page, with the unread count when known
  * (CLAUDE.md "Notifications"). Never shown in a support view.
  */

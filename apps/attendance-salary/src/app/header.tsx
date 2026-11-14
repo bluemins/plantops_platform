@@ -1,5 +1,5 @@
 import type { TenantBranding } from "@plantops/types";
-import { NotificationsLink } from "@plantops/ui";
+import { BoardLink, NotificationsLink } from "@plantops/ui";
 import { kit } from "@/server/kit";
 import { roleLabel, type AtUser } from "@/server/session";
 
@@ -36,6 +36,7 @@ export async function Header({ user, plant }: { user: AtUser; plant: TenantBrand
           </span>
         </a>
         <div className="flex items-center gap-2">
+          {!user.isSupport && <BoardLink href={kit.boardUrl()} />}
           {!user.isSupport && <NotificationsLink href={kit.notificationsUrl()} unread={unread} />}
           <a href={user.isSupport ? "/sso/support-exit" : kit.accountUrl()} className="flex items-center gap-2 text-right" title={user.isSupport ? "Exit the support view" : "Account / PlantOps home"}>
             <span className="hidden sm:block">

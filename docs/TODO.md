@@ -34,7 +34,7 @@ accounts, then 31 Oct ("See as worker" for each person before marking paid).
 | This month's advances entered | done (owner, 2026-10-24) | On record (checked 2026-10-24): Anmol ₹5,000 (6th ₹2,000 + 20th ₹3,000), dirju ₹5,000, maheswar ₹3,000, Damayanti ₹1,500 (₹1,000 on the 20th corrected once), Ramu ₹1,000. Add any others before 31 Oct |
 | Plant staff without a salary: `bluemins` (owner), `bluemins_lab_lead`, `bluemins_lab` (disabled) | open | They count as employees with "No salary set". Remove Plant staff from them unless they are paid staff |
 | 31 Oct 07:00: "salary review" notification arrives → fix no-exit days → check two people with the checking panel → mark paid → one slip with "Can see own salary" | waiting (owner on 31 Oct) | `docs/deployments/shared.md` v0.20.0 checklist |
-| Plant 001 attendance circle to 300 m standing outside (still 2,000 m) | deferred | bug B-04 |
+| Plant 001 attendance circle to 300 m standing outside | done (owner, 2026-11-13) | bug B-04 closed |
 
 ## Open owner tasks — WhatsApp
 
@@ -75,7 +75,7 @@ accounts, then 31 Oct ("See as worker" for each person before marking paid).
 | Railway cost: Serverless (sleep when idle) for `lab-records`, then `document-store` and `complaint-box`; Healthcheck Path `/health` on `job-applications`; send Railway per-service memory | open | `STABILITY_PLAN.md` section 9 |
 | UptimeRobot account (once a day per address) | open | bug B-09 |
 | Lab Records off for plant 001 (or "no tests today" Off); resolve the open complaints | open | bug B-07 |
-| Ask Dillip and Gaja which phone and how they open PlantOps | open | bug B-03 |
+| Ask Dillip and Gaja which phone and how they open PlantOps | done (owner, 2026-11-13) | bug B-03 closed |
 | Renew or archive the document expired since 31 Mar 2026; everyone responsible for documents turns on phone notifications | open | bug B-02 |
 
 ## Waiting
@@ -122,7 +122,7 @@ accounts, then 31 Oct ("See as worker" for each person before marking paid).
 | Complaint Box: customer looked up by phone (from Order Capture), complaint by QR / WhatsApp, message back to the customer, assign to a person, link the batch to Lab Records | Complaint Box | idea | |
 | Job applications: "Hired" creates the PlantOps user / Attendance person; messages to applicants | Job applications | idea | |
 | Phase 6 Preventive Management | new module | idea | new Railway service = cost |
-| Phase 7 AMC, Phase 9 Marketing Contacts, Phase 10 website / provisioning | new modules | idea | |
+| Phase 7 AMC, Phase 9 Marketing Insights, Phase 10 website / provisioning | new modules | idea | owner-only, ₹0/month manual pilot approved; see `docs/MARKETING_INSIGHTS_PHASE_PLAN.md` |
 
 Parked, no date: Document Store real S3 bucket; India hosting.
 

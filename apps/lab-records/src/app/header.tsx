@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { TenantBranding } from "@plantops/types";
-import { NotificationsLink } from "@plantops/ui";
+import { BoardLink, NotificationsLink } from "@plantops/ui";
 import { kit } from "@/server/kit";
 import { accountUrl } from "@/server/platform";
 import type { LabUser } from "@/server/session";
@@ -44,7 +44,8 @@ export async function Header({ user, plant }: { user: LabUser; plant: TenantBran
       </Link>
       <div className="flex items-center gap-2">
         {!user.isSupport && (
-          <span className="no-print">
+          <span className="no-print flex items-center gap-2">
+            <BoardLink href={kit.boardUrl()} />
             <NotificationsLink href={kit.notificationsUrl()} unread={unread} />
           </span>
         )}

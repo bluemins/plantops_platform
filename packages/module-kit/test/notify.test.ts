@@ -68,6 +68,7 @@ describe("kit.notify", () => {
 describe("header bell", () => {
   it("links to the platform's notifications page", () => {
     expect(kitFor(() => "https://app.example.test").notificationsUrl()).toBe("https://app.example.test/notifications");
+    expect(kitFor(() => "https://app.example.test").boardUrl()).toBe("https://app.example.test/board");
   });
 
   it("unread count from the platform; null when it can't be reached", async () => {

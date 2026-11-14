@@ -201,6 +201,11 @@ export function CustomersCard({ summaryUrl, openHref }: { summaryUrl: string; op
   return <OwnerCard icon="👥" title="Customers" text="Details, bills, payments and statement for each customer" summaryUrl={summaryUrl} openHref={openHref} />;
 }
 
+/** Plant board (owner, 2026-11-14): everyone's whiteboard for planning the next day, on every person's launcher. */
+export function BoardCard() {
+  return <OwnerCard icon="📝" title="Plant board" text="Everyone can write · plan the next day" summaryUrl="/api/board/summary" openHref="/board" />;
+}
+
 function OwnerCard({ icon, title, text, summaryUrl, openHref }: { icon: string; title: string; text: string; summaryUrl: string; openHref: string }) {
   return (
     <a href={openHref} className="block h-full">
