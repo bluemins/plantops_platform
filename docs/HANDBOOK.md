@@ -338,8 +338,9 @@ PlantOps makes it itself.
 
 **Sleeping services (Railway Serverless, since 2026-10-18; STABILITY_PLAN section 9).** To cut the Railway bill, little-used
 modules sleep after 10 minutes without visitors and wake on the next visit (a short wait on the first open; a launcher
-tile may show "Numbers unavailable" once). Switched on: `job-applications`. Candidates: `lab-records`, then
-`document-store`, `complaint-box`. Always on: `platform`, `order-capture`, `attendance-salary`, `floor-stock`, Postgres.
+tile may show "Numbers unavailable" once). Switched on: `job-applications`, `lab-records`, `document-store`,
+`complaint-box` (confirmed by the owner 2026-11-14). Next candidates (they would sleep at night): `floor-stock`,
+`attendance-salary`; `order-capture` can't sleep while the Drop push job runs every 5 minutes. Always on today: `platform`, `order-capture`, `attendance-salary`, `floor-stock`, Postgres.
 Service → Settings → **Serverless** → Enable → Apply / Deploy (one restart). Railway's own cron schedules don't work on
 sleeping services; PlantOps doesn't use them (cron-job.org calls the app and wakes it). Undo: switch it off.
 
@@ -780,8 +781,8 @@ Design and decisions: `docs/CUSTOMER_PAGE_PHASE_PLAN.md`.
 A `/health` that answers 503 with `"database":"unreachable"` means the app runs but can't reach Postgres (table below).
 
 **UptimeRobot (free; STABILITY_PLAN B-09, owner 2026-10-19: every address once a day).** One monitor per row
-above, all at the **longest interval (24 hours)**, so services that sleep when idle (`job-applications`, later
-`lab-records` and others) are woken only once a day and the Railway saving holds. The cost of this choice: an outage
+above, all at the **longest interval (24 hours)**, so services that sleep when idle (`job-applications`,
+`lab-records`, `document-store`, `complaint-box`) are woken only once a day and the Railway saving holds. The cost of this choice: an outage
 may be noticed up to a day late; shorten the interval of rows 1–2 (the platform: nothing works without it) if that
 proves too slow.
 1. uptimerobot.com → free account (owner's email; turn on the mobile app's alerts too).

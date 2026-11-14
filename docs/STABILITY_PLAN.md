@@ -68,8 +68,9 @@ run of Attendance morning at 10:12 sent the first ever "not marked" alert (owner
    2026-10-18: R2 keys on 4 services, `CRON_SECRET` on 8 services + GitHub + 11 cron-job.org jobs). Owner, at night
    between 23:05 and 06:55 IST, after the v0.25.2 deploy; then Claude checks (backup in R2, wrong secret → 401 on all 8).
 10. **Railway cost (section 9, "Cutting the cost"):** Serverless (sleep when idle) switched on for `job-applications` on
-   2026-10-18 ~11:00 IST; a wake-up takes ~2 s (measured, section 9). Next: same for `lab-records`, then after a few days
-   of watching the launcher tiles, `document-store` and `complaint-box`. Owner: Healthcheck Path `/health` was empty
+   2026-10-18 ~11:00 IST; a wake-up takes ~2 s (measured, section 9). **`lab-records`, `document-store` and
+   `complaint-box` are Serverless too (owner, 2026-11-14).** Possible next: `floor-stock` and `attendance-salary` (idle at
+   night, ~$0.40 / month each); `order-capture` only if the Drop push job is limited to 06:00–23:00. Owner: Healthcheck Path `/health` was empty
    on `job-applications` (set it); send Railway's per-service memory (Metrics or Usage page).
 
 ---
