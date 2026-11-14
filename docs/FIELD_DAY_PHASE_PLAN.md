@@ -1,8 +1,27 @@
 # Field day log (Attendance & Salary): Phase Plan and Build Prompts
 
-**Status:** Asked by the owner on 2026-10-19; four answers given the same day (below). **Plan only.** To be built
-**after F1** (weekly offs, holidays, leave; `docs/STABILITY_PLAN.md` section 10), as feature **F1b**. Release number
-set when the build starts. Mock-ups to be approved before Phase 1.
+**Status:** Asked by the owner on 2026-10-19; four answers given the same day (below). **Phase 0 started
+2026-11-14** (F1 is live: Mark days v0.28.0, holidays v0.53.0). Release number set when the build starts. Mock-ups to
+be approved before Phase 1.
+
+**Phase 0 re-check (2026-11-14), what changed since the plan was written:**
+- **Shop location already exists in Sales:** `order_capture.customer_locations` (Sales migration `0010`, v0.45.0) with
+  `source` `phone` / `map_link` / `field_visit`, `accuracy_m` ≤ 150, `by_user` / `by_name`, SELECT + INSERT only. The
+  planned Order Capture migration `0005_customer_locations.sql` is **replaced by Sales migration `0023`**: one column
+  `visit_id uuid` + a unique index on `(tenant_id, visit_id)` where not null (approved in principle by the owner
+  2026-11-14; SQL shown before it runs). No new table, no grant change.
+- **Attendance migration number:** `0014_field_day.sql` (not `0008`; `0008`–`0013` are taken).
+- **Module-to-module:** the cash book (C4) uses a fixed per-plant key `atc_…` (Sales → Attendance). For this feature
+  the owner chose the **platform-signed lookup ticket** as planned (2026-11-14): nothing to set up per plant, refused
+  when either module is off, reusable for Floor Stock → Lab Records.
+- **Still to build in Sales:** the 📍 Map link on the order page and in "Copy as WhatsApp message" (the customer page
+  already has it). Stays in Phase 1.
+- **Sales customer search** (name / place / phone) and `normalisePhone` exist; the lookup endpoint reuses them.
+
+**❓ points decided by the owner (2026-11-14), all as proposed:** rough GPS (worse than ±150 m) saved with a warning;
+corrections append-only with a reason (person same day, owner any day); the person records today only; owner month
+CSV of visits; `field_not_ended` bell to owners at 07:00; the Claims card shows "claimed 90 km · meter 84.3 km"
+(read-only).
 
 **Mock-ups (2026-10-19, not yet approved):** https://claude.ai/artifact/EutRdTDJaBw7tHpHLXcUCq
 A1 before start · A2 Start my day · A3 during the round · A4 Shop visited (customer search + **meeting notes**,
@@ -159,7 +178,7 @@ place or phone from the field, linking a visit to an order, any change to claims
 ### Platform: none
 `LOOKUPS` is code in `packages/types`; the ticket is signed with the existing key. No platform migration.
 
-### Module `0005_customer_locations.sql` (Order Capture, owner 2026-10-19)
+### Module `0023` (Sales; was `0005_customer_locations.sql`, see the Phase 0 re-check: the table exists, only `visit_id` is added)
 - `customer_locations`: `tenant_id`, `customer_id` (FK to `customers`), `kind` (`set` / `clear`), `lat` / `lng`
   numeric(9,6) (set only), `accuracy_m`, `source` (`field_visit` / `desk`), `visit_id` (uuid, plain reference to
   Attendance's visit; unique per plant when present, so a retry never saves twice), `reason` (required on clear,
@@ -167,7 +186,7 @@ place or phone from the field, linking a visit to an order, any change to claims
 - `tenant_id` + FORCE RLS + `tenant_isolation`; **`order_app` SELECT + INSERT only**. `customers` unchanged (a
   customer's phone stays fixed).
 
-### Module `0008_field_day.sql` (Attendance)
+### Module `0014_field_day.sql` (Attendance; was `0008`)
 - `field_events`: `tenant_id`, `user_id`, `user_name`, `on_date` (India date of the day's start), `kind`
   (`start` / `visit` / `end`), `lat` / `lng` numeric(9,6), `accuracy_m`, `place_text` (≤ 100), `km_tenths` (start /
   end only, 0–9,999,999.9), `customer_id` (uuid, plain reference), `customer_name` / `customer_place` (copies),
@@ -190,7 +209,7 @@ answer the ❓ points.
 
 ### Phase 1: Lookup ticket (platform, auth, Order Capture)
 `LOOKUPS` (both scopes), the platform endpoint, `fetchLookupTicket` / `verifyLookupRequest`, Order Capture's customers
-endpoint (name / place / phone search), Order Capture migration `0005` (shown first), the location endpoint, the 📍 Map
+endpoint (name / place / phone search), Sales migration `0023` (`visit_id`, shown first), the location endpoint, the 📍 Map
 link, clear with a reason, Recent changes and CSV columns.
 Tests: refused without credentials, for a pair not in `LOOKUPS`, when either module is off, for another plant's
 customers; a lookup ticket refused as a login and as a summary request; expired ticket; no phone in the answer (also
@@ -199,7 +218,7 @@ inactive or other plant's customer refused; the same `visit_id` twice saves once
 `customer_locations` refused; clear needs a reason; plant staff see the Map link but can't clear.
 
 ### Phase 2: Database + access (Attendance)
-Migration `0008` (shown first), access rows, server functions for start / visit / end / correct / cancel.
+Migration `0014` (shown first), access rows, server functions for start / visit / end / correct / cancel.
 Tests: isolation + FORCE RLS guard (table count), append-only refusals, the checks, not-ticked → 404, today only,
 end < start refused, end after midnight closes the open day.
 
@@ -227,12 +246,12 @@ never push `production`.
 
 ### Phase 1 prompt
 "Shared header. Phase 1 of FIELD_DAY_PHASE_PLAN: the lookup ticket (platform endpoint + `LOOKUPS`, `packages/auth`
-helpers, Order Capture `/api/plantops/customers`), then show me Order Capture migration `0005_customer_locations.sql`
+helpers, Order Capture `/api/plantops/customers`), then show me Sales migration `0023` (`visit_id` on `customer_locations`)
 before the location endpoint and the Map link, with the tests listed. Also add a dated note to
 `apps/order-capture/NOTES.md`."
 
 ### Phase 2 prompt
-"Shared header. Phase 2: show me migration `0008_field_day.sql` first, then the access rows and server functions, with
+"Shared header. Phase 2: show me migration `0014_field_day.sql` first, then the access rows and server functions, with
 the tests listed."
 
 ### Phase 3 prompt
