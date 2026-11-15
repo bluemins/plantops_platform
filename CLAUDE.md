@@ -2348,3 +2348,16 @@ https://claude.ai/artifact/EutRdTDJaBw7tHpHLXcUCq). Phase 1 = the Sales / platfo
   one row, order page and WhatsApp copy at 390 px, Recent changes.
 - **Deploy order:** Sales migration `0023`, then Sales, then the platform. Not deployed.
 - **Next:** Phase 2 (Attendance migration `0014_field_day.sql`, shown first; access rows; server functions).
+
+### 2026-11-15 — Plant board: carry forward, closing by owner / Supervisor, removed cards stay (v0.71.1) — built, not deployed
+Asked by the owner 2026-11-15. Anyone of any role still adds cards (unchanged).
+- **Carry forward:** a card not closed by the end of its day shows on **Today** under "From earlier days" with a "↪ From
+  Fri 14 Nov" tag (any age), until closed or removed; cards closed or removed today stay there for the day. The row keeps
+  its own date; its past day shows "Still open: also shown on Today". The launcher's "N open today" counts them.
+- **Only the owner or a Supervisor** closes (ticks done), reopens or removes a card (server 403 for everyone else;
+  others see the tick as a status only). The writer still edits their own text while the card is open.
+- **Each card shows** Added by … · time, Changed by … · time, ✓ Closed by … · time.
+- **Removed cards stay visible** on their day, crossed out, "✕ Removed by … · time" (not counted as cards).
+- Supervisor is the Attendance role, so a plant without Attendance has only the owner to close / remove.
+- No migration (existing columns); SSO token unchanged. Code `apps/platform/src/server/board.ts`, `src/app/board/page.tsx`.
+  Tests: platform board 10.

@@ -11,13 +11,19 @@ type BoardCard = {
   by_me: boolean;
   created_at: string;
   edited: boolean;
+  edited_at: string | null;
   done: boolean;
   done_by: string | null;
   done_at: string | null;
+  carried_from: string | null;
+  removed: boolean;
+  removed_by: string | null;
+  removed_at: string | null;
   can_edit: boolean;
   can_remove: boolean;
+  can_close: boolean;
 };
-type Day = { date: string; today: string; can_add: boolean; cards: BoardCard[] };
+type Day = { date: string; today: string; can_add: boolean; can_close: boolean; carried: BoardCard[]; cards: BoardCard[] };
 
 const addDays = (day: string, n: number) => {
   const d = new Date(`${day}T00:00:00Z`);
@@ -26,6 +32,8 @@ const addDays = (day: string, n: number) => {
 };
 const longDate = (day: string) =>
   new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${day}T00:00:00Z`));
+const shortDate = (day: string) =>
+  new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${day}T00:00:00Z`));
 const time = (iso: string) =>
   new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(iso));
 const indiaHour = () => Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
@@ -85,7 +93,9 @@ export default function BoardPage() {
     { d: today, label: "Today" },
     { d: addDays(today, 1), label: "Tomorrow" },
   ];
-  const left = day.cards.filter((c) => !c.done).length;
+  const all = [...day.carried, ...day.cards].filter((c) => !c.removed);
+  const left = all.filter((c) => !c.done).length;
+  const past = day.date < today;
 
   return (
     <div className="space-y-4">
@@ -94,7 +104,10 @@ export default function BoardPage() {
       </a>
       <div>
         <h1 className="text-2xl font-bold">📝 Plant board</h1>
-        <p className="text-slate-500">Everyone in the plant can see and write here. Plan the next day.</p>
+        <p className="text-slate-500">
+          Everyone in the plant can see and write here. Plan the next day. Open cards move on to Today until the owner or a
+          supervisor closes them.
+        </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -123,19 +136,31 @@ export default function BoardPage() {
 
       <p className="text-sm text-slate-600">
         <span className="font-semibold text-slate-900">{longDate(day.date)}</span>
-        {day.cards.length > 0 && ` · ${day.cards.length} card${day.cards.length === 1 ? "" : "s"}, ${left} not done`}
+        {all.length > 0 && ` · ${all.length} card${all.length === 1 ? "" : "s"}, ${left} not done`}
       </p>
 
       <ErrorText>{error}</ErrorText>
 
       {day.can_add && <AddCard date={day.date} onSaved={() => load(day.date)} onError={setError} />}
 
+      {day.carried.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-slate-700">From earlier days ({day.carried.filter((c) => !c.done && !c.removed).length} still open)</h2>
+          <ul className="space-y-3">
+            {day.carried.map((c) => (
+              <CardRow key={c.id} card={c} past={false} onChanged={() => load(day.date)} onError={setError} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {day.carried.length > 0 && day.cards.length > 0 && <h2 className="text-sm font-semibold text-slate-700">For today</h2>}
       {day.cards.length === 0 ? (
-        <Card className="text-center text-slate-500">Nothing on the board for this day yet.</Card>
+        day.carried.length === 0 && <Card className="text-center text-slate-500">Nothing on the board for this day yet.</Card>
       ) : (
         <ul className="space-y-3">
           {day.cards.map((c) => (
-            <CardRow key={c.id} card={c} onChanged={() => load(day.date)} onError={setError} />
+            <CardRow key={c.id} card={c} past={past} onChanged={() => load(day.date)} onError={setError} />
           ))}
         </ul>
       )}
@@ -177,7 +202,7 @@ function AddCard({ date, onSaved, onError }: { date: string; onSaved: () => void
   );
 }
 
-function CardRow({ card, onChanged, onError }: { card: BoardCard; onChanged: () => void; onError: (e?: string) => void }) {
+function CardRow({ card, past, onChanged, onError }: { card: BoardCard; past: boolean; onChanged: () => void; onError: (e?: string) => void }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(card.text);
   const [busy, setBusy] = useState(false);
@@ -194,18 +219,33 @@ function CardRow({ card, onChanged, onError }: { card: BoardCard; onChanged: () 
 
   return (
     <li>
-      <Card className={`flex gap-3 p-4 ${card.done ? "bg-slate-50" : "border-l-4 border-l-amber-400"}`}>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => send(`/api/board/${card.id}`, "PATCH", { done: !card.done })}
-          aria-label={card.done ? "Mark not done" : "Mark done"}
-          className={`flex h-11 w-11 flex-none items-center justify-center rounded-full border-2 text-lg font-bold ${
-            card.done ? "border-green-700 bg-green-700 text-white" : "border-slate-300 bg-white text-transparent"
-          }`}
-        >
-          ✓
-        </button>
+      <Card className={`flex gap-3 p-4 ${card.removed ? "bg-slate-50 opacity-70" : card.done ? "bg-slate-50" : "border-l-4 border-l-amber-400"}`}>
+        {card.removed ? (
+          <span aria-label="Removed" className="flex h-11 w-11 flex-none items-center justify-center rounded-full border-2 border-slate-300 bg-slate-100 text-lg text-slate-500">
+            ✕
+          </span>
+        ) : card.can_close ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => send(`/api/board/${card.id}`, "PATCH", { done: !card.done })}
+            aria-label={card.done ? "Reopen" : "Close (done)"}
+            className={`flex h-11 w-11 flex-none items-center justify-center rounded-full border-2 text-lg font-bold ${
+              card.done ? "border-green-700 bg-green-700 text-white" : "border-slate-300 bg-white text-transparent"
+            }`}
+          >
+            ✓
+          </button>
+        ) : (
+          <span
+            aria-label={card.done ? "Closed" : "Open"}
+            className={`flex h-11 w-11 flex-none items-center justify-center rounded-full border-2 text-lg font-bold ${
+              card.done ? "border-green-700 bg-green-700 text-white" : "border-dashed border-slate-300 bg-white text-transparent"
+            }`}
+          >
+            ✓
+          </span>
+        )}
         <div className="min-w-0 flex-1 space-y-2">
           {editing ? (
             <textarea
@@ -217,13 +257,30 @@ function CardRow({ card, onChanged, onError }: { card: BoardCard; onChanged: () 
               className="w-full rounded-xl border border-slate-300 p-3 text-base focus:border-(--brand) focus:outline-none"
             />
           ) : (
-            <p className={`whitespace-pre-wrap break-words text-base ${card.done ? "text-slate-500 line-through" : "text-slate-900"}`}>{card.text}</p>
+            <p className={`whitespace-pre-wrap break-words text-base ${card.done || card.removed ? "text-slate-500 line-through" : "text-slate-900"}`}>{card.text}</p>
           )}
-          <p className="text-xs text-slate-500">
-            {card.by_me ? "You" : card.by} · {time(card.created_at)}
-            {card.edited && " · changed"}
-            {card.done && card.done_by && ` · ✓ done by ${card.done_by}`}
-          </p>
+          {card.carried_from && (
+            <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
+              ↪ From {shortDate(card.carried_from)}
+            </span>
+          )}
+          <div className="space-y-0.5 text-xs text-slate-500">
+            <p>
+              Added by {card.by_me ? "you" : card.by} · {time(card.created_at)}
+            </p>
+            {card.edited_at && <p>Changed by {card.by_me ? "you" : card.by} · {time(card.edited_at)}</p>}
+            {card.done && card.done_at && (
+              <p className="font-semibold text-green-800">
+                ✓ Closed by {card.done_by ?? "someone"} · {time(card.done_at)}
+              </p>
+            )}
+            {card.removed && card.removed_at && (
+              <p className="font-semibold text-red-800">
+                ✕ Removed by {card.removed_by ?? "someone"} · {time(card.removed_at)}
+              </p>
+            )}
+            {past && !card.done && !card.removed && <p className="font-semibold text-amber-800">Still open: also shown on Today</p>}
+          </div>
           {(card.can_edit || card.can_remove) && (
             <div className="flex flex-wrap gap-3 text-sm font-semibold">
               {editing ? (

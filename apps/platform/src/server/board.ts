@@ -1,10 +1,14 @@
 // Plant board (owner, 2026-11-14): one whiteboard per plant that every logged-in person sees and writes on, whatever
 // their role. Staff plan the next day on it. Rules approved by the owner:
 // - anyone adds a card for today or up to 7 days ahead
-// - the writer edits / removes their own card (today or later); the owner removes any card
-// - anyone ticks a card done or not done; the card shows who ticked it
+// - the writer edits their own card (today or later, or any day while it is still open)
+// - only the owner or a Supervisor closes (ticks done), reopens or removes a card; the card shows who did it (owner,
+//   2026-11-15)
+// - a card not closed by the end of its day carries forward: Today also shows every earlier open card (and the ones
+//   closed today), tagged with its own date; the row keeps its date (owner, 2026-11-15)
+// - a removed card stays visible on its day, crossed out, with who removed it and when (owner, 2026-11-15)
 // - no notifications; edits and removals go to the audit log; nothing is deleted
-import { and, asc, eq, gte, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { audit } from "./audit";
@@ -38,6 +42,10 @@ export const ChangeCardInput = z.union([
 ]);
 
 const isOwner = (u: CurrentUser) => u.roles.includes("tenant_admin");
+/** Who may close (tick done), reopen or remove a card: the owner or a Supervisor (owner, 2026-11-15). */
+const canClose = (u: CurrentUser) => isOwner(u) || u.roles.includes("supervisor");
+/** The writer may still edit: the card's day hasn't passed, or it is still open (carried forward). */
+const stillLive = (card: { forDate: string; doneAt: Date | null }, today: string) => card.forDate >= today || !card.doneAt;
 
 function inWindow(day: string, today: string) {
   return day >= addDays(today, -BOARD_BACK_DAYS) && day <= addDays(today, BOARD_AHEAD_DAYS);
@@ -50,32 +58,63 @@ export interface BoardCard {
   by_me: boolean;
   created_at: string;
   edited: boolean;
+  edited_at: string | null;
   done: boolean;
   done_by: string | null;
   done_at: string | null;
+  /** The card's own date when it is shown on Today as carried forward from an earlier day. */
+  carried_from: string | null;
+  removed: boolean;
+  removed_by: string | null;
+  removed_at: string | null;
   can_edit: boolean;
   can_remove: boolean;
+  can_close: boolean;
 }
 
-/** The cards for one day (oldest first), plus what this person may do with each. */
+/**
+ * The cards for one day (oldest first), plus what this person may do with each. On Today, `carried` lists the earlier
+ * days' cards still open (any age) and those closed today.
+ */
 export async function boardDay(user: CurrentUser, day: string, now = new Date()) {
   const today = indiaToday(now);
   if (!Day.safeParse(day).success) throw badRequest("Use a date like 2026-11-15");
   if (!inWindow(day, today)) throw badRequest(`The board shows ${BOARD_BACK_DAYS} days back and ${BOARD_AHEAD_DAYS} days ahead`);
   const writer = alias(users, "writer");
   const ticker = alias(users, "ticker");
-  const rows = await withTenant(user.tenantId, (tx) =>
-    tx
-      .select({ card: boardCards, by: writer.displayName, doneByName: ticker.displayName })
-      .from(boardCards)
-      .innerJoin(writer, eq(writer.id, boardCards.createdBy))
-      .leftJoin(ticker, eq(ticker.id, boardCards.doneBy))
-      .where(and(eq(boardCards.tenantId, user.tenantId), eq(boardCards.forDate, day), isNull(boardCards.removedAt)))
-      .orderBy(asc(boardCards.createdAt)),
-  );
-  const open = day >= today;
-  const cards: BoardCard[] = rows.map(({ card, by, doneByName }) => {
+  const remover = alias(users, "remover");
+  const select = (where: ReturnType<typeof and>) =>
+    withTenant(user.tenantId, (tx) =>
+      tx
+        .select({ card: boardCards, by: writer.displayName, doneByName: ticker.displayName, removedByName: remover.displayName })
+        .from(boardCards)
+        .innerJoin(writer, eq(writer.id, boardCards.createdBy))
+        .leftJoin(ticker, eq(ticker.id, boardCards.doneBy))
+        .leftJoin(remover, eq(remover.id, boardCards.removedBy))
+        .where(and(eq(boardCards.tenantId, user.tenantId), where))
+        .orderBy(asc(boardCards.forDate), asc(boardCards.createdAt)),
+    );
+  const rows = await select(eq(boardCards.forDate, day));
+  const carriedRows =
+    day === today
+      ? await select(
+          and(
+            lt(boardCards.forDate, today),
+            or(
+              // still open
+              and(isNull(boardCards.doneAt), isNull(boardCards.removedAt)),
+              // closed today
+              and(isNull(boardCards.removedAt), sql`(${boardCards.doneAt} at time zone 'Asia/Kolkata')::date = ${today}::date`),
+              // removed today while still open
+              and(isNull(boardCards.doneAt), sql`(${boardCards.removedAt} at time zone 'Asia/Kolkata')::date = ${today}::date`),
+            ),
+          ),
+        )
+      : [];
+  const toCard = ({ card, by, doneByName, removedByName }: (typeof rows)[number], carried: boolean): BoardCard => {
     const mine = card.createdBy === user.userId;
+    const removed = !!card.removedAt;
+    const live = !removed && stillLive(card, today);
     return {
       id: card.id,
       text: card.body,
@@ -83,14 +122,27 @@ export async function boardDay(user: CurrentUser, day: string, now = new Date())
       by_me: mine,
       created_at: card.createdAt.toISOString(),
       edited: !!card.editedAt,
+      edited_at: card.editedAt?.toISOString() ?? null,
       done: !!card.doneAt,
       done_by: card.doneAt ? (doneByName ?? null) : null,
       done_at: card.doneAt?.toISOString() ?? null,
-      can_edit: mine && open,
-      can_remove: (mine && open) || isOwner(user),
+      carried_from: carried ? card.forDate : null,
+      removed,
+      removed_by: removed ? (removedByName ?? null) : null,
+      removed_at: card.removedAt?.toISOString() ?? null,
+      can_edit: mine && live,
+      can_remove: !removed && canClose(user),
+      can_close: !removed && canClose(user),
     };
-  });
-  return { date: day, today, can_add: open && day <= addDays(today, BOARD_AHEAD_DAYS), cards };
+  };
+  return {
+    date: day,
+    today,
+    can_add: day >= today && day <= addDays(today, BOARD_AHEAD_DAYS),
+    can_close: canClose(user),
+    carried: carriedRows.map((r) => toCard(r, true)),
+    cards: rows.map((r) => toCard(r, false)),
+  };
 }
 
 /** Adds a card for today or a day ahead (up to a week). */
@@ -112,7 +164,7 @@ export async function addCard(user: CurrentUser, input: z.infer<typeof NewCardIn
   });
 }
 
-/** Edits the text (writer only, today or later) or ticks / unticks done (anyone, inside the board's window). */
+/** Edits the text (writer only, while the card is live) or closes / reopens it (owner or Supervisor only). */
 export async function changeCard(user: CurrentUser, id: string, input: z.infer<typeof ChangeCardInput>, now = new Date()) {
   const today = indiaToday(now);
   return withTenant(user.tenantId, async (tx) => {
@@ -121,10 +173,10 @@ export async function changeCard(user: CurrentUser, id: string, input: z.infer<t
       .from(boardCards)
       .where(and(eq(boardCards.tenantId, user.tenantId), eq(boardCards.id, id), isNull(boardCards.removedAt)))
       .for("update");
-    if (!card || !inWindow(card.forDate, today)) throw notFound("This card is no longer on the board");
+    if (!card || !(inWindow(card.forDate, today) || !card.doneAt)) throw notFound("This card is no longer on the board");
     if ("text" in input) {
       if (card.createdBy !== user.userId) throw forbidden("Only the person who wrote this card can change it");
-      if (card.forDate < today) throw forbidden("Cards for past days can't be changed");
+      if (!stillLive(card, today)) throw forbidden("Closed cards for past days can't be changed");
       if (input.text === card.body) return { ok: true };
       await tx.update(boardCards).set({ body: input.text, editedAt: new Date() }).where(eq(boardCards.id, id));
       await audit(tx, {
@@ -134,6 +186,8 @@ export async function changeCard(user: CurrentUser, id: string, input: z.infer<t
         target: id,
         details: { for_date: card.forDate, before: card.body, after: input.text },
       });
+    } else if (!canClose(user)) {
+      throw forbidden("Only the owner or a supervisor can close a card");
     } else if (input.done !== !!card.doneAt) {
       await tx
         .update(boardCards)
@@ -144,7 +198,7 @@ export async function changeCard(user: CurrentUser, id: string, input: z.infer<t
   });
 }
 
-/** Takes a card off the board (the writer for today or later; the owner any card). The row stays, audited. */
+/** Takes a card off the board (owner or Supervisor only). The row stays, shown crossed out, and is audited. */
 export async function removeCard(user: CurrentUser, id: string, now = new Date()) {
   const today = indiaToday(now);
   return withTenant(user.tenantId, async (tx) => {
@@ -153,11 +207,8 @@ export async function removeCard(user: CurrentUser, id: string, now = new Date()
       .from(boardCards)
       .where(and(eq(boardCards.tenantId, user.tenantId), eq(boardCards.id, id), isNull(boardCards.removedAt)))
       .for("update");
-    if (!card || !inWindow(card.forDate, today)) throw notFound("This card is no longer on the board");
-    const mine = card.createdBy === user.userId;
-    if (!isOwner(user) && !(mine && card.forDate >= today)) {
-      throw forbidden(mine ? "Cards for past days can't be removed" : "Only the writer or the owner can remove this card");
-    }
+    if (!card || !(inWindow(card.forDate, today) || !card.doneAt)) throw notFound("This card is no longer on the board");
+    if (!canClose(user)) throw forbidden("Only the owner or a supervisor can remove a card");
     await tx.update(boardCards).set({ removedBy: user.userId, removedAt: new Date() }).where(eq(boardCards.id, id));
     await audit(tx, {
       tenantId: user.tenantId,
@@ -170,7 +221,7 @@ export async function removeCard(user: CurrentUser, id: string, now = new Date()
   });
 }
 
-/** Numbers for the launcher card: cards for today and tomorrow (open ones). */
+/** Numbers for the launcher card: open cards for today (incl. carried forward) and cards for tomorrow. */
 export async function boardSummary(user: CurrentUser, now = new Date()) {
   const today = indiaToday(now);
   const tomorrow = addDays(today, 1);
@@ -181,8 +232,15 @@ export async function boardSummary(user: CurrentUser, now = new Date()) {
       .where(and(eq(boardCards.tenantId, user.tenantId), gte(boardCards.forDate, today), lte(boardCards.forDate, tomorrow), isNull(boardCards.removedAt)))
       .groupBy(boardCards.forDate),
   );
+  const [{ carried } = { carried: 0 }] = await withTenant(user.tenantId, (tx) =>
+    tx
+      .select({ carried: sql<number>`count(*)::int` })
+      .from(boardCards)
+      .where(and(eq(boardCards.tenantId, user.tenantId), lt(boardCards.forDate, today), isNull(boardCards.doneAt), isNull(boardCards.removedAt))),
+  );
   const of = (d: string) => rows.find((r) => r.day === d) ?? { count: 0, open: 0 };
-  const t = of(today);
+  const own = of(today);
+  const t = { count: own.count + carried, open: own.open + carried };
   const n = of(tomorrow);
   // Same shape as a module tile's numbers, so the launcher draws it the same way.
   const badges: { text: string; tone: "info" | "warn" | "ok" }[] = [];
