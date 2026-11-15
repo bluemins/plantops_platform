@@ -279,7 +279,7 @@ describe("My claims", () => {
   it("14. the tab only with a salary setting; the page lists your own claims with km and your amounts, never TA / DA rupees", async () => {
     const p = setup();
     signInAs(p.worker);
-    expect(await myTabs(p.worker)).toEqual({ attendanceHref: "/", claims: false, salary: false }); // no tabs at all
+    expect(await myTabs(p.worker)).toEqual({ attendanceHref: "/", field: false, claims: false, salary: false }); // no tabs at all
     await expect(MyClaimsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(/NEXT_HTTP_ERROR_FALLBACK;404|NEXT_NOT_FOUND/);
 
     await setting(p.worker);
@@ -291,7 +291,7 @@ describe("My claims", () => {
     await setting(other);
     await sendClaim(other, expense({ amount: "777", note: "Gaja's lunch" }));
 
-    expect(await myTabs(p.worker)).toEqual({ attendanceHref: "/", claims: true, salary: false }); // no "Can see own salary"
+    expect(await myTabs(p.worker)).toEqual({ attendanceHref: "/", field: true, claims: true, salary: false }); // ticked Field staff: the Field day tab too // no "Can see own salary"
     expect((await myTabs(p.ownerWorker)).claims).toBe(false); // no salary setting for them
     const page = textOf(await MyClaimsPage({ searchParams: Promise.resolve({}) })).replace(/\s+/g, " ");
     expect(page).toContain("42 km");

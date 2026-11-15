@@ -2,6 +2,7 @@ import { Card } from "@plantops/ui";
 import { fmtMonth } from "@/lib/days";
 import { can } from "@/server/access";
 import { claimsTab, waitingClaims, type ClaimFilter } from "@/server/claims";
+import { metersFor } from "@/server/field";
 import { kit } from "@/server/kit";
 import { orNotFound } from "@/server/pages";
 import { requirePageUser } from "@/server/session";
@@ -27,6 +28,8 @@ export default async function ClaimsPage({ searchParams }: { searchParams: Searc
     orNotFound(claimsTab(user, { month: one(sp.month), status: one(sp.status), personId: person && UUID.test(person) ? person : null })),
     waitingClaims(user),
   ]);
+  // each field-duty claim's field day beside it (docs/FIELD_DAY_PHASE_PLAN.md mock-up C1)
+  const meters = await metersFor(user.tenantId, tab.claims.filter((c) => c.kind === "field_duty").map((c) => ({ userId: c.userId, date: c.onDate })));
   const link = (over: Partial<{ month: string; status: ClaimFilter; person: string | null }>) => {
     const q = new URLSearchParams({ month: over.month ?? tab.month, status: over.status ?? tab.status });
     const p = over.person === undefined ? tab.personId : over.person;
@@ -85,7 +88,7 @@ export default async function ClaimsPage({ searchParams }: { searchParams: Searc
       ) : (
         <ul className="space-y-2.5">
           {tab.claims.map((c) => (
-            <OwnerClaimCard key={c.id} c={c} canDecide={canDecide} />
+            <OwnerClaimCard key={c.id} c={c} canDecide={canDecide} meter={meters.get(`${c.userId}:${c.onDate}`)} />
           ))}
         </ul>
       )}

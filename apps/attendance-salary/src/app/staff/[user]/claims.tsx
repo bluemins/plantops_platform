@@ -7,7 +7,7 @@ import { OwnerClaimCard } from "../../claims/owner-claim";
  * person's claims with Approve / Not approve / Cancel, and "+ Field duty" / "+ Expense" for the owner to enter one
  * on their behalf (approved at once). Support: read-only, no buttons.
  */
-export function PersonClaims({ personId, month, claims, canDecide }: { personId: string; month: string; claims: OwnerClaim[]; canDecide: boolean }) {
+export function PersonClaims({ personId, month, claims, canDecide, meters }: { personId: string; month: string; claims: OwnerClaim[]; canDecide: boolean; meters?: ReadonlyMap<string, { kmTenths: number | null; visits: number }> }) {
   const add = "flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 font-semibold";
   return (
     <section aria-labelledby="claims-h" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
@@ -19,7 +19,7 @@ export function PersonClaims({ personId, month, claims, canDecide }: { personId:
       ) : (
         <ul className="space-y-2.5">
           {claims.map((c) => (
-            <OwnerClaimCard key={c.id} c={c} canDecide={canDecide} showName={false} />
+            <OwnerClaimCard key={c.id} c={c} canDecide={canDecide} showName={false} meter={meters?.get(`${c.userId}:${c.onDate}`)} />
           ))}
         </ul>
       )}

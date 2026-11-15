@@ -891,3 +891,62 @@ form here stays for bank / UPI advances); cash brought back for an advance whose
 - `salary_advances.source_ref` = the cash book's number, unique per plant: a second send returns the saved row (200).
   Rows show "by <name> (cash book)"; audit actor `cashbook:<user id>` with the usual `salary.advance` / `salary.correction`
   texts in Recent changes. `/health` lists a broken `ATTEND_CASHBOOK_KEYS` under `warnings`.
+
+## 2026-11-15: field day log, Phases 2–4 (v0.73.0)
+Plan: `docs/FIELD_DAY_PHASE_PLAN.md` (Phases 2, 3 and 4 built together, owner 2026-11-15); mock-ups
+https://claude.ai/artifact/EutRdTDJaBw7tHpHLXcUCq. Documentation only: **claims, TA / DA and salary don't change.**
+
+**Phase 2: database, access, server** (`src/server/field.ts`, pure rules `src/lib/field.ts`)
+- Migration `0014_field_day.sql` (approved by the owner 2026-11-15): `field_event_files` (meter photos), `field_events`
+  (start / visit / end), `field_event_cancels` (a removed visit, once). FORCE RLS, `attendance_app` SELECT + INSERT only.
+  Two changes from the written plan, approved with it: the start / end row points to its photo (`photo_file_id`, so the
+  database refuses a start or end without one; an uploaded but unused photo just stays), and a correction points to
+  the row it replaces (`corrects_id`, reason required exactly then).
+- Access rows `field_own` (employee; the Field staff tick for this month is checked in the functions, else 404),
+  `field_view` (owner, Supervisor, support), `field_fix` (owner). All three are "not found" for Office staff.
+- Rules: today only; a day belongs to the India date of its start; a visit / End with no start today goes to
+  **last night's round while it is open** (an End after midnight closes it); start and end once (then Correct km);
+  end ≥ start; no location = refused; worse than ±150 m = saved and marked "rough", and the shop-location tick is
+  refused; a typed shop may have a phone (Indian mobile), a Sales customer never; the person fixes on the same day
+  (today or last night's open round), the owner any day. Audit rows only for `field.correct`, `field.remove` and
+  `export.field_csv` (Recent changes texts in `src/lib/changes.ts`), so visits don't flood Recent changes.
+- Photos: `POST /api/field/photo` first (raw body, `?for=<person>` for an owner correction), then start / end with
+  `photo_id` (own, uploaded by you in the last 24 h, not used yet). **The plan's storage limit now counts claim photos
+  and field photos together** (`storageLimitBytes` / `storageUsedBytes` / `lockStorage` moved into
+  `src/server/storage.ts`). Backup needs nothing: `backupNewFiles` copies every file in Attendance's storage.
+- Sales through the lookup ticket, from the server only (3 s): `searchCustomers`, `sendShopLocation` (after the visit is
+  saved, and "Try again"; Sales keys it on the visit id) and, for the day pages, which ticked visits saved a location.
+  For that last one **Sales got a small read-only endpoint** `POST /api/plantops/locations/by-visit` (scope
+  `customer_location`, answers the saved visit ids only; no schema change): the plan said "read from Sales", but Sales
+  had no read. If Sales can't answer the page says nothing rather than a wrong "not saved".
+- API: `/api/field/{photo,start,visit,end,correct,remove,customers,location,export}`, `/field-photos/[id]` (person,
+  owner, Supervisor, support logged).
+
+**Phase 3: My field day** (`/my/field`, `src/app/my/field/field-day.tsx`; mock-ups A1–A7)
+- "Field day" tab between My attendance and My claims, only with `hasFieldDay` (ticked this month, or last night's
+  round still open). Start / End: location (best reading within 20 s, "±m" while waiting), place, km, meter photo
+  (camera, shrunk on the phone); "Today by meter" on End. Shop visited: customer search (name / place / 6+ digits of a
+  phone) with "Not in the list? Type the shop name" + phone + place, meeting notes ≤ 300, the shop-location tick (on
+  when the shop has none, "Replace … (saved 12 Oct by Ravi)" off when it has one, hidden on a rough fix). Correct km /
+  Remove with a reason; "Try again" on a visit whose shop location didn't reach Sales. The photo is sent first; if it
+  fails nothing is saved and Save can be tapped again.
+
+**Phase 4: owner / Supervisor** (mock-ups B1–B3, C1)
+- Today board "In the field · N" (owner, Supervisor, support; not Office staff): each person's last visit or "no
+  visit yet", tap = the day page.
+- Person page: "🛵 Field days: <month> ›" (owner, support) when the person has any. `/staff/[user]/field?m=`: the
+  month list (date, start–end, "not ended", km, shops, "rough"), totals, **Download visits CSV** (owner only; one row per
+  start / visit / end, replaced and removed flagged; audited). `/staff/[user]/field/[date]`: timeline with Google Maps
+  links, notes, crossed-out replaced / removed rows, meter photos, time out, km by meter, the field-duty claim line
+  (owner / support only); owner Correct km / Remove visit. A Supervisor reaches these from the Today board (they can't
+  open the person page, as before) and sees no buttons and no claims.
+- Claims card (Claims tab and the person page): "Field day meter: 84.3 km · 3 shops · open" under a field-duty claim
+  when that day has a field day. Read-only.
+
+**Tests:** `field.test.ts` (14: database checks, access, start / visit / end, after midnight, photos and the shared
+storage limit, corrections, removals, Sales search / location / state with a fake Sales, owner views, CSV),
+`field-screens.test.ts` (4), guard lists (`TABLES`, seed rows, append-only 225 statements, column lists), access and tab
+expectations. Sales `plantops-lookup.test.ts` +2. Attendance 525, Sales 1,324.
+
+**Deploy order:** Attendance migration `0014`, then **Sales** (the visit check endpoint), then Attendance. Nothing new to
+set on Railway. Phase 5 (the "not ended" bell, HANDBOOK, CLAUDE.md status) is next.

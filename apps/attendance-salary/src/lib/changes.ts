@@ -1,5 +1,6 @@
 // "Recent changes": audit rows in plain words for the owner ("Added OUT 18:30 on Tue, 14 Oct for Ramu: forgot to scan").
 import { fmtDayLong, fmtMonth, istDay } from "./days";
+import { fmtKm } from "./field";
 import { fmtTime } from "./punch";
 import { clockText, halvesText, hoursText, paiseText } from "./salary";
 
@@ -92,6 +93,12 @@ export function describeChange(action: string, d: Record<string, unknown>): stri
       return `Downloaded the ${typeof d.month === "string" ? fmtMonth(d.month) : "month"} salary CSV`;
     case "export.csv":
       return `Downloaded the ${typeof d.month === "string" ? fmtMonth(d.month) : "month"} CSV`;
+    case "field.correct":
+      return `Corrected ${show(d.person)}'s field day ${d.kind === "end" ? "end" : "start"} km on ${shortDay(d.on)}: ${fmtKm(num(d.from_km))} → ${fmtKm(num(d.to_km))} km${d.new_photo ? " (new photo)" : ""}: ${show(d.reason)}`;
+    case "field.remove":
+      return `Removed ${show(d.person)}'s visit to ${show(d.shop)} on ${shortDay(d.on)}: ${show(d.reason)}`;
+    case "export.field_csv":
+      return `Downloaded ${show(d.person)}'s ${typeof d.month === "string" ? fmtMonth(d.month) : "month"} field visits CSV`;
     default:
       return action;
   }

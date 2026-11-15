@@ -10,6 +10,7 @@ import { TodayView } from "./today";
 import { todayBoard } from "@/server/today";
 import { officeStaffFor } from "@/server/people";
 import { waitingClaims } from "@/server/claims";
+import { inTheField } from "@/server/field";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
@@ -48,7 +49,7 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
     <div className="space-y-4">
       <Header user={user} plant={plant} />
       <OwnerNav user={user} current="today" claimsWaiting={await waitingClaims(user)} />
-      <TodayView user={user} board={board} reach={reach} />
+      <TodayView user={user} board={board} reach={reach} field={can(user, "field_view") ? await inTheField(user.tenantId) : null} />
       {user.isOwner && can(user, "see_own") && (
         <a href="/my" className="flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-white font-semibold">
           My attendance

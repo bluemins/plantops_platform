@@ -4,7 +4,7 @@
 //     only: never a phone number (also for a phone search), never orders or amounts.
 //   * customer_location: a field staff's visit saves the shop's location. Once per visit (unique visit_id), so a retry
 //     never saves twice. Same ±150 m limit as "Save my location here".
-import { and, asc, eq, ilike, like, or, sql } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { verifyLookupRequest } from "@plantops/auth";
 import { normalisePhone } from "@plantops/module-kit/phone";
@@ -100,5 +100,21 @@ export async function saveFieldLocation(tenantId: string, customerId: string, in
     const actor: OcUser = { tenantId, userId: input.set_by_user_id, name: input.set_by_name, roles: [], who: null, isOwner: false, isSupport: false };
     await audit(tx, actor, "customer.location", customerId, { name: c.name, kind: "set", source: "field_visit", accuracy_m: accuracy, visit_id: input.visit_id });
     return { saved: true, already: false };
+  });
+}
+
+export const VisitCheckInput = z.object({ visit_ids: z.array(z.uuid()).min(1).max(100) }).strict();
+
+/**
+ * Which of these field visits saved a shop location (Attendance's day pages: "📍 saved as shop location" or "not saved ·
+ * Try again"). Read-only: the visit ids that have a row, nothing else (never the position).
+ */
+export async function savedVisitLocations(tenantId: string, visitIds: string[]): Promise<{ saved: string[] }> {
+  return withTenant(tenantId, async (tx) => {
+    const rows = await tx
+      .select({ visitId: customerLocations.visitId })
+      .from(customerLocations)
+      .where(and(eq(customerLocations.tenantId, tenantId), inArray(customerLocations.visitId, visitIds)));
+    return { saved: [...new Set(rows.map((r) => r.visitId!).filter(Boolean))] };
   });
 }

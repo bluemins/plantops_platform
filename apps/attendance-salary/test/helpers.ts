@@ -116,12 +116,21 @@ export async function seedPlant(tenantId: string) {
   // a person's holiday list (migration 0012): Diwali, paid
   const holiday = await one(`insert into attendance_salary.person_holidays (tenant_id, user_id, user_name, day, action, name, paid, created_by, created_by_name)
     values ('${tenantId}', '${worker}', 'Ramu', '2026-11-08', 'add', 'Diwali', true, '${owner}', 'Sujata') returning id`);
-  return { worker, owner, scan, fix, cancel, outbox, setting, advance, correction, visibility, payment, undo, claim, decision, file, dayMark, holiday };
+  // field day log (migration 0014): a meter photo, a start pointing to it, a visit, and the visit removed
+  const fieldFile = await one(`insert into attendance_salary.field_event_files (tenant_id, user_id, storage_key, content_type, size_bytes, sha256, created_by, created_by_name)
+    values ('${tenantId}', '${worker}', 'tenant/${tenantId}/${randomUUID()}', 'image/jpeg', 2345, '${"b".repeat(64)}', '${worker}', 'Ramu') returning id`);
+  const fieldStart = await one(`insert into attendance_salary.field_events (tenant_id, user_id, user_name, on_date, kind, lat, lng, accuracy_m, km_tenths, photo_file_id, created_by, created_by_name)
+    values ('${tenantId}', '${worker}', 'Ramu', '2026-11-17', 'start', 20.874200, 86.493100, 12, 452105, '${fieldFile}', '${worker}', 'Ramu') returning id`);
+  const fieldVisit = await one(`insert into attendance_salary.field_events (tenant_id, user_id, user_name, on_date, kind, lat, lng, accuracy_m, customer_name, created_by, created_by_name)
+    values ('${tenantId}', '${worker}', 'Ramu', '2026-11-17', 'visit', 21.056300, 86.502100, 8, 'Sai Stores', '${worker}', 'Ramu') returning id`);
+  const fieldCancel = await one(`insert into attendance_salary.field_event_cancels (tenant_id, event_id, reason, created_by, created_by_name)
+    values ('${tenantId}', '${fieldVisit}', 'wrong shop picked', '${worker}', 'Ramu') returning id`);
+  return { worker, owner, scan, fix, cancel, outbox, setting, advance, correction, visibility, payment, undo, claim, decision, file, dayMark, holiday, fieldFile, fieldStart, fieldVisit, fieldCancel };
 }
 
 /** The tables in the attendance_salary schema (the guard tests compare against this list). */
 export const TABLES = [
-  "audit_log", "day_marks", "notification_outbox", "person_holidays", "plant_settings", "punch_cancels", "punches",
+  "audit_log", "day_marks", "field_event_cancels", "field_event_files", "field_events", "notification_outbox", "person_holidays", "plant_settings", "punch_cancels", "punches",
   "salary_advances", "salary_claim_decisions", "salary_claim_files", "salary_claims", "salary_payment_undos",
   "salary_payments", "salary_settings", "salary_visibility", "support_views",
 ];

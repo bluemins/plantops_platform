@@ -2371,3 +2371,22 @@ desk set it; Accounts, Marketing staff, support read; audited `customer.brands`.
 `0024_customer_brands.sql` (approved: one append-only history table, FORCE RLS, SELECT + INSERT). Separate from Drop's
 brands. Platform and SSO token unchanged. Notes: `apps/order-capture/NOTES.md`. Tests: Sales 1,322 (+10); typecheck and
 build pass. **Live 2026-11-15** with v0.71.0 (migrations `0023` + `0024` applied; `production` = `main`). **Not yet:** on screen.
+
+### 2026-11-15 — Field day log Phases 2–4: the Field staff's day in Attendance (v0.73.0) — built, not deployed
+Owner 2026-11-15 ("Phases 2, 3 and 4 together"; plan approved, mock-ups https://claude.ai/artifact/EutRdTDJaBw7tHpHLXcUCq).
+Documentation only: claims, TA / DA and salary unchanged.
+- **Attendance migration `0014_field_day.sql`** (approved): `field_events` (start / visit / end), `field_event_files` (meter
+  photos), `field_event_cancels`; FORCE RLS, `attendance_app` SELECT + INSERT only. The start / end row points to its photo
+  and a correction to the row it replaces (reason required).
+- **Worker** (Plant staff with the Field staff tick): "Field day" tab `/my/field`: Start (location, place, km, meter
+  photo), Shop visited (Sales customer search by name / place / phone through the lookup ticket, or a typed shop + phone;
+  meeting notes; "Save this location as the shop's location"), End; fix km / remove a visit with a reason, same day only.
+  Today only; an End after midnight closes last night's round; worse than ±150 m is saved as "rough".
+- **Owner / Supervisor (read-only) / support:** Today board "In the field", person → Field days month list, day page
+  (Google Maps links, notes, photos, crossed-out fixes), owner's visits CSV and fixes on any day, "Field day meter: 84.3 km"
+  under a field-duty claim. Access rows `field_own` / `field_view` / `field_fix`; Office staff never.
+- **Sales:** one read-only endpoint `POST /api/plantops/locations/by-visit` (lookup ticket) so the day pages show whether a
+  visit's shop location was saved. No Sales schema change. Platform and SSO token unchanged.
+- The plan's storage limit now counts claim and field photos together. Tests: Attendance 525, Sales 1,324. Checked on
+  `pnpm dev` (plant 002, temporary data, all removed) at 390 / 1280 px. Notes: `apps/attendance-salary/NOTES.md`.
+- **Deploy order:** Attendance `0014`, then Sales, then Attendance. **Next:** Phase 5 (the "not ended" bell, HANDBOOK).

@@ -249,3 +249,58 @@ export const salaryClaimFiles = at.table("salary_claim_files", {
   createdByName: text("created_by_name").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
+
+// ---------- field day log (migration 0014, docs/FIELD_DAY_PHASE_PLAN.md) ----------
+export type FieldKind = "start" | "visit" | "end";
+
+/** A meter photo, uploaded before the start / end row that points to it. */
+export const fieldEventFiles = at.table("field_event_files", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  userId: uuid("user_id").notNull(),
+  storageKey: text("storage_key").notNull(),
+  contentType: text("content_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  sha256: text("sha256").notNull(),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+/** One moment of a field day. Coordinates are numeric in the database and strings here ("20.874200"). */
+export const fieldEvents = at.table("field_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  userId: uuid("user_id").notNull(),
+  userName: text("user_name").notNull(),
+  onDate: date("on_date").notNull(),
+  kind: text("kind").$type<FieldKind>().notNull(),
+  lat: numeric("lat", { precision: 9, scale: 6 }),
+  lng: numeric("lng", { precision: 9, scale: 6 }),
+  accuracyM: integer("accuracy_m"),
+  placeText: text("place_text"),
+  kmTenths: integer("km_tenths"),
+  photoFileId: uuid("photo_file_id"),
+  correctsId: uuid("corrects_id"),
+  reason: text("reason"),
+  customerId: uuid("customer_id"),
+  customerName: text("customer_name"),
+  customerPlace: text("customer_place"),
+  customerPhone: text("customer_phone"),
+  saveLocation: boolean("save_location"),
+  note: text("note"),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+/** A visit removed, with a reason (once per visit). */
+export const fieldEventCancels = at.table("field_event_cancels", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  eventId: uuid("event_id").notNull(),
+  reason: text("reason").notNull(),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});

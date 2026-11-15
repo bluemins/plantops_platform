@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { GET as search } from "@/app/api/plantops/customers/route";
 import { POST as saveLoc } from "@/app/api/plantops/customers/[id]/location/route";
+import { POST as checkVisits } from "@/app/api/plantops/locations/by-visit/route";
 import { whatsappText } from "@/lib/whatsapp";
 import { clearLocation, saveLocation } from "@/server/customer-details";
 import { getOrder } from "@/server/handling";
@@ -118,6 +119,34 @@ describe("shop location from a field visit", () => {
   it("clearing still needs a reason and stays owner / Order desk", async () => {
     expect((await refused(() => clearLocation(a.desk, tarini, { reason: "x" }))).status).toBe(400);
     expect((await refused(() => clearLocation(a.staff, tarini, { reason: "wrong shop" }))).status).toBe(403);
+  });
+});
+
+describe("which field visits saved a shop location (Attendance's day pages)", () => {
+  const check = async (body: unknown, token: string | null) => {
+    const res = await checkVisits(
+      new Request("http://localhost:3005/api/plantops/locations/by-visit", { method: "POST", headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) }),
+      undefined as never,
+    );
+    return { status: res.status, body: await res.json() };
+  };
+
+  it("answers the saved visit ids only, of the ticket's plant", async () => {
+    const v = visit();
+    expect((await save(tarini, v, await ticket("customer_location"))).status).toBe(200);
+    const never = randomUUID();
+    const r = await check({ visit_ids: [v.visit_id, never] }, await ticket("customer_location"));
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ saved: [v.visit_id] });
+    // another plant's ticket sees nothing of plant A
+    expect((await check({ visit_ids: [v.visit_id] }, await ticket("customer_location", b.tenantId))).body).toEqual({ saved: [] });
+  });
+
+  it("refused: no ticket, a customers ticket, bad input", async () => {
+    expect((await check({ visit_ids: [randomUUID()] }, null)).status).toBe(401);
+    expect((await check({ visit_ids: [randomUUID()] }, await ticket("customers"))).status).toBe(401);
+    expect((await check({ visit_ids: [] }, await ticket("customer_location"))).status).toBe(400);
+    expect((await check({ visit_ids: ["nope"] }, await ticket("customer_location"))).status).toBe(400);
   });
 });
 

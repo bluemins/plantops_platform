@@ -10,11 +10,10 @@ import { can, requireAccess } from "./access";
 import { audit } from "./audit";
 import { schema, withTenant, type AtTx } from "./db";
 import { badRequest, conflict, forbidden, HttpError, notFound } from "./http";
-import { kit } from "./kit";
 import { dbNow, lockPerson } from "./marks";
 import { knownPerson } from "./people";
 import type { AtUser } from "./session";
-import { fileStorage, MAX_PHOTO_BYTES, MAX_PHOTOS } from "./storage";
+import { fileStorage, lockStorage, MAX_PHOTO_BYTES, MAX_PHOTOS, storageLimitBytes, storageUsedBytes } from "./storage";
 
 const { salaryClaims, salaryClaimDecisions, salaryClaimFiles, salarySettings, supportViews } = schema;
 
@@ -319,12 +318,6 @@ export async function withdrawClaim(user: AtUser, claimId: string) {
 
 // ---------- bill photos ----------
 
-/** The plan's Attendance storage limit in bytes (super_admin sets MB; blank = unlimited). */
-async function storageLimitBytes(tenantId: string) {
-  const mb = (await kit.plan(tenantId))?.limits.modules.attendance_salary?.storage_mb;
-  return mb ? mb * 1024 * 1024 : null;
-}
-
 /**
  * One bill photo for an expense: by whoever entered the claim, within 24 hours, at most 3, while it is still waiting
  * (or approved at entry, when the owner entered it). Type checked by content; the plan's storage limit.
@@ -358,9 +351,8 @@ export async function uploadClaimPhoto(user: AtUser, claimId: string, data: Buff
 
     let usedBefore = 0;
     if (limit !== null) {
-      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('attendance_salary.storage'), hashtext(${user.tenantId}))`);
-      const [used] = await tx.select({ n: sql<number>`coalesce(sum(${salaryClaimFiles.sizeBytes}), 0)::bigint` }).from(salaryClaimFiles).where(eq(salaryClaimFiles.tenantId, user.tenantId));
-      usedBefore = Number(used?.n ?? 0);
+      await lockStorage(tx, user.tenantId);
+      usedBefore = await storageUsedBytes(tx, user.tenantId);
       if (usedBefore + data.length > limit) throw new HttpError(413, "Storage full for your plan – ask PlantOps to extend it");
     }
 

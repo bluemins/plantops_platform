@@ -1,25 +1,38 @@
 # Field day log (Attendance & Salary): Phase Plan and Build Prompts
 
 ## 0. Handover: where things stand (read this first)
-_Updated 2026-11-14, end of session._
+_Updated 2026-11-15._
 
 | Phase | What | State |
 |---|---|---|
 | 0 | Re-check, ❓ points, mock-ups | **Done 2026-11-14.** All ❓ points decided as proposed; mock-ups approved |
-| 1 | Lookup ticket (platform + auth), Sales customer search + field-visit location, 📍 Map on orders / WhatsApp copy, Sales migration `0023` | **Built 2026-11-14, v0.71.0 (`04208eb`); live 2026-11-15 with v0.72.0 (Sales `0023` applied)** |
-| 2 | Attendance migration `0014_field_day.sql`, access rows, server functions | **Next** |
-| 3 | Worker screen `/my/field` | to do |
-| 4 | Owner / supervisor screens, CSV, Claims card line | to do |
-| 5 | `field_not_ended` notification, photo backup, docs, release | to do |
+| 1 | Lookup ticket (platform + auth), Sales customer search + field-visit location, 📍 Map on orders / WhatsApp copy, Sales migration `0023` | **Live 2026-11-15** (v0.71.0 with v0.72.0, Sales `0023` applied) |
+| 2 | Attendance migration `0014_field_day.sql`, access rows, server functions | **Built 2026-11-15, v0.73.0, not deployed** |
+| 3 | Worker screen `/my/field` | **Built 2026-11-15, v0.73.0, not deployed** |
+| 4 | Owner / supervisor screens, CSV, Claims card line | **Built 2026-11-15, v0.73.0, not deployed** |
+| 5 | `field_not_ended` notification, docs (HANDBOOK, CLAUDE.md status), release | **Next** |
 
-**Deploying v0.71.0 (only when the owner says so):**
-1. Sales migration `0023_field_visit_location.sql` on the shared copy (adds `customer_locations.visit_id`; no grant change).
-2. Deploy the Sales service (`order-capture`), then the platform. Sales first: the platform part (the ticket endpoint)
-   is unused until Attendance calls it, so either order is safe, but the migration must come before Sales.
-3. Checks: `/health` on both; `POST /api/m/tenants/<tid>/lookup-ticket` without credentials → 401; Sales
-   `GET /api/plantops/customers?q=ab` without a ticket → 401; an order of a customer with a shop location shows 📍 Map.
-4. No new Railway variables. Attendance already has its module secret; Sales' address comes from the platform's
-   module registry in the ticket answer.
+Phases 2–4 were built together (owner, 2026-11-15); what was built and the choices made while building:
+`apps/attendance-salary/NOTES.md` "2026-11-15: field day log, Phases 2–4". Three changes from this plan, all in that note:
+the start / end row points to its photo (`photo_file_id`) and a correction to the row it replaces (`corrects_id`)
+(approved with the migration); a Supervisor reaches field days from the Today board's "In the field" card (no separate
+page, as the mock-up); and **Sales got one small read-only endpoint** `POST /api/plantops/locations/by-visit` so the day
+pages can say whether a visit's shop location was saved ("read from Sales").
+
+**Deploying v0.73.0 (only when the owner says so):**
+1. Attendance migration `0014_field_day.sql` on the shared copy (`./scripts/railway-migrate.sh shared`).
+2. Deploy **Sales first** (the by-visit check), then Attendance. Before Sales has it, the day pages just don't say
+   whether a shop location was saved; nothing breaks.
+3. Checks: `/health` on both; Sales `POST /api/plantops/locations/by-visit` without a ticket → 401; Attendance
+   `/api/field/customers?q=ab` without a login → 401; then the owner's phone checklist: tick Field staff for one person,
+   that person sees the **Field day** tab, starts with a meter photo, visits a customer (📍 saved as shop location shows in
+   Sales), ends; the owner sees "In the field" on Today, the person's Field days, the day page and the CSV.
+4. No new Railway variables.
+
+**Phase 5: how to start the next session.** Use the Phase 5 prompt below. The `field_not_ended` bell to owners at 07:00
+next morning goes into Attendance's daily job (`src/server/notify.ts`, `NOTIFICATION_KINDS` in `packages/types`); the
+"day not ended" is `fieldDayView(...).notEnded` for yesterday. Photo backup needs nothing (`backupNewFiles` copies all of
+Attendance's storage).
 
 **What Phase 1 left for later phases to use:**
 - `fetchLookupTicket(kit creds, tenantId, "order_capture", scope)` → `{ ticket, url }` or `null` (module off). Call it
@@ -34,24 +47,12 @@ _Updated 2026-11-14, end of session._
 - Code: `apps/order-capture/src/server/plantops-lookup.ts`, `apps/platform/src/server/lookup.ts`,
   `packages/auth/src/verify.ts` (`verifyLookupRequest`), `packages/types` (`LOOKUPS`).
 
-**Phase 2: how to start the next session.** Use the Phase 2 prompt below ("Shared header. Phase 2: show me migration
-`0014_field_day.sql` first…"), in plan mode. Read first in `apps/attendance-salary`:
-- `NOTES.md`
-- `src/server/access.ts` (add `field_own` / `field_view`)
-- `db/migrations/0004_claims.sql` (the `salary_claim_files` shape to copy for meter photos) and `0012_person_holidays.sql`
-  (the latest table pattern)
-- `src/lib/locate.ts` (`bestLocation`)
-- the Field staff tick (`salary_settings.field_staff`, newest row from that month, as for claims)
-- the claim photo upload path (storage in `ATTEND_STORAGE_DIR` / bucket) and the backup route (`backupNewFiles`), so the
-  meter photos follow the same path.
-
-The database design for `0014` is in "Database" below (`field_events`, `field_event_files`, `field_event_cancels`;
-SELECT + INSERT only; FORCE RLS). **Ask the owner before running it** (CLAUDE.md working rules).
-
 **Local dev note:** `.env` `PLATFORM_URL` is the LAN address `http://192.168.1.2:3000`, which can't be reached when the
 machine is off that Wi-Fi. Then a module can't fetch the platform's keys and refuses every ticket. For local checks,
 start the module with `PLATFORM_URL=http://localhost:3000 pnpm dev`. Plant 002 has neither Attendance nor Sales
-switched on: switch them on only for a check and restore the plan afterwards (the 2026-11-14 check did that).
+switched on: switch them on only for a check and restore the plan afterwards (the 2026-11-14 check did that). The
+module registry's Sales address is a LAN address too (`http://192.168.1.2:3005`); the machine's address changes, so a
+check points `platform.modules.base_url` for `order_capture` at `http://localhost:3005` and restores it (2026-11-15).
 
 ---
 

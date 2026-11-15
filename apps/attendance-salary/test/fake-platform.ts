@@ -43,6 +43,10 @@ export interface FakePlatform {
   enabled: Map<string, string[]>;
   /** module limits per plant for GET /api/tenants/:id/plan */
   limits: Map<string, Record<string, Record<string, number>>>;
+  /** where POST lookup-ticket sends Attendance (a fake Sales); null = refused (403: Sales off for the plant) */
+  salesUrl: string | null;
+  /** every lookup ticket asked for: { tenantId, to, scope } */
+  tickets: { tenantId: string; to: string; scope: string }[];
   sign(claims: Record<string, unknown>, aud?: ModuleId, ttl?: string): Promise<string>;
   loginToken(roles?: RoleId[]): Promise<string>;
   summaryToken(aud?: ModuleId, tenantId?: string): Promise<string>;
@@ -63,6 +67,8 @@ export async function startFakePlatform(): Promise<FakePlatform> {
     notifyStatus: 201,
     enabled: new Map<string, string[]>(),
     limits: new Map<string, Record<string, Record<string, number>>>(),
+    salesUrl: null as string | null,
+    tickets: [] as { tenantId: string; to: string; scope: string }[],
   };
   const send = (res: import("node:http").ServerResponse, code: number, body: unknown) => {
     res.writeHead(code, { "content-type": "application/json" });
@@ -76,6 +82,14 @@ export async function startFakePlatform(): Promise<FakePlatform> {
       for await (const chunk of req) raw += chunk;
       if (fake.notifyStatus === 201) fake.notifications.push({ tenantId: notify[1]!, body: JSON.parse(raw) });
       return send(res, fake.notifyStatus, fake.notifyStatus === 201 ? { recipients: 2, created: 2 } : { error: "no" });
+    }
+    const lookup = /^\/api\/m\/tenants\/([^/]+)\/lookup-ticket$/.exec(url);
+    if (lookup && req.method === "POST") {
+      let raw = "";
+      for await (const chunk of req) raw += chunk;
+      const body = JSON.parse(raw) as { to: string; scope: string };
+      fake.tickets.push({ tenantId: lookup[1]!, ...body });
+      return fake.salesUrl ? send(res, 200, { ticket: `fake-${body.scope}-${lookup[1]}`, url: fake.salesUrl }) : send(res, 403, { error: "Sales is off" });
     }
     const plan = /^\/api\/tenants\/([^/]+)\/plan$/.exec(url);
     if (plan) {

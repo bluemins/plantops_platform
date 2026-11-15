@@ -1,5 +1,6 @@
 import { istDay } from "@/lib/days";
 import { fmtTime } from "@/lib/punch";
+import { fmtKm } from "@/lib/field";
 import { asksDa, kmText, paiseText } from "@/lib/salary";
 import type { OwnerClaim } from "@/server/claims";
 import { claimHeading, claimValue, DecisionLine, shortDay, StatusPill, Thumbs } from "../claim-bits";
@@ -10,9 +11,9 @@ const DONE = { approved: "approved", rejected: "not approved", withdrawn: "withd
 /**
  * One claim as the owner sees it (mock-up 5): person, date, kind, km with "TA ₹126 (42 km × ₹3) · DA ₹150" at that
  * person's rates (or "no TA rate"), or the amount with the bill photos; the note; who entered it and when. With
- * `canDecide`: Approve / Not approve (waiting) or Cancel (approved).
+ * `canDecide`: Approve / Not approve (waiting) or Cancel (approved). `meter`: that day's field day (km by meter, shops).
  */
-export function OwnerClaimCard({ c, canDecide, showName = true }: { c: OwnerClaim; canDecide: boolean; showName?: boolean }) {
+export function OwnerClaimCard({ c, canDecide, showName = true, meter }: { c: OwnerClaim; canDecide: boolean; showName?: boolean; meter?: { kmTenths: number | null; visits: number } | null }) {
   const duty = c.kind === "field_duty";
   const rates: string[] = [];
   if (duty) {
@@ -33,6 +34,15 @@ export function OwnerClaimCard({ c, canDecide, showName = true }: { c: OwnerClai
         <strong className="tabular-nums">{claimValue(c)}</strong> · {c.note}
       </p>
       {duty && <p className="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-sm text-emerald-900">{rates.join(" · ")}</p>}
+      {duty && meter && (
+        // the field day log beside the claim (docs/FIELD_DAY_PHASE_PLAN.md mock-up C1): numbers only, claims and pay unchanged
+        <p className="rounded-lg bg-blue-50 px-2.5 py-1.5 text-sm text-blue-950">
+          Field day meter: {meter.kmTenths === null ? "not ended" : `${fmtKm(meter.kmTenths)} km`} · {meter.visits} {meter.visits === 1 ? "shop" : "shops"} ·{" "}
+          <a href={`/staff/${c.userId}/field/${c.onDate}`} className="font-semibold text-(--brand)">
+            open
+          </a>
+        </p>
+      )}
       <Thumbs ids={c.photoIds} />
       <p className="text-xs text-slate-600">
         {sent}

@@ -38,7 +38,11 @@ export type Action =
   // claims (docs/SALARY_EXTRAS_PHASE_PLAN.md "Who sees what")
   | "claim_own" // send own field-duty / expense claims, add photos, withdraw a waiting one, My claims
   | "claim_view" // the Claims tab: anyone's claims and photos (support: read-only)
-  | "claim_decide"; // approve / not approve / cancel; enter a claim for someone
+  | "claim_decide" // approve / not approve / cancel; enter a claim for someone
+  // field day log (docs/FIELD_DAY_PHASE_PLAN.md "Who can use it")
+  | "field_own" // My field day: start / visit / end, fix your own on the same day (only with the Field staff tick)
+  | "field_view" // anyone's field days, day pages and meter photos (Supervisor and support: read-only)
+  | "field_fix" // correct a start / end or remove a visit on any day; the visits CSV
 
 export const ACCESS: Record<Action, readonly Capacity[]> = {
   mark: ["employee"],
@@ -65,10 +69,16 @@ export const ACCESS: Record<Action, readonly Capacity[]> = {
   claim_own: ["employee"],
   claim_view: ["owner", "support"],
   claim_decide: ["owner"],
+  field_own: ["employee"],
+  field_view: ["owner", "supervisor", "support"],
+  field_fix: ["owner"],
 };
 
-/** Salary and claims: Office staff and Supervisors never learn these pages exist ("not found", never "not allowed"). */
-const SALARY_ACTIONS: readonly Action[] = ["holiday_edit", "salary_view", "salary_edit", "salary_pay", "salary_export", "see_own_salary", "claim_own", "claim_view", "claim_decide"];
+/**
+ * Salary, claims and field days: Office staff and Supervisors never learn these pages exist ("not found", never "not
+ * allowed"). A Supervisor may read field days (field_view), so for them only the field writes are "not found".
+ */
+const SALARY_ACTIONS: readonly Action[] = ["field_own", "field_view", "field_fix", "holiday_edit", "salary_view", "salary_edit", "salary_pay", "salary_export", "see_own_salary", "claim_own", "claim_view", "claim_decide"];
 
 /** What the user is, for this table. */
 export interface Actor {

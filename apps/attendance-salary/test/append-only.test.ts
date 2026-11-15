@@ -11,6 +11,13 @@ const DAY_MARK_COLUMNS = ["id", "tenant_id", "user_id", "user_name", "day", "mar
 /** Every column of person_holidays (migration 0012): none may change. */
 const HOLIDAY_COLUMNS = ["id", "tenant_id", "user_id", "user_name", "day", "action", "name", "paid", "choice_group", "created_by", "created_by_name", "created_at"];
 
+/** Every column of the field day tables (migration 0014): none may change. */
+const FIELD_COLUMNS: Record<string, string[]> = {
+  field_event_files: ["id", "tenant_id", "user_id", "storage_key", "content_type", "size_bytes", "sha256", "created_by", "created_by_name", "created_at"],
+  field_events: ["id", "tenant_id", "user_id", "user_name", "on_date", "kind", "lat", "lng", "accuracy_m", "place_text", "km_tenths", "photo_file_id", "corrects_id", "reason", "customer_id", "customer_name", "customer_place", "customer_phone", "save_location", "note", "created_by", "created_by_name", "created_at"],
+  field_event_cancels: ["id", "tenant_id", "event_id", "reason", "created_by", "created_by_name", "created_at"],
+};
+
 const SALARY_COLUMNS: Record<string, string[]> = {
   salary_advances: ["id", "tenant_id", "user_id", "user_name", "on_date", "amount_paise", "note", "corrects_id", "reason", "created_by", "created_by_name", "created_at", "source_ref"],
   salary_claim_decisions: ["id", "tenant_id", "claim_id", "decision", "reason", "created_by", "created_by_name", "created_at"],
@@ -80,6 +87,8 @@ describe("append-only for attendance_app", () => {
       ...DAY_MARK_COLUMNS.map((c) => `update attendance_salary.day_marks set ${c} = ${c}`),
       // holidays (0012): a change is a new row
       ...HOLIDAY_COLUMNS.map((c) => `update attendance_salary.person_holidays set ${c} = ${c}`),
+      // field day (0014): a correction or a removal is a new row
+      ...Object.entries(FIELD_COLUMNS).flatMap(([tbl, cols]) => cols.map((c) => `update attendance_salary.${tbl} set ${c} = ${c}`)),
     ];
   };
 
@@ -95,6 +104,15 @@ describe("append-only for attendance_app", () => {
     expect(rows.map((r) => r.column_name)).toEqual(HOLIDAY_COLUMNS);
   });
 
+  it("the field day column lists cover every column of the field day tables", async () => {
+    const { rows } = await asOwner<{ table_name: string; column_name: string }>(`
+      select table_name, column_name from information_schema.columns
+       where table_schema = 'attendance_salary' and table_name like 'field%' order by table_name, ordinal_position`);
+    const actual: Record<string, string[]> = {};
+    for (const r of rows) (actual[r.table_name] ??= []).push(r.column_name);
+    expect(actual).toEqual(FIELD_COLUMNS);
+  });
+
   it("the salary column lists below cover every column of the salary tables", async () => {
     const { rows } = await asOwner<{ table_name: string; column_name: string }>(`
       select table_name, column_name from information_schema.columns
@@ -106,7 +124,7 @@ describe("append-only for attendance_app", () => {
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(179); // + salary_advances.source_ref (0013); person_holidays (0012): delete, truncate, 12 columns; + field_staff (0005), staff_type (0006), wants_da (0007); day_marks (0008): delete, truncate, 9 columns; lunch_minutes (0009); work_start_minutes (0011)
+    expect(list.length).toBe(225); // field day (0014): 3 deletes, 3 truncates, 40 columns; + salary_advances.source_ref (0013); person_holidays (0012): delete, truncate, 12 columns; + field_staff (0005), staff_type (0006), wants_da (0007); day_marks (0008): delete, truncate, 9 columns; lunch_minutes (0009); work_start_minutes (0011)
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 

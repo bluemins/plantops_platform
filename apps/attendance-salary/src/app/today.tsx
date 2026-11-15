@@ -1,6 +1,7 @@
 import { addMonths, fmtMinutes, fmtMonth, istMonth } from "@/lib/days";
 import { fmtTime } from "@/lib/punch";
 import { can } from "@/server/access";
+import type { InTheField } from "@/server/field";
 import type { AtUser } from "@/server/session";
 import type { TodayBoard } from "@/server/today";
 
@@ -27,7 +28,7 @@ const row = "flex min-h-11 items-center justify-between gap-3 border-t border-bl
  * see everyone's days (owner, Office staff, support) every name opens that person's day; a Supervisor's board is
  * read-only except the Office staff (`reach`), whose names open their day with Fix (owner, 2026-10-19).
  */
-export function TodayView({ user, board, reach }: { user: AtUser; board: TodayBoard; reach?: ReadonlySet<string> }) {
+export function TodayView({ user, board, reach, field }: { user: AtUser; board: TodayBoard; reach?: ReadonlySet<string>; field?: InTheField[] | null }) {
   const months = Array.from({ length: 12 }, (_, i) => addMonths(istMonth(), -i));
   const all = can(user, "see_everyone");
   const linked = (href: string) => all || (reach?.has(href.split("/")[2] ?? "") ?? false);
@@ -59,6 +60,19 @@ export function TodayView({ user, board, reach }: { user: AtUser; board: TodayBo
           </li>
         ))}
       </Group>
+      {field && field.length > 0 && (
+        // the field day log (docs/FIELD_DAY_PHASE_PLAN.md mock-up B1): started, not ended rounds; owner, Supervisor, support
+        <Group title="In the field" tone="green" count={field.length}>
+          {field.map((p) => (
+            <li key={p.userId}>
+              <a href={`/staff/${p.userId}/field/${board.today}`} className={row}>
+                <span className="font-semibold">{p.name}</span>
+                <span className="text-right text-sm text-slate-600">{p.lastVisit ? `${p.lastVisit.name} · ${fmtTime(p.lastVisit.at)}` : `started ${fmtTime(p.startedAt)} · no visit yet`}</span>
+              </a>
+            </li>
+          ))}
+        </Group>
+      )}
       <Group title="Came and left" tone="slate" count={board.cameLeft.length}>
         {board.cameLeft.map((p) => (
           <li key={p.userId}>
