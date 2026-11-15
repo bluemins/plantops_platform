@@ -15,6 +15,8 @@ import { CancelWithReason, PrintButton, ReceivePayment } from "./ledger-forms";
 import { BillBadge, PhoneLink, StatusBadge } from "./parts";
 import { BuyingPaying } from "./buying-paying";
 import { DropCard } from "./drop-card";
+import { BrandsCard } from "./brands-card";
+import type { BrandsCardView } from "@/server/customer-brands";
 import type { DropCardView } from "@/server/drop/manage";
 
 export const BILL_SHOW = [
@@ -84,6 +86,7 @@ export function AccountView({
   show = {},
   plant,
   drop,
+  brands,
 }: {
   user: OcUser;
   a: Account;
@@ -95,6 +98,8 @@ export function AccountView({
   plant?: { name: string; gstin?: string | null };
   /** the Drop card (owner, Order desk, support); undefined = not shown */
   drop?: DropCardView;
+  /** "Brands they buy" (owner, Order desk, Accounts, Marketing staff, support); undefined = not shown */
+  brands?: BrandsCardView;
 }) {
   const isCustomer = a.party.kind === "customer";
   const qs = (t: string) => `${base}?tab=${t}`;
@@ -191,6 +196,11 @@ export function AccountView({
                     {d.delivery_landmark && <Row k="Landmark">{d.delivery_landmark}</Row>}
                   </dl>
                 )}
+              </Section>
+            )}
+            {isCustomer && brands && (
+              <Section title="Brands they buy">
+                <BrandsCard view={brands} />
               </Section>
             )}
             {isCustomer && drop && (

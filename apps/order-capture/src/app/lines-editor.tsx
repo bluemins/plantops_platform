@@ -3,9 +3,12 @@
 // The product lines of an order: one card per product with a whole quantity and a rate, "+ Add product" offering only
 // products not yet in the order. Below them the free boxes (scheme, e.g. "12 + 1 free"; owner, 2026-11-08): a green
 // card per product with a quantity only, "+ Add free boxes" offering any product not yet free. Shared by New order and
-// Change order, so both behave the same.
+// Change order, so both behave the same. The picker (owner, 2026-11-15) groups products by their brand on Rates, two per
+// row, with the customer's earlier products first ("Bought before") and only the brands the customer buys (set on their
+// page; "Show all brands" for a one-off).
 import { useState } from "react";
 import { isRate, lineTotal, money, unitsText } from "@/lib/money";
+import { brandGroups, brandKey, PACK_NOTE, shortName } from "@/lib/product-picker";
 import type { RateView } from "@/server/rates";
 
 /** `free`: free boxes; `rate` is then only the rate it started with (what they are worth), never typed */
@@ -54,6 +57,7 @@ export function LinesEditor({
   onChange,
   startRate,
   hint,
+  customer,
 }: {
   products: EditProduct[];
   lines: EditLine[];
@@ -62,36 +66,74 @@ export function LinesEditor({
   startRate: (skuId: string) => string;
   /** the small text under a line: "Their last rate: ₹90", "Default rate"… */
   hint: (line: EditLine, product: EditProduct) => string;
+  /** the customer's brands ([] = every brand) and last rates ("Bought before"); undefined = no customer yet */
+  customer?: { brands: string[]; lastRates: Record<string, string> };
 }) {
   const [picking, setPicking] = useState<false | "paid" | "free">(false);
+  const [allBrands, setAllBrands] = useState(false);
   const product = (id: string) => products.find((p) => p.sku_id === id)!;
   const set = (i: number, patch: Partial<EditLine>) => onChange(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const remove = (i: number) => onChange(lines.filter((_, j) => j !== i));
   const offered = (free: boolean) => products.filter((p) => p.addable !== false && !lines.some((l) => !!l.free === free && l.sku_id === p.sku_id));
   const indexed = lines.map((l, i) => ({ l, i }));
 
-  const picker = (free: boolean) => (
-    <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3">
-      <p className="text-sm font-semibold">{free ? "Which product is free?" : "Choose a product"}</p>
-      {offered(free).map((p) => (
-        <button
-          key={p.sku_id}
-          type="button"
-          onClick={() => {
-            onChange([...lines, { sku_id: p.sku_id, quantity: free ? "1" : "", rate: startRate(p.sku_id), edited: false, ...(free ? { free: true } : {}) }]);
-            setPicking(false);
-          }}
-          className="flex min-h-12 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 text-left hover:bg-slate-50"
-        >
-          <span className="font-semibold">{p.product}</span>
-          <span className="shrink-0 text-sm text-slate-500">{p.pack}</span>
-        </button>
-      ))}
-      <button type="button" className="min-h-11 text-sm font-semibold text-slate-600" onClick={() => setPicking(false)}>
-        Cancel
-      </button>
-    </div>
+  const pick = (p: EditProduct, free: boolean) => {
+    onChange([...lines, { sku_id: p.sku_id, quantity: free ? "1" : "", rate: startRate(p.sku_id), edited: false, ...(free ? { free: true } : {}) }]);
+    close();
+  };
+  const close = () => {
+    setPicking(false);
+    setAllBrands(false);
+  };
+  const tile = (p: EditProduct, free: boolean, name: string, note: string) => (
+    <button
+      key={p.sku_id}
+      type="button"
+      onClick={() => pick(p, free)}
+      className="flex min-h-14 min-w-0 flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-left hover:border-(--brand) hover:bg-(--brand-soft)"
+    >
+      <span className="text-sm leading-tight font-semibold break-words">{name}</span>
+      <span className="text-xs text-slate-500">{note}</span>
+    </button>
   );
+
+  const picker = (free: boolean) => {
+    const list = offered(free);
+    const theirs = customer?.brands ?? [];
+    const inTheirs = (p: EditProduct) => theirs.some((b) => brandKey(b) === brandKey(p.brand));
+    const limited = theirs.length > 0 && !allBrands && list.some(inTheirs);
+    const shown = limited ? list.filter(inTheirs) : list;
+    const hiddenBrands = new Set(list.filter((p) => !shown.includes(p)).map((p) => brandKey(p.brand))).size;
+    const last = customer?.lastRates ?? {};
+    const before = list.filter((p) => last[p.sku_id] !== undefined);
+    return (
+      <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
+        <p className="text-sm font-semibold">{free ? "Which product is free?" : "Choose a product"}</p>
+        {before.length > 0 && (
+          <div className="space-y-1.5 rounded-lg border border-amber-300 bg-amber-50 p-2">
+            <p className="text-xs font-bold tracking-wider text-slate-700 uppercase">Bought before</p>
+            <div className="grid grid-cols-2 gap-1.5">{before.map((p) => tile(p, free, p.product.replace(PACK_NOTE, ""), `${p.pack} · last ${money(last[p.sku_id]!)}`))}</div>
+          </div>
+        )}
+        {brandGroups(shown).map(([brand, ps]) => (
+          <div key={brand || "(none)"} className="space-y-1.5">
+            <p className="text-xs font-bold tracking-wider text-slate-500 uppercase">{brand || "Other"}</p>
+            <div className="grid grid-cols-2 gap-1.5">{ps.map((p) => tile(p, free, shortName(p), p.pack))}</div>
+          </div>
+        ))}
+        <div className="flex flex-wrap gap-x-4">
+          {limited && hiddenBrands > 0 && (
+            <button type="button" className="min-h-11 text-sm font-semibold text-(--brand)" onClick={() => setAllBrands(true)}>
+              Show all brands ({hiddenBrands} more)
+            </button>
+          )}
+          <button type="button" className="min-h-11 text-sm font-semibold text-slate-600" onClick={close}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -131,7 +173,7 @@ export function LinesEditor({
         : offered(false).length > 0 && (
             <button
               type="button"
-              onClick={() => setPicking("paid")}
+              onClick={() => { setAllBrands(false); setPicking("paid"); }}
               className="flex min-h-12 w-full items-center justify-center rounded-xl border border-dashed border-slate-400 font-semibold text-(--brand)"
             >
               + Add product
@@ -169,7 +211,7 @@ export function LinesEditor({
         : offered(true).length > 0 && (
             <button
               type="button"
-              onClick={() => setPicking("free")}
+              onClick={() => { setAllBrands(false); setPicking("free"); }}
               className="flex min-h-12 w-full items-center justify-center rounded-xl border border-dashed border-green-600 font-semibold text-green-800"
             >
               + Add free boxes

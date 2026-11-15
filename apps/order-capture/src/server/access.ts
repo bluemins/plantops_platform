@@ -60,6 +60,9 @@ export type Action =
   | "location_view" // a customer's shop location and the Shop locations search (no amounts)
   | "location_save" // "Save my location here" (standing at the shop)
   | "location_clear" // clear a wrong pin, with a reason
+  // Brands a customer buys (owner, 2026-11-15): New order / Change order list only these brands for the customer
+  | "brands_view" // see a customer's "Brands they buy"
+  | "brands_set" // change them
   // Drop, the customer app (docs/CUSTOMER_APP_PHASE_PLAN.md Phase 1, owner 2026-11-08)
   | "drop_view" // a customer's Drop card: switch, brands, phones, last login
   | "drop_manage" // switch a shop on / off for Drop, brands shown, Make main phone
@@ -130,6 +133,8 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   location_view: ["owner", "desk", "accounts", "delivery", "marketing", "support"],
   location_save: ["owner", "desk", "accounts", "delivery", "marketing"],
   location_clear: ["owner", "desk"],
+  brands_view: ["owner", "desk", "accounts", "marketing", "support"],
+  brands_set: ["owner", "desk"],
   drop_view: ["owner", "desk", "support"],
   drop_manage: ["owner"],
   drop_phones: ["owner", "desk"],

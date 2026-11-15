@@ -824,3 +824,20 @@ screens come in Phases 2–3.
 - Also: `bot.test.ts` "no rates or amounts" no longer fails when a random id contains "137".
 - Platform: `POST /api/m/tenants/:tid/lookup-ticket`; SSO token unchanged. Tests: Sales 1,296 (+9), platform 442 (+5),
   auth 96 (+6).
+
+## 2026-11-15 — Brands a customer buys + simpler product picker (v0.72.0)
+Asked by the owner 2026-11-15 (mock-up https://claude.ai/artifact/JWrek4DzXeTiHb62Xa1JD1, "build").
+- **Product picker** on New order, Change order and "+ Add free boxes" (`src/app/lines-editor.tsx`,
+  `src/lib/product-picker.ts`): products grouped by their brand on Rates (A–Z, "Other" = no brand, last), two small
+  buttons per row, the name without the brand in front and without the "(1 L × 12)" note (the pack shows under it).
+  A **"Bought before"** box at the top: the customer's products from earlier not-cancelled orders, with the last rate.
+- **Brands they buy** (customer Overview card, and `/customers/[id]/brands` for Order desk, linked "Brands" from their
+  customer list): tap brands on / off, Save. New order and Change order then list only those brands for the customer;
+  **"Show all brands (N more)"** for a one-off (doesn't change the setting). None ticked = every brand (every existing
+  customer until set). '' = the products with no brand ("Other"). "From past orders: …" + "Use these".
+  Owner and Order desk change it (`brands_set`); Accounts, Marketing staff, support read (`brands_view`). A saved brand
+  renamed away on Rates stays tickable until removed; when nothing matches, the picker shows all.
+- **Sales migration `0024_customer_brands.sql`** (approved by the owner 2026-11-15): `customer_brand_changes`, newest row =
+  current, FORCE RLS, `order_app` SELECT + INSERT only. Audited `customer.brands` ("Brands Shree Stores buys: Bluemins,
+  Mr.Charge"). `lookupCustomer` answers `brands`. Code: `src/server/customer-brands.ts`.
+- Separate from Drop's brands (what a shop sees in the customer app). Platform and SSO token unchanged.

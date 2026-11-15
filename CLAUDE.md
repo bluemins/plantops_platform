@@ -2361,3 +2361,13 @@ Asked by the owner 2026-11-15. Anyone of any role still adds cards (unchanged).
 - Supervisor is the Attendance role, so a plant without Attendance has only the owner to close / remove.
 - No migration (existing columns); SSO token unchanged. Code `apps/platform/src/server/board.ts`, `src/app/board/page.tsx`.
   Tests: platform board 10.
+
+### 2026-11-15 — Sales: simpler product picker + brands a customer buys (v0.72.0) — built, not deployed
+Asked by the owner 2026-11-15 (mock-up https://claude.ai/artifact/JWrek4DzXeTiHb62Xa1JD1). New order / Change order / free
+boxes: products grouped by their Rates brand, two per row, short names, the customer's "Bought before" products first with
+their last rate. **Brands they buy** card on the customer's Overview (and `/customers/[id]/brands` for Order desk): the
+order screens then list only those brands, with "Show all brands" for a one-off; none ticked = every brand. Owner + Order
+desk set it; Accounts, Marketing staff, support read; audited `customer.brands`. Sales migration
+`0024_customer_brands.sql` (approved: one append-only history table, FORCE RLS, SELECT + INSERT). Separate from Drop's
+brands. Platform and SSO token unchanged. Notes: `apps/order-capture/NOTES.md`. Tests: Sales 1,322 (+10); typecheck and
+build pass. **Deploy order:** Sales migration `0023` (field day, not yet live) then `0024`, then Sales. **Not yet:** on screen.

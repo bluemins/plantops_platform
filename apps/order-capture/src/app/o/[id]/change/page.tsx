@@ -4,6 +4,7 @@ import { priced } from "@/lib/history";
 import { getOrder } from "@/server/handling";
 import { kit } from "@/server/kit";
 import { formProducts } from "@/server/orders";
+import { changePicker } from "@/server/customer-brands";
 import { orNotFound } from "@/server/pages";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../../../header";
@@ -22,6 +23,7 @@ export default async function ChangeOrderPage({ params }: { params: Params }) {
   if (!can(user, "enter")) redirect(`/o/${id}`);
   const [plant, o, active] = await Promise.all([kit.branding(user.tenantId), orNotFound(getOrder(user, id)), formProducts(user)]);
   if (o.status !== "pending" || o.total === null) redirect(`/o/${id}`);
+  const picker = await changePicker(user, id);
   // products already in the order stay changeable even if switched off in PlantOps since (with their saved name / unit)
   const kept: EditProduct[] = o.lines
     .filter((l, i) => !active.some((p) => p.sku_id === l.sku_id) && o.lines.findIndex((x) => x.sku_id === l.sku_id) === i)
@@ -36,7 +38,7 @@ export default async function ChangeOrderPage({ params }: { params: Params }) {
       <p className="text-slate-600">
         {o.customer.name}, {o.customer.place}. The order is saved as a new version; the old one stays in its history.
       </p>
-      <ChangeEditor order={{ id: o.id, ref: o.ref, status: o.status, version: o.version, total: o.total, lines: priced(o.lines) }} products={products} />
+      <ChangeEditor order={{ id: o.id, ref: o.ref, status: o.status, version: o.version, total: o.total, lines: priced(o.lines) }} products={products} customer={picker} />
     </div>
   );
 }

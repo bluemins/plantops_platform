@@ -120,6 +120,8 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
   const person = await one(`insert into order_capture.customer_persons (tenant_id, customer_id, name, phone, role, by_user, by_name) values ('${tenantId}', '${customer}', 'Ramesh', '7008011223', 'shop boy', '${who}', 'Sujata') returning id`);
   const location = await one(`insert into order_capture.customer_locations (tenant_id, customer_id, kind, lat, lng, accuracy_m, source, by_user, by_name)
     values ('${tenantId}', '${customer}', 'set', 21.0234, 83.7841, 18, 'phone', '${who}', 'Raju') returning id`);
+  // brands the customer buys (0024)
+  await asApp(tenantId, `insert into order_capture.customer_brand_changes (tenant_id, customer_id, brands, changed_by, changed_by_name) values ('${tenantId}', '${customer}', '{Bluemins}', '${who}', 'Sujata')`);
   // Drop (0012): switched on, one extra phone, a login code and a session
   await asApp(tenantId, `insert into order_capture.app_access_changes (tenant_id, customer_id, enabled, changed_by, changed_by_name) values ('${tenantId}', '${customer}', true, '${who}', 'Sujata')`);
   await asApp(tenantId, `insert into order_capture.app_phone_changes (tenant_id, customer_id, phone, action, changed_by, changed_by_name) values ('${tenantId}', '${customer}', '7008099887', 'add', '${who}', 'Sujata')`);
@@ -191,7 +193,7 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
 /** The tables in the order_capture schema (the guard tests compare against this list). */
 export const TABLES = [
   "app_access_changes", "app_devices", "app_login_codes", "app_phone_changes", "app_push_outbox", "app_sessions",
-  "attendance_sends", "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "cash_closes", "cash_entries", "cash_vehicles", "collection_lines", "collection_posts", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
+  "attendance_sends", "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "cash_closes", "cash_entries", "cash_vehicles", "collection_lines", "collection_posts", "customer_brand_changes", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
   "expense_categories", "ignored_number_changes", "jar_customers", "jar_imports", "jar_month_lines", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "points_redemptions", "points_settings", "poll_answers", "polls", "product_rates",
   "purchase_bill_lines", "purchase_bills", "purchase_imports", "purchase_items",
   "reminder_groups", "staff_cash_spends", "support_views", "van_credit_lines", "van_credit_posts", "van_report_lines", "van_reports", "vendor_payment_allocations", "vendor_payments", "vendors", "zoho_contacts", "zoho_imports",

@@ -157,6 +157,7 @@ describe("append-only for order_app", () => {
       `update order_capture.customers set created_by_name = 'X' where id = '${ids.customer}'`,
       // Drop (0012): settings and phones are histories; a code's HMAC / phone and a session's token / shop never change
       `update order_capture.app_access_changes set enabled = true`,
+      `update order_capture.customer_brand_changes set brands = '{}'`,
       `update order_capture.app_phone_changes set action = 'add'`,
       `update order_capture.app_login_codes set code_hmac = repeat('0', 64)`,
       `update order_capture.app_login_codes set phone = '9000000000'`,
@@ -229,7 +230,7 @@ describe("append-only for order_app", () => {
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(87 + 14 + 19 + 2 + 11 + 6 + 9 + 8 + 6 + 4 + 6 + 4 + 5 + 4 + 6 + 14 + 16 + 8 + 9 + 8 + 9 + 8 + 6 + 4 + 8 + 2 + 3); // + jar_month_lines (delete, truncate) and 3 locked updates (0021); + the two Attendance-link tables (delete, truncate) and 8 locked updates (0020); + the four van tables (delete, truncate) and 6 locked updates (0019); + the four 20 L / collection tables (delete, truncate) and 9 locked updates (0018); + the four cash book tables (delete, truncate) and 9 locked cash updates (0017); // + the seven purchase tables (delete, truncate) and 16 locked purchase updates (0016); + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008); bill_settings (delete, truncate) and 11 locked bill-field updates (0009); the three customer tables (delete, truncate) and 9 locked updates (0010), and the customer's phone is no longer locked (the owner may change it, D3); the four Drop tables (delete, truncate) and 6 locked updates (0012)
+    expect(list.length).toBe(87 + 14 + 19 + 2 + 11 + 6 + 9 + 8 + 6 + 4 + 6 + 4 + 5 + 4 + 6 + 14 + 16 + 8 + 9 + 8 + 9 + 8 + 6 + 4 + 8 + 2 + 3 + 3); // + customer_brand_changes (delete, truncate) and 1 locked update (0024); + jar_month_lines (delete, truncate) and 3 locked updates (0021); + the two Attendance-link tables (delete, truncate) and 8 locked updates (0020); + the four van tables (delete, truncate) and 6 locked updates (0019); + the four 20 L / collection tables (delete, truncate) and 9 locked updates (0018); + the four cash book tables (delete, truncate) and 9 locked cash updates (0017); // + the seven purchase tables (delete, truncate) and 16 locked purchase updates (0016); + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008); bill_settings (delete, truncate) and 11 locked bill-field updates (0009); the three customer tables (delete, truncate) and 9 locked updates (0010), and the customer's phone is no longer locked (the owner may change it, D3); the four Drop tables (delete, truncate) and 6 locked updates (0012)
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 

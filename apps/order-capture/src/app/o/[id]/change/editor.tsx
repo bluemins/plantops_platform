@@ -10,7 +10,7 @@ import { freeUnitsOf, LinesEditor, linesBody, linesProblem, plainRate, totalOf, 
 type Order = { id: string; ref: string; status: "pending" | "delivered" | "cancelled"; version: number; total: string; lines: PricedLine[] };
 
 /** The order's current lines, editable; Save sends the version it started from (409 if someone changed it since). */
-export function ChangeEditor({ order, products }: { order: Order; products: EditProduct[] }) {
+export function ChangeEditor({ order, products, customer }: { order: Order; products: EditProduct[]; customer?: { brands: string[]; lastRates: Record<string, string> } }) {
   const [lines, setLines] = useState<EditLine[]>(order.lines.map((l) => ({ sku_id: l.sku_id, quantity: String(l.quantity), rate: plainRate(l.rate), edited: true, ...(l.free ? { free: true } : {}) })));
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -37,6 +37,7 @@ export function ChangeEditor({ order, products }: { order: Order; products: Edit
         products={products}
         lines={lines}
         onChange={setLines}
+        customer={customer}
         startRate={(skuId) => {
           const def = products.find((p) => p.sku_id === skuId)?.default_rate;
           return def ? plainRate(def) : "";

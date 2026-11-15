@@ -28,6 +28,7 @@ import { schema, withTenant, type OcTx } from "./db";
 import { badRequest, conflict, HttpError } from "./http";
 import { activeProducts, effectiveRates } from "./rates";
 import type { OcUser } from "./session";
+import { savedBrands } from "./customer-brands";
 
 const { customers, orders, orderLines, orderEvents } = schema;
 
@@ -138,7 +139,7 @@ export async function lookupCustomer(user: OcUser, typedPhone: string) {
   if (!phone) throw badRequest("Enter a 10-digit mobile number");
   return withTenant(user.tenantId, async (tx) => {
     const c = await findByPhone(tx, user.tenantId, phone);
-    if (!c) return { phone, customer: null, last_order_at: null, last_rates: {} as Record<string, string>, reward_asked: null, pending_order: null };
+    if (!c) return { phone, customer: null, last_order_at: null, last_rates: {} as Record<string, string>, brands: [] as string[], reward_asked: null, pending_order: null };
     const [last] = await tx
       .select({ at: orders.createdAt })
       .from(orders)
@@ -150,6 +151,8 @@ export async function lookupCustomer(user: OcUser, typedPhone: string) {
       customer: { id: c.id, name: c.name, place: c.place, active: c.active },
       last_order_at: last?.at.toISOString() ?? null,
       last_rates: await lastRates(tx, user.tenantId, c.id),
+      /** the brands this customer buys ([] = every brand; '' = products with no brand) */
+      brands: (await savedBrands(tx, user.tenantId, c.id)).brands,
       reward_asked: can(user, "drop_rewards") ? await askedFor(tx, user.tenantId, c.id) : null,
       pending_order: await pendingOrderOf(tx, user.tenantId, c.id),
     };

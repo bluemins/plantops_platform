@@ -55,6 +55,8 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["location_view", true, true, false, false, true],
   ["location_save", true, true, false, false, false],
   ["location_clear", true, true, false, false, false],
+  ["brands_view", true, true, false, false, true],
+  ["brands_set", true, true, false, false, false],
   ["drop_view", true, true, false, false, true],
   ["drop_manage", true, false, false, false, false],
   ["drop_phones", true, true, false, false, false],
@@ -160,7 +162,7 @@ describe("the access table", () => {
 describe("Accounts", () => {
   const acc = ocUser(p.owner.tenantId, ["accounts"], "Kedar");
   const both = ocUser(p.owner.tenantId, ["order_desk", "accounts"], "Kedar");
-  const ACCOUNTS_MAY = ["read", "see_amounts", "view_customers", "ledger_view", "account_view", "bill_make", "payment_receive", "undo_delivered", "bill_cancel", "payment_cancel", "location_view", "location_save", "purchases_view", "purchase_enter", "purchases_received", "payables", "cash_view", "cash_enter", "cash_close", "collection_post"];
+  const ACCOUNTS_MAY = ["read", "see_amounts", "view_customers", "ledger_view", "account_view", "bill_make", "payment_receive", "undo_delivered", "bill_cancel", "payment_cancel", "location_view", "location_save", "purchases_view", "purchase_enter", "purchases_received", "payables", "cash_view", "cash_enter", "cash_close", "collection_post", "brands_view"];
   it.each(TABLE)("%s: Accounts may only read orders and work on bills / payments", (action) => {
     expect(can(acc, action)).toBe(ACCOUNTS_MAY.includes(action));
   });
@@ -184,7 +186,7 @@ describe("Accounts", () => {
 describe("Marketing staff", () => {
   const t = p.owner.tenantId;
   const mkt = ocUser(t, ["marketing_staff"], "Mitu");
-  const MARKETING_MAY = ["view_customers", "customers", "account_view", "customer_details", "customer_comment", "location_view", "location_save"];
+  const MARKETING_MAY = ["view_customers", "customers", "account_view", "customer_details", "customer_comment", "location_view", "location_save", "brands_view"];
   it("is marketing; owner and the order roles come first, and add Marketing staff's rights", () => {
     expect(whoFor(["marketing_staff"])).toBe("marketing");
     expect(whoFor(["marketing_staff", "plant_staff"])).toBe("marketing");

@@ -31,6 +31,10 @@ export function describeChange(action: string, details: Record<string, unknown>)
     }
     case "customer.add":
       return `Added customer ${show(details.name)}, ${show(details.place)} (${phone(details.phone)})${details.from === "call" ? " from a phone call" : ""}`;
+    case "customer.brands": {
+      const list = (details.brands ?? []) as string[];
+      return `Brands ${show(details.name)} buys: ${list.length ? list.join(", ") : "every brand"}`;
+    }
     case "drop.switch":
       return `Drop app ${details.enabled ? "switched on" : "switched off"} for ${show(details.name)}`;
     case "drop.brands": {

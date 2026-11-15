@@ -17,6 +17,8 @@ type Lookup = {
   customer: { id: string; name: string; place: string; active: boolean } | null;
   last_order_at: string | null;
   last_rates: Record<string, string>;
+  /** the brands this customer buys ([] = every brand) */
+  brands: string[];
   /** a free box the shop asked for with Drop points, not on an order yet */
   reward_asked: { id: string; label: string; points: number } | null;
   /** their pending order: no second order while one is pending (owner, 2026-11-13); change it instead */
@@ -264,6 +266,7 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
         lines={lines}
         onChange={setLines}
         startRate={(skuId) => startRate(skuId, products, found)}
+        customer={found?.customer ? { brands: found.brands ?? [], lastRates: found.last_rates } : undefined}
         hint={(l, p) => {
           const last = found?.last_rates[l.sku_id];
           return last ? `Their last rate: ${money(last)}` : p.default_rate ? "Default rate" : "No default rate: type the rate";

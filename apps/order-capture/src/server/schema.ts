@@ -462,6 +462,17 @@ export const billAdjustments = oc.table("bill_adjustments", {
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 
+// ---------- Brands a customer buys (0024): newest row = current; [] = every brand, '' = products with no brand ----------
+export const customerBrandChanges = oc.table("customer_brand_changes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  customerId: uuid("customer_id").notNull(),
+  brands: text("brands").array().notNull().default([]),
+  changedBy: uuid("changed_by").notNull(),
+  changedByName: text("changed_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
 // ---------- Drop, the customer app (0012): switch + brands, extra phones, login codes, app sessions ----------
 export type SessionEndReason = "logout" | "switched_off" | "phone_removed" | "customer_off";
 
