@@ -3,13 +3,14 @@
 import { useState, type FormEvent } from "react";
 import { Button, Card, ErrorText, TextField } from "@plantops/ui";
 import { api } from "@/lib/api";
+import { LETTERS, type Letter } from "@/lib/letters";
 import { OPTIN_TEXT } from "@/lib/optin";
 import { NAME_MAX, PLACE_MAX } from "@/lib/upload";
 import type { CustomerView } from "@/server/customers";
 import { PhoneLink } from "../parts";
 
 /** balances: owner only (null for everyone else): rupees, > 0 = they owe, < 0 = advance; missing = no bills */
-type List = { customers: CustomerView[]; more: boolean; total: number; off: number; balances: Record<string, string> | null };
+type List = { customers: CustomerView[]; more: boolean; total: number; off: number; balances: Record<string, string> | null; letters: Letter[] };
 type Editing = { kind: "new" } | { kind: "edit"; id: string } | null;
 
 const reload = () => window.location.reload();
@@ -24,8 +25,43 @@ function Money({ balance }: { balance?: string }) {
   return <span className="text-slate-500">No due</span>;
 }
 
+/** The list's address with search, switched-off and letter kept (a value of undefined drops that one). */
+function listHref(p: { q: string; showOff: boolean; letter?: Letter }) {
+  const s = new URLSearchParams({ ...(p.q ? { q: p.q } : {}), ...(p.showOff ? { off: "1" } : {}), ...(p.letter ? { l: p.letter } : {}) });
+  return s.size ? `/customers?${s}` : "/customers";
+}
+
+/** All · A–Z · #: one row that scrolls sideways on a phone. Letters with no customer (for this search) are greyed. */
+function LetterStrip({ q, showOff, letter, have }: { q: string; showOff: boolean; letter?: Letter; have: Letter[] }) {
+  const chip = "flex h-10 min-w-10 shrink-0 items-center justify-center rounded-lg border px-2 font-bold";
+  const on = `${chip} border-(--brand) bg-(--brand) text-(--brand-contrast)`;
+  const off = `${chip} border-slate-200 bg-white text-slate-800 hover:bg-slate-50`;
+  return (
+    <nav aria-label="Show customers by first letter" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+      <a href={listHref({ q, showOff })} aria-current={!letter ? "page" : undefined} className={!letter ? on : off}>
+        All
+      </a>
+      {LETTERS.map((l) =>
+        l === letter ? (
+          <a key={l} href={listHref({ q, showOff, letter: l })} aria-current="page" className={on}>
+            {l}
+          </a>
+        ) : have.includes(l) ? (
+          <a key={l} href={listHref({ q, showOff, letter: l })} className={off} title={l === "#" ? "Names starting with a number or other sign" : undefined}>
+            {l}
+          </a>
+        ) : (
+          <span key={l} aria-disabled="true" className={`${chip} border-transparent text-slate-300`}>
+            {l}
+          </span>
+        ),
+      )}
+    </nav>
+  );
+}
+
 /** Search, add, edit name / place, switch off / on. PlantOps support gets the same list without buttons. */
-export function CustomersEditor({ list, q, showOff, canEdit, plainPhones, accounts = false, dropPhones = false, brandsLink = false }: { list: List; q: string; showOff: boolean; canEdit: boolean; plainPhones: boolean; accounts?: boolean; dropPhones?: boolean; brandsLink?: boolean }) {
+export function CustomersEditor({ list, q, showOff, letter, canEdit, plainPhones, accounts = false, dropPhones = false, brandsLink = false }: { list: List; q: string; showOff: boolean; letter?: Letter; canEdit: boolean; plainPhones: boolean; accounts?: boolean; dropPhones?: boolean; brandsLink?: boolean }) {
   const [editing, setEditing] = useState<Editing>(null);
   const [error, setError] = useState<string>();
   const close = () => setEditing(null);
@@ -48,6 +84,7 @@ export function CustomersEditor({ list, q, showOff, canEdit, plainPhones, accoun
           className="min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-4 text-base focus:border-(--brand) focus:outline-none focus:ring-2 focus:ring-(--brand-ring)"
         />
         {showOff && <input type="hidden" name="off" value="1" />}
+        {letter && <input type="hidden" name="l" value={letter} />}
         <Button type="submit" variant="secondary">
           Search
         </Button>
@@ -56,7 +93,7 @@ export function CustomersEditor({ list, q, showOff, canEdit, plainPhones, accoun
       <div className="flex flex-wrap items-center gap-3">
         {canEdit && editing?.kind !== "new" && <Button onClick={() => setEditing({ kind: "new" })}>+ Add customer</Button>}
         {list.off > 0 && (
-          <a href={`/customers?${new URLSearchParams({ ...(q ? { q } : {}), ...(showOff ? {} : { off: "1" }) })}`} className="flex min-h-12 items-center text-sm font-semibold text-(--brand)">
+          <a href={listHref({ q, showOff: !showOff, letter })} className="flex min-h-12 items-center text-sm font-semibold text-(--brand)">
             {showOff ? "Hide switched-off" : `Show switched-off (${list.off})`}
           </a>
         )}
@@ -64,9 +101,19 @@ export function CustomersEditor({ list, q, showOff, canEdit, plainPhones, accoun
       {editing?.kind === "new" && <CustomerForm onClose={close} />}
       <ErrorText>{error}</ErrorText>
 
+      {list.total > 0 && <LetterStrip q={q} showOff={showOff} letter={letter} have={list.letters} />}
+      {letter && list.customers.length > 0 && (
+        <p className="text-sm text-slate-500">
+          {list.more ? `More than ${list.customers.length}` : list.customers.length} customer{list.customers.length === 1 ? "" : "s"} starting with {letter === "#" ? "a number or other sign" : letter}
+          {q ? ` matching “${q}”` : ""}
+        </p>
+      )}
+
       <Card className="p-3">
         {list.customers.length === 0 ? (
-          <p className="p-2 text-slate-500">{q ? "No customer matches this search." : list.total === 0 ? "No customers yet." : "No customers to show."}</p>
+          <p className="p-2 text-slate-500">
+            {letter ? `No customer starts with ${letter === "#" ? "a number or other sign" : letter}${q ? " for this search" : ""}.` : q ? "No customer matches this search." : list.total === 0 ? "No customers yet." : "No customers to show."}
+          </p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {list.customers.map((c) => (

@@ -853,3 +853,13 @@ Asked by the owner 2026-11-15 (mock-up https://claude.ai/artifact/HNdcc6s2cmdrs8
   everyone else, so Accounts, Order desk and Marketing staff never receive the amounts.
 - **Switch off moved inside Edit**, behind an "Are you sure?" question; a switched-off customer keeps "Switch on" on its row.
 - No migration; platform and SSO token unchanged. Tests: Sales +3 (`test/ledger-actions.test.ts`).
+
+## 2026-11-15 — Customer list: letter filter (v0.74.1)
+Asked by the owner 2026-11-15 (mock-up https://claude.ai/artifact/8FbuyrPndBxpWq3ysuAmVJ approved: "build").
+- **All · A–Z · #** under "+ Add customer" on Sales → Customers: one row of chips that scrolls sideways on a phone. A
+  letter shows only names starting with it (any case, leading spaces ignored); **#** = every name not starting with
+  A–Z (numbers, Odia, signs). Letters with no customer are greyed (worked out with the search box and "Show
+  switched-off", not the picked letter). The letter is in the address (`?l=S`), so it works with search /
+  switched-off and stays on Back. Each letter shows up to 200 customers, so it also replaces "type in the search box".
+- `LETTERS` / `asLetter` in `src/lib/letters.ts`; `listCustomers({ letter })` answers `letters` (`src/server/customers.ts`).
+- No migration; platform and SSO token unchanged. Tests: Sales +1 (`test/customers.test.ts`).

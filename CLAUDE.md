@@ -2407,3 +2407,9 @@ Asked by the owner 2026-11-15 (mock-up https://claude.ai/artifact/HNdcc6s2cmdrs8
 customer (name | place; Edit | phone + Account ›); **owner only** (support read-only): "Due ₹… / Advance ₹… / No due" under
 the place, the Account page's balance (`listBalances`, right `ledger_totals`; nobody else receives the amounts); Switch off
 moved inside Edit with a confirm. No migration; SSO token unchanged. Notes: `apps/order-capture/NOTES.md`.
+
+### 2026-11-15 — Sales: customer list letter filter (v0.74.1)
+Asked by the owner 2026-11-15 (mock-up https://claude.ai/artifact/8FbuyrPndBxpWq3ysuAmVJ). Sales → Customers: a row of
+**All · A–Z · #** chips under "+ Add customer" (scrolls sideways on a phone; letters without customers greyed; `#` = names
+not starting with A–Z); works with search and "Show switched-off", kept in the address (`?l=`). No migration; SSO token
+unchanged. Notes: `apps/order-capture/NOTES.md`.

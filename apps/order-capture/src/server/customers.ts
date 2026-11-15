@@ -8,6 +8,7 @@
 import { and, asc, eq, ilike, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { normalisePhone } from "@plantops/module-kit/phone";
+import { LETTERS, type Letter } from "@/lib/letters";
 import { clean, NAME_MAX, NAME_MIN, PHONE_TYPED_MAX, PLACE_MAX, PLACE_MIN } from "@/lib/upload";
 import { can, requireAccess } from "./access";
 import { listBalances } from "./ledger";
@@ -73,17 +74,27 @@ export async function findByPhone(tx: OcTx, tenantId: string, phone: string) {
  * The list screen: switched-on customers by name (and switched-off ones when asked), searched by name, place or
  * phone digits; at most `limit`. `off` = how many are switched off, for the "Show switched-off" tick.
  */
-export async function listCustomers(user: OcUser, opts: { q?: string; showOff?: boolean; limit?: number } = {}) {
+/** A name's letter on the customer list's strip (`LETTERS`): its first A–Z letter, else "#". */
+const firstLetter = sql<string>`case when upper(left(btrim(${customers.name}), 1)) between 'A' and 'Z' then upper(left(btrim(${customers.name}), 1)) else '#' end`;
+
+export async function listCustomers(user: OcUser, opts: { q?: string; showOff?: boolean; limit?: number; letter?: Letter } = {}) {
   requireAccess(user, "view_customers");
   const q = (opts.q ?? "").trim();
   const digits = normalisePhone(q) ?? q.replace(/\D/g, "");
   return withTenant(user.tenantId, async (tx) => {
     const where = [eq(customers.tenantId, user.tenantId)];
     if (!opts.showOff) where.push(eq(customers.active, true));
+    // the letters that have a customer (search and switched-off respected, the picked letter not), for greying the rest
+    const lettersWhere = [...where];
+    if (opts.letter) where.push(sql`${firstLetter} = ${opts.letter}`);
     if (q) {
       const text = `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
-      where.push(or(ilike(customers.name, text), ilike(customers.place, text), ...(digits.length >= 3 ? [like(customers.phone, `%${digits}%`)] : []))!);
+      const match = or(ilike(customers.name, text), ilike(customers.place, text), ...(digits.length >= 3 ? [like(customers.phone, `%${digits}%`)] : []))!;
+      where.push(match);
+      lettersWhere.push(match);
     }
+    const letterRows = await tx.selectDistinct({ l: firstLetter }).from(customers).where(and(...lettersWhere));
+    const letters = LETTERS.filter((l) => letterRows.some((r) => r.l === l));
     const limit = opts.limit ?? 200;
     const rows = await tx.select().from(customers).where(and(...where)).orderBy(asc(sql`lower(${customers.name})`), asc(customers.place)).limit(limit + 1);
     const [counts] = await tx
@@ -93,7 +104,7 @@ export async function listCustomers(user: OcUser, opts: { q?: string; showOff?: 
     const shown = rows.slice(0, limit);
     // what each customer owes: owner only (and support, read-only); never sent to anyone else
     const balances = can(user, "ledger_totals") ? await listBalances(tx, user.tenantId, shown.map((c) => c.id)) : null;
-    return { customers: await views(tx, user.tenantId, shown), more: rows.length > limit, total: counts?.total ?? 0, off: counts?.off ?? 0, balances };
+    return { customers: await views(tx, user.tenantId, shown), more: rows.length > limit, total: counts?.total ?? 0, off: counts?.off ?? 0, balances, letters };
   });
 }
 

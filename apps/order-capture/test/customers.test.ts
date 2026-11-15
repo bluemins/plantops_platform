@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/customers/route";
 import { PATCH } from "@/app/api/customers/[id]/route";
 import { createCustomer, CustomerInput, listCustomers, updateCustomer } from "@/server/customers";
+import type { Letter } from "@/lib/letters";
 import { asOwner, auditRows, jsonReq, plant, refused, signInAs } from "./helpers";
 
 afterEach(() => vi.restoreAllMocks());
@@ -138,5 +139,27 @@ describe("the list", () => {
     expect(await listCustomers(p.owner)).toMatchObject({ total: 3, off: 1, more: false });
     expect((await listCustomers(p.owner, { limit: 1 })).more).toBe(true);
     expect((await listCustomers(plant().owner)).customers).toEqual([]);
+  });
+
+  it("letter filter: names starting with that letter (any case), # for the rest; letters that have someone", async () => {
+    const p = plant();
+    await add(p.owner, "9692905402", "sri ram hotel", "bijepur");
+    await add(p.owner, "9123456780", "Sahu Medicals", "Bargarh");
+    await add(p.owner, "9000000005", "Maa Tarini Store", "Sohela");
+    await add(p.owner, "9000000006", "786 Hotel", "Bijepur");
+    const { customer: off } = await add(p.owner, "9000000004", "Laxmi Bhojanalaya", "Attabira");
+    await updateCustomer(p.owner, off.id, { active: false });
+    const names = async (letter: Letter, q = "", showOff = false) =>
+      (await listCustomers(p.desk, { letter, q, showOff })).customers.map((c) => c.name);
+    expect(await names("S")).toEqual(["Sahu Medicals", "sri ram hotel"]);
+    expect(await names("#")).toEqual(["786 Hotel"]);
+    expect(await names("L")).toEqual([]);
+    expect(await names("L", "", true)).toEqual(["Laxmi Bhojanalaya"]);
+    expect(await names("S", "bijepur")).toEqual(["sri ram hotel"]); // with the search box
+    // greying: the letters ignore the picked letter but follow the search and switched-off
+    expect((await listCustomers(p.desk, { letter: "S" })).letters).toEqual(["M", "S", "#"]);
+    expect((await listCustomers(p.desk, { showOff: true })).letters).toEqual(["L", "M", "S", "#"]);
+    expect((await listCustomers(p.desk, { q: "bijepur" })).letters).toEqual(["S", "#"]);
+    expect((await listCustomers(plant().owner, { letter: "S" })).customers).toEqual([]);
   });
 });
