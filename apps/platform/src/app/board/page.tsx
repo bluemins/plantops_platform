@@ -93,7 +93,13 @@ export default function BoardPage() {
     { d: today, label: "Today" },
     { d: addDays(today, 1), label: "Tomorrow" },
   ];
-  const all = [...day.carried, ...day.cards].filter((c) => !c.removed);
+  // One list, open cards first (carried ones from earlier days at the top), then closed, then removed (owner, 2026-11-15).
+  const rank = (c: BoardCard) => (c.removed ? 2 : c.done ? 1 : 0);
+  const list = [...day.carried, ...day.cards]
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i)
+    .map(({ c }) => c);
+  const all = list.filter((c) => !c.removed);
   const left = all.filter((c) => !c.done).length;
   const past = day.date < today;
 
@@ -143,24 +149,12 @@ export default function BoardPage() {
 
       {day.can_add && <AddCard date={day.date} onSaved={() => load(day.date)} onError={setError} />}
 
-      {day.carried.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-slate-700">From earlier days ({day.carried.filter((c) => !c.done && !c.removed).length} still open)</h2>
-          <ul className="space-y-3">
-            {day.carried.map((c) => (
-              <CardRow key={c.id} card={c} past={false} onChanged={() => load(day.date)} onError={setError} />
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {day.carried.length > 0 && day.cards.length > 0 && <h2 className="text-sm font-semibold text-slate-700">For today</h2>}
-      {day.cards.length === 0 ? (
-        day.carried.length === 0 && <Card className="text-center text-slate-500">Nothing on the board for this day yet.</Card>
+      {list.length === 0 ? (
+        <Card className="text-center text-slate-500">Nothing on the board for this day yet.</Card>
       ) : (
         <ul className="space-y-3">
-          {day.cards.map((c) => (
-            <CardRow key={c.id} card={c} past={past} onChanged={() => load(day.date)} onError={setError} />
+          {list.map((c) => (
+            <CardRow key={c.id} card={c} past={past && !c.carried_from} onChanged={() => load(day.date)} onError={setError} />
           ))}
         </ul>
       )}
