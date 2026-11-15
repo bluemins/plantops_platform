@@ -2391,7 +2391,7 @@ Documentation only: claims, TA / DA and salary unchanged.
   `pnpm dev` (plant 002, temporary data, all removed) at 390 / 1280 px. Notes: `apps/attendance-salary/NOTES.md`.
 - **Deploy order:** Attendance `0014`, then Sales, then Attendance (done; migration applied first).
 
-### 2026-11-15 — Field day Phase 5: "not ended" bell + Sales customer list (v0.74.0) — built, not deployed; field day plan DONE
+### 2026-11-15 — Field day Phase 5: "not ended" bell + Sales customer list (v0.74.0) — live 2026-11-15 (`d23e783`); field day plan DONE
 Kind `attendance_salary.field_not_ended` (owners, bell only): "Ravi's field day was not ended (started 9:12)", sent by
 Attendance's 07:00 daily job, one per person and day, linking the day page. No migration; SSO token unchanged; platform
 gets the kind only. HANDBOOK "Attendance: field day". Left out on purpose and listed in `docs/TODO.md` Later (owner

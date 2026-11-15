@@ -1,6 +1,6 @@
 # Field day log (Attendance & Salary): Phase Plan and Build Prompts
 
-> **Status: DONE (owner, 2026-11-15).** Every phase is built (Phases 1–4 live 2026-11-15; Phase 5 in v0.74.0). Left:
+> **Status: DONE (owner, 2026-11-15).** Every phase is built (Phases 1–4 live 2026-11-15; Phase 5 live in v0.74.0, 2026-11-15). Left:
 > only the owner's phone checklist (`docs/deployments/shared.md`, v0.73.0 row). Ideas left out on purpose are in
 > `docs/TODO.md` "Later (features)". New field-day work starts a new plan.
 
@@ -14,7 +14,7 @@ _Updated 2026-11-15._
 | 2 | Attendance migration `0014_field_day.sql`, access rows, server functions | **Live 2026-11-15** (v0.73.0) |
 | 3 | Worker screen `/my/field` | **Live 2026-11-15** (v0.73.0) |
 | 4 | Owner / supervisor screens, CSV, Claims card line | **Live 2026-11-15** (v0.73.0) |
-| 5 | `field_not_ended` notification, docs (HANDBOOK, CLAUDE.md status), release | **Built 2026-11-15, v0.74.0, not deployed** (platform + Attendance, no migration) |
+| 5 | `field_not_ended` notification, docs (HANDBOOK, CLAUDE.md status), release | **Live 2026-11-15** (v0.74.0, platform + Attendance, no migration) |
 
 Phases 2–4 were built together (owner, 2026-11-15); what was built and the choices made while building:
 `apps/attendance-salary/NOTES.md` "2026-11-15: field day log, Phases 2–4". Three changes from this plan, all in that note:
