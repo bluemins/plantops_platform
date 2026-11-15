@@ -6,7 +6,7 @@ _Updated 2026-11-14, end of session._
 | Phase | What | State |
 |---|---|---|
 | 0 | Re-check, ❓ points, mock-ups | **Done 2026-11-14.** All ❓ points decided as proposed; mock-ups approved |
-| 1 | Lookup ticket (platform + auth), Sales customer search + field-visit location, 📍 Map on orders / WhatsApp copy, Sales migration `0023` | **Built 2026-11-14, v0.71.0 (`04208eb`, tagged), NOT deployed** |
+| 1 | Lookup ticket (platform + auth), Sales customer search + field-visit location, 📍 Map on orders / WhatsApp copy, Sales migration `0023` | **Built 2026-11-14, v0.71.0 (`04208eb`); live 2026-11-15 with v0.72.0 (Sales `0023` applied)** |
 | 2 | Attendance migration `0014_field_day.sql`, access rows, server functions | **Next** |
 | 3 | Worker screen `/my/field` | to do |
 | 4 | Owner / supervisor screens, CSV, Claims card line | to do |
@@ -262,7 +262,7 @@ Re-check this plan against the code (F1 may have changed the person page / Today
 answer the ❓ points.
 
 ### Phase 1: Lookup ticket (platform, auth, Order Capture)
-**Built 2026-11-14 (v0.71.0, not deployed):** see `apps/order-capture/NOTES.md`. Clear-with-reason and Recent changes
+**Built 2026-11-14 (v0.71.0, live 2026-11-15):** see `apps/order-capture/NOTES.md`. Clear-with-reason and Recent changes
 already existed (Sales v0.45.0).
 `LOOKUPS` (both scopes), the platform endpoint, `fetchLookupTicket` / `verifyLookupRequest`, Order Capture's customers
 endpoint (name / place / phone search), Sales migration `0023` (`visit_id`, shown first), the location endpoint, the 📍 Map
