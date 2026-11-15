@@ -9,7 +9,8 @@ import { and, asc, eq, ilike, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { normalisePhone } from "@plantops/module-kit/phone";
 import { clean, NAME_MAX, NAME_MIN, PHONE_TYPED_MAX, PLACE_MAX, PLACE_MIN } from "@/lib/upload";
-import { requireAccess } from "./access";
+import { can, requireAccess } from "./access";
+import { listBalances } from "./ledger";
 import { audit } from "./audit";
 import { latestConsents, recordConsent } from "./consent";
 import { customerOfPhone, extraPhoneOwner } from "./drop/shops";
@@ -89,7 +90,10 @@ export async function listCustomers(user: OcUser, opts: { q?: string; showOff?: 
       .select({ total: sql<number>`count(*)::int`, off: sql<number>`count(*) filter (where not ${customers.active})::int` })
       .from(customers)
       .where(eq(customers.tenantId, user.tenantId));
-    return { customers: await views(tx, user.tenantId, rows.slice(0, limit)), more: rows.length > limit, total: counts?.total ?? 0, off: counts?.off ?? 0 };
+    const shown = rows.slice(0, limit);
+    // what each customer owes: owner only (and support, read-only); never sent to anyone else
+    const balances = can(user, "ledger_totals") ? await listBalances(tx, user.tenantId, shown.map((c) => c.id)) : null;
+    return { customers: await views(tx, user.tenantId, shown), more: rows.length > limit, total: counts?.total ?? 0, off: counts?.off ?? 0, balances };
   });
 }
 

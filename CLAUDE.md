@@ -2372,7 +2372,7 @@ desk set it; Accounts, Marketing staff, support read; audited `customer.brands`.
 brands. Platform and SSO token unchanged. Notes: `apps/order-capture/NOTES.md`. Tests: Sales 1,322 (+10); typecheck and
 build pass. **Live 2026-11-15** with v0.71.0 (migrations `0023` + `0024` applied; `production` = `main`). **Not yet:** on screen.
 
-### 2026-11-15 — Field day log Phases 2–4: the Field staff's day in Attendance (v0.73.0) — built, not deployed
+### 2026-11-15 — Field day log Phases 2–4: the Field staff's day in Attendance (v0.73.0) — live 2026-11-15 (`e20111b`)
 Owner 2026-11-15 ("Phases 2, 3 and 4 together"; plan approved, mock-ups https://claude.ai/artifact/EutRdTDJaBw7tHpHLXcUCq).
 Documentation only: claims, TA / DA and salary unchanged.
 - **Attendance migration `0014_field_day.sql`** (approved): `field_events` (start / visit / end), `field_event_files` (meter
@@ -2389,4 +2389,21 @@ Documentation only: claims, TA / DA and salary unchanged.
   visit's shop location was saved. No Sales schema change. Platform and SSO token unchanged.
 - The plan's storage limit now counts claim and field photos together. Tests: Attendance 525, Sales 1,324. Checked on
   `pnpm dev` (plant 002, temporary data, all removed) at 390 / 1280 px. Notes: `apps/attendance-salary/NOTES.md`.
-- **Deploy order:** Attendance `0014`, then Sales, then Attendance. **Next:** Phase 5 (the "not ended" bell, HANDBOOK).
+- **Deploy order:** Attendance `0014`, then Sales, then Attendance (done; migration applied first).
+
+### 2026-11-15 — Field day Phase 5: "not ended" bell + Sales customer list (v0.74.0) — built, not deployed; field day plan DONE
+Kind `attendance_salary.field_not_ended` (owners, bell only): "Ravi's field day was not ended (started 9:12)", sent by
+Attendance's 07:00 daily job, one per person and day, linking the day page. No migration; SSO token unchanged; platform
+gets the kind only. HANDBOOK "Attendance: field day". Left out on purpose and listed in `docs/TODO.md` Later (owner
+2026-11-15): route / tracking, a map in the page, new Sales customers from the field, visit ↔ order, use in claims / pay.
+Tests: Attendance 526, platform 443. Owner's phone checklist: `docs/deployments/shared.md` (v0.73.0 row).
+**Same release, Sales customer list** (owner 2026-11-15, mock-up https://claude.ai/artifact/HNdcc6s2cmdrs8js4inGoH): two
+compact lines per customer (~10 per phone screen); owner only "Due ₹4,250" / "Advance ₹500" / "No due" (`listBalances`,
+same figure as the Account page; others never receive amounts); Switch off moved inside Edit with "Are you sure?". No
+migration. Sales 1,327 tests. Notes: `apps/order-capture/NOTES.md`.
+
+### 2026-11-15 — Sales: customer list compact + owner sees what each customer owes (v0.73.1)
+Asked by the owner 2026-11-15 (mock-up https://claude.ai/artifact/HNdcc6s2cmdrs8js4inGoH). Sales → Customers: two lines per
+customer (name | place; Edit | phone + Account ›); **owner only** (support read-only): "Due ₹… / Advance ₹… / No due" under
+the place, the Account page's balance (`listBalances`, right `ledger_totals`; nobody else receives the amounts); Switch off
+moved inside Edit with a confirm. No migration; SSO token unchanged. Notes: `apps/order-capture/NOTES.md`.

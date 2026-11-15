@@ -949,4 +949,16 @@ storage limit, corrections, removals, Sales search / location / state with a fak
 expectations. Sales `plantops-lookup.test.ts` +2. Attendance 525, Sales 1,324.
 
 **Deploy order:** Attendance migration `0014`, then **Sales** (the visit check endpoint), then Attendance. Nothing new to
-set on Railway. Phase 5 (the "not ended" bell, HANDBOOK, CLAUDE.md status) is next.
+set on Railway. **Live 2026-11-15** (`e20111b`, migration applied first).
+
+## 2026-11-15: field day Phase 5, the "not ended" bell (v0.74.0)
+- `attendance_salary.field_not_ended` in `NOTIFICATION_KINDS` (bell only, owners: Attendance alerts are owner-only):
+  "Ravi's field day was not ended (started 9:12)", body "Started Sat, 14 Nov, 9:12 · 5 shops. Tap to see the day.",
+  link `/staff/<id>/field/<date>`, dedupe `field_not_ended:<user>:<date>`. One per person and day.
+- Sent by the 07:00 daily job (`runDaily` → `notEndedYesterday` in `src/server/field.ts`), over the plants in
+  `salary_tenants()` (every Field staff person has a salary setting, so no new database function). The answer gains
+  `field_not_ended: { plants, notified }`. The person can still end the round later; the bell is sent once either way.
+- No migration; SSO token unchanged. Platform: the new kind only (settings list it, bell / off). Meter photo backup
+  needed nothing (`backupNewFiles` copies all of Attendance's storage). HANDBOOK "Attendance: field day".
+- Tests: field.test.ts +1 (the bell, an ended round and today's round send nothing); platform attendance.test.ts kind
+  list. **Deploy the platform with or before Attendance** (it must know the new kind).

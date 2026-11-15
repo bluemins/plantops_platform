@@ -146,15 +146,15 @@ describe("owner-only alerts", () => {
 });
 
 describe("notification settings", () => {
-  it("the owner sees eleven Attendance kinds (not every scan); outside, no exit and desk fix are bell only, none urgent", async () => {
+  it("the owner sees twelve Attendance kinds (not every scan); outside, no exit, desk fix and field day not ended are bell only, none urgent", async () => {
     const list = (await settings(A.adminCookie)).filter((s) => s.kind.startsWith("attendance_salary."));
     // docs/ATTENDANCE_ROLES_PHASE_PLAN.md: advance given, office fix and not marked for owners; every scan goes to supervisors only
     expect(list.map((s) => s.kind).sort()).toEqual([
       "attendance_salary.advance_given", "attendance_salary.claim_decided", "attendance_salary.claim_new", "attendance_salary.corrected",
-      "attendance_salary.desk_fix", "attendance_salary.no_exit", "attendance_salary.not_marked", "attendance_salary.outside",
+      "attendance_salary.desk_fix", "attendance_salary.field_not_ended", "attendance_salary.no_exit", "attendance_salary.not_marked", "attendance_salary.outside",
       "attendance_salary.salary_paid", "attendance_salary.salary_review", "attendance_salary.storage",
     ]);
-    expect(list.filter((s) => s.bell_only).map((s) => s.kind).sort()).toEqual(["attendance_salary.desk_fix", "attendance_salary.no_exit", "attendance_salary.outside"]);
+    expect(list.filter((s) => s.bell_only).map((s) => s.kind).sort()).toEqual(["attendance_salary.desk_fix", "attendance_salary.field_not_ended", "attendance_salary.no_exit", "attendance_salary.outside"]);
     expect(list.some((s) => s.urgent)).toBe(false);
   });
 

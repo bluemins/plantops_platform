@@ -8,11 +8,21 @@ import { NAME_MAX, PLACE_MAX } from "@/lib/upload";
 import type { CustomerView } from "@/server/customers";
 import { PhoneLink } from "../parts";
 
-type List = { customers: CustomerView[]; more: boolean; total: number; off: number };
+/** balances: owner only (null for everyone else): rupees, > 0 = they owe, < 0 = advance; missing = no bills */
+type List = { customers: CustomerView[]; more: boolean; total: number; off: number; balances: Record<string, string> | null };
 type Editing = { kind: "new" } | { kind: "edit"; id: string } | null;
 
 const reload = () => window.location.reload();
 const fmt = (p: string) => `${p.slice(0, 5)} ${p.slice(5)}`;
+const rs = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
+
+/** The owner's money line: Due (amber), Advance (green) or No due (grey). */
+function Money({ balance }: { balance?: string }) {
+  const n = Number(balance ?? 0);
+  if (n > 0) return <span className="font-bold text-amber-700">Due {rs(n)}</span>;
+  if (n < 0) return <span className="font-bold text-emerald-700">Advance {rs(-n)}</span>;
+  return <span className="text-slate-500">No due</span>;
+}
 
 /** Search, add, edit name / place, switch off / on. PlantOps support gets the same list without buttons. */
 export function CustomersEditor({ list, q, showOff, canEdit, plainPhones, accounts = false, dropPhones = false, brandsLink = false }: { list: List; q: string; showOff: boolean; canEdit: boolean; plainPhones: boolean; accounts?: boolean; dropPhones?: boolean; brandsLink?: boolean }) {
@@ -60,51 +70,64 @@ export function CustomersEditor({ list, q, showOff, canEdit, plainPhones, accoun
         ) : (
           <ul className="divide-y divide-slate-100">
             {list.customers.map((c) => (
-              <li key={c.id} className="py-3">
+              <li key={c.id} className="py-2">
                 {editing?.kind === "edit" && editing.id === c.id ? (
-                  <CustomerForm customer={c} onClose={close} />
+                  <CustomerForm customer={c} onClose={close} onSwitchOff={() => toggle(c)} />
                 ) : (
-                  <div className="space-y-2 px-1">
-                    <div className={`min-w-0 ${c.active ? "" : "text-slate-400"}`}>
-                      <p className="font-semibold break-words">
-                        {c.name}
+                  <div className={`px-1 ${c.active ? "" : "text-slate-400"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="min-w-0 font-semibold break-words">
+                        {accounts ? (
+                          <a href={`/customers/${c.id}`} className="hover:underline">
+                            {c.name}
+                          </a>
+                        ) : (
+                          c.name
+                        )}
                         {!c.active && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Off</span>}
                         {c.reminders === "granted" && <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">Reminders</span>}
                       </p>
-                      <p className="text-sm text-slate-600">{c.place}</p>
-                      <p className="text-sm">
+                      <div className="flex shrink-0 flex-col items-end text-right text-sm">
+                        <span className={c.active ? "text-slate-500" : ""}>{c.place}</span>
+                        {list.balances && <Money balance={list.balances[c.id]} />}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <div className="-ml-3 shrink-0">
+                        {canEdit &&
+                          (c.active ? (
+                            <button type="button" onClick={() => setEditing({ kind: "edit", id: c.id })} className="min-h-11 rounded-lg px-3 font-semibold text-slate-600 hover:bg-slate-100">
+                              Edit
+                            </button>
+                          ) : (
+                            <button type="button" onClick={() => toggle(c)} className="ml-3 min-h-11 rounded-lg border border-slate-300 px-3 font-semibold text-slate-700 hover:bg-slate-50">
+                              Switch on
+                            </button>
+                          ))}
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-x-4">
                         <PhoneLink phone={c.phone} plain={plainPhones || !c.active} />
                         {accounts ? (
-                          <a href={`/customers/${c.id}`} className="ml-3 inline-flex min-h-11 items-center font-semibold text-(--brand)">
+                          <a href={`/customers/${c.id}`} className="inline-flex min-h-11 items-center font-semibold text-(--brand)">
                             Account ›
                           </a>
                         ) : (
-                          <a href={`/shops/${c.id}`} className="ml-3 inline-flex min-h-11 items-center font-semibold text-(--brand)">
+                          <a href={`/shops/${c.id}`} className="inline-flex min-h-11 items-center font-semibold text-(--brand)">
                             📍 Location
                           </a>
                         )}
                         {brandsLink && !accounts && (
-                          <a href={`/customers/${c.id}/brands`} className="ml-3 inline-flex min-h-11 items-center font-semibold text-(--brand)">
+                          <a href={`/customers/${c.id}/brands`} className="inline-flex min-h-11 items-center font-semibold text-(--brand)">
                             Brands
                           </a>
                         )}
                         {dropPhones && !accounts && (
-                          <a href={`/customers/${c.id}/drop`} className="ml-3 inline-flex min-h-11 items-center font-semibold text-(--brand)">
+                          <a href={`/customers/${c.id}/drop`} className="inline-flex min-h-11 items-center font-semibold text-(--brand)">
                             Drop phones
                           </a>
                         )}
-                      </p>
-                    </div>
-                    {canEdit && (
-                      <div className="flex gap-2">
-                        <Button variant="secondary" className="min-h-11 px-4 text-sm" onClick={() => setEditing({ kind: "edit", id: c.id })}>
-                          Edit
-                        </Button>
-                        <Button variant={c.active ? "danger" : "secondary"} className="min-h-11 px-4 text-sm" onClick={() => toggle(c)}>
-                          {c.active ? "Switch off" : "Switch on"}
-                        </Button>
                       </div>
-                    )}
+                    </div>
                   </div>
                 )}
               </li>
@@ -118,7 +141,7 @@ export function CustomersEditor({ list, q, showOff, canEdit, plainPhones, accoun
 }
 
 /** Add (name, phone, place) or edit (name, place: the phone is fixed). */
-function CustomerForm({ customer, onClose }: { customer?: CustomerView; onClose: () => void }) {
+function CustomerForm({ customer, onClose, onSwitchOff }: { customer?: CustomerView; onClose: () => void; onSwitchOff?: () => void }) {
   const [error, setError] = useState<string>();
   const [found, setFound] = useState<CustomerView>();
   const [busy, setBusy] = useState(false);
@@ -187,6 +210,17 @@ function CustomerForm({ customer, onClose }: { customer?: CustomerView; onClose:
           Cancel
         </Button>
       </div>
+      {customer?.active && onSwitchOff && (
+        <div className="border-t border-slate-200 pt-3">
+          <button
+            type="button"
+            onClick={() => window.confirm(`Switch off ${customer.name}? They leave this list and New order. You can switch them back on later.`) && onSwitchOff()}
+            className="min-h-11 rounded-lg border border-red-200 bg-white px-4 text-sm font-semibold text-red-700 hover:bg-red-50"
+          >
+            Switch off this customer
+          </button>
+        </div>
+      )}
     </form>
   );
 }

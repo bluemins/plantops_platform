@@ -551,6 +551,37 @@ Workers send **claims** from the phone; the owner approves them; only approved o
   see own salary") lists field duty, TA, DA and each expense.
 - **Photos** are kept on the server (`attendance-salary-volume`) and copied, encrypted, to the nightly backup.
 
+### Attendance: field day (v0.73.0)
+A record of what Field staff did on a round: where they started and ended, the bike's km and a photo of the meter, and
+every shop they visited. **It is documentation only: claims, TA / DA and salary don't change.** Plan:
+`docs/FIELD_DAY_PHASE_PLAN.md`.
+- **Switch it on for a person:** the same **Field staff** tick as for claims (Staff → the person → Salary box). They
+  must hold Plant staff. There is no other setting. At plant 001 Dillip and Kedar are already ticked.
+- **The person, on their phone:** Attendance → **Field day** tab.
+  - **Start my day:** waits for the location (up to 20 s, shows "±m"), place (optional), the km reading and a photo of
+    the meter. Today only, once (a wrong reading is fixed with Correct km).
+  - **Shop visited:** search the Sales customers by name, place or 6+ digits of the phone (the phone number is never
+    shown back), or "Not in the list? Type the shop name" with its phone. Meeting notes (up to 300 characters, can't be
+    changed). For a customer, the tick **Save this location as the shop's location** puts the 📍 Map on that customer
+    and their orders in Sales (ticked when the shop has no location yet; "Replace…" when it has one). If Sales doesn't
+    answer, the visit is still saved and shows **Try again**.
+  - **End my day:** the same as Start; shows "Today by meter". An End after midnight closes last night's round.
+  - **Mistakes:** Correct km or Remove a visit, with a reason, on the same day only. The old row stays, crossed out.
+  - Location is taken only when they tap Start, Shop visited or End; nothing tracks them in between. Weak GPS (worse
+    than ±150 m) is saved and marked "rough", but never saved as a shop's location.
+- **Owner:**
+  - Today board → **In the field**: who is out, their last shop and time. Tap a name for the day.
+  - Staff → the person → **🛵 Field days**: the month (start–end, km by meter, shops, "not ended"), **Download visits
+    CSV**, and each day's page: Google Maps link for every point, meeting notes, both meter photos, fixes crossed out.
+    You can Correct km or Remove a visit on any day.
+  - Claims: under a field-duty claim, "Field day meter: 84.3 km · 3 shops" (numbers only, to compare).
+  - **Bell at 07:00:** "Ravi's field day was not ended (started 9:12)" when someone started and never ended (v0.74.0).
+- **Supervisor:** the same Today card and day pages, read-only (no CSV, no fixes, no claims). Office staff don't see
+  field days.
+- **Photos** are kept with the claim photos (they share the plan's Attendance storage limit) and copied, encrypted, to
+  the nightly backup. The daily job's "not ended" bell needs nothing new on cron-job.org (it is the existing 07:00
+  Attendance daily job).
+
 ### Attendance: office desk and supervisor (v0.23.0)
 Two more roles for Attendance & Salary, given on PlantOps → Manage users like any role (the buttons show when
 Attendance is switched on). Tick **Plant staff** as well if the person is on the payroll: without it they are not on

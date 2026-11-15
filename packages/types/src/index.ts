@@ -433,6 +433,7 @@ export const NOTIFICATION_KINDS: Record<
   "attendance_salary.desk_fix": { module: "attendance_salary", label: "Attendance changed by Office staff", bellOnly: true },
   "attendance_salary.scan": { module: "attendance_salary", label: "Someone marked IN / OUT", bellOnly: true, roles: ["supervisor"], noOwners: true },
   "attendance_salary.not_marked": { module: "attendance_salary", label: "People not marked (morning)", roles: ["supervisor"] },
+  "attendance_salary.field_not_ended": { module: "attendance_salary", label: "A field day was not ended (morning)", bellOnly: true },
   "job_applications.new": { module: "job_applications", label: "New job application", bellOnly: true },
   "job_applications.storage": { module: "job_applications", label: "Job applications storage nearly full" },
   "platform.user_locked": { module: null, label: "Someone locked out", urgent: true },

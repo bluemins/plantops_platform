@@ -841,3 +841,15 @@ Asked by the owner 2026-11-15 (mock-up https://claude.ai/artifact/JWrek4DzXeTiHb
   current, FORCE RLS, `order_app` SELECT + INSERT only. Audited `customer.brands` ("Brands Shree Stores buys: Bluemins,
   Mr.Charge"). `lookupCustomer` answers `brands`. Code: `src/server/customer-brands.ts`.
 - Separate from Drop's brands (what a shop sees in the customer app). Platform and SSO token unchanged.
+
+## 2026-11-15 — Customer list: compact rows + what each customer owes (v0.74.0)
+Asked by the owner 2026-11-15 (mock-up https://claude.ai/artifact/HNdcc6s2cmdrs8js4inGoH approved: "build").
+- **Two lines per customer:** name (a link to the Account page for those who see accounts) | place on the right; Edit |
+  phone + Account › (or 📍 Location / Brands / Drop phones) on the right. About 10 customers per phone screen (was ~4).
+- **Owner only: the balance under the place:** "Due ₹4,250" (amber), "Advance ₹500" (green), "No due" (grey). Same
+  figure as the Account page (`ledgerTotals` balance: billed − received − adjusted, linked Zoho contacts included,
+  cancelled rows left out), worked out by `listBalances` in `src/server/ledger.ts` in four grouped queries for the
+  customers on the page. Right `ledger_totals` (owner; support read-only); `listCustomers` answers `balances: null` for
+  everyone else, so Accounts, Order desk and Marketing staff never receive the amounts.
+- **Switch off moved inside Edit**, behind an "Are you sure?" question; a switched-off customer keeps "Switch on" on its row.
+- No migration; platform and SSO token unchanged. Tests: Sales +3 (`test/ledger-actions.test.ts`).

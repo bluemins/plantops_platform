@@ -292,6 +292,46 @@ export async function account(user: OcUser, party: Party, range: { from?: string
 }
 export type Account = Awaited<ReturnType<typeof account>>;
 
+/**
+ * The balance (billed − received − adjusted, as `ledgerTotals`; > 0 = they owe, < 0 = advance) of each listed customer,
+ * their linked Zoho contacts' rows included, in four grouped queries. For the customer list (owner only).
+ */
+export async function listBalances(tx: OcTx, tenantId: string, customerIds: string[]): Promise<Record<string, string>> {
+  if (!customerIds.length) return {};
+  const links = await tx
+    .select({ id: zohoContacts.id, customerId: zohoContacts.customerId })
+    .from(zohoContacts)
+    .where(and(eq(zohoContacts.tenantId, tenantId), inArray(zohoContacts.customerId, customerIds)));
+  const contactOf = new Map(links.map((l) => [l.id, l.customerId!]));
+  const contactIds = [...contactOf.keys()];
+  const owner = (customerId: string | null, contactId: string | null) =>
+    customerId && customerIds.includes(customerId) ? customerId : contactId ? (contactOf.get(contactId) ?? null) : null;
+  const mine = <T extends { customerId: unknown; zohoContactId: unknown }>(t: T) =>
+    or(inArray(t.customerId as never, customerIds), contactIds.length ? inArray(t.zohoContactId as never, contactIds) : sql`false`);
+  const total = new Map<string, bigint>();
+  const add = (id: string | null, v: bigint) => id && total.set(id, (total.get(id) ?? 0n) + v);
+  const billed = await tx
+    .select({ c: bills.customerId, z: bills.zohoContactId, s: sql<string>`sum(${bills.total})` })
+    .from(bills)
+    .where(and(eq(bills.tenantId, tenantId), isNull(bills.cancelledAt), mine(bills)))
+    .groupBy(bills.customerId, bills.zohoContactId);
+  for (const r of billed) add(owner(r.c, r.z), P(r.s));
+  const paid = await tx
+    .select({ c: payments.customerId, z: payments.zohoContactId, s: sql<string>`sum(${payments.amount})` })
+    .from(payments)
+    .where(and(eq(payments.tenantId, tenantId), isNull(payments.cancelledAt), mine(payments)))
+    .groupBy(payments.customerId, payments.zohoContactId);
+  for (const r of paid) add(owner(r.c, r.z), -P(r.s));
+  const adjusted = await tx
+    .select({ c: bills.customerId, z: bills.zohoContactId, s: sql<string>`sum(${billAdjustments.amount})` })
+    .from(billAdjustments)
+    .innerJoin(bills, and(eq(bills.id, billAdjustments.billId), eq(bills.tenantId, billAdjustments.tenantId)))
+    .where(and(eq(billAdjustments.tenantId, tenantId), isNull(bills.cancelledAt), mine(bills)))
+    .groupBy(bills.customerId, bills.zohoContactId);
+  for (const r of adjusted) add(owner(r.c, r.z), -P(r.s));
+  return Object.fromEntries([...total].map(([id, v]) => [id, rupees(v)]));
+}
+
 const istDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: IST }).format(d);
 
 /**

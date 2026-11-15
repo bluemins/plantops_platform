@@ -25,6 +25,7 @@ import {
   startDay,
   uploadFieldPhoto,
 } from "@/server/field";
+import { runDaily } from "@/server/notify";
 import { saveSetting } from "@/server/salary-edit";
 import type { AtUser } from "@/server/session";
 import { startFakePlatform, type FakePlatform } from "./fake-platform";
@@ -384,5 +385,31 @@ describe("the owner's views", () => {
     expect(lines).toHaveLength(4);
     expect(lines[2]).toContain("Met owner Prakash");
     expect((await recentChanges(p.owner)).some((c) => /^Downloaded Ramu's .+ field visits CSV$/.test(c.text))).toBe(true);
+  });
+});
+
+describe("the 07:00 bell: a field day not ended (Phase 5)", () => {
+  it("one bell per person and day to the owners, linking the day page; ended or today's rounds send nothing", async () => {
+    const p = await setup();
+    await startOn(p.worker, YESTERDAY);
+    // someone whose round yesterday was ended: no bell
+    await saveSetting(p.owner, { user_id: p.ownerWorker.userId, pay_basis: "monthly", monthly: "12000", shift_hours: 8, leave_days: 2, gets_overtime: false, from_month: THIS, joined_on: null, left_on: null, reason: null, expect: null, field_staff: true } as never);
+    await startOn(p.ownerWorker, YESTERDAY, 100);
+    await end(p.ownerWorker, "20");
+    // today's open round: not yesterday, no bell
+    await start(p.worker, "45300");
+    const r = await runDaily();
+    expect(r.field_not_ended.notified).toBeGreaterThanOrEqual(1);
+    const mine = platform.notifications.filter((n) => n.tenantId === p.tenantId && n.body.kind === "attendance_salary.field_not_ended").map((n) => n.body);
+    expect(mine).toEqual([
+      {
+        kind: "attendance_salary.field_not_ended",
+        title: "Ramu's field day was not ended (started 9:00)",
+        body: `Started ${new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${YESTERDAY}T00:00:00Z`))}, 9:00 · 0 shops. Tap to see the day.`,
+        link: `/staff/${p.worker.userId}/field/${YESTERDAY}`,
+        level: "bell",
+        dedupe_key: `field_not_ended:${p.worker.userId}:${YESTERDAY}`,
+      },
+    ]);
   });
 });

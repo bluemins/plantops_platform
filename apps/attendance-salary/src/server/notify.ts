@@ -16,6 +16,7 @@ import { workDays } from "@/lib/sessions";
 import { loadClaims } from "./claims";
 import { attendDb, schema, withTenant } from "./db";
 import { kit } from "./kit";
+import { notEndedYesterday, type NotEnded } from "./field";
 import { loadMarks } from "./people";
 import { readSettings } from "./settings";
 import { boardFor } from "./today";
@@ -326,6 +327,22 @@ export async function runMorning(now: Date = new Date()) {
   return { outbox, not_marked: { plants: rows.length, notified } };
 }
 
+/**
+ * 5. A field day started and never ended (docs/FIELD_DAY_PHASE_PLAN.md mock-up C2): to the owners, bell only, one per
+ * person and day, from the 07:00 daily job. Tapping it opens that day's page.
+ */
+export function fieldNotEndedNotification(d: NotEnded): NotificationInput {
+  const started = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${d.date}T00:00:00Z`));
+  return {
+    kind: "attendance_salary.field_not_ended",
+    title: title(`${d.name}'s field day was not ended (started ${fmtTime(d.startedAt)})`),
+    body: body(`Started ${started}, ${fmtTime(d.startedAt)} · ${d.shops} ${d.shops === 1 ? "shop" : "shops"}. Tap to see the day.`),
+    link: `/staff/${d.userId}/field/${d.date}`,
+    level: "bell",
+    dedupe_key: `field_not_ended:${d.userId}:${d.date}`,
+  };
+}
+
 export async function runDaily(now: Date = new Date()) {
   const outbox = await kit.retryOutbox();
   const { rows } = await attendDb().execute<{ t: string }>(sql`select t from attendance_salary.attendance_tenants() t`);
@@ -335,6 +352,16 @@ export async function runDaily(now: Date = new Date()) {
     if (!names.length) continue;
     await kit.notify(t, noExitNotification(date, names));
     notified++;
+  }
+  // field days not ended yesterday: every Field staff person has a salary setting, so these plants cover them all
+  const field = { plants: 0, notified: 0 };
+  const salaryPlants = await attendDb().execute<{ t: string }>(sql`select t from attendance_salary.salary_tenants() t`);
+  field.plants = salaryPlants.rows.length;
+  for (const { t } of salaryPlants.rows) {
+    for (const d of await notEndedYesterday(t, now)) {
+      await kit.notify(t, fieldNotEndedNotification(d));
+      field.notified++;
+    }
   }
   const review = { plants: 0, notified: 0 };
   const today = istDay(now);
@@ -348,5 +375,5 @@ export async function runDaily(now: Date = new Date()) {
       review.notified++;
     }
   }
-  return { outbox, no_exit: { plants: rows.length, notified }, salary_review: review };
+  return { outbox, no_exit: { plants: rows.length, notified }, field_not_ended: field, salary_review: review };
 }

@@ -654,6 +654,31 @@ export async function metersFor(tenantId: string, pairs: readonly { userId: stri
   return out;
 }
 
+export interface NotEnded {
+  userId: string;
+  name: string;
+  date: string;
+  startedAt: string;
+  shops: number;
+}
+
+/**
+ * Yesterday's field days that were started and never ended, for the 07:00 bell (docs/FIELD_DAY_PHASE_PLAN.md
+ * "Notifications"). The person can still end it later (until they start a new day); the bell is sent once either way.
+ */
+export async function notEndedYesterday(tenantId: string, now: Date = new Date()): Promise<NotEnded[]> {
+  const yesterday = addDays(istDay(now), -1);
+  const loaded = await withTenant(tenantId, (tx) => loadRows(tx, tenantId, { from: yesterday, to: yesterday }));
+  const people = new Map<string, FieldEventRow[]>();
+  for (const e of loaded.events) people.set(e.userId, [...(people.get(e.userId) ?? []), e]);
+  const out: NotEnded[] = [];
+  for (const [userId, events] of people) {
+    const d = fieldDayView(yesterday, events, loaded.cancels);
+    if (d.notEnded) out.push({ userId, name: events.at(-1)!.userName, date: yesterday, startedAt: d.startedAt!, shops: d.visits.length });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
+}
+
 // ---------- CSV ----------
 
 export const FIELD_CSV_HEADER = ["Date", "Person", "Time", "Kind", "Shop", "Place", "Phone", "Latitude", "Longitude", "Accuracy m", "Km", "Meeting notes", "Removed", "Replaced", "Reason"];

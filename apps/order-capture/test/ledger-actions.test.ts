@@ -15,6 +15,7 @@ import {
   setGstInvoice,
 } from "@/server/ledger";
 import { makeBill } from "@/server/bill-make";
+import { listCustomers } from "@/server/customers";
 import { listOrders } from "@/server/list";
 import { paymentNotification } from "@/server/notify";
 import { createOrder, OrderInput } from "@/server/orders";
@@ -224,5 +225,27 @@ describe("make bill, receive payment, advances, cancel", () => {
     expect((await billsList(b.owner, { show: "all" })).bills).toEqual([]);
     expect((await refused(() => account(b.owner, { kind: "customer", id: customerId }))).status).toBe(404);
     expect((await refused(() => makeBill(b.owner, { order_id: o1.id }))).status).toBe(404);
+  });
+});
+
+describe("customer list: what each customer owes (owner only)", () => {
+  it("the owner's list carries the same balance as the Account page, Zoho-linked bills included", async () => {
+    const acc = await account(a.owner, { kind: "customer", id: customerId });
+    const list = await listCustomers(a.owner);
+    expect(list.balances).not.toBeNull();
+    expect(list.balances![customerId] ?? "0.00").toBe(acc.totals.balance);
+    expect((await listCustomers(a.support)).balances).toEqual(list.balances);
+  });
+
+  it("Accounts, Order desk and Marketing staff never get the amounts", async () => {
+    expect((await listCustomers(acct)).balances).toBeNull();
+    expect((await listCustomers(a.desk)).balances).toBeNull();
+    expect((await listCustomers(ocUser(a.tenantId, ["marketing_staff"], "Dillip"))).balances).toBeNull();
+  });
+
+  it("another plant sees none of it", async () => {
+    const other = await listCustomers(b.owner);
+    expect(other.customers).toEqual([]);
+    expect(other.balances).toEqual({});
   });
 });

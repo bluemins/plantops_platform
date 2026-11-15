@@ -1,5 +1,9 @@
 # Field day log (Attendance & Salary): Phase Plan and Build Prompts
 
+> **Status: DONE (owner, 2026-11-15).** Every phase is built (Phases 1–4 live 2026-11-15; Phase 5 in v0.74.0). Left:
+> only the owner's phone checklist (`docs/deployments/shared.md`, v0.73.0 row). Ideas left out on purpose are in
+> `docs/TODO.md` "Later (features)". New field-day work starts a new plan.
+
 ## 0. Handover: where things stand (read this first)
 _Updated 2026-11-15._
 
@@ -7,10 +11,10 @@ _Updated 2026-11-15._
 |---|---|---|
 | 0 | Re-check, ❓ points, mock-ups | **Done 2026-11-14.** All ❓ points decided as proposed; mock-ups approved |
 | 1 | Lookup ticket (platform + auth), Sales customer search + field-visit location, 📍 Map on orders / WhatsApp copy, Sales migration `0023` | **Live 2026-11-15** (v0.71.0 with v0.72.0, Sales `0023` applied) |
-| 2 | Attendance migration `0014_field_day.sql`, access rows, server functions | **Built 2026-11-15, v0.73.0, not deployed** |
-| 3 | Worker screen `/my/field` | **Built 2026-11-15, v0.73.0, not deployed** |
-| 4 | Owner / supervisor screens, CSV, Claims card line | **Built 2026-11-15, v0.73.0, not deployed** |
-| 5 | `field_not_ended` notification, docs (HANDBOOK, CLAUDE.md status), release | **Next** |
+| 2 | Attendance migration `0014_field_day.sql`, access rows, server functions | **Live 2026-11-15** (v0.73.0) |
+| 3 | Worker screen `/my/field` | **Live 2026-11-15** (v0.73.0) |
+| 4 | Owner / supervisor screens, CSV, Claims card line | **Live 2026-11-15** (v0.73.0) |
+| 5 | `field_not_ended` notification, docs (HANDBOOK, CLAUDE.md status), release | **Built 2026-11-15, v0.74.0, not deployed** (platform + Attendance, no migration) |
 
 Phases 2–4 were built together (owner, 2026-11-15); what was built and the choices made while building:
 `apps/attendance-salary/NOTES.md` "2026-11-15: field day log, Phases 2–4". Three changes from this plan, all in that note:
@@ -19,7 +23,15 @@ the start / end row points to its photo (`photo_file_id`) and a correction to th
 page, as the mock-up); and **Sales got one small read-only endpoint** `POST /api/plantops/locations/by-visit` so the day
 pages can say whether a visit's shop location was saved ("read from Sales").
 
-**Deploying v0.73.0 (only when the owner says so):**
+**The plan is done (owner, 2026-11-15).** Left after that: the owner's phone checklist (`docs/deployments/shared.md`
+v0.73.0 row). Ideas left out on purpose (route / tracking, a map in the page, new Sales customers from the field, visit
+↔ order, use in claims / pay) are in `docs/TODO.md` "Later (features)" (owner, 2026-11-15).
+
+**Deploying v0.74.0:** no migration; push to `production` (platform and Attendance both change; the platform must know
+the new kind before Attendance's 07:00 job sends it, and both build from the same push). Check: the owner's
+/notifications settings list "A field day was not ended (morning)".
+
+**Deploying v0.73.0 (done 2026-11-15, kept for the record):**
 1. Attendance migration `0014_field_day.sql` on the shared copy (`./scripts/railway-migrate.sh shared`).
 2. Deploy **Sales first** (the by-visit check), then Attendance. Before Sales has it, the day pages just don't say
    whether a shop location was saved; nothing breaks.
@@ -28,11 +40,6 @@ pages can say whether a visit's shop location was saved ("read from Sales").
    that person sees the **Field day** tab, starts with a meter photo, visits a customer (📍 saved as shop location shows in
    Sales), ends; the owner sees "In the field" on Today, the person's Field days, the day page and the CSV.
 4. No new Railway variables.
-
-**Phase 5: how to start the next session.** Use the Phase 5 prompt below. The `field_not_ended` bell to owners at 07:00
-next morning goes into Attendance's daily job (`src/server/notify.ts`, `NOTIFICATION_KINDS` in `packages/types`); the
-"day not ended" is `fieldDayView(...).notEnded` for yesterday. Photo backup needs nothing (`backupNewFiles` copies all of
-Attendance's storage).
 
 **What Phase 1 left for later phases to use:**
 - `fetchLookupTicket(kit creds, tenantId, "order_capture", scope)` → `{ ticket, url }` or `null` (module off). Call it
