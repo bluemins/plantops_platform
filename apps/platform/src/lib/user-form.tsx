@@ -248,6 +248,7 @@ export function UserCard({
   reset,
   unlock,
   onTemp,
+  previewHref,
 }: {
   user: UserView;
   canEditUsername?: boolean;
@@ -256,6 +257,8 @@ export function UserCard({
   reset: (secret: string) => Promise<{ error?: string; temporary_secret?: string; secret_kind?: string }>;
   unlock?: () => Promise<string | undefined>;
   onTemp: (info: { who: string; secret: string; kind: string }) => void;
+  /** owner's Manage users: link to a read-only copy of this person's home screen */
+  previewHref?: string;
 }) {
   const [mode, setMode] = useState<"edit" | "reset">();
   const [error, setError] = useState<string>();
@@ -315,6 +318,9 @@ export function UserCard({
             {user.status === "active" ? "Disable" : "Enable"}
           </Button>
         </div>
+      )}
+      {!mode && previewHref && (
+        <a href={previewHref} className="mt-2 inline-block py-1 text-sm font-semibold text-(--brand)">👁 See their home screen ›</a>
       )}
       <ErrorText>{error}</ErrorText>
     </Card>

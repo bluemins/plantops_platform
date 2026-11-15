@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@plantops/ui";
 import { api } from "@/lib/api";
-import { ArrangeTiles, BoardCard, CustomersCard, LauncherTiles, PlanCard, ReportsCard, type PlanSummary, type Tile } from "@/lib/launcher-tiles";
+import { ArrangeTiles, BoardCard, CustomersCard, extraCards, LauncherTiles, PlanCard, ReportsCard, type PlanSummary, type Tile } from "@/lib/launcher-tiles";
 import { NotificationBell, PushCard } from "@/lib/notifications-ui";
 import { turnOff } from "@/lib/push-client";
 
@@ -65,10 +65,7 @@ export default function HomePage() {
 
   if (!data) return null;
   const owner = data.user.roles.includes("tenant_admin");
-  // Marketing staff who also hold an order role (their Sales tile shows the order work): a Customers card as well
-  const salesOpen = data.tiles.some((t) => t.module === "order_capture" && t.state === "open");
-  const marketingCard =
-    !owner && salesOpen && data.user.roles.includes("marketing_staff") && data.user.roles.some((r) => r === "order_desk" || r === "accounts" || r === "delivery_staff");
+  const cards = extraCards(data.user.roles, data.tiles);
   return (
     <div className="space-y-5">
       <header className="flex items-center justify-between">
@@ -100,13 +97,13 @@ export default function HomePage() {
 
       <BoardCard />
 
-      {marketingCard && (
+      {cards.marketing && (
         <div className="grid gap-3 md:grid-cols-2">
           <CustomersCard summaryUrl="/api/launcher/customers" openHref={`/sso/start?module=order_capture&next=${encodeURIComponent("/customers")}`} />
         </div>
       )}
 
-      {owner && salesOpen && (
+      {cards.owner && (
         <div className="grid gap-3 md:grid-cols-2">
           <ReportsCard summaryUrl="/api/launcher/reports" openHref={`/sso/start?module=order_capture&next=${encodeURIComponent("/reports")}`} />
           <CustomersCard summaryUrl="/api/launcher/customers" openHref={`/sso/start?module=order_capture&next=${encodeURIComponent("/customers")}`} />

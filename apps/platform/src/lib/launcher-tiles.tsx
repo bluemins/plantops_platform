@@ -53,7 +53,7 @@ function TileNumbers({ url }: { url: string }) {
   );
 }
 
-function TileCard({ tile, summaryUrl, openHref }: { tile: Tile; summaryUrl: string; openHref: string | null }) {
+function TileCard({ tile, summaryUrl, openHref, numbers = true }: { tile: Tile; summaryUrl: string; openHref: string | null; numbers?: boolean }) {
   const m = MODULES[tile.module];
   const dim = tile.state !== "open";
   const subtitle =
@@ -65,7 +65,7 @@ function TileCard({ tile, summaryUrl, openHref }: { tile: Tile; summaryUrl: stri
       <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-xl text-xl ${dim ? "bg-slate-100 opacity-60" : "bg-(--brand-soft)"}`}>{m.icon}</div>
       <p className={`font-semibold ${dim ? "text-slate-400" : "text-slate-900"}`}>{m.label}</p>
       <p className={`mb-2 text-sm ${dim ? "text-slate-400" : "text-slate-500"}`}>{subtitle}</p>
-      {tile.state === "open" && <TileNumbers url={summaryUrl} />}
+      {tile.state === "open" && numbers && <TileNumbers url={summaryUrl} />}
       {tile.state === "off" && <Badge text="Temporarily unavailable" className="bg-slate-100 text-slate-500" />}
       <p className={`mt-3 text-sm font-semibold ${dim ? "text-slate-400" : "text-(--brand)"}`}>
         {tile.state === "locked" ? "🔒 Locked" : tile.state === "off" ? "" : openHref ? "Open →" : ""}
@@ -88,22 +88,24 @@ function TileCard({ tile, summaryUrl, openHref }: { tile: Tile; summaryUrl: stri
 
 /**
  * Module tiles in a 2-column grid. `openHref(module)` = where a tap goes (null = read-only, e.g. super_admin).
- * `summaryUrl(module)` = where the live numbers come from.
+ * `summaryUrl(module)` = where the live numbers come from; `numbers={false}` leaves them out (owner's preview of someone).
  */
 export function LauncherTiles({
   tiles,
   summaryUrl,
   openHref,
+  numbers = true,
 }: {
   tiles: Tile[];
   summaryUrl: (module: string) => string;
   openHref: ((module: string) => string) | null;
+  numbers?: boolean;
 }) {
   if (!tiles.length) return <Card><p className="text-slate-500">No modules are available for your account yet. Ask your plant owner.</p></Card>;
   return (
     <div className="grid grid-cols-2 gap-3">
       {tiles.map((t) => (
-        <TileCard key={t.module} tile={t} summaryUrl={summaryUrl(t.module)} openHref={openHref ? openHref(t.module) : null} />
+        <TileCard key={t.module} tile={t} summaryUrl={summaryUrl(t.module)} openHref={openHref ? openHref(t.module) : null} numbers={numbers} />
       ))}
     </div>
   );
@@ -163,6 +165,18 @@ export function ArrangeTiles({ tiles, onDone }: { tiles: Tile[]; onDone: (saved:
 }
 
 const formatDate =(iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+/** The cards above the tiles besides the Plant board (same rule for the real home screen and the owner's preview). */
+export function extraCards(roles: readonly string[], tiles: readonly Tile[]) {
+  const owner = roles.includes("tenant_admin");
+  const salesOpen = tiles.some((t) => t.module === "order_capture" && t.state === "open");
+  return {
+    // owner + Sales open: Reports and Customers cards
+    owner: owner && salesOpen,
+    // Marketing staff who also hold an order role (their Sales tile shows the order work): a Customers card as well
+    marketing: !owner && salesOpen && roles.includes("marketing_staff") && roles.some((r) => r === "order_desk" || r === "accounts" || r === "delivery_staff"),
+  };
+}
 
 export function PlanCard({ plan }: { plan: PlanSummary }) {
   const rows: [string, string][] = [

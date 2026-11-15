@@ -4,7 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { canAccessModule } from "@plantops/auth";
 import { MODULE_IDS, OWNER_ONLY_ALERTS, PlanLimits, type ModuleId, type RoleId } from "@plantops/types";
-import type { CurrentUser } from "./auth";
+import { loadRoles, type CurrentUser } from "./auth";
 import { appDb, schema, superDb, withTenant, type PlatformDb, type PlatformTx } from "./db";
 import { enabledModules } from "./sso";
 import { notFound } from "./http";
@@ -167,6 +167,32 @@ export async function buildLauncher(user: CurrentUser) {
       tiles,
       plan_summary: owner ? info.plan_summary : null, // staff never see plan details
       landing: landingFor(user.roles, tiles),
+    };
+  });
+}
+
+/**
+ * Owner's "See their home screen" (Manage users, owner 2026-11-15): the tiles one person of this plant gets after
+ * login, worked out by the same rules as their own GET /api/launcher. Read-only; nobody is logged in as them.
+ */
+export async function previewLauncher(admin: CurrentUser, userId: string) {
+  const available = await moduleAvailability(appDb());
+  return withTenant(admin.tenantId, async (tx) => {
+    const [row] = await tx
+      .select({ displayName: users.displayName, status: users.status })
+      .from(users)
+      .where(and(eq(users.tenantId, admin.tenantId), eq(users.id, userId)));
+    if (!row) throw notFound("User not found");
+    const roles = await loadRoles(tx, userId);
+    const [saved] = await tx
+      .select({ modules: tileOrder.modules })
+      .from(tileOrder)
+      .where(and(eq(tileOrder.tenantId, admin.tenantId), eq(tileOrder.userId, userId)));
+    const tiles = applyTileOrder(decideTiles(roles, await enabledModules(tx, admin.tenantId), available), saved?.modules ?? null);
+    return {
+      user: { display_name: row.displayName, status: row.status, roles },
+      tiles,
+      landing: landingFor(roles, tiles),
     };
   });
 }

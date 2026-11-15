@@ -65,6 +65,7 @@ export default function UsersPage() {
           user={u}
           enabledModules={enabled}
           onTemp={setTemp}
+          previewHref={`/admin/users/${u.id}/home`}
           patch={async (body) => (await act(`/api/admin/users/${u.id}`, "PATCH", body)).error}
           reset={async (secret) => {
             const r = await act(`/api/admin/users/${u.id}/reset-secret`, "POST", { secret });

@@ -7,6 +7,7 @@ import { brandPalette } from "@plantops/ui/brand";
 import type { SummaryRequestPayload } from "@plantops/types";
 import * as launcherRoute from "@/app/api/launcher/route";
 import * as orderRoute from "@/app/api/launcher/order/route";
+import * as previewRoute from "@/app/api/admin/users/[id]/launcher/route";
 import * as summaryRoute from "@/app/api/launcher/summary/[module]/route";
 import * as reportsRoute from "@/app/api/launcher/reports/route";
 import * as customersRoute from "@/app/api/launcher/customers/route";
@@ -181,6 +182,21 @@ describe("GET /api/launcher", () => {
 
   it("not logged in -> 401", async () => {
     expect((await call(launcherRoute.GET as Handler)).status).toBe(401);
+  });
+
+  it("owner's preview of a person's home screen = that person's own launcher; owners only, own plant only", async () => {
+    for (const person of [lab, multi]) {
+      const own = await call(launcherRoute.GET as Handler, { cookie: person.cookie });
+      const res = await call(previewRoute.GET as Handler, { cookie: A.adminCookie, params: { id: person.userId } });
+      expect(res.status).toBe(200);
+      expect(res.body.tiles).toEqual(own.body.tiles);
+      expect(res.body.landing).toBe(own.body.landing);
+      expect(res.body.user.status).toBe("active");
+    }
+    // staff can't preview anyone; another plant's owner gets 404
+    expect((await call(previewRoute.GET as Handler, { cookie: multi.cookie, params: { id: lab.userId } })).status).toBe(403);
+    const B = await makePlant({ modules: ["lab_records"] });
+    expect((await call(previewRoute.GET as Handler, { cookie: B.adminCookie, params: { id: lab.userId } })).status).toBe(404);
   });
 
   describe("live tile numbers", () => {
