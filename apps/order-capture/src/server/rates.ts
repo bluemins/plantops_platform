@@ -9,7 +9,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { productLabel } from "@plantops/module-kit";
 import type { TenantSku } from "@plantops/types";
-import { BRAND_MAX, effectiveBrand } from "@/lib/brand";
+import { BRAND_MAX, brandPalette, effectiveBrand } from "@/lib/brand";
 import { defaultUnit, packText, RATE_RE, toRate, UNIT_MAX } from "@/lib/rates";
 import { requireAccess } from "./access";
 import { audit } from "./audit";
@@ -60,6 +60,12 @@ export async function effectiveRates(tx: OcTx, tenantId: string, products: Tenan
     const product = productLabel(p);
     return { sku_id: p.id, product, pack: packText(p, unit), unit, default_rate: row?.defaultRate ?? null, brand: effectiveBrand(row?.brand, product) };
   });
+}
+
+/** The plant's brand colours (Rates brands in A–Z order), so every screen shows a brand in the same colour. */
+export async function plantPalette(tenantId: string) {
+  const products = await activeProducts(tenantId);
+  return withTenant(tenantId, async (tx) => brandPalette((await effectiveRates(tx, tenantId, products)).map((r) => r.brand)));
 }
 
 export async function listRates(user: OcUser): Promise<RateView[]> {

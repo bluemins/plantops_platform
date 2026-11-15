@@ -1,7 +1,7 @@
 // Small pieces shared by the screens (server and client components).
 import type { ReactNode } from "react";
 import { phoneDisplay } from "@plantops/module-kit/phone";
-import { brandColour } from "@/lib/brand";
+import { brandColour, type BrandPalette } from "@/lib/brand";
 
 export function BackLink({ href = "/", children = "← Sales" }: { href?: string; children?: ReactNode }) {
   return (
@@ -35,8 +35,8 @@ export function StatusBadge({ status }: { status: string }) {
 }
 
 /** A product brand on an order card ("Bluemins"), the same colour everywhere. */
-export function BrandTag({ brand }: { brand: string }) {
-  return <span className={`inline-block shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${brandColour(brand)}`}>{brand}</span>;
+export function BrandTag({ brand, palette }: { brand: string; palette?: BrandPalette }) {
+  return <span className={`inline-block shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${brandColour(brand, palette)}`}>{brand}</span>;
 }
 
 /** Free boxes (scheme) on an order or bill line. */

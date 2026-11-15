@@ -7,7 +7,8 @@ import { LETTERS, type Letter } from "@/lib/letters";
 import { OPTIN_TEXT } from "@/lib/optin";
 import { NAME_MAX, PLACE_MAX } from "@/lib/upload";
 import type { CustomerView } from "@/server/customers";
-import { PhoneLink } from "../parts";
+import type { BrandPalette } from "@/lib/brand";
+import { BrandTag, PhoneLink } from "../parts";
 
 /** balances: owner only (null for everyone else): rupees, > 0 = they owe, < 0 = advance; missing = no bills */
 type List = { customers: CustomerView[]; more: boolean; total: number; off: number; balances: Record<string, string> | null; letters: Letter[] };
@@ -61,7 +62,7 @@ function LetterStrip({ q, showOff, letter, have }: { q: string; showOff: boolean
 }
 
 /** Search, add, edit name / place, switch off / on. PlantOps support gets the same list without buttons. */
-export function CustomersEditor({ list, q, showOff, letter, canEdit, plainPhones, accounts = false, dropPhones = false, brandsLink = false }: { list: List; q: string; showOff: boolean; letter?: Letter; canEdit: boolean; plainPhones: boolean; accounts?: boolean; dropPhones?: boolean; brandsLink?: boolean }) {
+export function CustomersEditor({ list, brands, q, showOff, letter, canEdit, plainPhones, accounts = false, dropPhones = false, brandsLink = false }: { list: List; brands: { labels: Record<string, string[]>; palette: BrandPalette }; q: string; showOff: boolean; letter?: Letter; canEdit: boolean; plainPhones: boolean; accounts?: boolean; dropPhones?: boolean; brandsLink?: boolean }) {
   const [editing, setEditing] = useState<Editing>(null);
   const [error, setError] = useState<string>();
   const close = () => setEditing(null);
@@ -122,47 +123,49 @@ export function CustomersEditor({ list, q, showOff, letter, canEdit, plainPhones
                   <CustomerForm customer={c} onClose={close} onSwitchOff={() => toggle(c)} />
                 ) : (
                   <div className={`px-1 ${c.active ? "" : "text-slate-400"}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="min-w-0 font-semibold break-words">
+                    {/* line 1: name + brand labels | Account › (or 📍 Location); line 2: place + money | Edit + phone (mock-up F4xKTCKEAfjioGbsadR3gr) */}
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
                         {accounts ? (
-                          <a href={`/customers/${c.id}`} className="hover:underline">
+                          <a href={`/customers/${c.id}`} className="font-semibold break-words hover:underline">
                             {c.name}
                           </a>
                         ) : (
-                          c.name
+                          <span className="font-semibold break-words">{c.name}</span>
                         )}
-                        {!c.active && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Off</span>}
-                        {c.reminders === "granted" && <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">Reminders</span>}
+                        {(brands.labels[c.id] ?? []).map((b) => (
+                          <BrandTag key={b} brand={b} palette={brands.palette} />
+                        ))}
+                        {!c.active && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Off</span>}
+                        {c.reminders === "granted" && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">Reminders</span>}
                       </p>
-                      <div className="flex shrink-0 flex-col items-end text-right text-sm">
-                        <span className={c.active ? "text-slate-500" : ""}>{c.place}</span>
-                        {list.balances && <Money balance={list.balances[c.id]} />}
-                      </div>
+                      {accounts ? (
+                        <a href={`/customers/${c.id}`} className="inline-flex min-h-11 shrink-0 items-center text-sm font-semibold text-(--brand)">
+                          Account ›
+                        </a>
+                      ) : (
+                        <a href={`/shops/${c.id}`} className="inline-flex min-h-11 shrink-0 items-center text-sm font-semibold text-(--brand)">
+                          📍 Location
+                        </a>
+                      )}
                     </div>
                     <div className="flex items-center justify-between gap-3 text-sm">
-                      <div className="-ml-3 shrink-0">
+                      <p className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                        <span className={c.active ? "text-slate-500" : ""}>{c.place}</span>
+                        {list.balances && <Money balance={list.balances[c.id]} />}
+                      </p>
+                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-4">
                         {canEdit &&
                           (c.active ? (
-                            <button type="button" onClick={() => setEditing({ kind: "edit", id: c.id })} className="min-h-11 rounded-lg px-3 font-semibold text-slate-600 hover:bg-slate-100">
+                            <button type="button" onClick={() => setEditing({ kind: "edit", id: c.id })} className="-mx-3 min-h-11 rounded-lg px-3 font-semibold text-slate-600 hover:bg-slate-100">
                               Edit
                             </button>
                           ) : (
-                            <button type="button" onClick={() => toggle(c)} className="ml-3 min-h-11 rounded-lg border border-slate-300 px-3 font-semibold text-slate-700 hover:bg-slate-50">
+                            <button type="button" onClick={() => toggle(c)} className="min-h-11 rounded-lg border border-slate-300 px-3 font-semibold text-slate-700 hover:bg-slate-50">
                               Switch on
                             </button>
                           ))}
-                      </div>
-                      <div className="flex flex-wrap items-center justify-end gap-x-4">
                         <PhoneLink phone={c.phone} plain={plainPhones || !c.active} />
-                        {accounts ? (
-                          <a href={`/customers/${c.id}`} className="inline-flex min-h-11 items-center font-semibold text-(--brand)">
-                            Account ›
-                          </a>
-                        ) : (
-                          <a href={`/shops/${c.id}`} className="inline-flex min-h-11 items-center font-semibold text-(--brand)">
-                            📍 Location
-                          </a>
-                        )}
                         {brandsLink && !accounts && (
                           <a href={`/customers/${c.id}/brands`} className="inline-flex min-h-11 items-center font-semibold text-(--brand)">
                             Brands

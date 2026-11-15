@@ -3,7 +3,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { recentChanges } from "@/server/audit";
 import { createCustomer } from "@/server/customers";
-import { brandsCard, changePicker, setBrands, SetBrandsInput } from "@/server/customer-brands";
+import { brandsCard, changePicker, listBrandLabels, setBrands, SetBrandsInput } from "@/server/customer-brands";
 import { createOrder, lookupCustomer, OrderInput } from "@/server/orders";
 import { saveRates } from "@/server/rates";
 import { brandGroups, shortName } from "@/lib/product-picker";
@@ -136,5 +136,30 @@ describe("the picker", () => {
       ["Mr.Charge", [2]],
       ["", [1]],
     ]);
+  });
+});
+
+describe("brand labels on the customer list", () => {
+  it("ticked brands win, else the brands of past orders, else none; 'Other' is never a label", async () => {
+    const p = await brandPlant();
+    const fresh = await createCustomer(p.owner, { name: "New Shop", phone: "9861000102", place: "Attabira" });
+    const ids = [p.shop.id, fresh.customer.id];
+    let r = await listBrandLabels(p.desk, ids);
+    expect(r.labels).toEqual({ [p.shop.id]: ["Bluemins"] });
+    expect(r.palette.bluemins).not.toBe(r.palette["mr.charge"]);
+
+    await setBrands(p.owner, p.shop.id, SetBrandsInput.parse({ brands: ["Mr.Charge", ""] }));
+    r = await listBrandLabels(p.support, ids);
+    expect(r.labels).toEqual({ [p.shop.id]: ["Mr.Charge"] });
+
+    await setBrands(p.owner, p.shop.id, SetBrandsInput.parse({ brands: [] }));
+    expect((await listBrandLabels(p.owner, ids)).labels).toEqual({ [p.shop.id]: ["Bluemins"] });
+  });
+
+  it("never reads another plant's customers, and a store keeper is refused", async () => {
+    const a = await brandPlant();
+    const b = plant();
+    expect((await listBrandLabels(b.owner, [a.shop.id])).labels).toEqual({});
+    expect((await refused(() => listBrandLabels(a.keeper, [a.shop.id]))).status).toBe(403);
   });
 });

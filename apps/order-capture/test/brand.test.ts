@@ -1,7 +1,7 @@
 // Brand tags (owner, 2026-11-01): one brand per product, set on Rates or guessed from the name; tags on order cards,
 // the ?brand= filter with its chips, brand totals in the owner's pending summary, the CSV's Brand column.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { brandColour, guessBrand } from "@/lib/brand";
+import { brandColour, brandPalette, guessBrand } from "@/lib/brand";
 import { recentChanges } from "@/server/audit";
 import { cancelOrder } from "@/server/handling";
 import { exportCsv, listOrders, pendingSummary } from "@/server/list";
@@ -35,6 +35,14 @@ describe("the guess from the product name", () => {
   ])("%s → %s", (name, brand) => expect(guessBrand(name)).toBe(brand));
 
   it("a brand keeps its colour in any case", () => expect(brandColour("bluemins")).toBe(brandColour("Bluemins")));
+
+  it("the plant's brands each get their own colour (Bluemins and Mr.Charge used to share one)", () => {
+    const palette = brandPalette(["Bluemins", "Mr.Charge", "Hemex", "Bluemins 20L", "bluemins", ""]);
+    const colours = ["Bluemins", "Mr.Charge", "Hemex", "Bluemins 20L"].map((b) => brandColour(b, palette));
+    expect(new Set(colours).size).toBe(4);
+    expect(brandColour("BLUEMINS", palette)).toBe(colours[0]);
+    expect(Object.keys(palette)).toHaveLength(4); // no '' and no duplicate in another case
+  });
 });
 
 describe("brand on Rates (owner)", () => {

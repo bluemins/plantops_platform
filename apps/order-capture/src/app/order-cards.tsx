@@ -5,6 +5,7 @@ import { productsText } from "@/lib/history";
 import { money } from "@/lib/money";
 import { whatsappText } from "@/lib/whatsapp";
 import type { ListRow } from "@/server/list";
+import type { BrandPalette } from "@/lib/brand";
 import { BrandTag, PhoneLink } from "./parts";
 
 const day = (iso: string) => new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short" }).format(new Date(iso));
@@ -14,7 +15,7 @@ const day = (iso: string) => new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/
  * order, Select all / Clear, and a bar to copy the ticked orders as one WhatsApp message (mock-up v0.14). Ticks live
  * on this page only: nothing is saved, the orders stay Pending.
  */
-export function OrderCards({ orders, tickable, plainPhones }: { orders: ListRow[]; tickable: boolean; plainPhones: boolean }) {
+export function OrderCards({ orders, tickable, plainPhones, palette }: { orders: ListRow[]; tickable: boolean; plainPhones: boolean; palette?: BrandPalette }) {
   const [ticked, setTicked] = useState<Set<string>>(new Set());
   const [copy, setCopy] = useState<"idle" | "copied" | "show">("idle");
   const picked = orders.filter((o) => ticked.has(o.id));
@@ -75,7 +76,7 @@ export function OrderCards({ orders, tickable, plainPhones }: { orders: ListRow[
                       {o.customer}
                     </a>
                     {o.brands.map((b) => (
-                      <BrandTag key={b} brand={b} />
+                      <BrandTag key={b} brand={b} palette={palette} />
                     ))}
                   </span>
                   {o.age ? (

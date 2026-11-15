@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import { Card } from "@plantops/ui";
+import type { BrandPalette } from "@/lib/brand";
 import { money } from "@/lib/money";
 import { can } from "@/server/access";
 import { kit } from "@/server/kit";
 import { waitingCount } from "@/server/calls-tab";
 import { DATE_LABEL, listOrders, pendingSummary, TABS, tabCounts, type PendingSummary, type Tab } from "@/server/list";
+import { plantPalette } from "@/server/rates";
 import { requirePageUser } from "@/server/session";
 import { Header } from "./header";
 import { OrderCards } from "./order-cards";
@@ -34,11 +36,12 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
     );
   }
 
-  const [list, counts, summary, waiting] = await Promise.all([
+  const [list, counts, summary, waiting, palette] = await Promise.all([
     listOrders(user, filters),
     tabCounts(user),
     tab === "pending" && can(user, "pending_summary") ? pendingSummary(user) : null,
     waitingCount(user),
+    plantPalette(user.tenantId),
   ]);
   const filtered = Boolean(filters.q || filters.from || filters.to || filters.brand);
   const keep = (skip: string) => Object.fromEntries(Object.entries(filters).filter(([k, v]) => v && k !== skip));
@@ -69,7 +72,7 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
         ))}
       </nav>
 
-      {summary && summary.orders > 0 && <PendingTotals summary={summary} />}
+      {summary && summary.orders > 0 && <PendingTotals summary={summary} palette={palette} />}
 
       {list.brands.length > 1 && (
         <nav aria-label="Brand" className="flex flex-wrap gap-2">
@@ -119,7 +122,7 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
           <p className="text-slate-500">{filtered ? `No order matches this ${filters.brand && !filters.q && !filters.from && !filters.to ? "brand" : "search"}.` : tab === "pending" ? "No pending orders." : `No ${tab} orders yet.`}</p>
         </Card>
       ) : (
-        <OrderCards orders={list.orders} tickable={tab === "pending" && can(user, "copy_list")} plainPhones={user.isSupport} />
+        <OrderCards orders={list.orders} tickable={tab === "pending" && can(user, "copy_list")} plainPhones={user.isSupport} palette={palette} />
       )}
       {list.more && <p className="text-sm text-slate-500">More orders than shown: search or pick dates to narrow the list.</p>}
 
@@ -165,7 +168,7 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
 }
 
 /** Owner only: all pending orders added up (the whole plant, not the search). */
-function PendingTotals({ summary }: { summary: PendingSummary }) {
+function PendingTotals({ summary, palette }: { summary: PendingSummary; palette: BrandPalette }) {
   const rate = (p: PendingSummary["products"][number]) =>
     p.min_rate === null || p.max_rate === null ? "—" : p.min_rate === p.max_rate ? money(p.min_rate) : `${money(p.min_rate)}–${money(p.max_rate)}`;
   return (
@@ -190,7 +193,7 @@ function PendingTotals({ summary }: { summary: PendingSummary }) {
             {summary.brands.map((b) => (
               <tr key={b.brand || "none"} className="border-t border-slate-100 align-top">
                 <td className="py-1.5 pr-2">
-                  {b.brand ? <BrandTag brand={b.brand} /> : <span className="text-slate-500">No brand</span>}
+                  {b.brand ? <BrandTag brand={b.brand} palette={palette} /> : <span className="text-slate-500">No brand</span>}
                   <span className="block text-xs text-slate-500">
                     {b.orders.toLocaleString("en-IN")} {b.orders === 1 ? "order" : "orders"}
                   </span>

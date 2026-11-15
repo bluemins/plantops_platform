@@ -863,3 +863,16 @@ Asked by the owner 2026-11-15 (mock-up https://claude.ai/artifact/8FbuyrPndBxpWq
   switched-off and stays on Back. Each letter shows up to 200 customers, so it also replaces "type in the search box".
 - `LETTERS` / `asLetter` in `src/lib/letters.ts`; `listCustomers({ letter })` answers `letters` (`src/server/customers.ts`).
 - No migration; platform and SSO token unchanged. Tests: Sales +1 (`test/customers.test.ts`).
+
+## 2026-11-15 — Customer list: brand labels + rows rearranged (v0.74.2)
+Asked by the owner 2026-11-15 (mock-up https://claude.ai/artifact/F4xKTCKEAfjioGbsadR3gr approved: "build it").
+- **Row:** line 1 = name + brand labels | **Account ›** (📍 Location for people without accounts); line 2 = place + the
+  owner's Due / Advance / No due | **Edit** + phone (+ Brands / Drop phones for Order desk). Still two lines.
+- **Brand labels** for everyone who sees the list (no money in them): the customer's ticked "Brands they buy", else the
+  brands of the products on their earlier (not cancelled) orders, as on the Brands card; none = no label; "Other (no
+  brand)" is never a label. Customers with only Zoho bills and no orders show none until ticked.
+  `listBrandLabels` in `src/server/customer-brands.ts` (two queries for the whole page).
+- **Each brand its own colour:** `brandPalette()` in `src/lib/brand.ts` gives the plant's Rates brands (A–Z) the colours
+  in turn (the old name hash gave Bluemins and Mr.Charge the same pink). Used on the customer list, order cards, the
+  pending summary and Rates (`plantPalette` in `src/server/rates.ts`), so a brand looks the same everywhere.
+- No migration; platform and SSO token unchanged. Tests: Sales 1,331 (+3).

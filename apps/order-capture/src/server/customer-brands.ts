@@ -6,8 +6,9 @@
 //   * brands come from Rates (owner's brand, else the guess from the name); a saved brand no longer on Rates stays
 //     until unticked, so a rename never silently hides a customer's products (the picker shows all when nothing matches)
 //   * owner and Order desk change it; Accounts, Marketing staff and support read; every change is a Recent changes row
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
+import { brandPalette, type BrandPalette } from "@/lib/brand";
 import { can, requireAccess } from "./access";
 import { audit } from "./audit";
 import { schema, withTenant, type OcTx } from "./db";
@@ -16,7 +17,7 @@ import { lastRates } from "./orders";
 import { activeProducts, effectiveRates, type RateView } from "./rates";
 import type { OcUser } from "./session";
 
-const { customerBrandChanges, customers, orders } = schema;
+const { customerBrandChanges, customers, orderLines, orders } = schema;
 
 export const SetBrandsInput = z.object({ brands: z.array(z.string().trim().max(40)).max(30) }).strict();
 
@@ -103,6 +104,47 @@ export async function setBrands(user: OcUser, customerId: string, input: z.infer
     await tx.insert(customerBrandChanges).values({ tenantId: user.tenantId, customerId, brands: next, changedBy: user.userId, changedByName: user.name });
     await audit(tx, user, "customer.brands", customerId, { name: c.name, brands: next.map(brandLabel) });
     return { changed: true };
+  });
+}
+
+/**
+ * The customer list's brand labels (owner, 2026-11-15; mock-up https://claude.ai/artifact/F4xKTCKEAfjioGbsadR3gr), for
+ * everyone who sees the list: per customer their ticked "Brands they buy", else the brands of the products on their
+ * earlier (not cancelled) orders, as on the Brands card; none = no label. "Other (no brand)" is never a label. Also the
+ * plant's palette, so each brand has its own colour.
+ */
+export async function listBrandLabels(user: OcUser, customerIds: string[]): Promise<{ labels: Record<string, string[]>; palette: BrandPalette }> {
+  requireAccess(user, "view_customers");
+  const products = await activeProducts(user.tenantId);
+  return withTenant(user.tenantId, async (tx) => {
+    const rates = await effectiveRates(tx, user.tenantId, products);
+    const palette = brandPalette(rates.map((r) => r.brand));
+    if (customerIds.length === 0) return { labels: {}, palette };
+    const ids = sql`array[${sql.join(customerIds.map((id) => sql`${id}::uuid`), sql`, `)}]`;
+    const saved = await tx.execute<{ customer_id: string; brands: string[] }>(sql`
+      select distinct on (customer_id) customer_id, brands
+        from ${customerBrandChanges}
+       where tenant_id = ${user.tenantId} and customer_id = any(${ids})
+       order by customer_id, created_at desc`);
+    const bought = await tx.execute<{ customer_id: string; sku_id: string }>(sql`
+      select distinct o.customer_id, l.sku_id
+        from ${orders} o
+        join ${orderLines} l on l.order_id = o.id and l.version = o.version and l.tenant_id = o.tenant_id
+       where o.tenant_id = ${user.tenantId} and o.customer_id = any(${ids}) and o.status <> 'cancelled' and not l.free`);
+    const brandOfSku = new Map(rates.map((r) => [r.sku_id, r.brand]));
+    const labels: Record<string, string[]> = {};
+    for (const r of saved.rows) if (r.brands.length) labels[r.customer_id] = sortBrands(r.brands).filter(Boolean);
+    const fromOrders = new Map<string, string[]>();
+    for (const r of bought.rows) {
+      if (labels[r.customer_id]) continue;
+      const b = brandOfSku.get(r.sku_id);
+      if (!b) continue;
+      const list = fromOrders.get(r.customer_id) ?? [];
+      if (!list.some((x) => key(x) === key(b))) list.push(b);
+      fromOrders.set(r.customer_id, list);
+    }
+    for (const [id, list] of fromOrders) labels[id] = sortBrands(list);
+    return { labels, palette };
   });
 }
 

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { asLetter } from "@/lib/letters";
 import { can } from "@/server/access";
+import { listBrandLabels } from "@/server/customer-brands";
 import { listCustomers } from "@/server/customers";
 import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
@@ -20,6 +21,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
   const showOff = one(sp.off) === "1";
   const letter = asLetter(one(sp.l));
   const [plant, list] = await Promise.all([kit.branding(user.tenantId), listCustomers(user, { q, showOff, letter })]);
+  const brands = await listBrandLabels(user, list.customers.map((c) => c.id));
   return (
     <div className="space-y-5">
       <Header user={user} plant={plant} />
@@ -30,7 +32,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
           Shop locations
         </LinkRow>
       )}
-      <CustomersEditor list={list} q={q} showOff={showOff} letter={letter} canEdit={can(user, "customers")} plainPhones={user.isSupport} accounts={can(user, "account_view")} dropPhones={can(user, "drop_phones")} brandsLink={can(user, "brands_set")} />
+      <CustomersEditor list={list} brands={brands} q={q} showOff={showOff} letter={letter} canEdit={can(user, "customers")} plainPhones={user.isSupport} accounts={can(user, "account_view")} dropPhones={can(user, "drop_phones")} brandsLink={can(user, "brands_set")} />
       {can(user, "drop_shops") && (
         <LinkRow href="/customers/drop" note="Shops switched on for the Drop app, last logins">
           Drop shops

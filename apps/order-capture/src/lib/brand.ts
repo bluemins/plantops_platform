@@ -27,10 +27,23 @@ const COLOURS = [
   "bg-orange-100 text-orange-900",
 ];
 
-/** The same brand always gets the same colour (any case). */
-export function brandColour(brand: string) {
+/**
+ * Each of the plant's brands gets its own colour (owner, 2026-11-15: Bluemins and Mr.Charge had the same pink): the
+ * plant's brands (Rates) in A–Z order take the colours in turn, so up to six brands never share one. Keyed by the
+ * brand in lower case.
+ */
+export type BrandPalette = Record<string, string>;
+export function brandPalette(brands: string[]): BrandPalette {
+  const keys = [...new Set(brands.map((b) => b.trim().toLowerCase()).filter(Boolean))].sort();
+  return Object.fromEntries(keys.map((k, i) => [k, COLOURS[i % COLOURS.length]!]));
+}
+
+/** The brand's colour: from the plant's palette; a brand not in it (or no palette) falls back to a fixed guess. */
+export function brandColour(brand: string, palette?: BrandPalette) {
+  const k = brand.trim().toLowerCase();
+  if (palette?.[k]) return palette[k];
   let h = 0;
-  for (const c of brand.toLowerCase()) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  for (const c of k) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return COLOURS[h % COLOURS.length]!;
 }
 

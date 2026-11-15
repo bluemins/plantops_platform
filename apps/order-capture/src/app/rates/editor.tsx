@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button, Card, ErrorText } from "@plantops/ui";
 import { api } from "@/lib/api";
-import { BRAND_MAX } from "@/lib/brand";
+import { BRAND_MAX, brandPalette } from "@/lib/brand";
 import { RATE_RE, UNIT_MAX } from "@/lib/rates";
 import type { RateView } from "@/server/rates";
 import { BrandTag } from "../parts";
@@ -17,6 +17,7 @@ const input = "min-h-11 w-full min-w-0 rounded-lg border bg-white px-3 text-base
  * pre-filled with the guess from the name), one Save button. Support: read-only.
  */
 export function RatesEditor({ rates, canEdit }: { rates: RateView[]; canEdit: boolean }) {
+  const palette = brandPalette(rates.map((r) => r.brand));
   const [rows, setRows] = useState<Row[]>(rates.map(asRow));
   const [error, setError] = useState<string>();
   const [saved, setSaved] = useState<string>();
@@ -78,7 +79,7 @@ export function RatesEditor({ rates, canEdit }: { rates: RateView[]; canEdit: bo
                   {canEdit ? (
                     <input aria-label={`${r.product} brand`} className={`${input} max-w-56 border-slate-300`} value={row.brand} maxLength={BRAND_MAX} placeholder="none" onChange={(e) => set(i, { brand: e.target.value })} />
                   ) : r.brand ? (
-                    <BrandTag brand={r.brand} />
+                    <BrandTag brand={r.brand} palette={palette} />
                   ) : (
                     <span className="text-slate-400">none</span>
                   )}
