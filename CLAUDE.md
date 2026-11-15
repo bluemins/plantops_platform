@@ -2330,7 +2330,7 @@ header (`BoardLink` in `packages/ui`, `kit.boardUrl()`), so staff who skip the l
 only, no DELETE; a removed card keeps its row; edits and removals audited `board.edit` / `board.remove`). Not in the
 support view. SSO token unchanged. Code `apps/platform/src/server/board.ts`. Tests: platform board 9.
 
-### 2026-11-14 — Field day log Phase 1: lookup ticket + 📍 Map on orders (v0.71.0) — built, not deployed
+### 2026-11-14 — Field day log Phase 1: lookup ticket + 📍 Map on orders (v0.71.0) — live 2026-11-15 (`def19db`)
 Phase 0 done the same day (`docs/FIELD_DAY_PHASE_PLAN.md`: ❓ points decided as proposed, mock-ups approved,
 https://claude.ai/artifact/EutRdTDJaBw7tHpHLXcUCq). Phase 1 = the Sales / platform half; Attendance's screens are Phases 2–3.
 - **Lookup ticket** (owner's choice over a per-plant key): `LOOKUPS` / `lookupAllowed` / `LookupTicketPayload` in
@@ -2346,7 +2346,7 @@ https://claude.ai/artifact/EutRdTDJaBw7tHpHLXcUCq). Phase 1 = the Sales / platfo
 - Tests: Sales 1,296 (+9), platform 442 (+5), auth 96 (+6); typecheck and both builds pass. Checked on `pnpm dev` (plant 002,
   modules switched on and a temporary shop only for the check, all removed): ticket, name / phone search, two saves =
   one row, order page and WhatsApp copy at 390 px, Recent changes.
-- **Deploy order:** Sales migration `0023`, then Sales, then the platform. Not deployed.
+- **Live 2026-11-15** (with v0.72.0; Sales `0023` applied first).
 - **Next:** Phase 2 (Attendance migration `0014_field_day.sql`, shown first; access rows; server functions).
 
 ### 2026-11-15 — Plant board: carry forward, closing by owner / Supervisor, removed cards stay (v0.71.1) — built, not deployed
@@ -2362,7 +2362,7 @@ Asked by the owner 2026-11-15. Anyone of any role still adds cards (unchanged).
 - No migration (existing columns); SSO token unchanged. Code `apps/platform/src/server/board.ts`, `src/app/board/page.tsx`.
   Tests: platform board 10.
 
-### 2026-11-15 — Sales: simpler product picker + brands a customer buys (v0.72.0) — built, not deployed
+### 2026-11-15 — Sales: simpler product picker + brands a customer buys (v0.72.0) — live 2026-11-15 (`def19db`)
 Asked by the owner 2026-11-15 (mock-up https://claude.ai/artifact/JWrek4DzXeTiHb62Xa1JD1). New order / Change order / free
 boxes: products grouped by their Rates brand, two per row, short names, the customer's "Bought before" products first with
 their last rate. **Brands they buy** card on the customer's Overview (and `/customers/[id]/brands` for Order desk): the
@@ -2370,4 +2370,4 @@ order screens then list only those brands, with "Show all brands" for a one-off;
 desk set it; Accounts, Marketing staff, support read; audited `customer.brands`. Sales migration
 `0024_customer_brands.sql` (approved: one append-only history table, FORCE RLS, SELECT + INSERT). Separate from Drop's
 brands. Platform and SSO token unchanged. Notes: `apps/order-capture/NOTES.md`. Tests: Sales 1,322 (+10); typecheck and
-build pass. **Deploy order:** Sales migration `0023` (field day, not yet live) then `0024`, then Sales. **Not yet:** on screen.
+build pass. **Live 2026-11-15** with v0.71.0 (migrations `0023` + `0024` applied; `production` = `main`). **Not yet:** on screen.
