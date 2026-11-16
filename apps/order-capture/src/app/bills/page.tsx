@@ -8,7 +8,7 @@ import { kit } from "@/server/kit";
 import { BILL_FILTERS, billsList, type BillFilter } from "@/server/ledger";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../header";
-import { BillBadge, SectionTabs } from "../parts";
+import { BillBadge, GstTag, SectionTabs } from "../parts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
@@ -73,7 +73,7 @@ export default async function BillsPage({ searchParams }: { searchParams: Search
           <li key={b.id}>
             <a href={`/bills/${b.id}`} className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50">
               <span className="min-w-0">
-                <span className="block font-semibold break-words">{b.name}</span>
+                <span className="block font-semibold break-words">{b.name}{b.gst && <GstTag />}</span>
                 <span className="block text-sm text-slate-500">
                   {b.number}{b.source === "jar_month" ? " · 20 L month" : b.opening_balance ? " · opening balance" : b.source === "zoho" ? " · Zoho" : ""}{b.order_ref ? ` · ${b.order_ref}` : ""} · {day(b.bill_date)}
                 </span>

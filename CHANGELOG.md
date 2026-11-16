@@ -4,6 +4,15 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.80.0 — 2026-11-16 — GST tag on bill lists + "GST bill" tick on purchase bills
+
+Owner, 2026-11-16. **Migration:** Sales `0025_purchase_gst_tick.sql` (`purchase_bills.gst_bill`, default false, UPDATE on
+that column only). Platform and SSO token unchanged.
+- Sales → Bills and Purchases → Purchase bills show a blue **GST** tag on GST bills.
+- Sales bills: GST tick, Zoho GST, or a Zoho GST invoice no. typed. Purchase bills: the new **GST bill** tick (on the new
+  bill form, pre-ticked when the vendor has a GSTIN; owner / Accounts change it on the bill page, audited). Existing
+  purchase bills start unticked.
+
 ## v0.68.0 — 2026-11-12 — Cash book C5: 20 L month update
 
 Owner, 2026-11-12. **Migration:** Sales `0021_jar_months.sql` (bills may be `jar_month`; `jar_imports.kind` + `month`; new

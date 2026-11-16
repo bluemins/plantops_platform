@@ -104,6 +104,13 @@ export function PurchaseBillForm({ choices, vendorId }: { choices: EntryChoices;
   const [reference, setReference] = useState("");
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  // "GST bill" starts ticked when the vendor has a GSTIN (owner, 2026-11-16); a hand change sticks until the vendor changes
+  const hasGstin = (id: string) => !!choices.vendors.find((x) => x.id === id)?.gstin;
+  const [gstBill, setGstBill] = useState(() => hasGstin(vendor));
+  function pickVendor(id: string) {
+    setVendor(id);
+    setGstBill(hasGstin(id));
+  }
 
   const v = choices.vendors.find((x) => x.id === vendor);
   const intra = isIntraState(v?.state ?? null, choices.plant_state);
@@ -147,6 +154,7 @@ export function PurchaseBillForm({ choices, vendorId }: { choices: EntryChoices;
         adjustment: rounding || "0",
         lines: lines.map((l) => ({ item_id: l.item_id, item_name: l.item_name, quantity: l.quantity, unit: l.unit, rate: l.rate, gst_rate: l.gst_rate, hsn: l.hsn })),
         paid_now: paidNow ? { mode, paid_from: paidFrom, reference } : null,
+        gst_bill: gstBill,
       },
     });
     setBusy(false);
@@ -159,7 +167,7 @@ export function PurchaseBillForm({ choices, vendorId }: { choices: EntryChoices;
     <div className="space-y-4">
       <Card className="space-y-3">
         <label className={label}>Vendor *
-          <select className={field} value={vendor} onChange={(e) => setVendor(e.target.value)}>
+          <select className={field} value={vendor} onChange={(e) => pickVendor(e.target.value)}>
             <option value="">Pick the vendor</option>
             {vendors.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
           </select>
@@ -176,6 +184,8 @@ export function PurchaseBillForm({ choices, vendorId }: { choices: EntryChoices;
           <label className={label}>Vendor&apos;s invoice no.<input className={field} value={invoiceNo} maxLength={60} onChange={(e) => setInvoiceNo(e.target.value)} /></label>
           <label className={label}>PO no.<input className={field} value={po} maxLength={40} onChange={(e) => setPo(e.target.value)} /></label>
         </div>
+        <GstTick checked={gstBill} onChange={setGstBill}
+          hint={v?.gstin ? "Goes into the tax records. Ticked because this vendor has a GSTIN; untick if not." : "Goes into the tax records. Tick it if this bill does."} />
       </Card>
 
       <datalist id="purchase-items">{choices.items.map((i) => <option key={i.id} value={i.name} />)}</datalist>
@@ -302,6 +312,38 @@ export function PayVendor({ vendorId, openBills, today }: { vendorId: string; op
         <Button variant="secondary" onClick={() => setOpen(false)}>Close</Button>
       </div>
     </Card>
+  );
+}
+
+// ---------- "GST bill" tick ----------
+
+function GstTick({ checked, onChange, hint, disabled }: { checked: boolean; onChange: (v: boolean) => void; hint: string; disabled?: boolean }) {
+  return (
+    <label className="flex items-start gap-3">
+      <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      <span><span className="block text-base font-semibold">GST bill</span><span className="block text-sm text-slate-500">{hint}</span></span>
+    </label>
+  );
+}
+
+/** On a saved purchase bill: owner and Accounts tick / untick it (saved at once, audited). */
+export function PurchaseBillGst({ id, value }: { id: string; value: boolean }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  async function change(next: boolean) {
+    setBusy(true);
+    setError(undefined);
+    const r = await api(`/api/purchases/bills/${id}/gst`, { body: { gst_bill: next } });
+    setBusy(false);
+    if (!r.ok) return setError(r.error);
+    router.refresh();
+  }
+  return (
+    <div className="space-y-1">
+      <GstTick checked={value} disabled={busy} onChange={change} hint="Owner and Accounts can tick or untick it any time. Each change shows in Recent changes." />
+      <ErrorText>{error}</ErrorText>
+    </div>
   );
 }
 

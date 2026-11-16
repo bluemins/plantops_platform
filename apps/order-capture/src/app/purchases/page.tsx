@@ -7,7 +7,7 @@ import { kit } from "@/server/kit";
 import { purchaseBillsList, type PurchaseBillFilter } from "@/server/purchases";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../header";
-import { BillBadge, SectionTabs } from "../parts";
+import { BillBadge, GstTag, SectionTabs } from "../parts";
 import { day, field, one, PurchaseNav } from "./parts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
@@ -69,7 +69,7 @@ export default async function PurchaseBillsPage({ searchParams }: { searchParams
           <li key={b.id}>
             <a href={`/purchases/bills/${b.id}`} className={`flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 hover:bg-slate-50 ${b.cancelled ? "opacity-60" : ""}`}>
               <span className="min-w-0">
-                <span className="block font-semibold break-words">{b.vendor_name}</span>
+                <span className="block font-semibold break-words">{b.vendor_name}{b.gst && <GstTag />}</span>
                 <span className="block text-sm text-slate-500">
                   {b.number}{b.source === "zoho" ? " · Zoho" : ""}{b.po_number ? ` · ${b.po_number}` : ""} · {day(b.bill_date)} · {b.lines} {b.lines === 1 ? "item" : "items"}
                 </span>

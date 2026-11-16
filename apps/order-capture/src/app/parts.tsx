@@ -104,6 +104,11 @@ const BILL_BADGE: Record<string, string> = {
 const BILL_LABEL: Record<string, string> = { paid: "Paid", due: "Due", part_paid: "Partly paid", overdue: "Overdue", cancelled: "Cancelled", closed: "Closed" };
 
 /** A bill's status (Paid / Due / Partly paid / Overdue / Cancelled), or an order's "Closed". */
+/** "GST" tag on a list row. Sales: made with the GST tick, taxed in Zoho or a Zoho GST invoice no. typed; purchases: the "GST bill" tick (0025). */
+export function GstTag() {
+  return <span className="ml-1.5 inline-block rounded bg-sky-100 px-1.5 py-px align-middle text-[11px] font-bold text-sky-800">GST</span>;
+}
+
 export function BillBadge({ status, due }: { status: string; due?: string }) {
   const showDue = due && (status === "due" || status === "part_paid" || status === "overdue");
   return (

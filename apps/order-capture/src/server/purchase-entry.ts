@@ -149,6 +149,8 @@ export const PurchaseBillInput = z.object({
   adjustment: z.string().trim().regex(/^-?\d{1,4}(\.\d{1,2})?$/, "Rounding: a small number like -0.40").default("0"),
   lines: z.array(LineInput).min(1, "Add at least one item").max(100),
   paid_now: PaidNow.optional().nullable(),
+  /** "GST bill" tick (0025); the form starts it ticked when the vendor has a GSTIN */
+  gst_bill: z.boolean().default(false),
 });
 type BillIn = z.infer<typeof PurchaseBillInput>;
 
@@ -248,6 +250,7 @@ export async function recordPurchaseBill(user: OcUser, input: BillIn) {
         igst: rupees(amounts.igst),
         total: rupees(amounts.total),
         notes: input.notes,
+        gstBill: input.gst_bill,
         createdBy: user.userId,
         createdByName: user.name,
       })
@@ -292,7 +295,7 @@ export async function recordPurchaseBill(user: OcUser, input: BillIn) {
     }
 
     await audit(tx, user, "purchase.bill", b!.id, {
-      number: b!.number, vendor: v.name, total: b!.total, lines: input.lines.length, new_items: newItems, from_advance: rupees(fromAdvance), paid_now: payment?.number ?? null,
+      number: b!.number, vendor: v.name, total: b!.total, gst_bill: input.gst_bill, lines: input.lines.length, new_items: newItems, from_advance: rupees(fromAdvance), paid_now: payment?.number ?? null,
     });
     return { id: b!.id, number: b!.number, vendor: v.name, total: b!.total, cgst: b!.cgst, sgst: b!.sgst, igst: b!.igst, new_items: newItems, from_advance: rupees(fromAdvance), payment };
   });
@@ -353,6 +356,22 @@ export async function setPaymentMode(user: OcUser, id: string, input: z.infer<ty
     await tx.update(vendorPayments).set({ mode: input.mode, paidFrom: input.paid_from }).where(and(eq(vendorPayments.tenantId, user.tenantId), eq(vendorPayments.id, id)));
     await audit(tx, user, "purchase.payment_mode", id, { number: p.number, vendor: p.vendorName, from: `${p.mode}${p.paidFrom ? ` (${p.paidFrom})` : ""}`, to: `${input.mode}${input.paid_from ? ` (${input.paid_from})` : ""}` });
     return { number: p.number, mode: input.mode, paid_from: input.paid_from };
+  });
+}
+
+export const BillGstInput = z.object({ gst_bill: z.boolean() });
+
+/** Owner, Accounts: tick / untick "GST bill" on a saved purchase bill (a label only; audited). */
+export async function setPurchaseBillGst(user: OcUser, id: string, input: z.infer<typeof BillGstInput>) {
+  requireAccess(user, "purchase_enter");
+  return withTenant(user.tenantId, async (tx) => {
+    const [b] = await tx.select().from(purchaseBills).where(and(eq(purchaseBills.tenantId, user.tenantId), eq(purchaseBills.id, id))).for("update");
+    if (!b) throw notFound("Purchase bill not found");
+    if (b.cancelledAt) throw conflict(`Purchase bill ${b.number} is cancelled.`);
+    if (b.gstBill === input.gst_bill) return { number: b.number, gst_bill: b.gstBill };
+    await tx.update(purchaseBills).set({ gstBill: input.gst_bill }).where(and(eq(purchaseBills.tenantId, user.tenantId), eq(purchaseBills.id, id)));
+    await audit(tx, user, "purchase.bill_gst", id, { number: b.number, vendor: b.vendorName, gst_bill: input.gst_bill });
+    return { number: b.number, gst_bill: input.gst_bill };
   });
 }
 

@@ -923,3 +923,18 @@ only (`only_listed` + owner ids). No migration; SSO token unchanged.
 **Made while building:** "sales" = bills (with GST, opening balances left out) + van cash sales, as the Business charts;
 "Pending now" is today's pending list whatever date is shown; payables only on today's page; the job covers plants with
 a cash book (`cash_tenants()`); a module that doesn't answer is shown as missing (never as zero).
+
+## 2026-11-16 — GST tag on the bill lists + "GST bill" tick on purchase bills (v0.80.0)
+Owner 2026-11-16 ("by looking at the list itself I want to understand it's a GST bill, because we do not show everything
+on the tax system"; mock-up https://claude.ai/artifact/YKz2FrpVFtu49SprDaW2Fo).
+- **GST tag** (`GstTag` in `src/app/parts.tsx`) after the name on Sales → Bills and Purchases → Purchase bills rows.
+- **Sales bill** = GST when made with the "Needs GST invoice" tick, taxed in Zoho (`tax_total > 0`) or a Zoho GST invoice
+  no. typed on it (`billsList` in `src/server/ledger.ts`). Nothing to tick: a sales bill's GST tick changes its amounts,
+  so a wrong one is cancelled and made again (owner told 2026-11-16).
+- **Purchase bill** = GST only when the new **GST bill** tick is on (owner: not from the GST amounts). Migration
+  `0025_purchase_gst_tick.sql` (approved): `purchase_bills.gst_bill` default false + UPDATE on that column only. Existing
+  bills start unticked (owner). On "+ Purchase bill" the tick starts on when the vendor has a GSTIN (changing the vendor
+  resets it). On a saved, not-cancelled bill the owner or Accounts tick / untick it (`POST /api/purchases/bills/:id/gst`,
+  `setPurchaseBillGst`, saved at once, audit `purchase.bill_gst` in Recent changes; `purchase.bill` audit carries
+  `gst_bill`). A label only: no amount or payment changes. Support reads.
+- SSO token and platform unchanged. Tests: `test/purchase-entry.test.ts` (+1).

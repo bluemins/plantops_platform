@@ -397,7 +397,7 @@ export async function billsList(user: OcUser, f: { show?: BillFilter; q?: string
     const digits = q.replace(/\D/g, "");
     const rows = await tx.execute<{
       id: string; number: string; source: string; bill_date: string; due_date: string | null; total: string; due: string; cancelled: boolean;
-      order_id: string | null; ref_no: number | null; name: string; customer_id: string | null; contact_id: string | null; phone: string | null; ob: boolean;
+      order_id: string | null; ref_no: number | null; name: string; customer_id: string | null; contact_id: string | null; phone: string | null; ob: boolean; gst: boolean;
     }>(sql`
       with paid as (select bill_id, sum(amount) s from order_capture.payment_allocations where tenant_id = ${user.tenantId} group by bill_id),
            adj as (select bill_id, sum(amount) s from order_capture.bill_adjustments where tenant_id = ${user.tenantId} group by bill_id),
@@ -406,7 +406,7 @@ export async function billsList(user: OcUser, f: { show?: BillFilter; q?: string
                     (b.total - coalesce(p.s, 0) - coalesce(a.s, 0)) as due_n, b.cancelled_at is not null as cancelled,
                     b.order_id, o.ref_no, coalesce(cu.name, zc.name, b.customer_name) as name, cu.id as customer_id,
                     case when cu.id is null then zc.id end as contact_id, coalesce(cu.phone, zc.mobile) as phone,
-                    ${sql.raw(OPENING_SQL("b"))} as ob
+                    ${sql.raw(OPENING_SQL("b"))} as ob, (b.needs_gst or b.tax_total > 0 or b.zoho_gst_invoice_no is not null) as gst
                from order_capture.bills b
                left join paid p on p.bill_id = b.id
                left join adj a on a.bill_id = b.id
@@ -440,6 +440,7 @@ export async function billsList(user: OcUser, f: { show?: BillFilter; q?: string
         number: r.number,
         source: r.source,
         opening_balance: r.ob,
+        gst: r.gst,
         bill_date: r.bill_date,
         total: r.total,
         due: r.due,

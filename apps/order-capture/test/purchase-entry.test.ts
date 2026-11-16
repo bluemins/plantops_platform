@@ -8,9 +8,9 @@ import { rupees } from "@/lib/ledger";
 import { lineAmount, purchaseAmounts } from "@/lib/purchase-amounts";
 import { kit } from "@/server/kit";
 import {
-  addVendor, cancelPurchaseBill, cancelVendorPayment, payVendor, purchaseBillNotification, recordPurchaseBill, setPaymentMode, updateVendor, vendorPaymentNotification,
+  addVendor, cancelPurchaseBill, setPurchaseBillGst, cancelVendorPayment, payVendor, purchaseBillNotification, recordPurchaseBill, setPaymentMode, updateVendor, vendorPaymentNotification,
 } from "@/server/purchase-entry";
-import { purchaseBillDetail, vendorDetail, vendorsList } from "@/server/purchases";
+import { purchaseBillDetail, purchaseBillsList, vendorDetail, vendorsList } from "@/server/purchases";
 import { asApp, auditRows, ocUser, plant, refused } from "./helpers";
 
 const a = plant();
@@ -141,6 +141,32 @@ describe("purchase bills and payments", () => {
     expect(n).toMatchObject({ kind: "order_capture.purchase_bill", title: "Purchase ₹7,362.36 from Balaji Sales Sambalpur", body: "PB-0047, to pay (by Anmol)", level: "bell", exclude_user_id: accounts.userId });
     const p = vendorPaymentNotification(accounts, { id: "y", number: "PM-0050", vendor: "Balaji", amount: "10000.00", mode: "cash", bills: ["PB-0047"], advance: "821.22" });
     expect(p.body).toBe("PM-0050, cash. Paid PB-0047; ₹821.22 advance (by Anmol)");
+  });
+
+  it("GST bill tick (0025): saved with the bill, imported bills start unticked, owner / Accounts change it, audited", async () => {
+    const pb46 = (await purchaseBillsList(a.owner)).bills.find((x) => x.number === "PB-0046")!;
+    expect(pb46.gst).toBe(false); // already there: unticked, whatever its GST
+    const t = await recordPurchaseBill(accounts, bill(ids.balaji, { vendor_invoice_no: "GST/1", gst_bill: true }));
+    const u = await recordPurchaseBill(accounts, bill(ids.balaji, { vendor_invoice_no: "GST/2" })); // has 18 % GST, not ticked
+    const rows = (await purchaseBillsList(a.owner)).bills;
+    expect(rows.find((x) => x.id === t.id)!.gst).toBe(true);
+    expect(rows.find((x) => x.id === u.id)!.gst).toBe(false);
+    expect((await purchaseBillDetail(a.owner, u.id)).gst_bill).toBe(false);
+
+    expect(await setPurchaseBillGst(accounts, u.id, { gst_bill: true })).toEqual({ number: u.number, gst_bill: true });
+    expect(await setPurchaseBillGst(a.owner, pb46.id, { gst_bill: true })).toEqual({ number: "PB-0046", gst_bill: true });
+    expect(await setPurchaseBillGst(a.owner, t.id, { gst_bill: false })).toEqual({ number: t.number, gst_bill: false });
+    expect(await setPurchaseBillGst(a.owner, t.id, { gst_bill: false })).toEqual({ number: t.number, gst_bill: false }); // no change, no audit row
+    const audits = (await auditRows(a.tenantId)).filter((r) => r.action === "purchase.bill_gst");
+    expect(audits.map((r) => [r.details.number, r.details.gst_bill])).toEqual([[u.number, true], ["PB-0046", true], [t.number, false]]);
+    expect((await auditRows(a.tenantId)).find((r) => r.action === "purchase.bill" && r.details.number === t.number)!.details.gst_bill).toBe(true);
+
+    for (const who of [a.desk, a.staff, a.keeper, a.support]) expect((await refused(() => setPurchaseBillGst(who, u.id, { gst_bill: false }))).status, who.name).toBe(403);
+    expect((await refused(() => setPurchaseBillGst(b.owner, u.id, { gst_bill: false }))).status).toBe(404);
+    await cancelPurchaseBill(a.owner, u.id, { reason: "test" });
+    expect((await refused(() => setPurchaseBillGst(a.owner, u.id, { gst_bill: false }))).status).toBe(409);
+    // the app login may change the tick column only, nothing else on the bill
+    await asApp(a.tenantId, `update order_capture.purchase_bills set gst_bill = true where id = '${t.id}'`);
   });
 
   it("another plant can't pay, bill or edit plant A's vendor", async () => {

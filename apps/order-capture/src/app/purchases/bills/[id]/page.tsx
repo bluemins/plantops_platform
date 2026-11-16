@@ -8,7 +8,8 @@ import { purchaseBillDetail } from "@/server/purchases";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../../../header";
 import { CancelWithReason } from "../../../ledger-forms";
-import { BackLink, BillBadge } from "../../../parts";
+import { BackLink, BillBadge, GstTag } from "../../../parts";
+import { PurchaseBillGst } from "../../forms";
 import { day, MODE, qty } from "../../parts";
 
 type Params = Promise<{ id: string }>;
@@ -27,7 +28,7 @@ export default async function PurchaseBillPage({ params }: { params: Params }) {
       <div className="print:hidden"><Header user={user} plant={plant} /></div>
       <div className="print:hidden"><BackLink href="/purchases">← Purchase bills</BackLink></div>
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Purchase bill {b.number}</h1>
+        <h1 className="text-2xl font-bold">Purchase bill {b.number}{b.gst_bill && <GstTag />}</h1>
         <BillBadge status={b.status} due={money(b.due)} />
       </div>
       <p className="text-sm text-slate-600">
@@ -76,6 +77,9 @@ export default async function PurchaseBillPage({ params }: { params: Params }) {
         {b.notes && <p className="text-sm whitespace-pre-line text-slate-600">{b.notes}</p>}
       </Card>
 
+      {!b.cancelled && can(user, "purchase_enter") && (
+        <Card className="print:hidden"><PurchaseBillGst id={b.id} value={b.gst_bill} /></Card>
+      )}
       {!b.cancelled && can(user, "purchase_cancel") && (
         <div className="print:hidden"><CancelWithReason url={`/api/purchases/bills/${b.id}/cancel`} what="purchase bill" effect="What was paid on it goes back to those payments as advance." /></div>
       )}

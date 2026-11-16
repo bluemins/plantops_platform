@@ -2456,3 +2456,12 @@ notification** `order_capture.day_report` (push) to the plant's **owners only** 
 /api/cron/day-report` (cron-job.org row 14, 21:00 IST); plants with a cash book. Plant board later. No migration; SSO
 token unchanged; platform gets the kind only. Plan `docs/REPORTS_PHASE_PLAN.md` section 10. **Deploy:** the four modules
 first, then Sales, then the platform (types); add the cron-job.org job.
+
+### 2026-11-16 — GST tag on bill lists + "GST bill" tick on purchase bills (v0.80.0)
+Owner 2026-11-16 (mock-up https://claude.ai/artifact/YKz2FrpVFtu49SprDaW2Fo). A blue **GST** tag on Sales → Bills and
+Purchases → Purchase bills rows. Sales bill = made with the GST tick, taxed in Zoho, or a Zoho GST invoice no. typed (a
+sales bill's tick changes its amounts, so a wrong one is cancelled and made again). Purchase bill = the new **GST bill**
+tick only (owner: not from the GST amounts): pre-ticked on "+ Purchase bill" when the vendor has a GSTIN; owner / Accounts
+tick or untick it on a saved bill any time (a label, audited `purchase.bill_gst`); existing bills start unticked. Sales
+migration `0025_purchase_gst_tick.sql` (approved: one column, UPDATE grant on it only). Platform and SSO token unchanged.
+Notes: `apps/order-capture/NOTES.md`.

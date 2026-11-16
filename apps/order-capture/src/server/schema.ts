@@ -704,6 +704,8 @@ export const purchaseBills = oc.table("purchase_bills", {
   igst: numeric("igst", { precision: 18, scale: 2 }).notNull().default("0"),
   total: numeric("total", { precision: 18, scale: 2 }).notNull(),
   notes: text("notes"),
+  /** "GST bill" tick (0025): set by the owner / Accounts, not worked out from the GST amounts */
+  gstBill: boolean("gst_bill").notNull().default(false),
   zohoStatus: text("zoho_status"),
   zohoBalance: numeric("zoho_balance", { precision: 18, scale: 2 }),
   importId: uuid("import_id"),
