@@ -2470,5 +2470,5 @@ Notes: `apps/order-capture/NOTES.md`. **Live 2026-11-16** (`1239a0c`, migration 
 Owner 2026-11-16 (mock-up https://claude.ai/artifact/Xe7FYe8DnR4APvLu8RzxXy, Option A). Sales → Customers: a **Brand** row
 above the letters (All · each brand with its count · No brand yet), using the same rule as the brand tags (ticked "Brands
 they buy", else earlier orders); works with letter, search and switched-off; `?b=` in the address. `customerBrandIndex`
-in `apps/order-capture/src/server/customer-brands.ts`. No migration; SSO token unchanged. Notes:
+in `apps/order-capture/src/server/customer-brands.ts`. No migration; SSO token unchanged. **Live 2026-11-16** (`83325bd`). Notes:
 `apps/order-capture/NOTES.md`.
