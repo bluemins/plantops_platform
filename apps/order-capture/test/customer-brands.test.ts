@@ -2,8 +2,8 @@
 // Recent changes, what New order / Change order get, tenant isolation, and the picker's grouping and short names.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { recentChanges } from "@/server/audit";
-import { createCustomer } from "@/server/customers";
-import { brandsCard, changePicker, listBrandLabels, setBrands, SetBrandsInput } from "@/server/customer-brands";
+import { createCustomer, listCustomers, updateCustomer } from "@/server/customers";
+import { brandsCard, changePicker, customerBrandIndex, listBrandLabels, NO_BRAND, pickBrand, setBrands, SetBrandsInput } from "@/server/customer-brands";
 import { createOrder, lookupCustomer, OrderInput } from "@/server/orders";
 import { saveRates } from "@/server/rates";
 import { brandGroups, shortName } from "@/lib/product-picker";
@@ -161,5 +161,43 @@ describe("brand labels on the customer list", () => {
     const b = plant();
     expect((await listBrandLabels(b.owner, [a.shop.id])).labels).toEqual({});
     expect((await refused(() => listBrandLabels(a.keeper, [a.shop.id]))).status).toBe(403);
+  });
+});
+
+describe("brand filter on the customer list", () => {
+  it("counts each brand's customers, a two-brand customer under both, the rest under No brand yet", async () => {
+    const p = await brandPlant();
+    const two = await createCustomer(p.owner, { name: "Both Brands", phone: "9861000103", place: "Bijepur" });
+    await setBrands(p.owner, two.customer.id, SetBrandsInput.parse({ brands: ["Bluemins", "Mr.Charge"] }));
+    const fresh = await createCustomer(p.owner, { name: "Abhi New", phone: "9861000104", place: "Attabira" });
+    const idx = await customerBrandIndex(p.desk);
+    expect(idx.chips).toEqual([{ brand: "Bluemins", count: 2 }, { brand: "Mr.Charge", count: 1 }]);
+    expect(idx.none).toBe(1);
+    expect(idx.ids.bluemins!.sort()).toEqual([p.shop.id, two.customer.id].sort());
+    expect(idx.ids[NO_BRAND]).toEqual([fresh.customer.id]);
+
+    // any letter case in the address; unknown brands and an empty "No brand yet" are ignored
+    expect(pickBrand(idx, "MR.CHARGE")).toBe("mr.charge");
+    expect(pickBrand(idx, "Hemex")).toBeUndefined();
+    expect(pickBrand(idx, NO_BRAND)).toBe(NO_BRAND);
+
+    // the list with the brand: only those customers, and the letters follow the brand
+    const list = await listCustomers(p.desk, { onlyIds: idx.ids["mr.charge"] });
+    expect(list.customers.map((c) => c.name)).toEqual(["Both Brands"]);
+    expect(list.letters).toEqual(["B"]);
+    expect((await listCustomers(p.desk, { onlyIds: idx.ids.bluemins, letter: "S" })).customers.map((c) => c.name)).toEqual(["Shree Stores"]);
+    expect((await listCustomers(p.desk, { onlyIds: [] })).customers).toEqual([]);
+  });
+
+  it("switched-off customers count only with Show switched-off; another plant's customers never", async () => {
+    const p = await brandPlant();
+    await updateCustomer(p.owner, p.shop.id, { active: false });
+    expect((await customerBrandIndex(p.owner)).chips).toEqual([]);
+    expect((await customerBrandIndex(p.owner, { showOff: true })).chips).toEqual([{ brand: "Bluemins", count: 1 }]);
+    const b = plant();
+    const other = await customerBrandIndex(b.owner, { showOff: true });
+    expect(other.chips).toEqual([]);
+    expect(Object.keys(other.labels)).toEqual([]);
+    expect((await refused(() => customerBrandIndex(p.keeper))).status).toBe(403);
   });
 });

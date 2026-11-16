@@ -120,32 +120,95 @@ export async function listBrandLabels(user: OcUser, customerIds: string[]): Prom
     const rates = await effectiveRates(tx, user.tenantId, products);
     const palette = brandPalette(rates.map((r) => r.brand));
     if (customerIds.length === 0) return { labels: {}, palette };
-    const ids = sql`array[${sql.join(customerIds.map((id) => sql`${id}::uuid`), sql`, `)}]`;
-    const saved = await tx.execute<{ customer_id: string; brands: string[] }>(sql`
-      select distinct on (customer_id) customer_id, brands
-        from ${customerBrandChanges}
-       where tenant_id = ${user.tenantId} and customer_id = any(${ids})
-       order by customer_id, created_at desc`);
-    const bought = await tx.execute<{ customer_id: string; sku_id: string }>(sql`
-      select distinct o.customer_id, l.sku_id
-        from ${orders} o
-        join ${orderLines} l on l.order_id = o.id and l.version = o.version and l.tenant_id = o.tenant_id
-       where o.tenant_id = ${user.tenantId} and o.customer_id = any(${ids}) and o.status <> 'cancelled' and not l.free`);
-    const brandOfSku = new Map(rates.map((r) => [r.sku_id, r.brand]));
-    const labels: Record<string, string[]> = {};
-    for (const r of saved.rows) if (r.brands.length) labels[r.customer_id] = sortBrands(r.brands).filter(Boolean);
-    const fromOrders = new Map<string, string[]>();
-    for (const r of bought.rows) {
-      if (labels[r.customer_id]) continue;
-      const b = brandOfSku.get(r.sku_id);
-      if (!b) continue;
-      const list = fromOrders.get(r.customer_id) ?? [];
-      if (!list.some((x) => key(x) === key(b))) list.push(b);
-      fromOrders.set(r.customer_id, list);
-    }
-    for (const [id, list] of fromOrders) labels[id] = sortBrands(list);
-    return { labels, palette };
+    return { labels: await labelsOf(tx, user.tenantId, rates, customerIds), palette };
   });
+}
+
+/** The labels (see listBrandLabels) of the given customers, or of every customer of the plant (null). */
+async function labelsOf(tx: OcTx, tenantId: string, rates: RateView[], customerIds: string[] | null) {
+  const only = (col: ReturnType<typeof sql>) =>
+    customerIds ? sql`and ${col} = any(array[${sql.join(customerIds.map((id) => sql`${id}::uuid`), sql`, `)}])` : sql``;
+  const saved = await tx.execute<{ customer_id: string; brands: string[] }>(sql`
+    select distinct on (customer_id) customer_id, brands
+      from ${customerBrandChanges}
+     where tenant_id = ${tenantId} ${only(sql`customer_id`)}
+     order by customer_id, created_at desc`);
+  const bought = await tx.execute<{ customer_id: string; sku_id: string }>(sql`
+    select distinct o.customer_id, l.sku_id
+      from ${orders} o
+      join ${orderLines} l on l.order_id = o.id and l.version = o.version and l.tenant_id = o.tenant_id
+     where o.tenant_id = ${tenantId} ${only(sql`o.customer_id`)} and o.status <> 'cancelled' and not l.free`);
+  const brandOfSku = new Map(rates.map((r) => [r.sku_id, r.brand]));
+  const labels: Record<string, string[]> = {};
+  for (const r of saved.rows) if (r.brands.length) labels[r.customer_id] = sortBrands(r.brands).filter(Boolean);
+  const fromOrders = new Map<string, string[]>();
+  for (const r of bought.rows) {
+    if (labels[r.customer_id]) continue;
+    const b = brandOfSku.get(r.sku_id);
+    if (!b) continue;
+    const list = fromOrders.get(r.customer_id) ?? [];
+    if (!list.some((x) => key(x) === key(b))) list.push(b);
+    fromOrders.set(r.customer_id, list);
+  }
+  for (const [id, list] of fromOrders) labels[id] = sortBrands(list);
+  for (const id of Object.keys(labels)) if (!labels[id]!.length) delete labels[id];
+  return labels;
+}
+
+/** "No brand yet" in the customer list's brand filter (`?b=_`). */
+export const NO_BRAND = "_";
+
+export interface BrandIndex {
+  /** every customer's labels (same rule as listBrandLabels) */
+  labels: Record<string, string[]>;
+  palette: BrandPalette;
+  /** the brands with at least one customer (switched-off counted only with "Show switched-off"), A–Z */
+  chips: { brand: string; count: number }[];
+  /** customers with no label */
+  none: number;
+  /** the customer ids of each chip (by brand in lower case) and of NO_BRAND */
+  ids: Record<string, string[]>;
+}
+
+/**
+ * The customer list's brand filter (owner, 2026-11-16; mock-up https://claude.ai/artifact/Xe7FYe8DnR4APvLu8RzxXy): a
+ * customer is under a brand when it is one of their labels on the list, so a customer with two brands is under both and
+ * one with none is under "No brand yet". Everyone who sees the list may use it.
+ */
+export async function customerBrandIndex(user: OcUser, opts: { showOff?: boolean } = {}): Promise<BrandIndex> {
+  requireAccess(user, "view_customers");
+  const products = await activeProducts(user.tenantId);
+  return withTenant(user.tenantId, async (tx) => {
+    const rates = await effectiveRates(tx, user.tenantId, products);
+    const palette = brandPalette(rates.map((r) => r.brand));
+    const labels = await labelsOf(tx, user.tenantId, rates, null);
+    const where = [eq(customers.tenantId, user.tenantId)];
+    if (!opts.showOff) where.push(eq(customers.active, true));
+    const rows = await tx.select({ id: customers.id }).from(customers).where(and(...where));
+    // the name shown on a chip: as on Rates, else as first seen on a customer
+    const shown = new Map(rates.filter((r) => r.brand).map((r) => [key(r.brand), r.brand]));
+    const ids: Record<string, string[]> = { [NO_BRAND]: [] };
+    for (const { id } of rows) {
+      const ls = labels[id];
+      if (!ls?.length) {
+        ids[NO_BRAND]!.push(id);
+        continue;
+      }
+      for (const b of ls) {
+        if (!shown.has(key(b))) shown.set(key(b), b);
+        (ids[key(b)] ??= []).push(id);
+      }
+    }
+    const chips = sortBrands(Object.keys(ids).filter((k) => k !== NO_BRAND).map((k) => shown.get(k)!)).map((brand) => ({ brand, count: ids[key(brand)]!.length }));
+    return { labels, palette, chips, none: ids[NO_BRAND]!.length, ids };
+  });
+}
+
+/** The brand picked in the address (`?b=`): a chip's brand in lower case, NO_BRAND, or undefined (none / unknown). */
+export function pickBrand(index: BrandIndex, v: string): string | undefined {
+  if (v === NO_BRAND) return index.none > 0 ? NO_BRAND : undefined;
+  const k = key(v);
+  return k && k !== NO_BRAND && index.ids[k] ? k : undefined;
 }
 
 /** What the order screens need for a customer's picker: their brands ([] = all) and the products they bought before. */

@@ -938,3 +938,16 @@ on the tax system"; mock-up https://claude.ai/artifact/YKz2FrpVFtu49SprDaW2Fo).
   `setPurchaseBillGst`, saved at once, audit `purchase.bill_gst` in Recent changes; `purchase.bill` audit carries
   `gst_bill`). A label only: no amount or payment changes. Support reads.
 - SSO token and platform unchanged. Tests: `test/purchase-entry.test.ts` (+1).
+
+## 2026-11-16 — Customer list: brand filter (v0.81.0)
+Asked by the owner 2026-11-16 (mock-up https://claude.ai/artifact/Xe7FYe8DnR4APvLu8RzxXy, Option A approved: "build").
+- A **Brand** row above the letters on Sales → Customers: All · each brand with its number of customers (in that brand's
+  colour; the picked one gets a ring) · **No brand yet** (dashed). A customer is under a brand when it is one of their
+  labels on the list (ticked "Brands they buy", else the brands of earlier orders), so a two-brand customer is under
+  both; no label = No brand yet. Counts follow "Show switched-off", not the search or letter.
+- Brand + letter + search work together; the brand is in the address (`?b=bluemins 20l`, `?b=_` = No brand yet; unknown
+  values are ignored); the letters grey out within the picked brand; "✕ Clear" drops brand, letter and search.
+- `customerBrandIndex` / `pickBrand` / `NO_BRAND` in `src/server/customer-brands.ts` (two queries for the whole plant,
+  then `listCustomers({ onlyIds })`); only the shown customers' labels go to the page. Everyone who sees the list may
+  use it; no money in it.
+- No migration; platform and SSO token unchanged. Tests: Sales 1,363 (+2, `test/customer-brands.test.ts`).

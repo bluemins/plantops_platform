@@ -5,7 +5,7 @@
 //     database's unique index is the final guard); only the owner may change it, with a reason (customer-details.ts, D3)
 //   * customers are switched off, never deleted; old orders keep their own copy of name / phone / place
 //   * every change goes into the audit log ("Recent changes")
-import { and, asc, eq, ilike, like, or, sql } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { normalisePhone } from "@plantops/module-kit/phone";
 import { LETTERS, type Letter } from "@/lib/letters";
@@ -77,13 +77,15 @@ export async function findByPhone(tx: OcTx, tenantId: string, phone: string) {
 /** A name's letter on the customer list's strip (`LETTERS`): its first A–Z letter, else "#". */
 const firstLetter = sql<string>`case when upper(left(btrim(${customers.name}), 1)) between 'A' and 'Z' then upper(left(btrim(${customers.name}), 1)) else '#' end`;
 
-export async function listCustomers(user: OcUser, opts: { q?: string; showOff?: boolean; limit?: number; letter?: Letter } = {}) {
+export async function listCustomers(user: OcUser, opts: { q?: string; showOff?: boolean; limit?: number; letter?: Letter; onlyIds?: string[] } = {}) {
   requireAccess(user, "view_customers");
   const q = (opts.q ?? "").trim();
   const digits = normalisePhone(q) ?? q.replace(/\D/g, "");
   return withTenant(user.tenantId, async (tx) => {
     const where = [eq(customers.tenantId, user.tenantId)];
     if (!opts.showOff) where.push(eq(customers.active, true));
+    // the brand filter: only these customers (none = an empty list)
+    if (opts.onlyIds) where.push(opts.onlyIds.length ? inArray(customers.id, opts.onlyIds) : sql`false`);
     // the letters that have a customer (search and switched-off respected, the picked letter not), for greying the rest
     const lettersWhere = [...where];
     if (opts.letter) where.push(sql`${firstLetter} = ${opts.letter}`);

@@ -2465,3 +2465,10 @@ tick only (owner: not from the GST amounts): pre-ticked on "+ Purchase bill" whe
 tick or untick it on a saved bill any time (a label, audited `purchase.bill_gst`); existing bills start unticked. Sales
 migration `0025_purchase_gst_tick.sql` (approved: one column, UPDATE grant on it only). Platform and SSO token unchanged.
 Notes: `apps/order-capture/NOTES.md`. **Live 2026-11-16** (`1239a0c`, migration `0025` applied first).
+
+### 2026-11-16 — Sales: brand filter on the customer list (v0.81.0)
+Owner 2026-11-16 (mock-up https://claude.ai/artifact/Xe7FYe8DnR4APvLu8RzxXy, Option A). Sales → Customers: a **Brand** row
+above the letters (All · each brand with its count · No brand yet), using the same rule as the brand tags (ticked "Brands
+they buy", else earlier orders); works with letter, search and switched-off; `?b=` in the address. `customerBrandIndex`
+in `apps/order-capture/src/server/customer-brands.ts`. No migration; SSO token unchanged. Notes:
+`apps/order-capture/NOTES.md`.

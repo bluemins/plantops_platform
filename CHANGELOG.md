@@ -4,6 +4,12 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.81.0 — 2026-11-16 — Sales → Customers: brand filter
+
+Owner, 2026-11-16. No migration; platform and SSO token unchanged.
+- A **Brand** row above the A–Z letters: All · each brand with its customer count · No brand yet. Works together with
+  the letters, search and "Show switched-off"; kept in the address (`?b=`).
+
 ## v0.80.0 — 2026-11-16 — GST tag on bill lists + "GST bill" tick on purchase bills
 
 Owner, 2026-11-16. **Migration:** Sales `0025_purchase_gst_tick.sql` (`purchase_bills.gst_bill`, default false, UPDATE on
