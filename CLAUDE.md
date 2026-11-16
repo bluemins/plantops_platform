@@ -2432,7 +2432,7 @@ Attendance `GET /api/plantops/salary-totals`). Paid months' cost = expense "Sala
 missing salary is said, never ₹0. No migration; SSO token unchanged. Deploy Attendance and Sales together (the platform
 only needs the shared types, also redeployed). Plan `docs/REPORTS_PHASE_PLAN.md` section 9.
 
-### 2026-11-16 — Plant board: priority + cards for specific people (v0.78.0) — built, not deployed
+### 2026-11-16 — Plant board: priority + cards for specific people (v0.78.0) — live 2026-11-16 (`0a5af02`)
 Asked by the owner 2026-11-16 (answers to four questions, "build it and test it").
 - **Priority** Urgent / Normal / Low (default Normal): the writer picks it when adding; afterwards only the owner or a
   Supervisor changes it (audited `board.priority`). Open cards sort Urgent → Normal → Low; red "Urgent" / grey "Low" tags.
@@ -2443,4 +2443,4 @@ Asked by the owner 2026-11-16 (answers to four questions, "build it and test it"
 - Platform migration `0029_board_priority_people.sql` (approved 2026-11-16): `board_cards.priority` (+ UPDATE on that
   column, unique `(tenant_id, id)`), new `board_card_people` (FORCE RLS, SELECT + INSERT only). Existing cards = Normal,
   for everyone. SSO token unchanged. Tests: platform 449 (board 14); typecheck and build pass.
-- **Not yet verified:** on screen. Deploy: migration `0029` first, then the platform.
+- **Live 2026-11-16** (migration `0029` applied first). **Not yet verified:** on screen.
