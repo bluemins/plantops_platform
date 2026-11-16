@@ -4,7 +4,7 @@ import { handle, json, readJson, uuidParam } from "@/server/http";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/** `{ text }` = edit (writer only) or `{ done }` = tick / untick (anyone). */
+/** `{ text }` = edit (writer only), `{ done }` = close / reopen or `{ priority }` (owner or Supervisor). */
 export const PATCH = handle(async (req, ctx: Ctx) => {
   const user = await requireUser(req);
   const id = uuidParam((await ctx.params).id);

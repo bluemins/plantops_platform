@@ -164,6 +164,78 @@ describe("Plant board", () => {
     expect(await denied(withTenant(A.tenantId, (tx) => tx.update(schema.boardCards).set({ createdBy: A.adminUserId })))).toBe("42501");
   });
 
+  it("priority: the writer picks it; only the owner or a Supervisor changes it (audited); Urgent / Normal / Low only", async () => {
+    const id = (await call(POST, { cookie: worker.cookie, body: { date: tomorrow, text: "Fix the leak", priority: "urgent" } })).body.id;
+    expect((await call(POST, { cookie: worker.cookie, body: { date: tomorrow, text: "x", priority: "asap" } })).status).toBe(400);
+    let card = (await callDay(keeper.cookie, tomorrow)).body.cards.find((c: { id: string }) => c.id === id);
+    expect(card).toMatchObject({ priority: "urgent", can_set_priority: false, for_people: [] });
+    // a card added without a priority is Normal
+    const plain = (await add(keeper.cookie, "plain")).body.id;
+    expect((await callDay(keeper.cookie, tomorrow)).body.cards.find((c: { id: string }) => c.id === plain).priority).toBe("normal");
+    // the writer can't change it afterwards; the Supervisor and owner can
+    expect((await call(PATCH, { method: "PATCH", cookie: worker.cookie, params: { id }, body: { priority: "low" } })).status).toBe(403);
+    expect((await call(PATCH, { method: "PATCH", cookie: sup.cookie, params: { id }, body: { priority: "low" } })).status).toBe(200);
+    card = (await callDay(sup.cookie, tomorrow)).body.cards.find((c: { id: string }) => c.id === id);
+    expect(card).toMatchObject({ priority: "low", can_set_priority: true });
+    expect((await call(PATCH, { method: "PATCH", cookie: A.adminCookie, params: { id }, body: { priority: "bad" } })).status).toBe(400);
+    const { rows } = await asOwner("select details from platform.audit_log where action = 'board.priority' and target = $1", [id]);
+    expect(rows[0]!.details).toMatchObject({ before: "urgent", after: "low" });
+  });
+
+  it("cards for specific people: only the owner or a Supervisor picks them; only they, the writer and owners see the card", async () => {
+    const other = await makeStaff(A, "other", ["store_keeper"]);
+    const body = { date: tomorrow, text: "Collect ₹2,000 from Sahu Stores", people: [keeper.userId] };
+    // staff can't make a private card
+    expect((await call(POST, { cookie: worker.cookie, body })).status).toBe(403);
+    // only people of this plant, active
+    expect((await call(POST, { cookie: sup.cookie, body: { ...body, people: [B.adminUserId] } })).status).toBe(400);
+    const id = (await call(POST, { cookie: sup.cookie, body })).body.id;
+    const sees = async (cookie: string) => (await callDay(cookie, tomorrow)).body.cards.some((c: { id: string }) => c.id === id);
+    expect(await sees(keeper.cookie)).toBe(true); // picked
+    expect(await sees(sup.cookie)).toBe(true); // the writer
+    expect(await sees(A.adminCookie)).toBe(true); // an owner
+    expect(await sees(worker.cookie)).toBe(false);
+    expect(await sees(other.cookie)).toBe(false);
+    const card = (await callDay(keeper.cookie, tomorrow)).body.cards.find((c: { id: string }) => c.id === id);
+    expect(card.for_people).toEqual([{ id: keeper.userId, name: "keeper" }]);
+    // a private card the owner wrote is hidden from a Supervisor who wasn't picked: can't see, close or remove it
+    const ownerCard = (await call(POST, { cookie: A.adminCookie, body: { date: tomorrow, text: "Pay Ravi", people: [worker.userId] } })).body.id;
+    expect((await callDay(sup.cookie, tomorrow)).body.cards.some((c: { id: string }) => c.id === ownerCard)).toBe(false);
+    expect((await call(PATCH, { method: "PATCH", cookie: sup.cookie, params: { id: ownerCard }, body: { done: true } })).status).toBe(404);
+    expect((await call(DELETE, { method: "DELETE", cookie: sup.cookie, params: { id: ownerCard } })).status).toBe(404);
+    // the people list for the picker goes to owners and Supervisors only
+    expect((await callDay(worker.cookie, tomorrow)).body.people).toEqual([]);
+    expect((await callDay(sup.cookie, tomorrow)).body.people.map((p: { id: string }) => p.id)).toContain(keeper.userId);
+  });
+
+  it("private cards carried forward and in the launcher numbers only count for those who can see them", async () => {
+    const { rows } = await asOwner<{ id: string }>(
+      "insert into platform.board_cards (tenant_id, for_date, body, created_by) values ($1, $2, 'private old', $3) returning id",
+      [A.tenantId, addDays(today, -1), A.adminUserId],
+    );
+    const id = rows[0]!.id;
+    await asOwner("insert into platform.board_card_people (tenant_id, card_id, user_id, added_by) values ($1, $2, $3, $4)", [
+      A.tenantId,
+      id,
+      keeper.userId,
+      A.adminUserId,
+    ]);
+    const open = async (cookie: string) => (await call(summaryRoute.GET as Handler, { cookie })).body.today.open as number;
+    const before = { keeper: await open(keeper.cookie), worker: await open(worker.cookie) };
+    expect((await callDay(keeper.cookie, today)).body.carried.some((c: { id: string }) => c.id === id)).toBe(true);
+    expect((await callDay(worker.cookie, today)).body.carried.some((c: { id: string }) => c.id === id)).toBe(false);
+    expect((await call(DELETE, { method: "DELETE", cookie: A.adminCookie, params: { id } })).status).toBe(200);
+    expect(await open(keeper.cookie)).toBe(before.keeper - 1);
+    expect(await open(worker.cookie)).toBe(before.worker);
+  });
+
+  it("the app login can't remove or change the people a card is for", async () => {
+    const denied = (p: Promise<unknown>) => p.then(() => "allowed", (e: { cause?: { code?: string } }) => e.cause?.code);
+    expect(await denied(withTenant(A.tenantId, (tx) => tx.delete(schema.boardCardPeople)))).toBe("42501");
+    expect(await denied(withTenant(A.tenantId, (tx) => tx.update(schema.boardCardPeople).set({ userId: A.adminUserId })))).toBe("42501");
+    expect(await withTenant(B.tenantId, (tx) => tx.select().from(schema.boardCardPeople))).toEqual([]);
+  });
+
   it("launcher card numbers: open today and cards for tomorrow", async () => {
     const res = await call(summaryRoute.GET as Handler, { cookie: worker.cookie });
     expect(res.status).toBe(200);

@@ -8,7 +8,11 @@
 //   closed today), tagged with its own date; the row keeps its date (owner, 2026-11-15)
 // - a removed card stays visible on its day, crossed out, with who removed it and when (owner, 2026-11-15)
 // - no notifications; edits and removals go to the audit log; nothing is deleted
-import { and, asc, eq, gte, isNull, lt, lte, or, sql } from "drizzle-orm";
+// - priority Urgent / Normal / Low: the writer picks it when adding; afterwards only the owner or a Supervisor changes
+//   it (owner, 2026-11-16)
+// - only the owner or a Supervisor makes a card for specific people; such a card is seen only by those people, its
+//   writer and the plant's owners, also in the launcher numbers; the people are fixed once saved (owner, 2026-11-16)
+import { and, asc, eq, gte, inArray, isNull, lt, lte, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { audit } from "./audit";
@@ -16,7 +20,7 @@ import type { CurrentUser } from "./auth";
 import { schema, withTenant } from "./db";
 import { badRequest, forbidden, notFound } from "./http";
 
-const { boardCards, users } = schema;
+const { boardCards, boardCardPeople, users } = schema;
 
 /** How far the board looks back and ahead (days from today, India date). */
 export const BOARD_BACK_DAYS = 7;
@@ -35,10 +39,21 @@ export function addDays(day: string, n: number) {
 const Day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-11-15");
 const Body = z.string().trim().min(1, "Write something first").max(300, "Keep it under 300 characters");
 
-export const NewCardInput = z.object({ date: Day, text: Body });
+export const PRIORITIES = ["urgent", "normal", "low"] as const;
+export type Priority = (typeof PRIORITIES)[number];
+const PriorityIn = z.enum(PRIORITIES, { message: "Pick Urgent, Normal or Low" });
+
+export const NewCardInput = z.object({
+  date: Day,
+  text: Body,
+  priority: PriorityIn.default("normal"),
+  /** Only for these people (owner / Supervisor only); empty or missing = the whole plant. */
+  people: z.array(z.string().uuid()).max(30, "Pick at most 30 people").default([]),
+});
 export const ChangeCardInput = z.union([
   z.object({ text: Body }).strict(),
   z.object({ done: z.boolean() }).strict(),
+  z.object({ priority: PriorityIn }).strict(),
 ]);
 
 const isOwner = (u: CurrentUser) => u.roles.includes("tenant_admin");
@@ -46,6 +61,17 @@ const isOwner = (u: CurrentUser) => u.roles.includes("tenant_admin");
 const canClose = (u: CurrentUser) => isOwner(u) || u.roles.includes("supervisor");
 /** The writer may still edit: the card's day hasn't passed, or it is still open (carried forward). */
 const stillLive = (card: { forDate: string; doneAt: Date | null }, today: string) => card.forDate >= today || !card.doneAt;
+
+/**
+ * Which cards this person may see: owners see every card; everyone else sees cards for the whole plant (no people
+ * picked), cards they wrote, and cards picked for them.
+ */
+function visibleTo(user: CurrentUser): SQL | undefined {
+  if (isOwner(user)) return undefined;
+  return sql`(${boardCards.createdBy} = ${user.userId}
+    or not exists (select 1 from platform.board_card_people p where p.card_id = ${boardCards.id})
+    or exists (select 1 from platform.board_card_people p where p.card_id = ${boardCards.id} and p.user_id = ${user.userId}))`;
+}
 
 function inWindow(day: string, today: string) {
   return day >= addDays(today, -BOARD_BACK_DAYS) && day <= addDays(today, BOARD_AHEAD_DAYS);
@@ -67,9 +93,13 @@ export interface BoardCard {
   removed: boolean;
   removed_by: string | null;
   removed_at: string | null;
+  priority: Priority;
+  /** The people the card is for (empty = the whole plant). */
+  for_people: { id: string; name: string }[];
   can_edit: boolean;
   can_remove: boolean;
   can_close: boolean;
+  can_set_priority: boolean;
 }
 
 /**
@@ -91,7 +121,7 @@ export async function boardDay(user: CurrentUser, day: string, now = new Date())
         .innerJoin(writer, eq(writer.id, boardCards.createdBy))
         .leftJoin(ticker, eq(ticker.id, boardCards.doneBy))
         .leftJoin(remover, eq(remover.id, boardCards.removedBy))
-        .where(and(eq(boardCards.tenantId, user.tenantId), where))
+        .where(and(eq(boardCards.tenantId, user.tenantId), where, visibleTo(user)))
         .orderBy(asc(boardCards.forDate), asc(boardCards.createdAt)),
     );
   const rows = await select(eq(boardCards.forDate, day));
@@ -111,6 +141,18 @@ export async function boardDay(user: CurrentUser, day: string, now = new Date())
           ),
         )
       : [];
+  const ids = [...rows, ...carriedRows].map((r) => r.card.id);
+  const peopleRows = ids.length
+    ? await withTenant(user.tenantId, (tx) =>
+        tx
+          .select({ cardId: boardCardPeople.cardId, id: users.id, name: users.displayName })
+          .from(boardCardPeople)
+          .innerJoin(users, eq(users.id, boardCardPeople.userId))
+          .where(and(eq(boardCardPeople.tenantId, user.tenantId), inArray(boardCardPeople.cardId, ids)))
+          .orderBy(asc(users.displayName)),
+      )
+    : [];
+  const peopleOf = (cardId: string) => peopleRows.filter((p) => p.cardId === cardId).map(({ id, name }) => ({ id, name }));
   const toCard = ({ card, by, doneByName, removedByName }: (typeof rows)[number], carried: boolean): BoardCard => {
     const mine = card.createdBy === user.userId;
     const removed = !!card.removedAt;
@@ -130,9 +172,12 @@ export async function boardDay(user: CurrentUser, day: string, now = new Date())
       removed,
       removed_by: removed ? (removedByName ?? null) : null,
       removed_at: card.removedAt?.toISOString() ?? null,
+      priority: card.priority,
+      for_people: peopleOf(card.id),
       can_edit: mine && live,
       can_remove: !removed && canClose(user),
       can_close: !removed && canClose(user),
+      can_set_priority: live && canClose(user),
     };
   };
   return {
@@ -142,14 +187,39 @@ export async function boardDay(user: CurrentUser, day: string, now = new Date())
     can_close: canClose(user),
     carried: carriedRows.map((r) => toCard(r, true)),
     cards: rows.map((r) => toCard(r, false)),
+    // the people an owner or Supervisor can pick for a card (active users of this plant)
+    people: canClose(user) ? await plantPeople(user) : [],
   };
 }
 
-/** Adds a card for today or a day ahead (up to a week). */
+async function plantPeople(user: CurrentUser) {
+  return withTenant(user.tenantId, (tx) =>
+    tx
+      .select({ id: users.id, name: users.displayName })
+      .from(users)
+      .where(and(eq(users.tenantId, user.tenantId), eq(users.status, "active")))
+      .orderBy(asc(users.displayName)),
+  );
+}
+
+/** The card if this person may see it (and it is still on the board), locked for the change; else 404. */
+async function cardFor(tx: Parameters<Parameters<typeof withTenant>[1]>[0], user: CurrentUser, id: string, today: string) {
+  const [card] = await tx
+    .select()
+    .from(boardCards)
+    .where(and(eq(boardCards.tenantId, user.tenantId), eq(boardCards.id, id), isNull(boardCards.removedAt), visibleTo(user)))
+    .for("update");
+  if (!card || !(inWindow(card.forDate, today) || !card.doneAt)) throw notFound("This card is no longer on the board");
+  return card;
+}
+
+/** Adds a card for today or a day ahead (up to a week), optionally for specific people (owner / Supervisor only). */
 export async function addCard(user: CurrentUser, input: z.infer<typeof NewCardInput>, now = new Date()) {
   const today = indiaToday(now);
   if (input.date < today) throw badRequest("Cards can be added for today or a day ahead only");
   if (input.date > addDays(today, BOARD_AHEAD_DAYS)) throw badRequest(`Cards can be added up to ${BOARD_AHEAD_DAYS} days ahead`);
+  const people = [...new Set(input.people)];
+  if (people.length && !canClose(user)) throw forbidden("Only the owner or a supervisor can make a card for specific people");
   return withTenant(user.tenantId, async (tx) => {
     const [{ count } = { count: 0 }] = await tx
       .select({ count: sql<number>`count(*)::int` })
@@ -158,23 +228,43 @@ export async function addCard(user: CurrentUser, input: z.infer<typeof NewCardIn
     if (count >= 200) throw badRequest("This day already has 200 cards");
     const [row] = await tx
       .insert(boardCards)
-      .values({ tenantId: user.tenantId, forDate: input.date, body: input.text, createdBy: user.userId })
+      .values({ tenantId: user.tenantId, forDate: input.date, body: input.text, priority: input.priority, createdBy: user.userId })
       .returning({ id: boardCards.id });
+    if (people.length) {
+      const found = await tx
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.tenantId, user.tenantId), eq(users.status, "active"), inArray(users.id, people)));
+      if (found.length !== people.length) throw badRequest("Someone you picked is not an active user of this plant");
+      await tx
+        .insert(boardCardPeople)
+        .values(people.map((userId) => ({ tenantId: user.tenantId, cardId: row!.id, userId, addedBy: user.userId })));
+    }
     return { id: row!.id };
   });
 }
 
-/** Edits the text (writer only, while the card is live) or closes / reopens it (owner or Supervisor only). */
+/**
+ * Edits the text (writer only, while the card is live), closes / reopens it or changes its priority (owner or
+ * Supervisor only).
+ */
 export async function changeCard(user: CurrentUser, id: string, input: z.infer<typeof ChangeCardInput>, now = new Date()) {
   const today = indiaToday(now);
   return withTenant(user.tenantId, async (tx) => {
-    const [card] = await tx
-      .select()
-      .from(boardCards)
-      .where(and(eq(boardCards.tenantId, user.tenantId), eq(boardCards.id, id), isNull(boardCards.removedAt)))
-      .for("update");
-    if (!card || !(inWindow(card.forDate, today) || !card.doneAt)) throw notFound("This card is no longer on the board");
-    if ("text" in input) {
+    const card = await cardFor(tx, user, id, today);
+    if ("priority" in input) {
+      if (!canClose(user)) throw forbidden("Only the owner or a supervisor can change the priority");
+      if (!stillLive(card, today)) throw forbidden("Closed cards for past days can't be changed");
+      if (input.priority === card.priority) return { ok: true };
+      await tx.update(boardCards).set({ priority: input.priority }).where(eq(boardCards.id, id));
+      await audit(tx, {
+        tenantId: user.tenantId,
+        actor: `user:${user.userId}`,
+        action: "board.priority",
+        target: id,
+        details: { for_date: card.forDate, before: card.priority, after: input.priority },
+      });
+    } else if ("text" in input) {
       if (card.createdBy !== user.userId) throw forbidden("Only the person who wrote this card can change it");
       if (!stillLive(card, today)) throw forbidden("Closed cards for past days can't be changed");
       if (input.text === card.body) return { ok: true };
@@ -202,12 +292,7 @@ export async function changeCard(user: CurrentUser, id: string, input: z.infer<t
 export async function removeCard(user: CurrentUser, id: string, now = new Date()) {
   const today = indiaToday(now);
   return withTenant(user.tenantId, async (tx) => {
-    const [card] = await tx
-      .select()
-      .from(boardCards)
-      .where(and(eq(boardCards.tenantId, user.tenantId), eq(boardCards.id, id), isNull(boardCards.removedAt)))
-      .for("update");
-    if (!card || !(inWindow(card.forDate, today) || !card.doneAt)) throw notFound("This card is no longer on the board");
+    const card = await cardFor(tx, user, id, today);
     if (!canClose(user)) throw forbidden("Only the owner or a supervisor can remove a card");
     await tx.update(boardCards).set({ removedBy: user.userId, removedAt: new Date() }).where(eq(boardCards.id, id));
     await audit(tx, {
@@ -229,14 +314,14 @@ export async function boardSummary(user: CurrentUser, now = new Date()) {
     tx
       .select({ day: boardCards.forDate, count: sql<number>`count(*)::int`, open: sql<number>`count(*) filter (where ${boardCards.doneAt} is null)::int` })
       .from(boardCards)
-      .where(and(eq(boardCards.tenantId, user.tenantId), gte(boardCards.forDate, today), lte(boardCards.forDate, tomorrow), isNull(boardCards.removedAt)))
+      .where(and(eq(boardCards.tenantId, user.tenantId), gte(boardCards.forDate, today), lte(boardCards.forDate, tomorrow), isNull(boardCards.removedAt), visibleTo(user)))
       .groupBy(boardCards.forDate),
   );
   const [{ carried } = { carried: 0 }] = await withTenant(user.tenantId, (tx) =>
     tx
       .select({ carried: sql<number>`count(*)::int` })
       .from(boardCards)
-      .where(and(eq(boardCards.tenantId, user.tenantId), lt(boardCards.forDate, today), isNull(boardCards.doneAt), isNull(boardCards.removedAt))),
+      .where(and(eq(boardCards.tenantId, user.tenantId), lt(boardCards.forDate, today), isNull(boardCards.doneAt), isNull(boardCards.removedAt), visibleTo(user))),
   );
   const of = (d: string) => rows.find((r) => r.day === d) ?? { count: 0, open: 0 };
   const own = of(today);

@@ -2431,3 +2431,16 @@ v0.76.0 is **live** (2026-11-16, `1c03c07`). Release 2 (owner's yes 2026-11-16):
 Attendance `GET /api/plantops/salary-totals`). Paid months' cost = expense "Salary"; salary paid + advances = money out;
 missing salary is said, never ₹0. No migration; SSO token unchanged. Deploy Attendance and Sales together (the platform
 only needs the shared types, also redeployed). Plan `docs/REPORTS_PHASE_PLAN.md` section 9.
+
+### 2026-11-16 — Plant board: priority + cards for specific people (v0.78.0) — built, not deployed
+Asked by the owner 2026-11-16 (answers to four questions, "build it and test it").
+- **Priority** Urgent / Normal / Low (default Normal): the writer picks it when adding; afterwards only the owner or a
+  Supervisor changes it (audited `board.priority`). Open cards sort Urgent → Normal → Low; red "Urgent" / grey "Low" tags.
+- **For specific people:** only the owner or a Supervisor picks people when adding ("For: Everyone / 🔒 Pick people").
+  Such a card is seen only by those people, its writer and the plant's owners: filtered on the server for the day list,
+  carried-forward cards, close / remove (404 otherwise) and the launcher numbers. Closing stays owner / Supervisor. The
+  people are fixed once saved (no DELETE grant; to change, remove the card and add a new one). No notifications.
+- Platform migration `0029_board_priority_people.sql` (approved 2026-11-16): `board_cards.priority` (+ UPDATE on that
+  column, unique `(tenant_id, id)`), new `board_card_people` (FORCE RLS, SELECT + INSERT only). Existing cards = Normal,
+  for everyone. SSO token unchanged. Tests: platform 449 (board 14); typecheck and build pass.
+- **Not yet verified:** on screen. Deploy: migration `0029` first, then the platform.

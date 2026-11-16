@@ -231,7 +231,22 @@ export const boardCards = platform.table("board_cards", {
   doneAt: ts("done_at"),
   removedBy: uuid("removed_by"),
   removedAt: ts("removed_at"),
+  /** Migration 0029: urgent / normal / low. */
+  priority: text("priority").$type<"urgent" | "normal" | "low">().notNull().default("normal"),
 });
+
+/** The people a board card is for (migration 0029); no rows = the whole plant sees the card. Fixed once saved. */
+export const boardCardPeople = platform.table(
+  "board_card_people",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    cardId: uuid("card_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    addedBy: uuid("added_by").notNull(),
+    addedAt: ts("added_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.cardId, t.userId] })],
+);
 
 /** One person's launcher tile order (migration 0020); no row = the usual order. */
 export const tileOrder = platform.table(
