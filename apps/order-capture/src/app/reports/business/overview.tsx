@@ -2,7 +2,7 @@
 // what the plant owes vendors, cash flow, income and expense, top expenses. Owner (support reads).
 import { businessOverview, readOverviewParams } from "@/server/business";
 import type { OcUser } from "@/server/session";
-import { Chart, ChartCard, fullRupees, HBars, SLOT, SplitBar, toRupees } from "./charts";
+import { Chart, ChartCard, fullRupees, HBars, salaryNote, SLOT, SplitBar, toRupees } from "./charts";
 
 const GROUP_COLOR = { purchases: SLOT[0], salary: SLOT[1], van: SLOT[2], other: SLOT[3] } as const;
 const R = (xs: bigint[]) => xs.map(toRupees);
@@ -60,7 +60,7 @@ export async function BusinessOverviewPanel({ user, q }: { user: OcUser; q: Reco
         <ChartCard
           title="Income and expense"
           sub={p.basis === "bill" ? "By bill: sales billed vs purchases billed + expenses (before GST)" : "By payment: money received vs money paid out"}
-          foot="Not a profit: salary (next release), power, rent and most cash costs are not in yet."
+          foot={`${salaryNote(o.salary)} Not a profit: power, rent and most cash costs are not in yet.`}
         >
           <div className="flex flex-wrap gap-2">
             <a href={link({ basis: "bill" })} className={chip(p.basis === "bill")}>By bill</a>

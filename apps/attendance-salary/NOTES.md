@@ -962,3 +962,11 @@ set on Railway. **Live 2026-11-15** (`e20111b`, migration applied first).
   needed nothing (`backupNewFiles` copies all of Attendance's storage). HANDBOOK "Attendance: field day".
 - Tests: field.test.ts +1 (the bell, an ended round and today's round send nothing); platform attendance.test.ts kind
   list. **Deploy the platform with or before Attendance** (it must know the new kind).
+
+## 2026-11-16 — Salary totals for Sales' Business charts (v0.77.0)
+Owner 2026-11-16 (Reports → Business charts, release 2; `docs/REPORTS_PHASE_PLAN.md` section 9). `GET
+/api/plantops/salary-totals?from=YYYY-MM-DD&to=…` (outside the login proxy like the tile call), only with a platform lookup
+ticket from Sales for scope `salary_totals` (`src/server/salary-totals.ts`). Answers the whole plant's totals, never a name:
+`months` (each paid month's cost from the frozen figures: earned + overtime + holiday work + TA + DA + expenses + a later
+change carried in; payments with an undo left out), `paid` (salary paid out per paid-on day), `advances` (per day, less
+corrections and cash brought back), `last_paid_month`. No migration. Tests: `test/salary-totals.test.ts` (3).

@@ -488,14 +488,17 @@ export type SupportTokenPayload = z.infer<typeof SupportTokenPayload>;
 // ---------- module-to-module lookups (docs/FIELD_DAY_PHASE_PLAN.md "the lookup ticket") ----------
 
 /** What one module may ask of another, server to server. */
-export const LookupScope = z.enum(["customers", "customer_location"]);
+export const LookupScope = z.enum(["customers", "customer_location", "salary_totals"]);
 export type LookupScope = z.infer<typeof LookupScope>;
 /**
  * The only module pairs that may ask each other anything: from → to → scopes. Attendance's field day log reads Sales'
- * customer list (name / place only) and saves a shop's location from a field visit. Anything not listed is refused.
+ * customer list (name / place only) and saves a shop's location from a field visit. Sales' Business charts read
+ * Attendance's salary totals per month and per day (owner 2026-11-16: totals only, never a name or a person's pay).
+ * Anything not listed is refused.
  */
 export const LOOKUPS: Partial<Record<ModuleId, Partial<Record<ModuleId, readonly LookupScope[]>>>> = {
   attendance_salary: { order_capture: ["customers", "customer_location"] },
+  order_capture: { attendance_salary: ["salary_totals"] },
 };
 export function lookupAllowed(from: ModuleId, to: ModuleId, scope: LookupScope): boolean {
   return LOOKUPS[from]?.[to]?.includes(scope) ?? false;

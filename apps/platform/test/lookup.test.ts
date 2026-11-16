@@ -9,8 +9,10 @@ import { asOwner, call, makePlant, type Handler } from "./helpers";
 
 const ATT_SECRET = "attendance-lookup-secret";
 const STOCK_SECRET = "stock-lookup-secret";
+const SALES_SECRET = "sales-lookup-secret";
 const basic = (id: string, secret: string) => ({ authorization: "Basic " + btoa(`${id}:${secret}`) });
 const ATT = basic("attendance_salary", ATT_SECRET);
+const SALES = basic("order_capture", SALES_SECRET);
 
 let A: Awaited<ReturnType<typeof makePlant>>;
 const ask = (body: unknown, headers: Record<string, string> = ATT, tid = A.tenantId) => call(ticketRoute.POST as Handler, { headers, params: { tid }, body });
@@ -18,7 +20,7 @@ const ask = (body: unknown, headers: Record<string, string> = ATT, tid = A.tenan
 beforeAll(async () => {
   await asOwner("update platform.modules set base_url = 'https://attendance.example.test', client_secret_hash = $1, status = 'active' where id = 'attendance_salary'", [sha256(ATT_SECRET)]);
   await asOwner("update platform.modules set base_url = 'https://stock.example.test', client_secret_hash = $1, status = 'active' where id = 'floor_stock'", [sha256(STOCK_SECRET)]);
-  await asOwner("update platform.modules set base_url = 'https://orders.example.test', status = 'active' where id = 'order_capture'");
+  await asOwner("update platform.modules set base_url = 'https://orders.example.test', client_secret_hash = $1, status = 'active' where id = 'order_capture'", [sha256(SALES_SECRET)]);
   A = await makePlant({ modules: ["attendance_salary", "order_capture", "floor_stock", "lab_records"] });
 });
 
@@ -34,6 +36,19 @@ describe("lookup ticket", () => {
       expect(p).not.toHaveProperty("user_id");
       expect(p).not.toHaveProperty("roles");
     }
+  });
+
+  it("Sales gets a ticket for Attendance's salary totals only (Business charts, owner 2026-11-16)", async () => {
+    const r = await ask({ to: "attendance_salary", scope: "salary_totals" }, SALES);
+    expect(r.status).toBe(200);
+    expect(r.body.url).toBe("https://attendance.example.test");
+    expect(decodeJwt(r.body.ticket as string)).toMatchObject({ aud: "attendance_salary", purpose: "lookup", tenant_id: A.tenantId, from: "order_capture", scope: "salary_totals" });
+    // nothing else: not Attendance's other scopes, not salary from anyone but Sales, not salary from Sales itself
+    expect((await ask({ to: "attendance_salary", scope: "customers" }, SALES)).status).toBe(403);
+    expect((await ask({ to: "attendance_salary", scope: "salary_totals" }, basic("floor_stock", STOCK_SECRET))).status).toBe(403);
+    expect((await ask({ to: "order_capture", scope: "salary_totals" })).status).toBe(403);
+    const noAttendance = await makePlant({ modules: ["order_capture"] });
+    expect((await ask({ to: "attendance_salary", scope: "salary_totals" }, SALES, noAttendance.tenantId)).status).toBe(403);
   });
 
   it("refused without module credentials or with a wrong secret", async () => {

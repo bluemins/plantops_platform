@@ -166,3 +166,12 @@ export function ChartCard({ id, title, sub, foot, children }: { id?: string; tit
     </section>
   );
 }
+
+/** What the page says about salary (release 2): included up to the newest paid month, or why it is missing. */
+export function salaryNote(s: { state: "in" | "off" | "unreachable"; lastPaidMonth: string | null }) {
+  if (s.state === "off") return "Salary is not included: Attendance & Salary is not switched on for this plant.";
+  if (s.state === "unreachable") return "Salary is missing: Attendance didn't answer. Reload the page in a minute.";
+  if (!s.lastPaidMonth) return "Salary: no month has been marked paid in Attendance yet.";
+  const m = new Date(`${s.lastPaidMonth}-01T00:00:00Z`).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" });
+  return `Salary from Attendance's paid months (newest: ${m}); a month counts once it is marked paid.`;
+}

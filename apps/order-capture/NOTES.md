@@ -898,3 +898,16 @@ https://claude.ai/artifact/2Aa4wMGUFDgPb6CjexjjrF approved ("go").
   colours in the validated categorical order. Rules `src/lib/business.ts`, reads `src/server/business.ts`
   (`receivablesData` in `src/server/reports.ts` is now exported). Owner only (support reads), the `reports` row.
 - No migration; platform and SSO token unchanged. Tests: `test/business-lib.test.ts` (9), `test/business.test.ts` (3).
+
+## 2026-11-16 — Business charts release 2: salary from Attendance (v0.77.0)
+Owner 2026-11-16 ("Start working on the salary (release 2)": the yes to the read between modules, totals only).
+- **How:** `src/server/salary-link.ts` asks the platform for a 60-second lookup ticket (`order_capture → attendance_salary`,
+  scope `salary_totals`, `LOOKUPS` in `packages/types`) and calls Attendance's `GET /api/plantops/salary-totals?from&to`
+  (5 s). Totals only: per salary month the cost of paid months, per day salary paid and advances. Never stored.
+- **In the charts** (`addSalary` in `src/server/business.ts`): each paid month's cost = an expense "Salary" on the
+  month's last day (cut to the period); salary paid (paid-on day) and advances (their day, less corrections / cash
+  brought back) = money out. Advances in the cash book are not counted again (Attendance holds every advance; staff cash
+  is never an expense here). A month counts once it is marked paid.
+- **Missing salary is said, never ₹0:** "not switched on" (Attendance off for the plant) or "Attendance didn't answer"
+  (`salaryNote` in `src/app/reports/business/charts.tsx`), under Expenses by month, the KPI and Income and Expense.
+- No migration; SSO token unchanged. Tests: `test/business.test.ts` (+1).

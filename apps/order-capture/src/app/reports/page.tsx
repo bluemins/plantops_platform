@@ -14,7 +14,7 @@ const SECTIONS: { id: Section; name: string; title: string; about: string; repor
     id: "business",
     name: "Business Overview",
     title: "Business Overview",
-    about: "The whole plant on one page: sales, purchases, cash-book expenses and van costs together (salary comes next).",
+    about: "The whole plant on one page: sales, purchases, salary (Attendance's paid months), cash-book expenses and van costs together.",
     reports: [
       { href: "/reports/business/charts", name: "Business charts", about: "Sales, expenses, cash flow and customers as charts" },
       { href: "/reports/business/charts#income", name: "Sales and expenses", about: "Each month side by side: what is left over" },

@@ -7,7 +7,7 @@ import { requirePageUser } from "@/server/session";
 import { Header } from "../../../header";
 import { PrintButton } from "../../../ledger-forms";
 import { BackLink } from "../../../parts";
-import { Chart, ChartCard, fullRupees, GREY, HBars, SLOT, toRupees } from "../charts";
+import { Chart, ChartCard, fullRupees, GREY, HBars, salaryNote, SLOT, toRupees } from "../charts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -36,8 +36,8 @@ export default async function BusinessChartsPage({ searchParams }: { searchParam
   const csv = `/api/reports/business?${new URLSearchParams(Object.entries({ period: p.period, from: p.from, to: p.to, by: p.by, brand: p.brand, amount: p.amount }).filter(([, v]) => v)).toString()}`;
   const kpis = [
     { label: "Sales", value: cut(c.totals.sales), note: c.totals.lastYear && c.totals.lastYear > 0n ? `${c.totals.sales >= c.totals.lastYear ? "+" : "−"}${Math.abs(Math.round(((Number(c.totals.sales) - Number(c.totals.lastYear)) / Number(c.totals.lastYear)) * 100))} % on the same days last year` : c.recordsFrom && c.recordsFrom > lastYearOf(p.from) ? `No comparison: records start ${monthName(c.recordsFrom)}` : "No sales on the same days last year" },
-    { label: "Expenses", value: cut(c.totals.expenses), note: "Purchases, van and cash expenses (salary comes next)" },
-    { label: "Left over (sales − expenses)", value: cut(left), note: "Not a profit: salary, power, rent and most cash costs are not in yet" },
+    { label: "Expenses", value: cut(c.totals.expenses), note: c.salary.state === "in" ? "Purchases, salary, van and cash expenses" : "Purchases, van and cash expenses: salary missing" },
+    { label: "Left over (sales − expenses)", value: cut(left), note: `Not a profit: ${c.salary.state === "in" ? "" : "salary, "}power, rent and most cash costs are not in yet` },
     { label: "Customers owe", value: cut(c.owed[c.owed.length - 1] ?? 0n), note: `On ${day(p.to)}` },
   ];
 
@@ -77,7 +77,8 @@ export default async function BusinessChartsPage({ searchParams }: { searchParam
       <h1 className="text-2xl font-bold">Business charts</h1>
       <p className="max-w-4xl text-sm text-slate-600">
         {plant?.name} · {day(p.from)} – {day(p.to)} · {p.amount === "with" ? "with GST" : "before GST"}{p.brand && ` · brand ${p.brand}`}. Sales = bills (PlantOps and the Zoho history) + van cash sales.
-        Expenses = purchase bills + cash-book expenses + staff-cash spending + van diesel, meals and toll. Staff advances are not expenses.
+        Expenses = purchase bills + salary of paid months (Attendance) + cash-book expenses + staff-cash spending + van diesel, meals and toll.
+        Money out also has salary paid and advances on the day they were given.
         Tap or hover a bar for its amount; “Table” shows the numbers.
       </p>
 
@@ -122,7 +123,7 @@ export default async function BusinessChartsPage({ searchParams }: { searchParam
 
       <h2 className="pt-2 text-lg font-bold">Expenses</h2>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,32rem),1fr))] gap-3">
-        <ChartCard title={`Expenses by ${unit}`} foot="Salary is added in the next release (from Attendance's paid months).">
+        <ChartCard title={`Expenses by ${unit}`} foot={salaryNote(c.salary)}>
           <Chart label={`Expenses by ${unit}`} labels={labels} axis={axis} series={c.expenses.groups.map((s) => ({ name: s.name, color: groupColor(s.name), values: R(s.values) }))} />
         </ChartCard>
         <ChartCard id="types" title="Where the money went" sub="Expense types, biggest first">

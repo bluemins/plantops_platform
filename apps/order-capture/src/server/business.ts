@@ -29,6 +29,7 @@ import { withTenant, type OcTx } from "./db";
 import { istToday } from "./ledger";
 import { payablesReport } from "./purchase-reports";
 import { receivablesData } from "./reports";
+import { fetchSalaryTotals, type SalaryAnswer } from "./salary-link";
 import type { OcUser } from "./session";
 
 const P = (s: string | null) => (s === null ? 0n : paise(s));
@@ -156,6 +157,27 @@ async function recordsFrom(tx: OcTx, tenantId: string): Promise<string | null> {
   return r.rows[0]?.m ?? null;
 }
 
+export type SalaryState = { state: SalaryAnswer["state"]; lastPaidMonth: string | null };
+
+/**
+ * Salary from Attendance (release 2): each paid month's cost as an expense on the month's last day (inside the period),
+ * salary paid and advances given as money out on their days. Advances in the cash book are not counted again (staff
+ * cash is never an expense here; Attendance holds every advance, the cash book's too).
+ */
+function addSalary(answer: SalaryAnswer, from: string, to: string, d: { expenses: ExpenseFact[]; money: MoneyFact[] }): SalaryState {
+  if (answer.state !== "in") return { state: answer.state, lastPaidMonth: null };
+  const t = answer.totals;
+  for (const m of t.months) {
+    const [y, mm] = m.month.split("-").map(Number) as [number, number];
+    const end = new Date(Date.UTC(y, mm, 0)).toISOString().slice(0, 10);
+    const date = end > to ? to : end < from ? from : end;
+    const cost = BigInt(m.cost_paise);
+    d.expenses.push({ date, group: "salary", type: "Salary", before: cost, with_gst: cost });
+  }
+  for (const x of [...t.paid, ...t.advances]) d.money.push({ date: x.date, dir: "out", amount: BigInt(x.paise) });
+  return { state: "in", lastPaidMonth: t.last_paid_month };
+}
+
 const okDate = (d?: string) => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d);
 
 // ---------- Business charts ----------
@@ -174,6 +196,7 @@ export async function businessCharts(user: OcUser, p: ChartParams) {
   requireAccess(user, "reports");
   const lyFrom = lastYear(p.from);
   const lyTo = lastYear(p.to);
+  const salaryAsk = fetchSalaryTotals(user.tenantId, p.from, p.to);
   const d = await withTenant(user.tenantId, async (tx) => {
     const allSales = await saleFacts(tx, user.tenantId, lyFrom, p.to);
     const sales = allSales.filter((s) => s.date >= p.from);
@@ -182,6 +205,7 @@ export async function businessCharts(user: OcUser, p: ChartParams) {
     const money = await moneyFacts(tx, user.tenantId, p.from, p.to, sales, expenses);
     return { sales, lastYearSales, expenses, money, orderDates: await orderDates(tx, user.tenantId, p.from, p.to), recordsFrom: await recordsFrom(tx, user.tenantId) };
   });
+  const salary = addSalary(await salaryAsk, p.from, p.to, d);
   const rec = await receivablesData(user.tenantId);
   const owedOn = (date: string) => {
     const t = agingSummary(rec, { asOf: date, basis: "due", interval: 15, filter: {}, group: "none" });
@@ -189,7 +213,7 @@ export async function businessCharts(user: OcUser, p: ChartParams) {
   };
   const charts = buildCharts(d, { from: p.from, to: p.to, by: p.by, brand: p.brand, amount: p.amount, recordsFrom: d.recordsFrom }, []);
   charts.owed = charts.buckets.map((b) => owedOn(b.to));
-  return charts;
+  return { ...charts, salary };
 }
 
 // ---------- Business Overview ----------
@@ -204,11 +228,13 @@ export function readOverviewParams(q: Record<string, string | undefined>, today 
 /** Owner (support reads): the Business Overview page. */
 export async function businessOverview(user: OcUser, p: OverviewParams, today = istToday()) {
   requireAccess(user, "reports");
+  const salaryAsk = fetchSalaryTotals(user.tenantId, p.from, p.to);
   const d = await withTenant(user.tenantId, async (tx) => {
     const sales = await saleFacts(tx, user.tenantId, p.from, p.to);
     const expenses = await expenseFacts(tx, user.tenantId, p.from, p.to);
     return { sales, expenses, money: await moneyFacts(tx, user.tenantId, p.from, p.to, sales, expenses), recordsFrom: await recordsFrom(tx, user.tenantId) };
   });
+  const salary = addSalary(await salaryAsk, p.from, p.to, d);
   const rec = agingSummary(await receivablesData(user.tenantId), { asOf: today, basis: "due", interval: 15, filter: {}, group: "none" });
   const owed = rec.total[rec.total.length - 1] as bigint;
   const notDue = rec.total[1] as bigint;
@@ -216,6 +242,7 @@ export async function businessOverview(user: OcUser, p: OverviewParams, today = 
   return {
     ...buildOverview(d, p),
     recordsFrom: d.recordsFrom,
+    salary,
     receivables: { total: owed, notDue, overdue: owed - notDue },
     payables: { total: pay.owed, notDue: pay.totals.not_due, overdue: pay.owed - pay.totals.not_due },
   };

@@ -12,6 +12,7 @@ import { kit } from "@/server/kit";
 import { ReceivePaymentInput, receivePayment } from "@/server/ledger";
 import { createOrder, OrderInput } from "@/server/orders";
 import { addVendor, payVendor, recordPurchaseBill } from "@/server/purchase-entry";
+import * as salaryLink from "@/server/salary-link";
 import { SKUS, startFakePlatform, type FakePlatform } from "./fake-platform";
 import { asApp, ocUser, plant, refused } from "./helpers";
 
@@ -74,6 +75,25 @@ describe("Business charts on real rows", () => {
     expect([rs(o.totals.income), rs(o.totals.expense)]).toEqual([900, 2660]);
     const pay = await businessOverview(a.owner, readOverviewParams({ basis: "payment" }));
     expect([rs(pay.totals.income), rs(pay.totals.expense), rs(pay.cash.end)]).toEqual([400, 660, -260]);
+  });
+
+  it("salary from Attendance: the paid month's cost as an expense, salary paid and advances as money out", async () => {
+    // without an answer from Attendance (the test platform has no lookup ticket): said so, never ₹0 salary
+    expect((await businessCharts(a.owner, days())).salary.state).toBe("unreachable");
+    vi.spyOn(salaryLink, "fetchSalaryTotals").mockResolvedValue({
+      state: "in",
+      totals: { months: [{ month: today.slice(0, 7), cost_paise: 1_000_000, people: 2 }], paid: [{ date: today, paise: 600_000 }], advances: [{ date: yesterday, paise: 200_000 }], last_paid_month: today.slice(0, 7) },
+    });
+    const c = await businessCharts(a.owner, days());
+    expect(c.salary).toEqual({ state: "in", lastPaidMonth: today.slice(0, 7) });
+    expect([rs(c.totals.expenses), rs(c.totals.moneyOut)]).toEqual([2660 + 10000, 660 + 6000 + 2000]);
+    expect(c.expenses.groups.find((g) => g.name === "Salary")!.values.map(rs)).toEqual([0, 10000]); // on the month's end, cut to the period
+    expect(c.money.out.map(rs)).toEqual([2000, 660 + 6000]);
+    const o = await businessOverview(a.owner, readOverviewParams({}));
+    expect([rs(o.totals.expense), o.salary.state]).toEqual([2660 + 10000, "in"]);
+    vi.spyOn(salaryLink, "fetchSalaryTotals").mockResolvedValue({ state: "off" });
+    expect((await businessCharts(a.owner, days())).salary.state).toBe("off");
+    vi.restoreAllMocks();
   });
 
   it("owner only (support reads); Accounts, Order desk and staff are refused; plant B sees nothing", async () => {

@@ -166,7 +166,7 @@ Payables cards, Cash Flow line, Income and Expense, Top Expenses) as the referen
 - Possible double count to watch: a purchase paid in cash and *also* typed as a cash-book expense counts twice; a van
   trip sale that also got a PlantOps bill counts twice.
 
-**Release 2: salary** (needs the owner's yes to a new read between modules): Sales asks the platform for a 60-second
+**Release 2: salary** (owner's yes 2026-11-16, "start working on the salary"; built v0.77.0): Sales asks the platform for a 60-second
 lookup ticket (`LOOKUPS` gains `order_capture → attendance_salary: ["salary_totals"]`), Attendance answers per month
 the total cost of paid months (earned + overtime + holiday work + TA + DA + claims, from the frozen figures), totals only,
 no names. Salary shows from the month marked paid.
@@ -191,3 +191,9 @@ grouped bars, a line, horizontal bars; plain HTML + SVG, no chart library), page
   3. **Costs not in PlantOps yet:** salary (release 2), electricity, rent, diesel and other cash costs (the cash book
      has no expenses yet). "Left over" is therefore not a profit; the pages say so.
   4. **20 L jar sales** from the other app are not in sales until the monthly J20 bills start (November's in December).
+
+**Release 2 built (v0.77.0, 2026-11-16):** Attendance `GET /api/plantops/salary-totals` (lookup ticket, scope
+`salary_totals`; totals only) → Sales `src/server/salary-link.ts` → `addSalary` in `src/server/business.ts`: paid months'
+cost as the expense "Salary" (month's last day), salary paid and advances as money out. When Attendance is off or doesn't
+answer the pages say salary is missing (never ₹0). Platform: `LOOKUPS` gains `order_capture → attendance_salary:
+["salary_totals"]` (no code change, no migration). Tests: Attendance +3, platform lookup +1, Sales +1.

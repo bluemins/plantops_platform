@@ -2424,3 +2424,10 @@ out, customers owe over time; month / week / day, brand, GST filters, tables, CS
 sales; expenses = purchases + cash book + staff-cash spending + van costs. Owner only (support reads). No migration;
 SSO token unchanged. Tests: Sales 1,343 (+12). **Release 2 = salary** from Attendance's paid months (a Sales →
 Attendance lookup scope: waits for the owner's yes).
+
+### 2026-11-16 — Business charts release 2: salary (v0.77.0) — built, not deployed
+v0.76.0 is **live** (2026-11-16, `1c03c07`). Release 2 (owner's yes 2026-11-16): Sales reads Attendance's salary
+**totals only** through a platform lookup ticket (`LOOKUPS`: `order_capture → attendance_salary: ["salary_totals"]`;
+Attendance `GET /api/plantops/salary-totals`). Paid months' cost = expense "Salary"; salary paid + advances = money out;
+missing salary is said, never ₹0. No migration; SSO token unchanged. Deploy Attendance and Sales together (the platform
+only needs the shared types, also redeployed). Plan `docs/REPORTS_PHASE_PLAN.md` section 9.
