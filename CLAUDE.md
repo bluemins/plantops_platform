@@ -2024,7 +2024,7 @@ Asked by the owner 2026-11-07 ("no difference between delivered and bill"; "a ti
   terms, salesperson + vehicle (separate, from the last bill), line descriptions, discounts, adjustment, notes, private
   note; the GST tick (auto with a GSTIN; CGST + SGST / IGST; rates incl. GST or on top); Bills → GST invoices to make
   (one screen, Download for Zoho as a Zoho-import CSV, sent / done); Rates → Bill settings. SSO token unchanged.
-  Tests: platform 423, Order Capture 626. Notes: `apps/order-capture/NOTES.md`.
+  Tests: platform 423, Order Capture 626. Notes: `apps/order-capture/NOTES.md`. **Live 2026-11-16** (`1239a0c`, migration `0025` applied first).
 - **Next:** the owner tries one GST bill and imports the file into Zoho once.
 
 ### 2026-11-07 — Reports (B5): Sales by Item / Customer (v0.43.0, live 2026-11-07, `7bfc55a`)
@@ -2201,7 +2201,7 @@ per vendor by days late, less advances) and **Reports → Purchases** (owner: by
 **Store keepers open Sales for "Purchases received" only** (date, vendor, item, quantity; never prices): `PAGE_VIEW_ROLES`
 / `pageViewIn` in `packages/types`, `canAccessModule` allows it, Sales `Who = "store"`, tile "Purchases received" with the
 new summary view `purchases` (counts only), never Sales alerts. No migration; SSO token unchanged. **Deploy Sales before
-the platform.** Notes: `apps/order-capture/NOTES.md`.
+the platform.** Notes: `apps/order-capture/NOTES.md`. **Live 2026-11-16** (`1239a0c`, migration `0025` applied first).
 
 ### 2026-11-11 — Cash book C1: petty cash in Sales (v0.63.0) — live 2026-11-11 (`c799a2d`)
 Owner 2026-11-10: replace the WhatsApp group "RB payments" (petty cash) with a **Cash** tab in Sales. Plan, decisions,
@@ -2296,7 +2296,7 @@ month bills) becomes a **20 L month bill** `J20-<ref>-<YYYY-MM>` (source `jar_mo
 day); same = nothing; lower / negative = flagged; customers who also buy boxes (or share a customer with another 20 L
 ref) are **left for the owner** to type an amount. Once per month; "Undo <month>" cancels its bills (not while one has a
 payment). Sales migration `0021_jar_months.sql` (approved: `bills.source` + `jar_month`, `jar_imports.kind` / `month`, new
-append-only `jar_month_lines`, FORCE RLS). Platform and SSO token unchanged. Notes: `apps/order-capture/NOTES.md`.
+append-only `jar_month_lines`, FORCE RLS). Platform and SSO token unchanged. Notes: `apps/order-capture/NOTES.md`. **Live 2026-11-16** (`1239a0c`, migration `0025` applied first).
 Tests: Sales 1,281 (+6, `test/jar-month.test.ts`); typecheck and build pass. **Live 2026-11-12** (migration `0021` applied, `production` = `f650a1a`). **Next:** C6 (cash payments into the cash book only when ticked, owner 2026-11-12); handover: `docs/CASHBOOK_PHASE_PLAN.md` section 0. The owner runs November's month update at the start of December.
 
 ### 2026-11-13 — Sales: one pending order per customer (v0.68.1) — built, not deployed
@@ -2400,19 +2400,19 @@ Tests: Attendance 526, platform 443. Owner's phone checklist: `docs/deployments/
 **Same release, Sales customer list** (owner 2026-11-15, mock-up https://claude.ai/artifact/HNdcc6s2cmdrs8js4inGoH): two
 compact lines per customer (~10 per phone screen); owner only "Due ₹4,250" / "Advance ₹500" / "No due" (`listBalances`,
 same figure as the Account page; others never receive amounts); Switch off moved inside Edit with "Are you sure?". No
-migration. Sales 1,327 tests. Notes: `apps/order-capture/NOTES.md`.
+migration. Sales 1,327 tests. Notes: `apps/order-capture/NOTES.md`. **Live 2026-11-16** (`1239a0c`, migration `0025` applied first).
 
 ### 2026-11-15 — Sales: customer list compact + owner sees what each customer owes (v0.73.1)
 Asked by the owner 2026-11-15 (mock-up https://claude.ai/artifact/HNdcc6s2cmdrs8js4inGoH). Sales → Customers: two lines per
 customer (name | place; Edit | phone + Account ›); **owner only** (support read-only): "Due ₹… / Advance ₹… / No due" under
 the place, the Account page's balance (`listBalances`, right `ledger_totals`; nobody else receives the amounts); Switch off
-moved inside Edit with a confirm. No migration; SSO token unchanged. Notes: `apps/order-capture/NOTES.md`.
+moved inside Edit with a confirm. No migration; SSO token unchanged. Notes: `apps/order-capture/NOTES.md`. **Live 2026-11-16** (`1239a0c`, migration `0025` applied first).
 
 ### 2026-11-15 — Sales: customer list letter filter (v0.74.1)
 Asked by the owner 2026-11-15 (mock-up https://claude.ai/artifact/8FbuyrPndBxpWq3ysuAmVJ). Sales → Customers: a row of
 **All · A–Z · #** chips under "+ Add customer" (scrolls sideways on a phone; letters without customers greyed; `#` = names
 not starting with A–Z); works with search and "Show switched-off", kept in the address (`?l=`). No migration; SSO token
-unchanged. Notes: `apps/order-capture/NOTES.md`.
+unchanged. Notes: `apps/order-capture/NOTES.md`. **Live 2026-11-16** (`1239a0c`, migration `0025` applied first).
 
 ### 2026-11-16 — Reports: Business Overview + Business charts (v0.76.0) — built, not deployed
 Owner 2026-11-16 (sales / expense charts "value and time" + other analysis; Zoho's Reports Center and Home dashboard as
@@ -2464,4 +2464,4 @@ sales bill's tick changes its amounts, so a wrong one is cancelled and made agai
 tick only (owner: not from the GST amounts): pre-ticked on "+ Purchase bill" when the vendor has a GSTIN; owner / Accounts
 tick or untick it on a saved bill any time (a label, audited `purchase.bill_gst`); existing bills start unticked. Sales
 migration `0025_purchase_gst_tick.sql` (approved: one column, UPDATE grant on it only). Platform and SSO token unchanged.
-Notes: `apps/order-capture/NOTES.md`.
+Notes: `apps/order-capture/NOTES.md`. **Live 2026-11-16** (`1239a0c`, migration `0025` applied first).
