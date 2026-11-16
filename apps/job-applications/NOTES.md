@@ -208,3 +208,8 @@ change; SSO token and platform unchanged.
   notification for a resume page.
 - Tests: Job applications 134 (+12 in `test/add.test.ts`; access and CSV tests updated). Typecheck and build pass.
 - **Not yet verified:** on screen / on a phone; not deployed.
+
+## 2026-11-16 — Day for Sales' Day report (v0.79.0)
+`GET /api/plantops/day-report?date=` (lookup ticket, scope `day_report`, from Sales; owner only on the Sales side):
+that day's counts in this module's own words, no names or phone numbers. Code `src/server/day-report.ts`; tests
+`test/day-report.test.ts`.

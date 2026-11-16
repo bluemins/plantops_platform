@@ -47,6 +47,11 @@ export interface FakePlatform {
   branding: Map<string, Record<string, unknown>>;
   /** plants whose plan the platform can't answer (503) */
   planDown: Set<string>;
+  /** Day report (lookup tickets, scope day_report): what each other module answers; a module not listed = off (403),
+   *  a number = that HTTP error from the module. The fake platform also plays the modules. */
+  dayParts: Map<string, unknown>;
+  /** every lookup ticket asked for */
+  tickets: { tenantId: string; to: string; scope: string }[];
   sign(claims: Record<string, unknown>, aud?: ModuleId, ttl?: string): Promise<string>;
   loginToken(roles?: RoleId[]): Promise<string>;
   summaryToken(aud?: ModuleId, tenantId?: string): Promise<string>;
@@ -69,6 +74,8 @@ export async function startFakePlatform(): Promise<FakePlatform> {
     limits: new Map<string, Record<string, Record<string, number>>>(),
     branding: new Map<string, Record<string, unknown>>(),
     planDown: new Set<string>(),
+    dayParts: new Map<string, unknown>(),
+    tickets: [] as { tenantId: string; to: string; scope: string }[],
   };
   const send = (res: import("node:http").ServerResponse, code: number, body: unknown) => {
     res.writeHead(code, { "content-type": "application/json" });
@@ -82,6 +89,21 @@ export async function startFakePlatform(): Promise<FakePlatform> {
       for await (const chunk of req) raw += chunk;
       if (fake.notifyStatus === 201) fake.notifications.push({ tenantId: notify[1]!, body: JSON.parse(raw) });
       return send(res, fake.notifyStatus, fake.notifyStatus === 201 ? { recipients: 2, created: 2 } : { error: "no" });
+    }
+    const lookup = /^\/api\/m\/tenants\/([^/]+)\/lookup-ticket$/.exec(url);
+    if (lookup && req.method === "POST") {
+      let raw = "";
+      for await (const chunk of req) raw += chunk;
+      const body = JSON.parse(raw) as { to: string; scope: string };
+      fake.tickets.push({ tenantId: lookup[1]!, ...body });
+      // only the Day report's tickets; anything else (salary_totals) gets 404 as before, so it reads as "unreachable"
+      if (body.scope !== "day_report") return send(res, 404, {});
+      return fake.dayParts.has(body.to) ? send(res, 200, { ticket: `fake-${body.to}`, url: `http://127.0.0.1:${(server.address() as { port: number }).port}` }) : send(res, 403, { error: "off" });
+    }
+    if (url.startsWith("/api/plantops/day-report?")) {
+      const to = (req.headers.authorization ?? "").replace("Bearer fake-", "");
+      const part = fake.dayParts.get(to);
+      return typeof part === "number" ? send(res, part, {}) : send(res, 200, part);
     }
     const plan = /^\/api\/tenants\/([^/]+)\/plan$/.exec(url);
     if (plan) {

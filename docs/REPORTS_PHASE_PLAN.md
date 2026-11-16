@@ -197,3 +197,36 @@ grouped bars, a line, horizontal bars; plain HTML + SVG, no chart library), page
 cost as the expense "Salary" (month's last day), salary paid and advances as money out. When Attendance is off or doesn't
 answer the pages say salary is missing (never ₹0). Platform: `LOOKUPS` gains `order_capture → attendance_salary:
 ["salary_totals"]` (no code change, no migration). Tests: Attendance +3, platform lookup +1, Sales +1.
+
+## 10. Day report + 9 pm notification (owner 2026-11-16; v0.79.0, built, not deployed)
+Asked by the owner 2026-11-16 ("a daily report at the end of the day"); mock-up approved ("build it"):
+https://claude.ai/artifact/EenMuXKx7ffECUk2wQ41Fv. Decisions (owner, 2026-11-16): all four other modules answer;
+**owners only** get the notification; Plant board later.
+
+**Page:** Reports → Business Overview → **Day report** (`/reports/day?d=YYYY-MM-DD`; owner, support reads). ‹ › moves
+a day (never after today). "Needs you" at the top (each section's points), four headline numbers (sales = bills + van
+cash sales with GST vs the same weekday last week; money received cash / online; delivered; what customers owe vs the
+day before), then sections Orders · Bills & payments · Cash book · Purchases · Stock · Attendance · Complaints · Job
+applications (a module switched off for the plant is left out; one that doesn't answer in 5 s shows "Numbers
+unavailable" and is listed in Needs you). Copy as WhatsApp message, Print. Nothing is stored.
+
+**Other modules:** each serves `GET /api/plantops/day-report?date=` with a 60-second platform lookup ticket, scope
+`day_report` (`LOOKUPS`: `order_capture` → floor_stock, attendance_salary, complaint_box, job_applications), answering
+`DayReportPart` (`packages/types`: summary, tone, rows, attention) in its own words; shared route
+`packages/module-kit/src/day-report.ts`. Floor Stock = the day page's numbers (counted when / by whom, made, sold, low,
+check the count, Can make). Attendance = present / not marked / day off / late after "Work starts at" / no OUT / field
+days / claims waiting, **never money**. Complaint Box = logged, resolved, open with days open (no phone numbers). Job
+applications = came in by position, still new (no names or phones).
+
+**Notification:** kind `order_capture.day_report` (`roles: ["tenant_admin"]`: offered to owners only in settings),
+level push, sent with `only_listed` to the plant's owners (from alert-contacts), dedupe `day_report:<date>`, link to the
+day's page. Job `POST /api/cron/day-report` (CRON_SECRET), cron-job.org row 14 at 21:00 IST (HANDBOOK section 10).
+Plants: those with a cash book (`cash_tenants()`; listing every Sales plant would need a new database function: ask
+first if a plant without a cash book wants it).
+
+**Not in release 1:** overtime hours, the Plant board, a CSV, a chosen notification time per plant.
+
+**Code:** `apps/order-capture/src/lib/day-report.ts` (pure), `src/server/day-report.ts`, `src/server/day-report-job.ts`,
+`src/app/reports/day/page.tsx`, `src/app/api/cron/day-report/route.ts`; each module's `src/server/day-report.ts` +
+`src/app/api/plantops/day-report/route.ts`. Tests: Sales `day-report-lib` (8) + `day-report` (7), Floor Stock 3,
+Attendance 2, Complaint Box 2, Job applications 2, platform lookup +1.

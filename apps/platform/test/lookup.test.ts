@@ -51,6 +51,17 @@ describe("lookup ticket", () => {
     expect((await ask({ to: "attendance_salary", scope: "salary_totals" }, SALES, noAttendance.tenantId)).status).toBe(403);
   });
 
+  it("Sales gets a day_report ticket for the Day report's modules only; no other module may ask for one (owner 2026-11-16)", async () => {
+    const r = await ask({ to: "attendance_salary", scope: "day_report" }, SALES);
+    expect(r.status).toBe(200);
+    expect(decodeJwt(r.body.ticket as string)).toMatchObject({ aud: "attendance_salary", purpose: "lookup", tenant_id: A.tenantId, from: "order_capture", scope: "day_report" });
+    // not from Attendance (or any other module), not to Sales itself, not to a module outside the list
+    expect((await ask({ to: "attendance_salary", scope: "day_report" })).status).toBe(403);
+    expect((await ask({ to: "order_capture", scope: "day_report" }, SALES)).status).toBe(403);
+    expect((await ask({ to: "lab_records", scope: "day_report" }, SALES)).status).toBe(403);
+    expect((await ask({ to: "order_capture", scope: "day_report" }, basic("floor_stock", STOCK_SECRET))).status).toBe(403);
+  });
+
   it("refused without module credentials or with a wrong secret", async () => {
     expect((await ask({ to: "order_capture", scope: "customers" }, {})).status).toBe(401);
     expect((await ask({ to: "order_capture", scope: "customers" }, basic("attendance_salary", "wrong"))).status).toBe(401);

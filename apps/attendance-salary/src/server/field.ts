@@ -654,6 +654,20 @@ export async function metersFor(tenantId: string, pairs: readonly { userId: stri
   return out;
 }
 
+/** Everyone's field day on one India date (Sales' Day report): km by meter, shops, ended or not. Read-only. */
+export async function fieldDaysOn(tenantId: string, date: string): Promise<{ name: string; kmTenths: number | null; visits: number; notEnded: boolean }[]> {
+  const loaded = await withTenant(tenantId, (tx) => loadRows(tx, tenantId, { from: date, to: date }));
+  const people = new Map<string, FieldEventRow[]>();
+  for (const e of loaded.events) people.set(e.userId, [...(people.get(e.userId) ?? []), e]);
+  return [...people.values()]
+    .map((events) => {
+      const d = fieldDayView(date, events, loaded.cancels);
+      return { name: events.at(-1)!.userName, kmTenths: d.kmTenths, visits: d.visits.length, notEnded: d.notEnded };
+    })
+    .filter((d) => d.visits || d.kmTenths !== null || d.notEnded)
+    .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
+}
+
 export interface NotEnded {
   userId: string;
   name: string;

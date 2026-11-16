@@ -970,3 +970,9 @@ ticket from Sales for scope `salary_totals` (`src/server/salary-totals.ts`). Ans
 `months` (each paid month's cost from the frozen figures: earned + overtime + holiday work + TA + DA + expenses + a later
 change carried in; payments with an undo left out), `paid` (salary paid out per paid-on day), `advances` (per day, less
 corrections and cash brought back), `last_paid_month`. No migration. Tests: `test/salary-totals.test.ts` (3).
+
+## 2026-11-16 — Day for Sales' Day report (v0.79.0)
+`GET /api/plantops/day-report?date=` (lookup ticket, scope `day_report`, from Sales; the `salary_totals` ticket doesn't
+open it): present / not marked / day off / came after "Work starts at" / no OUT / field days (`fieldDaysOn` in
+`src/server/field.ts`) / claims waiting, worked out with the Today board's rules (`boardFor`) for the end of that day.
+Names, never money (owner 2026-11-16). Code `src/server/day-report.ts`; tests `test/day-report.test.ts`.

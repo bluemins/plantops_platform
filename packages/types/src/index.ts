@@ -421,6 +421,8 @@ export const NOTIFICATION_KINDS: Record<
   "order_capture.cash_advance_failed": { module: "order_capture", label: "Cash book: an advance didn't reach Attendance", bellOnly: true },
   "order_capture.drop_redeem": { module: "order_capture", label: "Drop: a shop asked for a free box (points)" },
   "order_capture.drop_push_failed": { module: "order_capture", label: "Drop: pushes to shops' phones are failing", bellOnly: true },
+  // owners only (sent with only_listed to the plant's owners): the evening Day report (owner, 2026-11-16)
+  "order_capture.day_report": { module: "order_capture", label: "Day report (evening)", roles: ["tenant_admin"] },
   "attendance_salary.corrected": { module: "attendance_salary", label: "Your attendance was changed", aboutYou: true },
   "attendance_salary.outside": { module: "attendance_salary", label: "Mark refused: outside the plant", bellOnly: true },
   "attendance_salary.no_exit": { module: "attendance_salary", label: "People who didn't mark OUT (morning)", bellOnly: true },
@@ -488,18 +490,39 @@ export type SupportTokenPayload = z.infer<typeof SupportTokenPayload>;
 // ---------- module-to-module lookups (docs/FIELD_DAY_PHASE_PLAN.md "the lookup ticket") ----------
 
 /** What one module may ask of another, server to server. */
-export const LookupScope = z.enum(["customers", "customer_location", "salary_totals"]);
+export const LookupScope = z.enum(["customers", "customer_location", "salary_totals", "day_report"]);
 export type LookupScope = z.infer<typeof LookupScope>;
 /**
  * The only module pairs that may ask each other anything: from → to → scopes. Attendance's field day log reads Sales'
  * customer list (name / place only) and saves a shop's location from a field visit. Sales' Business charts read
  * Attendance's salary totals per month and per day (owner 2026-11-16: totals only, never a name or a person's pay).
- * Anything not listed is refused.
+ * Sales' Day report (owner only, owner 2026-11-16) reads one day's counts from Floor Stock, Attendance (never money),
+ * Complaint Box and Job applications. Anything not listed is refused.
  */
 export const LOOKUPS: Partial<Record<ModuleId, Partial<Record<ModuleId, readonly LookupScope[]>>>> = {
   attendance_salary: { order_capture: ["customers", "customer_location"] },
-  order_capture: { attendance_salary: ["salary_totals"] },
+  order_capture: {
+    attendance_salary: ["salary_totals", "day_report"],
+    floor_stock: ["day_report"],
+    complaint_box: ["day_report"],
+    job_applications: ["day_report"],
+  },
 };
+
+/**
+ * One module's part of Sales' Day report (GET /api/plantops/day-report?date=YYYY-MM-DD with a `day_report` lookup
+ * ticket). The module writes its own wording; Sales only shows it. Nothing is stored.
+ */
+export const DayReportTone = z.enum(["ok", "warn", "bad"]);
+export const DayReportPart = z.object({
+  /** one line for the section's header, e.g. "Counted 6:40 pm · 2 low" */
+  summary: z.string().max(100),
+  tone: DayReportTone.optional(),
+  rows: z.array(z.object({ label: z.string().max(100), value: z.string().max(300), tone: DayReportTone.optional() })).max(60),
+  /** things the owner should act on: shown in "Needs you" at the top */
+  attention: z.array(z.string().max(200)).max(8),
+});
+export type DayReportPart = z.infer<typeof DayReportPart>;
 export function lookupAllowed(from: ModuleId, to: ModuleId, scope: LookupScope): boolean {
   return LOOKUPS[from]?.[to]?.includes(scope) ?? false;
 }

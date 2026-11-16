@@ -18,7 +18,8 @@
     "./storage": "./src/storage.ts",
     "./phone": "./src/phone.ts",
     "./photo": "./src/photo.ts",
-    "./errors": "./src/errors.ts"
+    "./errors": "./src/errors.ts",
+    "./day-report": "./src/day-report.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

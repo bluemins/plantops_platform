@@ -238,3 +238,8 @@ Plan: `docs/VIEW_ROLES_PHASE_PLAN.md`. The platform role **Stock viewer** opens 
 - Tile: summary view `viewer` → only the count status badge.
 - Tests: `test/viewers.test.ts` (12); Floor Stock 187.
 - **Not yet checked:** on screen.
+
+## 2026-11-16 — Day for Sales' Day report (v0.79.0)
+`GET /api/plantops/day-report?date=` (lookup ticket, scope `day_report`, from Sales): the owner's day page numbers for
+that date (counted when / by whom, corrections, made, sold, per product, low, check the count, Can make), read with an
+owner view that never writes. Code `src/server/day-report.ts`; tests `test/day-report.test.ts`.

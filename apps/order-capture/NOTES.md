@@ -911,3 +911,15 @@ Owner 2026-11-16 ("Start working on the salary (release 2)": the yes to the read
 - **Missing salary is said, never ₹0:** "not switched on" (Attendance off for the plant) or "Attendance didn't answer"
   (`salaryNote` in `src/app/reports/business/charts.tsx`), under Expenses by month, the KPI and Income and Expense.
 - No migration; SSO token unchanged. Tests: `test/business.test.ts` (+1).
+
+## 2026-11-16 — Reports → Day report + 9 pm notification (v0.79.0)
+Owner 2026-11-16 (mock-up https://claude.ai/artifact/EenMuXKx7ffECUk2wQ41Fv; full notes `docs/REPORTS_PHASE_PLAN.md`
+section 10). `/reports/day?d=` (owner, support reads; `reports` access row): Needs you, four headline numbers, sections
+for Sales' own day (orders by brand, delivered, pending now, cancelled, calls; bills made, delivered with no bill,
+payments, GST invoices waiting, customers owe; cash book close / difference / expenses / advances / vans / To post;
+purchases) and the parts of Floor Stock, Attendance, Complaint Box and Job applications (lookup ticket, scope
+`day_report`). Job `POST /api/cron/day-report` 21:00 IST → kind `order_capture.day_report` (push) to the plant's owners
+only (`only_listed` + owner ids). No migration; SSO token unchanged.
+**Made while building:** "sales" = bills (with GST, opening balances left out) + van cash sales, as the Business charts;
+"Pending now" is today's pending list whatever date is shown; payables only on today's page; the job covers plants with
+a cash book (`cash_tenants()`); a module that doesn't answer is shown as missing (never as zero).

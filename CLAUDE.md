@@ -2444,3 +2444,15 @@ Asked by the owner 2026-11-16 (answers to four questions, "build it and test it"
   column, unique `(tenant_id, id)`), new `board_card_people` (FORCE RLS, SELECT + INSERT only). Existing cards = Normal,
   for everyone. SSO token unchanged. Tests: platform 449 (board 14); typecheck and build pass.
 - **Live 2026-11-16** (migration `0029` applied first). **Not yet verified:** on screen.
+
+### 2026-11-16 — Reports: Day report + 9 pm notification (v0.79.0) — built, not deployed
+Owner 2026-11-16 ("a daily report at the end of the day"; mock-up https://claude.ai/artifact/EenMuXKx7ffECUk2wQ41Fv, "build
+it"). Sales → Reports → Business Overview → **Day report** (`/reports/day?d=`, owner only, support reads): Needs you, four
+headline numbers (sales vs last week, money received, delivered, customers owe), sections Orders / Bills & payments /
+Cash book / Purchases plus **Stock, Attendance (never money), Complaints and Job applications**, each read through a
+60-second lookup ticket, scope `day_report` (`LOOKUPS` + `DayReportPart` in `packages/types`; shared route
+`packages/module-kit/src/day-report.ts`; owner's yes for all four 2026-11-16). Copy as WhatsApp, Print. **9 pm
+notification** `order_capture.day_report` (push) to the plant's **owners only** (owner 2026-11-16) via `POST
+/api/cron/day-report` (cron-job.org row 14, 21:00 IST); plants with a cash book. Plant board later. No migration; SSO
+token unchanged; platform gets the kind only. Plan `docs/REPORTS_PHASE_PLAN.md` section 10. **Deploy:** the four modules
+first, then Sales, then the platform (types); add the cron-job.org job.

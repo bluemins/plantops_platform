@@ -276,3 +276,8 @@ owner's "⚙ Item list" link, `ROLE_LABELS`, dev-module never serves it. Platfor
 - **To confirm:** volume at `/data`, `COMPLAINT_URL` in GitHub with green Daily jobs / Nightly backup runs, the first
   complaint files in R2; iPhone HEIC photos and Safari video. Delete `.env.railway.shared.complaint_box.paste` once
   saved.
+
+## 2026-11-16 — Day for Sales' Day report (v0.79.0)
+`GET /api/plantops/day-report?date=` (lookup ticket, scope `day_report`, from Sales; owner only on the Sales side):
+that day's counts in this module's own words, no names or phone numbers. Code `src/server/day-report.ts`; tests
+`test/day-report.test.ts`.
