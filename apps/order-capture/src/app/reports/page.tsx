@@ -5,10 +5,24 @@ import { can } from "@/server/access";
 import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../header";
+import { BusinessOverviewPanel } from "./business/overview";
 import { BackLink } from "../parts";
 
-type Section = "sales" | "receivables" | "purchases";
+type Section = "business" | "sales" | "receivables" | "purchases";
 const SECTIONS: { id: Section; name: string; title: string; about: string; reports: { href: string; name: string; about: string }[]; filters: string }[] = [
+  {
+    id: "business",
+    name: "Business Overview",
+    title: "Business Overview",
+    about: "The whole plant on one page: sales, purchases, cash-book expenses and van costs together (salary comes next).",
+    reports: [
+      { href: "/reports/business/charts", name: "Business charts", about: "Sales, expenses, cash flow and customers as charts" },
+      { href: "/reports/business/charts#income", name: "Sales and expenses", about: "Each month side by side: what is left over" },
+      { href: "/reports/business/charts#money", name: "Money in and out", about: "When money actually moved" },
+      { href: "/reports/business/charts#types", name: "Where the money went", about: "Expense types, biggest first" },
+    ],
+    filters: "period (last 12 months, month, quarter, financial year, custom) · show by month, week or day · brand · before / with GST · CSV · print.",
+  },
   {
     id: "sales",
     name: "Sales",
@@ -48,7 +62,7 @@ const SECTIONS: { id: Section; name: string; title: string; about: string; repor
 const LATER = ["Payments received", "GST", "Stock", "Attendance & salary"];
 
 /** Reports (mock-up 2): sections on the left, the chosen section's reports on the right. Owner. */
-export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ section?: string | string[] }> }) {
+export default async function ReportsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await requirePageUser("/reports");
   if (!can(user, "reports")) redirect("/");
   const sp = await searchParams;
@@ -95,6 +109,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           <p className="rounded-xl border border-dashed border-slate-300 p-3 text-sm text-slate-600">
             <b>Filters on every report:</b> {sec.filters}
           </p>
+          {sec.id === "business" && (
+            <BusinessOverviewPanel user={user} q={Object.fromEntries(Object.entries(sp).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]))} />
+          )}
         </section>
       </div>
     </div>

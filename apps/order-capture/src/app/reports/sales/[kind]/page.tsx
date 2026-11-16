@@ -60,7 +60,7 @@ export default async function SalesReportPage({ params, searchParams }: Props) {
       <div className="print:hidden"><Header user={user} plant={plant} /></div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="print:hidden"><BackLink href="/reports">← Reports · Sales</BackLink></div>
+          <div className="print:hidden"><BackLink href="/reports?section=sales">← Reports · Sales</BackLink></div>
           <h1 className="text-2xl font-bold">{TITLE[kind]}</h1>
         </div>
         <div className="flex gap-4 print:hidden">

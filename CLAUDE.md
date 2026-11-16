@@ -2413,3 +2413,14 @@ Asked by the owner 2026-11-15 (mock-up https://claude.ai/artifact/8FbuyrPndBxpWq
 **All · A–Z · #** chips under "+ Add customer" (scrolls sideways on a phone; letters without customers greyed; `#` = names
 not starting with A–Z); works with search and "Show switched-off", kept in the address (`?l=`). No migration; SSO token
 unchanged. Notes: `apps/order-capture/NOTES.md`.
+
+### 2026-11-16 — Reports: Business Overview + Business charts (v0.76.0) — built, not deployed
+Owner 2026-11-16 (sales / expense charts "value and time" + other analysis; Zoho's Reports Center and Home dashboard as
+reference; mock-up https://claude.ai/artifact/2Aa4wMGUFDgPb6CjexjjrF, "go"). Plan `docs/REPORTS_PHASE_PLAN.md` section 9.
+**Reports → Business Overview** (new first section): customers owe / you owe vendors, cash flow (running money in −
+out, not a bank balance), income and expense by bill or by payment, top expenses. **Business charts**: sales by period
+(+ last year), by brand, orders by weekday, top customers, expenses by group and type, sales vs expenses, money in vs
+out, customers owe over time; month / week / day, brand, GST filters, tables, CSV, print. Sales = bills + van cash
+sales; expenses = purchases + cash book + staff-cash spending + van costs. Owner only (support reads). No migration;
+SSO token unchanged. Tests: Sales 1,343 (+12). **Release 2 = salary** from Attendance's paid months (a Sales →
+Attendance lookup scope: waits for the owner's yes).

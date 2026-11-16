@@ -876,3 +876,25 @@ Asked by the owner 2026-11-15 (mock-up https://claude.ai/artifact/F4xKTCKEAfjioG
   in turn (the old name hash gave Bluemins and Mr.Charge the same pink). Used on the customer list, order cards, the
   pending summary and Rates (`plantPalette` in `src/server/rates.ts`), so a brand looks the same everywhere.
 - No migration; platform and SSO token unchanged. Tests: Sales 1,331 (+3).
+
+## 2026-11-16 — Reports → Business Overview + Business charts (v0.76.0)
+Asked by the owner 2026-11-16 ("a sales chart, an expense chart (value and time) and other possible analysis charts";
+Zoho's Reports Center and Home dashboard as the reference). Plan `docs/REPORTS_PHASE_PLAN.md` section 9; mock-up
+https://claude.ai/artifact/2Aa4wMGUFDgPb6CjexjjrF approved ("go").
+- **Reports → Business Overview** (new first section, the page's default): customers owe you / you owe vendors (not due
+  yet + overdue), cash flow (money in − out, running total from the period's start: not a bank balance), income and
+  expense per month (By bill / By payment), top expenses. Last 12 months or this FY.
+- **Business charts** `/reports/business/charts`: period (last 12 months … custom), show by month / week / day (day up
+  to 62 days, week up to 400, else the next bigger), brand, before / with GST; sales by period with last year dashed,
+  sales by brand (top 4, other brands, no brand, van sales), orders a day by weekday, top 10 customers, expenses by
+  group, where the money went, sales vs expenses, money in vs out, customers owe at each period end. Hover / tap a bar
+  for its amount; "Table" under each chart; CSV `/api/reports/business`; print.
+- **Meanings:** sales = bill lines (cancelled, `OB-` left out) + van cash sales (sales − not paid; cancelled van reports
+  left out). Expenses = purchase lines by item (before GST; the bill's discount / adjustment as "Purchases: discount /
+  rounding") + cash-book expenses + staff-cash "spent" + van diesel / meal / tiffin / toll. Money in = customer
+  payments + van cash sales; out = vendor payments + the cash expenses. Staff advances, owner in / out, bank deposits
+  are not expenses. **Salary is release 2** (needs the owner's yes to a Sales → Attendance lookup).
+- Charts are drawn on the server (`src/app/reports/business/charts.tsx`: HTML bars + one SVG line, no chart library),
+  colours in the validated categorical order. Rules `src/lib/business.ts`, reads `src/server/business.ts`
+  (`receivablesData` in `src/server/reports.ts` is now exported). Owner only (support reads), the `reports` row.
+- No migration; platform and SSO token unchanged. Tests: `test/business-lib.test.ts` (9), `test/business.test.ts` (3).

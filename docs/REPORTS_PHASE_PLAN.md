@@ -127,3 +127,51 @@ bill near the date).
 - Audit `bill.link` / `bill.unlink` in Recent changes. No migration (order_app may already UPDATE `bills.order_id`; one live
   bill per order is a unique index). Code `src/server/bill-link.ts`, `src/app/bills/link/`, API
   `/api/orders/<id>/bill-link`, `/bill-unlink`, `/api/bills/link-sure`. Tests `test/bill-link.test.ts` (7).
+
+## 9. Business Overview + charts (owner 2026-11-16; release 1 = v0.76.0)
+Asked by the owner 2026-11-16: "a sales chart, an expense chart (value and time) and other possible analysis charts",
+with Zoho's Reports Center (a **Business Overview** section above Sales) and Zoho's Home dashboard (Receivables /
+Payables cards, Cash Flow line, Income and Expense, Top Expenses) as the reference. Mock-up (sample numbers), approved
+"go" the same day: https://claude.ai/artifact/2Aa4wMGUFDgPb6CjexjjrF.
+
+**Screens**
+1. **Reports → Business Overview** (new first section; `/reports/business`): customers owe you (not due yet / overdue,
+   as Receivables' aging on today by due date), you owe vendors (Payables, not due yet / late), **Cash flow** (money in −
+   money out each month and its running total from the period's start, with start / in / out / end beside it), **Income
+   and Expense** per month with *By bill* (accrual) / *By payment* (cash), **Top expenses**. Period: last 12 months
+   (default) or this financial year.
+2. **Business charts** (`/reports/business/charts`): filters period (last 12 months, month, quarter, FY, custom), show
+   by month / week / day (day only up to 62 days, week up to 1 year; else the next bigger), brand (sales charts only),
+   before / with GST. Charts: sales by month (+ the same period last year as a dashed line), sales by brand (stacked),
+   sales by day / week, orders by day of the week (average a day), expenses by month (purchases / salary / van / other
+   cash), where the money went (expense types, biggest first), sales and expenses side by side, money in and money out,
+   what customers owe at each period end, top 10 customers. Each chart: hover / tap a bar for its amount, a "Table"
+   view under it; one CSV of the figures per period.
+3. Owner only (+ support reads), the existing `reports` access row. Nothing stored; no migration; SSO token unchanged.
+
+**What each word means**
+- **Sales** = bills (PlantOps + Zoho history; cancelled and opening `OB-` bills left out, 20 L month bills `J20-` in) +
+  **van cash sales** (van report's total sales − its "not paid" part, which becomes a bill when posted; cancelled van
+  reports left out). Van sales have no brand: shown as their own "Van sales" part, left out when a brand is picked.
+  Before GST by default.
+- **Expenses** = purchase bills (before GST; with GST when chosen) + cash-book expenses (by expense type, work day) +
+  plant spending from staff cash ("Spent from this cash", by type) + van trip costs (diesel, meal, tiffin, toll) +
+  **salary of paid months** (release 2). Staff advances and "Took back" are not expenses (they are part of salary);
+  owner in / out, bank deposits and other money in / out are not expenses.
+- **Money in** = customer payments (not cancelled; PlantOps + Zoho) + van cash sales. **Money out** = vendor payments +
+  cash-book expenses + staff-cash spending + van trip costs (+ salary paid, release 2). The running total is **not a
+  bank balance** (PlantOps doesn't hold the bank account).
+- **Left over** (sales − expenses) is "a rough guide": no rent, power, loans or GST unless entered as expenses. No
+  Balance Sheet or full Profit and Loss (owner agreed to the simple Income and Expense).
+- Possible double count to watch: a purchase paid in cash and *also* typed as a cash-book expense counts twice; a van
+  trip sale that also got a PlantOps bill counts twice.
+
+**Release 2: salary** (needs the owner's yes to a new read between modules): Sales asks the platform for a 60-second
+lookup ticket (`LOOKUPS` gains `order_capture → attendance_salary: ["salary_totals"]`), Attendance answers per month
+the total cost of paid months (earned + overtime + holiday work + TA + DA + claims, from the frozen figures), totals only,
+no names. Salary shows from the month marked paid.
+
+**Code (release 1):** rules `apps/order-capture/src/lib/business.ts` (pure; buckets, series, running total, top lists),
+reads `src/server/business.ts`, charts drawn on the server (`src/app/reports/business/charts.tsx`: bars, stacked /
+grouped bars, a line, horizontal bars; plain HTML + SVG, no chart library), pages `src/app/reports/business/**`, CSV
+`src/app/api/reports/business/route.ts`. Tests `test/business-lib.test.ts`, `test/business.test.ts`.

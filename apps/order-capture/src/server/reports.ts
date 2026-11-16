@@ -196,7 +196,7 @@ export function readRecParams(kind: RecKind, q: Record<string, string | undefine
  * Every bill and payment that is not cancelled, and what settled each bill (payments' allocations and adjustments),
  * leaving out anything that touches a cancelled bill or payment. Opening-balance bills are kept: they are owed.
  */
-async function receivablesData(tenantId: string): Promise<RecData> {
+export async function receivablesData(tenantId: string): Promise<RecData> {
   return withTenant(tenantId, async (tx) => {
     const party = (alias: string) => sql.raw(`
       coalesce('c:' || cu.id::text, 'z:' || zc.id::text) as customer_key,
