@@ -34,8 +34,8 @@ describe("periods and buckets", () => {
 
   it("months cut to the period; weeks start on Monday; empty buckets kept", () => {
     expect(bucketsFor("2026-10-15", "2026-11-16", "month")).toEqual([
-      { key: "2026-10", label: "Oct 26", from: "2026-10-15", to: "2026-10-31" },
-      { key: "2026-11", label: "Nov 26", from: "2026-11-01", to: "2026-11-16" },
+      { key: "2026-10", label: "Oct 26", axis: "Oct", from: "2026-10-15", to: "2026-10-31" },
+      { key: "2026-11", label: "Nov 26", axis: "Nov", from: "2026-11-01", to: "2026-11-16" },
     ]);
     const weeks = bucketsFor("2026-11-04", "2026-11-16", "week"); // Wed 4 Nov … Mon 16 Nov
     expect(weeks.map((w) => [w.key, w.from, w.to])).toEqual([
@@ -49,7 +49,7 @@ describe("periods and buckets", () => {
 });
 
 describe("the charts", () => {
-  const o = { from: "2026-10-01", to: "2026-11-16", by: "month" as const, brand: "", amount: "before" as const };
+  const o = { from: "2026-10-01", to: "2026-11-16", by: "month" as const, brand: "", amount: "before" as const, recordsFrom: "2025-02-01" };
   const data = {
     sales: [
       sale({}),
@@ -87,6 +87,12 @@ describe("the charts", () => {
     expect(c.topCustomers.rows.map((r) => [r.label, r.amount])).toEqual([["Sahu Store", 300_000n], ["Jitu Dhaba", 120_000n]]);
     expect(c.topCustomers.share).toBeCloseTo(85.7, 1); // 4,200 of 4,900 (van sales have no customer)
     expect(c.totals).toMatchObject({ sales: 490_000n, lastYear: 80_000n, expenses: 75_000n, moneyIn: 200_000n, moneyOut: 250_000n });
+  });
+
+  it("no last-year comparison when the plant's records start after the same days last year (stray old bills)", () => {
+    const c = buildCharts(data, { ...o, recordsFrom: "2026-02-01" }, []);
+    expect([c.sales.lastYear, c.totals.lastYear, c.recordsFrom]).toEqual([null, null, "2026-02-01"]);
+    expect(buildCharts(data, { ...o, recordsFrom: null }, []).sales.lastYear).toBeNull();
   });
 
   it("a brand picked: only its bills (never van sales); with GST", () => {

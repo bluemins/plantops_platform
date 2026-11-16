@@ -16,6 +16,7 @@ export async function BusinessOverviewPanel({ user, q }: { user: OcUser; q: Reco
     `/reports?${new URLSearchParams({ section: "business", period: p.period, basis: p.basis, ...over }).toString()}`;
   const chip = (on: boolean) => `flex min-h-10 items-center rounded-xl border px-3 text-sm ${on ? "border-(--brand) bg-(--brand) font-semibold text-(--brand-contrast)" : "border-slate-300 bg-white"}`;
   const labels = o.buckets.map((b) => b.label);
+  const axis = o.buckets.map((b) => b.axis);
 
   return (
     <div className="space-y-3">
@@ -24,6 +25,12 @@ export async function BusinessOverviewPanel({ user, q }: { user: OcUser; q: Reco
         <a href={link({ period: "last_12" })} className={chip(p.period === "last_12")}>Last 12 months</a>
         <a href={link({ period: "this_fy" })} className={chip(p.period === "this_fy")}>This financial year</a>
       </div>
+      {o.recordsFrom && p.from < o.recordsFrom && (
+        <p className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          Your sales records start in <b>{new Date(`${o.recordsFrom}T00:00:00Z`).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" })}</b>{" "}
+          (the Zoho history): months before that show little or nothing.
+        </p>
+      )}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-3">
         <ChartCard title="Customers owe you" sub="Unpaid bills today (by due date)" foot={<a href="/reports/receivables/aging" className="font-semibold text-(--brand)">Receivables ›</a>}>
           <p className="text-2xl font-bold">{cut(o.receivables.total)}</p>
@@ -38,7 +45,7 @@ export async function BusinessOverviewPanel({ user, q }: { user: OcUser; q: Reco
       <ChartCard title="Cash flow" sub="Money in − money out each month, added up from the start of the period (not a bank balance)">
         <div className="flex flex-wrap gap-4">
           <div className="min-w-0 flex-[999_1_26rem]">
-            <Chart label="Cash flow: running total" labels={labels} series={[]} line={{ name: "Running total", color: SLOT[0], values: R(o.cash.running) }} />
+            <Chart label="Cash flow: running total" labels={labels} axis={axis} series={[]} line={{ name: "Running total", color: SLOT[0], values: R(o.cash.running) }} />
           </div>
           <dl className="flex flex-[1_1_12rem] flex-col gap-3 text-right text-sm text-slate-600">
             <div><dt>On {longDay(p.from)}</dt><dd className="text-lg font-bold text-slate-900">{cut(o.cash.start)}</dd></div>
@@ -53,7 +60,7 @@ export async function BusinessOverviewPanel({ user, q }: { user: OcUser; q: Reco
         <ChartCard
           title="Income and expense"
           sub={p.basis === "bill" ? "By bill: sales billed vs purchases billed + expenses (before GST)" : "By payment: money received vs money paid out"}
-          foot="Salary is added in the next release. A rough guide, not a profit and loss."
+          foot="Not a profit: salary (next release), power, rent and most cash costs are not in yet."
         >
           <div className="flex flex-wrap gap-2">
             <a href={link({ basis: "bill" })} className={chip(p.basis === "bill")}>By bill</a>
@@ -63,7 +70,7 @@ export async function BusinessOverviewPanel({ user, q }: { user: OcUser; q: Reco
             <span>Income<br /><b className="text-lg">{cut(o.totals.income)}</b></span>
             <span>Expenses<br /><b className="text-lg">{cut(o.totals.expense)}</b></span>
           </div>
-          <Chart label="Income and expense by month" mode="group" height={160} labels={labels} series={[{ name: "Income", color: SLOT[2], values: R(o.income) }, { name: "Expenses", color: SLOT[1], values: R(o.expense) }]} />
+          <Chart label="Income and expense by month" mode="group" height={160} labels={labels} axis={axis} series={[{ name: "Income", color: SLOT[2], values: R(o.income) }, { name: "Expenses", color: SLOT[1], values: R(o.expense) }]} />
         </ChartCard>
         <ChartCard title="Top expenses" sub="Before GST, biggest first" foot={<a href="/reports/business/charts#types" className="font-semibold text-(--brand)">All expense types ›</a>}>
           <HBars label="Top expenses" rows={o.types.map((r) => ({ label: r.label, value: toRupees(r.amount), color: r.group ? GROUP_COLOR[r.group] : "#94a3b8" }))} />

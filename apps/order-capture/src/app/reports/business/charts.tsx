@@ -17,7 +17,7 @@ export type ChartLine = { name: string; color: string; values: (number | null)[]
 const AXIS = 56; // px for the axis labels on the left
 
 /** Bars (stacked or side by side) with an optional line, on one axis. `count` = numbers, not rupees. */
-export function Chart(props: { labels: string[]; series: ChartSeries[]; mode?: "stack" | "group"; line?: ChartLine; height?: number; count?: boolean; label: string }) {
+export function Chart(props: { labels: string[]; axis?: string[]; series: ChartSeries[]; mode?: "stack" | "group"; line?: ChartLine; height?: number; count?: boolean; label: string }) {
   const { labels, series, mode = "stack", line, height = 200, count = false } = props;
   const fmtAxis = (v: number) => (count ? (Number.isInteger(v) ? String(v) : v.toFixed(1)) : shortRupees(v));
   const fmt = (v: number) => (count ? String(v) : fullRupees(v));
@@ -95,8 +95,8 @@ export function Chart(props: { labels: string[]; series: ChartSeries[]; mode?: "
         )}
       </div>
       <div className="flex" style={{ marginLeft: AXIS, gap }}>
-        {labels.map((lab, i) => (
-          <span key={i} className="flex-1 truncate text-center text-[11px] text-slate-500">{i % every === 0 ? lab : ""}</span>
+        {(props.axis ?? labels).map((lab, i) => (
+          <span key={i} className="min-w-0 flex-1 overflow-visible whitespace-nowrap text-center text-[10px] text-slate-500">{i % every === 0 ? lab : ""}</span>
         ))}
       </div>
       <ChartTable heads={["", ...series.map((s) => s.name), ...(line ? [line.name] : [])]} rows={labels.map((lab, i) => [lab, ...series.map((s) => fmt(s.values[i] ?? 0)), ...(line ? [line.values[i] === null ? "—" : fmt(line.values[i]!)] : [])])} />

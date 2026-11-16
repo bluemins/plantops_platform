@@ -43,7 +43,8 @@ export function fitBy(by: By, from: string, to: string): By {
   return by;
 }
 
-export type Bucket = { key: string; label: string; from: string; to: string };
+/** `label` = "Dec 25" (tables, tap text); `axis` = "Dec" (under a chart, where 12 months must fit a phone). */
+export type Bucket = { key: string; label: string; axis: string; from: string; to: string };
 
 /** Monday of the week a date falls in. */
 const monday = (d: string) => {
@@ -65,7 +66,7 @@ export function bucketsFor(from: string, to: string, by: By): Bucket[] {
     while (ymd(y, m, 1) <= to) {
       const start = ymd(y, m, 1);
       const end = iso(Date.UTC(y, m, 0));
-      out.push({ key: start.slice(0, 7), label: `${MONTHS[m - 1]} ${String(y).slice(2)}`, from: start < from ? from : start, to: end > to ? to : end });
+      out.push({ key: start.slice(0, 7), label: `${MONTHS[m - 1]} ${String(y).slice(2)}`, axis: MONTHS[m - 1]!, from: start < from ? from : start, to: end > to ? to : end });
       m += 1;
       if (m > 12) [y, m] = [y + 1, 1];
     }
@@ -75,7 +76,7 @@ export function bucketsFor(from: string, to: string, by: By): Bucket[] {
   for (let ms = t(by === "week" ? monday(from) : from); iso(ms) <= to; ms += step * DAY) {
     const start = iso(ms);
     const end = iso(ms + (step - 1) * DAY);
-    out.push({ key: start, label: short(start), from: start < from ? from : start, to: end > to ? to : end });
+    out.push({ key: start, label: short(start), axis: by === "day" ? String(Number(start.slice(8))) : short(start), from: start < from ? from : start, to: end > to ? to : end });
   }
   return out;
 }
@@ -126,7 +127,8 @@ export const OTHER_BRANDS = "Other brands";
 export type Series = { name: string; values: bigint[] };
 export type TopRow = { label: string; amount: bigint; href?: string | null; group?: ExpenseGroup };
 
-export type ChartOptions = { from: string; to: string; by: By; brand: string; amount: Amount };
+/** `recordsFrom` = the first month with real sales records (YYYY-MM-01; the server: first month with 10+ bills). */
+export type ChartOptions = { from: string; to: string; by: By; brand: string; amount: Amount; recordsFrom?: string | null };
 
 /** Every chart of the Business charts page. `owed` = what customers owed at each bucket's end (the server works it out). */
 export function buildCharts(
@@ -140,7 +142,8 @@ export function buildCharts(
   const salesTotal = sumInto(buckets, o.by, sales, (s) => val(s, o.amount));
   const ly = d.lastYearSales.filter(brandOk);
   const lastYearTotal = sumInto(buckets, o.by, ly, (s) => val(s, o.amount), (s) => nextYear(s.date));
-  const hasLastYear = ly.length > 0;
+  // last year only when the plant has records for all of it: a few stray old bills would make "+400 %"
+  const hasLastYear = ly.length > 0 && !!o.recordsFrom && lastYear(o.from) >= o.recordsFrom;
 
   // by brand: the four biggest brands of the period (colour follows the brand, never the month), the rest "Other brands",
   // then bills without a brand and the van's cash sales
@@ -165,6 +168,7 @@ export function buildCharts(
 
   return {
     buckets,
+    recordsFrom: o.recordsFrom ?? null,
     sales: { total: salesTotal, lastYear: hasLastYear ? lastYearTotal : null, byBrand, brands: [...brandTotal.keys()].sort() },
     expenses: { groups: expenseGroups, total: expenseTotal, types: topTypes(d.expenses.filter(inPeriod), o.amount) },
     money: { in: moneyIn, out: moneyOut, running: running(moneyIn, moneyOut) },

@@ -146,6 +146,16 @@ async function orderDates(tx: OcTx, tenantId: string, from: string, to: string) 
   return r.rows.map((x) => x.d);
 }
 
+/** The first month with 10 or more sales bills: the plant's records really start there (Zoho history or PlantOps). */
+async function recordsFrom(tx: OcTx, tenantId: string): Promise<string | null> {
+  const r = await tx.execute<{ m: string | null }>(sql`
+    select min(m)::text as m from (
+      select date_trunc('month', bill_date)::date as m from order_capture.bills
+       where tenant_id = ${tenantId} and cancelled_at is null and not ${sql.raw(OPENING_SQL("bills"))}
+       group by 1 having count(*) >= 10) x`);
+  return r.rows[0]?.m ?? null;
+}
+
 const okDate = (d?: string) => !!d && /^\d{4}-\d{2}-\d{2}$/.test(d);
 
 // ---------- Business charts ----------
@@ -170,14 +180,14 @@ export async function businessCharts(user: OcUser, p: ChartParams) {
     const lastYearSales = allSales.filter((s) => s.date >= lyFrom && s.date <= lyTo);
     const expenses = await expenseFacts(tx, user.tenantId, p.from, p.to);
     const money = await moneyFacts(tx, user.tenantId, p.from, p.to, sales, expenses);
-    return { sales, lastYearSales, expenses, money, orderDates: await orderDates(tx, user.tenantId, p.from, p.to) };
+    return { sales, lastYearSales, expenses, money, orderDates: await orderDates(tx, user.tenantId, p.from, p.to), recordsFrom: await recordsFrom(tx, user.tenantId) };
   });
   const rec = await receivablesData(user.tenantId);
   const owedOn = (date: string) => {
     const t = agingSummary(rec, { asOf: date, basis: "due", interval: 15, filter: {}, group: "none" });
     return t.total[t.total.length - 1] as bigint;
   };
-  const charts = buildCharts(d, { from: p.from, to: p.to, by: p.by, brand: p.brand, amount: p.amount }, []);
+  const charts = buildCharts(d, { from: p.from, to: p.to, by: p.by, brand: p.brand, amount: p.amount, recordsFrom: d.recordsFrom }, []);
   charts.owed = charts.buckets.map((b) => owedOn(b.to));
   return charts;
 }
@@ -197,7 +207,7 @@ export async function businessOverview(user: OcUser, p: OverviewParams, today = 
   const d = await withTenant(user.tenantId, async (tx) => {
     const sales = await saleFacts(tx, user.tenantId, p.from, p.to);
     const expenses = await expenseFacts(tx, user.tenantId, p.from, p.to);
-    return { sales, expenses, money: await moneyFacts(tx, user.tenantId, p.from, p.to, sales, expenses) };
+    return { sales, expenses, money: await moneyFacts(tx, user.tenantId, p.from, p.to, sales, expenses), recordsFrom: await recordsFrom(tx, user.tenantId) };
   });
   const rec = agingSummary(await receivablesData(user.tenantId), { asOf: today, basis: "due", interval: 15, filter: {}, group: "none" });
   const owed = rec.total[rec.total.length - 1] as bigint;
@@ -205,6 +215,7 @@ export async function businessOverview(user: OcUser, p: OverviewParams, today = 
   const pay = await payablesReport(user);
   return {
     ...buildOverview(d, p),
+    recordsFrom: d.recordsFrom,
     receivables: { total: owed, notDue, overdue: owed - notDue },
     payables: { total: pay.owed, notDue: pay.totals.not_due, overdue: pay.owed - pay.totals.not_due },
   };

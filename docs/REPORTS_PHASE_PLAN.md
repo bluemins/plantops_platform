@@ -175,3 +175,19 @@ no names. Salary shows from the month marked paid.
 reads `src/server/business.ts`, charts drawn on the server (`src/app/reports/business/charts.tsx`: bars, stacked /
 grouped bars, a line, horizontal bars; plain HTML + SVG, no chart library), pages `src/app/reports/business/**`, CSV
 `src/app/api/reports/business/route.ts`. Tests `test/business-lib.test.ts`, `test/business.test.ts`.
+
+**Data check on plant 001's live rows (2026-11-16, read-only; owner: "ensure the chart gives me right data")**
+- **Totals are right:** on sample data every page figure matched an independent SQL sum (sales, expenses, money in /
+  out, customers owe / overdue, last-year change). Live October = ₹5,02,811 = the salespeople the owner checked against
+  Zoho on 7 Nov (₹4,46,023) + manas sahu ₹47,478 + maheshwar ₹5,510 + 5 PlantOps bills ₹3,800.
+- **No double counting today:** no PlantOps bill dated before 6 Nov has a matching Zoho bill; no order has two bills;
+  the 3 vendor payments from Petty Cash (10–12 Nov) are not also in the cash book; both van reports were cancelled;
+  the cash book's only entry (C-0009, a collection) was cancelled by the owner the same day.
+- **What would mislead a decision (handled or open):**
+  1. Records really start **Feb 2026** (Apr 2025 – Jan 2026: 6 stray Zoho bills). Fixed: last year is compared only
+     when the plant has records for it (first month with 10+ bills), and a note says when the period starts earlier.
+  2. Purchases mix running materials and **equipment / repairs** (Oct 2026: ₹1,57,069 for RO membrane, ozone
+     generator, pump, filter media). Open: the owner decides whether to mark purchase items as equipment (shown apart).
+  3. **Costs not in PlantOps yet:** salary (release 2), electricity, rent, diesel and other cash costs (the cash book
+     has no expenses yet). "Left over" is therefore not a profit; the pages say so.
+  4. **20 L jar sales** from the other app are not in sales until the monthly J20 bills start (November's in December).
