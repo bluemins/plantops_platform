@@ -2473,7 +2473,7 @@ they buy", else earlier orders); works with letter, search and switched-off; `?b
 in `apps/order-capture/src/server/customer-brands.ts`. No migration; SSO token unchanged. **Live 2026-11-16** (`83325bd`). Notes:
 `apps/order-capture/NOTES.md`.
 
-### 2026-11-20 — Sales: bill copy on purchase bills (v0.82.0) — built, not deployed
+### 2026-11-20 — Sales: bill copy on purchase bills (v0.82.0) — live 2026-11-20 (`8c22328`, with v0.83.0)
 Owner 2026-11-20 ("staff shall be able to add the soft copy"; choices as recommended, mock-up
 https://claude.ai/artifact/Ep8fsTZwj4rzcECa4yiKs5 OK). On "+ Purchase bill" and later on the bill's page, the owner or
 Accounts attach the vendor's bill: one PDF ≤ 10 MB or up to 3 photos (shrunk on the phone); also on Zoho-imported bills;
@@ -2484,7 +2484,7 @@ not on cancelled bills. Owner, Accounts and support (logged) see them; Store kee
 `0026_purchase_bill_files.sql` (approved: one table, FORCE RLS, SELECT + INSERT only). SSO token unchanged. Notes:
 `apps/order-capture/NOTES.md`. Tests: Sales `test/purchase-files.test.ts` (8).
 
-### 2026-11-20 — Sales: write off dues, batch no. on delivery, Business Overview by month (v0.83.0) — built, not deployed
+### 2026-11-20 — Sales: write off dues, batch no. on delivery, Business Overview by month (v0.83.0) — live 2026-11-20 (`8c22328`)
 Owner 2026-11-20 (list agreed, "go and build it"; mock-ups https://claude.ai/artifact/YcBpa2f8NdCh4GxTeHhCMt,
 https://claude.ai/artifact/HwDgeAgGF1k1KwkwprzFwr). **Write off dues** (owner only, no undo): a customer's unpaid bills get
 a `write_off` adjustment (table and kind since `0008`, no schema change); bills show "Written off", the customer page / list
