@@ -9,16 +9,21 @@ import { requirePageUser } from "@/server/session";
 import { Header } from "../../../header";
 import { CancelWithReason } from "../../../ledger-forms";
 import { BackLink, BillBadge, GstTag } from "../../../parts";
+import { AddBillCopy } from "../../bill-copy";
 import { PurchaseBillGst } from "../../forms";
 import { day, MODE, qty } from "../../parts";
 
 type Params = Promise<{ id: string }>;
+type Search = Promise<{ copy?: string }>;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+const at = (iso: string) => new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
 const signed = (s: string) => `${s.startsWith("-") ? "−" : ""}${money(s.replace("-", ""))}`;
 
 /** One purchase bill: vendor, lines with GST, totals, what was paid on it (owner, Accounts, support). */
-export default async function PurchaseBillPage({ params }: { params: Params }) {
+export default async function PurchaseBillPage({ params, searchParams }: { params: Params; searchParams: Search }) {
   const { id } = await params;
+  const copyFailed = (await searchParams).copy === "failed";
   if (!UUID.test(id)) notFound();
   const user = await requirePageUser(`/purchases/bills/${id}`);
   if (!can(user, "purchases_view")) redirect("/");
@@ -77,6 +82,37 @@ export default async function PurchaseBillPage({ params }: { params: Params }) {
         {b.notes && <p className="text-sm whitespace-pre-line text-slate-600">{b.notes}</p>}
       </Card>
 
+      {(b.copies.length > 0 || (!b.cancelled && can(user, "purchase_enter"))) && (
+        <Card className="space-y-3 print:hidden">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-base font-semibold">Bill copy</h2>
+            {b.copies.length > 0 && <span className="text-xs text-slate-500">{b.copies.length} file{b.copies.length > 1 ? "s" : ""}</span>}
+          </div>
+          {b.copies.length === 0 && <p className="text-sm text-slate-500">No copy of the vendor&apos;s bill yet.</p>}
+          {b.copies.some((f) => f.content_type.startsWith("image/")) && (
+            <div className="flex flex-wrap gap-2">
+              {b.copies.filter((f) => f.content_type.startsWith("image/")).map((f, i) => (
+                <a key={f.id} href={`/purchase-bill-files/${f.id}`} target="_blank" rel="noopener" aria-label={`Open photo ${i + 1}`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- a private file, served by this module */}
+                  <img src={`/purchase-bill-files/${f.id}`} alt={`Bill copy photo ${i + 1}`} className="h-24 w-20 rounded-lg border border-slate-200 object-cover" loading="lazy" />
+                </a>
+              ))}
+            </div>
+          )}
+          {b.copies.filter((f) => f.content_type === "application/pdf").map((f) => (
+            <div key={f.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+              <span className="min-w-0 break-words"><span className="font-semibold">{f.file_name ?? "Bill copy.pdf"}</span><span className="block text-xs text-slate-500">PDF · {kb(f.size)}</span></span>
+              <span className="flex shrink-0 gap-3">
+                <a href={`/purchase-bill-files/${f.id}`} target="_blank" rel="noopener" className="font-semibold text-(--brand)">Open</a>
+                <a href={`/purchase-bill-files/${f.id}?download=1`} className="font-semibold text-(--brand)">Save</a>
+              </span>
+            </div>
+          ))}
+          {b.copies.length > 0 && <p className="text-xs text-slate-500">{b.copies.map((f) => `${f.content_type === "application/pdf" ? "PDF" : "Photo"} added by ${f.by} · ${at(f.at)}`).join(" · ")}</p>}
+          {!b.cancelled && can(user, "purchase_enter") && <AddBillCopy billId={b.id} startOpen={copyFailed} failed={copyFailed} />}
+          {b.copies.length > 0 && <p className="text-xs text-slate-500">Copies are kept with the bill and never deleted. Added the wrong file? Add the right one next to it.</p>}
+        </Card>
+      )}
       {!b.cancelled && can(user, "purchase_enter") && (
         <Card className="print:hidden"><PurchaseBillGst id={b.id} value={b.gst_bill} /></Card>
       )}

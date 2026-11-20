@@ -24,6 +24,9 @@ describe("append-only for order_app", () => {
       // nothing is ever deleted
       ...TABLES.map((tbl) => `delete from order_capture.${tbl}`),
       ...TABLES.map((tbl) => `truncate order_capture.${tbl}`),
+      // purchase bill copies (0026): read + add only
+      `update order_capture.purchase_bill_files set storage_key = 'x' where id = '${ids.pfile}'`,
+      `update order_capture.purchase_bill_files set bill_id = bill_id where id = '${ids.pfile}'`,
       // consent answers and the pilot's groups are never changed (a new answer is a new row)
       `update order_capture.customer_consents set status = 'withdrawn' where id = '${ids.consent}'`,
       `update order_capture.customer_consents set created_at = now() where id = '${ids.consent}'`,
@@ -230,7 +233,7 @@ describe("append-only for order_app", () => {
 
   it("refuses every DELETE, TRUNCATE and locked UPDATE (each statement listed)", async () => {
     const list = refusedStatements();
-    expect(list.length).toBe(87 + 14 + 19 + 2 + 11 + 6 + 9 + 8 + 6 + 4 + 6 + 4 + 5 + 4 + 6 + 14 + 16 + 8 + 9 + 8 + 9 + 8 + 6 + 4 + 8 + 2 + 3 + 3); // + customer_brand_changes (delete, truncate) and 1 locked update (0024); + jar_month_lines (delete, truncate) and 3 locked updates (0021); + the two Attendance-link tables (delete, truncate) and 8 locked updates (0020); + the four van tables (delete, truncate) and 6 locked updates (0019); + the four 20 L / collection tables (delete, truncate) and 9 locked updates (0018); + the four cash book tables (delete, truncate) and 9 locked cash updates (0017); // + the seven purchase tables (delete, truncate) and 16 locked purchase updates (0016); + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008); bill_settings (delete, truncate) and 11 locked bill-field updates (0009); the three customer tables (delete, truncate) and 9 locked updates (0010), and the customer's phone is no longer locked (the owner may change it, D3); the four Drop tables (delete, truncate) and 6 locked updates (0012)
+    expect(list.length).toBe(87 + 14 + 19 + 2 + 11 + 6 + 9 + 8 + 6 + 4 + 6 + 4 + 5 + 4 + 6 + 14 + 16 + 8 + 9 + 8 + 9 + 8 + 6 + 4 + 8 + 2 + 3 + 3 + 4); // + purchase_bill_files (delete, truncate) and 2 locked updates (0026); + customer_brand_changes (delete, truncate) and 1 locked update (0024); + jar_month_lines (delete, truncate) and 3 locked updates (0021); + the two Attendance-link tables (delete, truncate) and 8 locked updates (0020); + the four van tables (delete, truncate) and 6 locked updates (0019); + the four 20 L / collection tables (delete, truncate) and 9 locked updates (0018); + the four cash book tables (delete, truncate) and 9 locked cash updates (0017); // + the seven purchase tables (delete, truncate) and 16 locked purchase updates (0016); + the seven ledger tables (delete, truncate) and 19 locked ledger updates (0008); bill_settings (delete, truncate) and 11 locked bill-field updates (0009); the three customer tables (delete, truncate) and 9 locked updates (0010), and the customer's phone is no longer locked (the owner may change it, D3); the four Drop tables (delete, truncate) and 6 locked updates (0012)
     for (const stmt of list) expect(await dbError(asApp(t, stmt)), stmt).toMatch(/permission denied/);
   });
 

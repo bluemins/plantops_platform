@@ -25,7 +25,7 @@ One Railway project in the **Singapore** region (lowest cost; data location is n
 | `document-store` | `apps/document-store/Dockerfile` | `/health` | `docs.bluemins.life` | + a volume at `/data` for uploaded files |
 | `floor-stock` | `apps/floor-stock/Dockerfile` | `/health` | `stock.bluemins.life` | no volume (everything is in the database) |
 | `complaint-box` | `apps/complaint-box/Dockerfile` | `/health` | `complaints.bluemins.life` | + its own volume at `/data` for complaint photos / videos (`COMPLAINT_STORAGE_DIR=/data/complaints`) |
-| `order-capture` | `apps/order-capture/Dockerfile` | `/health` | `orders.bluemins.life` | no volume (no files; everything is in the database) |
+| `order-capture` | `apps/order-capture/Dockerfile` | `/health` | `orders.bluemins.life` | + its own volume at `/data` for purchase bill copies (`ORDER_STORAGE_DIR=/data/sales`, `RAILWAY_RUN_UID=0`, since v0.82.0) |
 | `attendance-salary` | `apps/attendance-salary/Dockerfile` | `/health` | `attendance.bluemins.life` | + its own volume at `/data` for bill photos (`ATTEND_STORAGE_DIR=/data/attendance`, since v0.22.0). Its `ATTEND_SESSION_SECRET` also makes the printed QR's key |
 
 Service settings are set in the Railway dashboard, following this page. The Dockerfile is chosen by the

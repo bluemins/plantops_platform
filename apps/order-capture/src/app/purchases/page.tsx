@@ -71,7 +71,7 @@ export default async function PurchaseBillsPage({ searchParams }: { searchParams
               <span className="min-w-0">
                 <span className="block font-semibold break-words">{b.vendor_name}{b.gst && <GstTag />}</span>
                 <span className="block text-sm text-slate-500">
-                  {b.number}{b.source === "zoho" ? " · Zoho" : ""}{b.po_number ? ` · ${b.po_number}` : ""} · {day(b.bill_date)} · {b.lines} {b.lines === 1 ? "item" : "items"}
+                  {b.number}{b.copies > 0 && <span aria-label="has a bill copy" title="Has a bill copy"> 📎</span>}{b.source === "zoho" ? " · Zoho" : ""}{b.po_number ? ` · ${b.po_number}` : ""} · {day(b.bill_date)} · {b.lines} {b.lines === 1 ? "item" : "items"}
                 </span>
               </span>
               <span className="shrink-0 text-right">

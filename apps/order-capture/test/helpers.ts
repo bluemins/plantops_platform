@@ -148,6 +148,8 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
     values ('${tenantId}', 'plantops', 'PB-0001', 1, '${vendor}', 'Balaji Sales Sambalpur', '2026-11-01', 1000, 90, 90, 180, 1180, '${who}', 'Sujata') returning id`);
   const pline = await one(`insert into order_capture.purchase_bill_lines (tenant_id, bill_id, line_no, item_id, item_name, quantity, unit, rate, tax_percent, tax_amount, line_total)
     values ('${tenantId}', '${pbill}', 1, '${pitem}', 'Preform 18.5 g', 10, 'kg', 100, 18, 180, 1000) returning id`);
+  const pfile = await one(`insert into order_capture.purchase_bill_files (tenant_id, bill_id, storage_key, file_name, content_type, size_bytes, sha256, created_by, created_by_name)
+    values ('${tenantId}', '${pbill}', 'tenant/${tenantId}/${randomUUID()}', 'bill.pdf', 'application/pdf', 100, '${"a".repeat(64)}', '${who}', 'Sujata') returning id`);
   const vpay = await one(`insert into order_capture.vendor_payments (tenant_id, source, number, ref_no, vendor_id, vendor_name, payment_date, mode, paid_from, amount, created_by, created_by_name)
     values ('${tenantId}', 'plantops', 'PM-0001', 1, '${vendor}', 'Balaji Sales Sambalpur', '2026-11-02', 'cash', 'Petty Cash', 500, '${who}', 'Sujata') returning id`);
   const valloc = await one(`insert into order_capture.vendor_payment_allocations (tenant_id, payment_id, bill_id, amount, allocated_on, created_by, created_by_name)
@@ -187,7 +189,7 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
   const jmonth = await one(`insert into order_capture.jar_imports (tenant_id, kind, month, file_name, total_due, imported_by, imported_by_name) values ('${tenantId}', 'month', '2026-11-01', 'nov.xlsx', 0, '${who}', 'Sujata') returning id`);
   const jline = await one(`insert into order_capture.jar_month_lines (tenant_id, import_id, jar_customer_id, customer_id, source_ref, sheet_due, plantops_due, action)
     values ('${tenantId}', '${jmonth}', '${jar}', '${customer}', '3324', 360, 360, 'matches') returning id`);
-  return { jmonth, jline, asend, spend, ventry, vrep, vline, vcredit, vpost, jimp, obill, jar, coll, cline, cpost, ecat, van, centry, cclose, pimp, vendor, pitem, pbill, pline, vpay, valloc, device, push, poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
+  return { pfile, jmonth, jline, asend, spend, ventry, vrep, vline, vcredit, vpost, jimp, obill, jar, coll, cline, cpost, ecat, van, centry, cclose, pimp, vendor, pitem, pbill, pline, vpay, valloc, device, push, poll, answer, redemption, who, sku500, sku1l, rate, customer, order, line, event, outbox, message, consent, ring, attended, ignored, imp, contact, zohoBill, billLine, bill, payment, allocation, adjustment, comment, person, location };
 }
 
 /** The tables in the order_capture schema (the guard tests compare against this list). */
@@ -195,7 +197,7 @@ export const TABLES = [
   "app_access_changes", "app_devices", "app_login_codes", "app_phone_changes", "app_push_outbox", "app_sessions",
   "attendance_sends", "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "cash_closes", "cash_entries", "cash_vehicles", "collection_lines", "collection_posts", "customer_brand_changes", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
   "expense_categories", "ignored_number_changes", "jar_customers", "jar_imports", "jar_month_lines", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "points_redemptions", "points_settings", "poll_answers", "polls", "product_rates",
-  "purchase_bill_lines", "purchase_bills", "purchase_imports", "purchase_items",
+  "purchase_bill_files", "purchase_bill_lines", "purchase_bills", "purchase_imports", "purchase_items",
   "reminder_groups", "staff_cash_spends", "support_views", "van_credit_lines", "van_credit_posts", "van_report_lines", "van_reports", "vendor_payment_allocations", "vendor_payments", "vendors", "zoho_contacts", "zoho_imports",
 ];
 

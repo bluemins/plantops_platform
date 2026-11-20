@@ -10,6 +10,7 @@ import { paise, rupees } from "@/lib/ledger";
 import { money } from "@/lib/money";
 import { isIntraState, lineAmount, purchaseAmounts } from "@/lib/purchase-amounts";
 import type { EntryChoices } from "@/server/purchase-entry";
+import { CopyPicker, NO_COPY, sendCopy, type CopyPick } from "./bill-copy";
 
 const field = "min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-base focus:border-(--brand) focus:outline-none";
 const label = "block text-sm text-slate-700";
@@ -102,6 +103,7 @@ export function PurchaseBillForm({ choices, vendorId }: { choices: EntryChoices;
   const [mode, setMode] = useState("cash");
   const [paidFrom, setPaidFrom] = useState("Petty Cash");
   const [reference, setReference] = useState("");
+  const [copy, setCopy] = useState<CopyPick>(NO_COPY);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   // "GST bill" starts ticked when the vendor has a GSTIN (owner, 2026-11-16); a hand change sticks until the vendor changes
@@ -157,9 +159,14 @@ export function PurchaseBillForm({ choices, vendorId }: { choices: EntryChoices;
         gst_bill: gstBill,
       },
     });
+    if (!r.ok) {
+      setBusy(false);
+      return setError(r.error);
+    }
+    // the bill is saved first; a copy that fails to send never loses it: its page offers "add it again"
+    const copyError = copy.kind === "none" ? null : await sendCopy(r.data.id, copy);
     setBusy(false);
-    if (!r.ok) return setError(r.error);
-    router.push(`/purchases/bills/${r.data.id}`);
+    router.push(`/purchases/bills/${r.data.id}${copyError ? "?copy=failed" : ""}`);
     router.refresh();
   }
 
@@ -217,6 +224,12 @@ export function PurchaseBillForm({ choices, vendorId }: { choices: EntryChoices;
         );
       })}
       <button className="min-h-11 w-full rounded-xl border border-dashed border-slate-400 text-sm font-semibold text-slate-700" onClick={() => setLines((ls) => [...ls, emptyLine()])}>+ Add another item</button>
+
+      <Card className="space-y-2">
+        <div className="flex items-baseline justify-between"><h2 className="text-base font-semibold">Bill copy</h2><span className="text-xs text-slate-500">optional</span></div>
+        <p className="text-sm text-slate-600">A PDF (up to 10 MB) or up to 3 photos of the vendor&apos;s bill. You can also add it later on the bill&apos;s page.</p>
+        <CopyPicker value={copy} onChange={setCopy} disabled={busy} />
+      </Card>
 
       <Card className="space-y-2 text-sm">
         <div className="flex justify-between"><span>Sub-total (before GST)</span><span>{totals ? money(rupees(totals.sub_total)) : "—"}</span></div>

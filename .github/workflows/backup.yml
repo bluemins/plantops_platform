@@ -8,10 +8,12 @@
 #   Attendance      POST <ATTENDANCE_URL>/api/cron/backup: the same for bill photos of expense claims, into
 #                   <bucket>/files/attendance_salary/... (skipped until ATTENDANCE_BACKUP_FILES is "on": set it once
 #                   the attendance-salary service has its five BACKUP_* variables and v0.22.0 is live)
+#   Sales           POST <ORDER_URL>/api/cron/backup: purchase bill copies, into <bucket>/files/order_capture/...
+#                   (skipped until ORDER_BACKUP_FILES is "on": set it once order-capture has its BACKUP_* variables)
 # Each copy is a GitHub environment (Settings > Environments) with:
 #   secrets    DATABASE_URL_BACKUP, BACKUP_ACCESS_KEY_ID, BACKUP_SECRET_ACCESS_KEY, CRON_SECRET
 #   variables  BACKUP_BUCKET, BACKUP_ENDPOINT, BACKUP_RECIPIENT (public key only), DOCS_URL, COMPLAINT_URL,
-#              ATTENDANCE_URL, ATTENDANCE_BACKUP_FILES
+#              ATTENDANCE_URL, ATTENDANCE_BACKUP_FILES, ORDER_URL, ORDER_BACKUP_FILES
 # Only the public key is here; the private key that opens backups is in the owner's password manager.
 # A failed step fails the run, and GitHub emails the repo owner. "Run workflow" runs it by hand.
 name: Backup
@@ -115,6 +117,16 @@ jobs:
         if: ${{ !cancelled() && vars.JOBS_URL != '' && vars.JOBS_BACKUP_FILES == 'on' }}
         env:
           URL: ${{ vars.JOBS_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -sS --max-time 120 -o result.json -w '%{http_code}' -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/backup")
+          cat result.json; echo
+          [ "$code" = 200 ] && jq -e '.status == "ok"' result.json >/dev/null
+
+      - name: Sales files
+        if: ${{ !cancelled() && vars.ORDER_URL != '' && vars.ORDER_BACKUP_FILES == 'on' }}
+        env:
+          URL: ${{ vars.ORDER_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           code=$(curl -sS --max-time 120 -o result.json -w '%{http_code}' -X POST -H "x-cron-secret: $CRON_SECRET" "$URL/api/cron/backup")

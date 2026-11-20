@@ -123,6 +123,28 @@ export const env = {
   get fcmTokenUrl() {
     return process.env.FCM_TOKEN_URL ?? "";
   },
+  /**
+   * Purchase bill copies (src/server/storage.ts): a folder on this server (on Railway the volume, e.g. /data/sales), or
+   * S3-compatible storage when ORDER_STORAGE_BUCKET is set (same STORAGE_ENDPOINT / REGION / keys as the other modules).
+   */
+  get storageDir() {
+    return process.env.ORDER_STORAGE_DIR || new URL("../../.data/sales", `file://${process.cwd()}/`).pathname;
+  },
+  get storageBucket() {
+    return process.env.ORDER_STORAGE_BUCKET ?? "";
+  },
+  get storageEndpoint() {
+    return process.env.STORAGE_ENDPOINT ?? "https://s3.ap-south-1.amazonaws.com";
+  },
+  get storageRegion() {
+    return process.env.STORAGE_REGION ?? "ap-south-1";
+  },
+  get storageAccessKey() {
+    return process.env.STORAGE_ACCESS_KEY_ID ?? "";
+  },
+  get storageSecretKey() {
+    return process.env.STORAGE_SECRET_ACCESS_KEY ?? "";
+  },
   /** only tests change it (a fake Twilio) */
   get twilioApiUrl() {
     return process.env.TWILIO_API_URL ?? "https://api.twilio.com";

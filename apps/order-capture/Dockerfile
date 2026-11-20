@@ -1,6 +1,6 @@
 # Order Capture image. Build from the repo root:  docker build -f apps/order-capture/Dockerfile -t plantops-order-capture .
 # All configuration comes from environment variables at runtime (see .env.example); no secrets in the image.
-# Order Capture stores no files: no volume and no storage settings.
+# Purchase bill copies (v0.82.0) are stored in ORDER_STORAGE_DIR: on Railway a volume mounted at /data, ORDER_STORAGE_DIR=/data/sales.
 # Migrations run separately with the owner login: pnpm --filter @plantops/order-capture db:migrate
 FROM node:22-slim AS build
 WORKDIR /repo

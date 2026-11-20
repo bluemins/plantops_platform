@@ -951,3 +951,27 @@ Asked by the owner 2026-11-16 (mock-up https://claude.ai/artifact/Xe7FYe8DnR4APv
   then `listCustomers({ onlyIds })`); only the shown customers' labels go to the page. Everyone who sees the list may
   use it; no money in it.
 - No migration; platform and SSO token unchanged. Tests: Sales 1,363 (+2, `test/customer-brands.test.ts`).
+
+## 2026-11-20 — Bill copy on purchase bills (v0.82.0)
+Asked by the owner 2026-11-20 ("staff shall be able to add the soft copy"); choices "go as recommended", mock-up
+https://claude.ai/artifact/Ep8fsTZwj4rzcECa4yiKs5 approved ("OK").
+- **+ Purchase bill** gets an optional **Bill copy** box: Take photo / Choose PDF / photo; one PDF ≤ 10 MB or up to 3
+  photos (shrunk on the phone, `shrink()` from module-kit). The bill is saved first, then each file is sent
+  (`POST /api/purchases/bills/:id/files?name=`, raw body); a failed send lands on the bill's page with `?copy=failed`
+  ("add it again here"), the bill is never lost.
+- **A bill's page**: Bill copy section (photos as thumbnails, PDFs with Open / Save, who added each and when) and
+  **+ Add bill copy** for later, Zoho-imported bills too. Not on a cancelled bill (409); its copies stay readable.
+  Purchase bills list: 📎 after the number when a bill has a copy.
+- **Who:** add = `purchase_enter` (owner, Accounts); read = `purchases_view` (owner, Accounts, support; each support
+  file view logged as `/purchase-bill-files/<id>`). Store keepers, Order desk, plant staff, marketing: never (prices).
+- **Never deleted:** a wrong file stays; add the right one next to it. Cap 20 files per bill (safety only).
+- Type by the file's bytes (`sniffType`: PDF / JPEG / PNG / WebP), ≤ 10 MB, the plan's **Sales storage (MB)**
+  (`limits.modules.order_capture.storage_mb`, new field on the platform's plan screen; blank = unlimited). No storage
+  warnings / notification kind yet (the upload is refused with "Storage full" at the limit).
+- Migration `0026_purchase_bill_files.sql` (approved): one table, FORCE RLS, `order_app` SELECT + INSERT only. Audit
+  `purchase.bill_copy` in Recent changes.
+- **Storage (first files Sales stores):** `src/server/storage.ts`, `ORDER_STORAGE_DIR` (Railway: volume at `/data`,
+  `ORDER_STORAGE_DIR=/data/sales`, `RAILWAY_RUN_UID=0` like the other file modules) or `ORDER_STORAGE_BUCKET`.
+  Nightly backup `POST /api/cron/backup` + `backup.yml` step "Sales files" (on with GitHub variable
+  `ORDER_BACKUP_FILES=on` once `order-capture` has the five `BACKUP_*` variables).
+- SSO token unchanged. Tests: `test/purchase-files.test.ts` (8), RLS / append-only lists updated.

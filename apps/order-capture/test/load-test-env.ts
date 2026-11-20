@@ -1,4 +1,5 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 /** Points the module at the *test* database. Tests never touch dev data. */
@@ -12,4 +13,6 @@ export function loadTestEnv() {
   process.env.MODULE_SECRET_ORDER_CAPTURE = "order-module-test-secret";
   process.env.ORDER_SESSION_SECRET = "order-capture-test-session-secret-0123456789";
   delete process.env.MODULE_URL_ORDER_CAPTURE;
+  process.env.ORDER_STORAGE_DIR = mkdtempSync(path.join(tmpdir(), "plantops-sales-test-"));
+  delete process.env.ORDER_STORAGE_BUCKET;
 }

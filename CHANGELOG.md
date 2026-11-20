@@ -4,6 +4,16 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.82.0 — 2026-11-20 — Bill copy on purchase bills
+
+Owner, 2026-11-20. **Migrations:** Sales `0026_purchase_bill_files.sql`. SSO token unchanged.
+- **+ Purchase bill:** optional Bill copy box: one PDF (≤ 10 MB) or up to 3 photos, made smaller on the phone.
+- **A purchase bill's page:** Bill copy section (photos, PDFs to open / save, who added each) and "+ Add bill copy"
+  (Zoho-imported bills too). Owner and Accounts add; support reads (logged); Store keepers never. Never deleted.
+- Purchase bills list: 📎 on bills with a copy. Plan screen: "Sales storage (MB)".
+- **Deploy:** on `order-capture` a volume at `/data`, `ORDER_STORAGE_DIR=/data/sales`, `RAILWAY_RUN_UID=0`, the five
+  `BACKUP_*` variables; GitHub variable `ORDER_BACKUP_FILES=on`. Deploy Sales and the platform.
+
 ## v0.81.0 — 2026-11-16 — Sales → Customers: brand filter
 
 Owner, 2026-11-16. No migration; platform and SSO token unchanged.

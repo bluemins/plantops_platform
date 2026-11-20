@@ -11,6 +11,7 @@ import { requireAccess } from "./access";
 import { audit } from "./audit";
 import { schema, withTenant, type OcTx } from "./db";
 import { badRequest, conflict, notFound } from "./http";
+import { billCopies } from "./purchase-files";
 import type { OcUser } from "./session";
 
 const { purchaseBillLines, purchaseBills, purchaseImports, purchaseItems, vendorPaymentAllocations, vendorPayments, vendors } = schema;
@@ -251,7 +252,7 @@ export async function confirmPurchaseImport(user: OcUser, input: z.infer<typeof 
 
 type BillRow = {
   id: string; number: string; source: string; bill_date: string; due_date: string | null; total: string; paid: string; cancelled: boolean;
-  vendor_id: string; vendor_name: string; po_number: string | null; vendor_invoice_no: string | null; lines: number; gst: boolean;
+  vendor_id: string; vendor_name: string; po_number: string | null; vendor_invoice_no: string | null; lines: number; gst: boolean; copies: number;
 };
 const billView = (r: BillRow, today: string) => {
   const L: LedgerBill = { id: r.id, number: r.number, bill_date: r.bill_date, due_date: r.due_date, total: P(r.total), cancelled: r.cancelled, order_id: null };
@@ -262,7 +263,8 @@ const BILL_SELECT = sql`
   select b.id, b.number, b.source, b.bill_date::text, b.due_date::text, b.total::text, b.cancelled_at is not null as cancelled,
          coalesce((select sum(a.amount) from order_capture.vendor_payment_allocations a where a.tenant_id = b.tenant_id and a.bill_id = b.id), 0)::numeric(18, 2)::text as paid,
          b.vendor_id, coalesce(v.name, b.vendor_name) as vendor_name, b.po_number, b.vendor_invoice_no, b.gst_bill as gst,
-         (select count(*)::int from order_capture.purchase_bill_lines l where l.tenant_id = b.tenant_id and l.bill_id = b.id) as lines
+         (select count(*)::int from order_capture.purchase_bill_lines l where l.tenant_id = b.tenant_id and l.bill_id = b.id) as lines,
+         (select count(*)::int from order_capture.purchase_bill_files f where f.tenant_id = b.tenant_id and f.bill_id = b.id) as copies
     from order_capture.purchase_bills b
     left join order_capture.vendors v on v.tenant_id = b.tenant_id and v.id = b.vendor_id`;
 
@@ -410,6 +412,7 @@ export async function purchaseBillDetail(user: OcUser, id: string) {
       .from(vendorPaymentAllocations)
       .innerJoin(vendorPayments, and(eq(vendorPayments.tenantId, vendorPaymentAllocations.tenantId), eq(vendorPayments.id, vendorPaymentAllocations.paymentId)))
       .where(and(eq(vendorPaymentAllocations.tenantId, user.tenantId), eq(vendorPaymentAllocations.billId, id)));
+    const copies = await billCopies(tx, user.tenantId, id);
     const paid = allocs.reduce((a, x) => a + P(x.a.amount), 0n);
     const due = b.cancelledAt ? 0n : P(b.total) - paid;
     const L: LedgerBill = { id: b.id, number: b.number, bill_date: b.billDate, due_date: b.dueDate, total: P(b.total), cancelled: !!b.cancelledAt, order_id: null };
@@ -434,6 +437,7 @@ export async function purchaseBillDetail(user: OcUser, id: string) {
       due: rupees(due > 0n ? due : 0n),
       notes: b.notes,
       gst_bill: b.gstBill,
+      copies,
       created_by: b.createdByName,
       cancelled: b.cancelledAt ? { at: b.cancelledAt.toISOString(), by: b.cancelledByName, reason: b.cancelReason } : null,
       lines: lines.map((l) => ({ line_no: l.lineNo, item: l.itemName, description: l.description, quantity: l.quantity, unit: l.unit, rate: l.rate, discount: l.discount, tax: l.taxName, tax_percent: l.taxPercent, tax_amount: l.taxAmount, hsn: l.hsn, total: l.lineTotal })),

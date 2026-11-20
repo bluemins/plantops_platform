@@ -100,6 +100,8 @@ export function describeChange(action: string, details: Record<string, unknown>)
       return `Payment ${show(details.number)} to ${show(details.vendor)}: ${show(details.from)} → ${show(details.to)}`;
     case "purchase.bill_gst":
       return `Purchase bill ${show(details.number)} (${show(details.vendor)}): ${details.gst_bill ? "marked GST bill" : "GST bill tick removed"}`;
+    case "purchase.bill_copy":
+      return `Purchase bill ${show(details.number)} (${show(details.vendor)}): bill copy added (${show(details.type)}${details.file ? `, ${show(details.file)}` : ""})`;
     case "purchase.bill_cancel":
       return `Purchase bill ${show(details.number)} (${show(details.vendor)}, ₹${show(details.total)}) cancelled: ${show(details.reason)}`;
     case "purchase.payment_cancel":

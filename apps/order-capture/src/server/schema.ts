@@ -715,6 +715,21 @@ export const purchaseBills = oc.table("purchase_bills", {
   ...cancelCols,
 });
 
+/** A purchase bill's soft copy (0026): PDF or photo, never changed or deleted; the file is in Sales' own storage. */
+export const purchaseBillFiles = oc.table("purchase_bill_files", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").notNull(),
+  billId: uuid("bill_id").notNull(),
+  storageKey: text("storage_key").notNull(),
+  fileName: text("file_name"),
+  contentType: text("content_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  sha256: text("sha256").notNull(),
+  createdBy: uuid("created_by").notNull(),
+  createdByName: text("created_by_name").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
 export const purchaseBillLines = oc.table("purchase_bill_lines", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull(),
