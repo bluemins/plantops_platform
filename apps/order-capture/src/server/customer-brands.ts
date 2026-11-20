@@ -17,7 +17,7 @@ import { lastRates } from "./orders";
 import { activeProducts, effectiveRates, type RateView } from "./rates";
 import type { OcUser } from "./session";
 
-const { customerBrandChanges, customers, orderLines, orders } = schema;
+const { billLines, bills, customerBrandChanges, customers, orderLines, orders } = schema;
 
 export const SetBrandsInput = z.object({ brands: z.array(z.string().trim().max(40)).max(30) }).strict();
 
@@ -110,7 +110,7 @@ export async function setBrands(user: OcUser, customerId: string, input: z.infer
 /**
  * The customer list's brand labels (owner, 2026-11-15; mock-up https://claude.ai/artifact/F4xKTCKEAfjioGbsadR3gr), for
  * everyone who sees the list: per customer their ticked "Brands they buy", else the brands of the products on their
- * earlier (not cancelled) orders, as on the Brands card; none = no label. "Other (no brand)" is never a label. Also the
+ * earlier (not cancelled) orders and bills (bills since 2026-11-20); none = no label. "Other (no brand)" is never a label. Also the
  * plant's palette, so each brand has its own colour.
  */
 export async function listBrandLabels(user: OcUser, customerIds: string[]): Promise<{ labels: Record<string, string[]>; palette: BrandPalette }> {
@@ -125,7 +125,7 @@ export async function listBrandLabels(user: OcUser, customerIds: string[]): Prom
 }
 
 /** The labels (see listBrandLabels) of the given customers, or of every customer of the plant (null). */
-async function labelsOf(tx: OcTx, tenantId: string, rates: RateView[], customerIds: string[] | null) {
+export async function labelsOf(tx: OcTx, tenantId: string, rates: RateView[], customerIds: string[] | null) {
   const only = (col: ReturnType<typeof sql>) =>
     customerIds ? sql`and ${col} = any(array[${sql.join(customerIds.map((id) => sql`${id}::uuid`), sql`, `)}])` : sql``;
   const saved = await tx.execute<{ customer_id: string; brands: string[] }>(sql`
@@ -137,7 +137,16 @@ async function labelsOf(tx: OcTx, tenantId: string, rates: RateView[], customerI
     select distinct o.customer_id, l.sku_id
       from ${orders} o
       join ${orderLines} l on l.order_id = o.id and l.version = o.version and l.tenant_id = o.tenant_id
-     where o.tenant_id = ${tenantId} ${only(sql`o.customer_id`)} and o.status <> 'cancelled' and not l.free`);
+     where o.tenant_id = ${tenantId} ${only(sql`o.customer_id`)} and o.status <> 'cancelled' and not l.free
+    union
+    -- and the products on their bills, Zoho-imported ones too (owner, 2026-11-20): many customers came from Zoho with
+    -- bills but no PlantOps order yet; a Zoho bill reaches its customer through the matched Zoho contact
+    select distinct coalesce(b.customer_id, zc.customer_id) as customer_id, l.sku_id
+      from ${bills} b
+      join ${billLines} l on l.tenant_id = b.tenant_id and l.bill_id = b.id
+      left join order_capture.zoho_contacts zc on zc.tenant_id = b.tenant_id and zc.id = b.zoho_contact_id
+     where b.tenant_id = ${tenantId} and b.cancelled_at is null and l.sku_id is not null and not l.free
+       and coalesce(b.customer_id, zc.customer_id) is not null ${only(sql`coalesce(b.customer_id, zc.customer_id)`)}`);
   const brandOfSku = new Map(rates.map((r) => [r.sku_id, r.brand]));
   const labels: Record<string, string[]> = {};
   for (const r of saved.rows) if (r.brands.length) labels[r.customer_id] = sortBrands(r.brands).filter(Boolean);

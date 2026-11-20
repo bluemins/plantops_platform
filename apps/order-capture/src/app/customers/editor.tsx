@@ -10,6 +10,7 @@ import type { CustomerView } from "@/server/customers";
 import type { BrandPalette } from "@/lib/brand";
 import { brandColour } from "@/lib/brand";
 import { BrandTag, PhoneLink } from "../parts";
+import { BulkBar, BulkPanel, type BulkSetup } from "./bulk";
 
 /** balances: owner only (null for everyone else): rupees, > 0 = they owe, < 0 = advance; missing = no bills */
 type List = { customers: CustomerView[]; more: boolean; total: number; off: number; balances: Record<string, string> | null; writtenOff?: Record<string, string> | null; letters: Letter[] };
@@ -63,7 +64,7 @@ function BrandStrip({ where, brands }: { where: Where; brands: Brands }) {
           );
         })}
         {brands.none > 0 && (
-          <a href={listHref({ ...where, brand: NO_BRAND })} aria-current={where.brand === NO_BRAND ? "page" : undefined} className={`${chip} border border-dashed border-slate-300 bg-white text-slate-700 ${where.brand === NO_BRAND ? ring : ""}`} title="Customers with no brand tag: no Brands they buy and no orders yet">
+          <a href={listHref({ ...where, brand: NO_BRAND })} aria-current={where.brand === NO_BRAND ? "page" : undefined} className={`${chip} border border-dashed border-slate-300 bg-white text-slate-700 ${where.brand === NO_BRAND ? ring : ""}`} title="Customers with no brand tag: no Brands they buy and no orders or bills yet">
             No brand yet
             <span className="font-normal opacity-75">{brands.none}</span>
           </a>
@@ -108,10 +109,27 @@ function LetterStrip({ q, showOff, letter, brand, have }: { q: string; showOff: 
 }
 
 /** Search, add, edit name / place, switch off / on. PlantOps support gets the same list without buttons. */
-export function CustomersEditor({ list, brands, q, showOff, letter, brand, canEdit, plainPhones, accounts = false, dropPhones = false, brandsLink = false }: { list: List; brands: Brands; q: string; showOff: boolean; letter?: Letter; brand?: string; canEdit: boolean; plainPhones: boolean; accounts?: boolean; dropPhones?: boolean; brandsLink?: boolean }) {
+export function CustomersEditor({ list, brands, q, showOff, letter, brand, canEdit, plainPhones, accounts = false, dropPhones = false, brandsLink = false, bulk = null }: { list: List; brands: Brands; q: string; showOff: boolean; letter?: Letter; brand?: string; canEdit: boolean; plainPhones: boolean; accounts?: boolean; dropPhones?: boolean; brandsLink?: boolean; bulk?: BulkSetup | null }) {
   const [editing, setEditing] = useState<Editing>(null);
   const [error, setError] = useState<string>();
   const close = () => setEditing(null);
+  // Select mode (owner only): tick customers, then Change… (bulk.tsx)
+  const [selecting, setSelecting] = useState(false);
+  const [ticked, setTicked] = useState<Set<string>>(new Set());
+  const [panel, setPanel] = useState(false);
+  const shownIds = list.customers.map((c) => c.id);
+  const allTicked = shownIds.length > 0 && shownIds.every((id) => ticked.has(id));
+  const tick = (id: string) => setTicked((s) => {
+    const n = new Set(s);
+    if (n.has(id)) n.delete(id);
+    else n.add(id);
+    return n;
+  });
+  const tickAll = () => setTicked(allTicked ? new Set() : new Set(shownIds.slice(0, bulk?.max ?? 500)));
+  const stopSelecting = () => {
+    setSelecting(false);
+    setTicked(new Set());
+  };
 
   async function toggle(c: CustomerView) {
     setError(undefined);
@@ -139,7 +157,21 @@ export function CustomersEditor({ list, brands, q, showOff, letter, brand, canEd
       </form>
 
       <div className="flex flex-wrap items-center gap-3">
-        {canEdit && editing?.kind !== "new" && <Button onClick={() => setEditing({ kind: "new" })}>+ Add customer</Button>}
+        {canEdit && editing?.kind !== "new" && !selecting && <Button onClick={() => setEditing({ kind: "new" })}>+ Add customer</Button>}
+        {bulk && list.customers.length > 0 &&
+          (selecting ? (
+            <Button onClick={stopSelecting}>Done</Button>
+          ) : (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setEditing(null);
+                setSelecting(true);
+              }}
+            >
+              Select
+            </Button>
+          ))}
         {list.off > 0 && (
           <a href={listHref({ q, showOff: !showOff, letter, brand })} className="flex min-h-12 items-center text-sm font-semibold text-(--brand)">
             {showOff ? "Hide switched-off" : `Show switched-off (${list.off})`}
@@ -168,7 +200,17 @@ export function CustomersEditor({ list, brands, q, showOff, letter, brand, canEd
         </p>
       )}
 
-      <Card className="p-3">
+      {selecting && list.customers.length > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-(--brand-soft) px-3 py-2 text-sm">
+          <label className="flex min-h-11 items-center gap-2 font-semibold">
+            <input type="checkbox" checked={allTicked} onChange={tickAll} className="h-5 w-5 accent-(--brand)" />
+            Select all {list.customers.length} shown
+          </label>
+          <span className="text-slate-600">{ticked.size} ticked</span>
+        </div>
+      )}
+
+      <Card className={`p-3 ${selecting ? "mb-24" : ""}`}>
         {list.customers.length === 0 ? (
           <p className="p-2 text-slate-500">
             {brand || letter
@@ -179,7 +221,23 @@ export function CustomersEditor({ list, brands, q, showOff, letter, brand, canEd
           <ul className="divide-y divide-slate-100">
             {list.customers.map((c) => (
               <li key={c.id} className="py-2">
-                {editing?.kind === "edit" && editing.id === c.id ? (
+                {selecting ? (
+                  <label className={`flex min-h-11 items-center gap-3 px-1 ${c.active ? "" : "text-slate-400"}`}>
+                    <input type="checkbox" checked={ticked.has(c.id)} onChange={() => tick(c.id)} className="h-5 w-5 shrink-0 accent-(--brand)" />
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                        <span className="font-semibold break-words">{c.name}</span>
+                        {(brands.labels[c.id] ?? []).map((b) => (
+                          <BrandTag key={b} brand={b} palette={brands.palette} />
+                        ))}
+                        {!c.active && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Off</span>}
+                      </span>
+                      <span className="block text-sm text-slate-500">
+                        {c.place} · {fmt(c.phone)}
+                      </span>
+                    </span>
+                  </label>
+                ) : editing?.kind === "edit" && editing.id === c.id ? (
                   <CustomerForm customer={c} onClose={close} onSwitchOff={() => toggle(c)} />
                 ) : (
                   <div className={`px-1 ${c.active ? "" : "text-slate-400"}`}>
@@ -247,6 +305,16 @@ export function CustomersEditor({ list, brands, q, showOff, letter, brand, canEd
         )}
         {list.more && <p className="p-2 text-sm text-slate-500">More customers than shown: type in the search box to narrow the list.</p>}
       </Card>
+      {selecting && bulk && <BulkBar count={ticked.size} onChange={() => setPanel(true)} />}
+      {panel && bulk && (
+        <BulkPanel
+          ids={[...ticked]}
+          names={list.customers.filter((c) => ticked.has(c.id)).map((c) => c.name)}
+          setup={bulk}
+          palette={brands.palette}
+          onClose={() => setPanel(false)}
+        />
+      )}
     </div>
   );
 }

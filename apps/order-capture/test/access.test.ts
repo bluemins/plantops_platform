@@ -58,6 +58,7 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["location_clear", true, true, false, false, false],
   ["brands_view", true, true, false, false, true],
   ["brands_set", true, true, false, false, false],
+  ["customers_bulk", true, false, false, false, false],
   ["drop_view", true, true, false, false, true],
   ["drop_manage", true, false, false, false, false],
   ["drop_phones", true, true, false, false, false],

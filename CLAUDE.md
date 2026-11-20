@@ -2493,3 +2493,11 @@ a red tag, New order a warning (not a block), Reports → Receivables → **Writ
 Delivered list, bill page, CSV); Sales migration `0027_delivery_batch.sql` (approved; applied on the shared copy
 2026-11-20 by v0.82.0's migrate run). **Business Overview:** a Month choice, day by day. SSO token and platform unchanged.
 Ships together with v0.82.0 (owner). Notes: `apps/order-capture/NOTES.md`. Tests: Sales `test/write-off-batch.test.ts` (15).
+
+### 2026-11-20 — Sales: change many customers at once + brand tags from bills (v0.84.0) — built, not deployed
+Owner 2026-11-20 (762 customers "No brand yet"; mock-up https://claude.ai/artifact/5qiMi1ZN47SAHKMiUNK8mz, "build as
+recommended"). Sales → Customers → **Select** (owner only): tick customers or "Select all shown" (follows the filters),
+then one change per save: Brands they buy (Add / Replace), Place, Payment terms, Drop app on / off; at most 500; each
+customer through the one-customer rules and its own Recent changes line; skipped ones listed with the reason. The list's
+brand tags and filter now also use **past bills** (Zoho bills through the matched contact). No migration; SSO token and
+platform unchanged. Notes: `apps/order-capture/NOTES.md`. Tests: Sales 1,401.

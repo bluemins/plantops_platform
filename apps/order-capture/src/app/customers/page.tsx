@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { asLetter } from "@/lib/letters";
 import { can } from "@/server/access";
 import { customerBrandIndex, pickBrand } from "@/server/customer-brands";
+import { bulkSetup } from "@/server/customer-bulk";
 import { listCustomers } from "@/server/customers";
 import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
@@ -26,6 +27,8 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
   // only the shown customers' labels go to the page
   const labels = Object.fromEntries(list.customers.filter((c) => index.labels[c.id]).map((c) => [c.id, index.labels[c.id]!]));
   const brands = { labels, palette: index.palette, chips: index.chips, none: index.none };
+  // Select mode: the owner only (2026-11-20)
+  const bulk = can(user, "customers_bulk") ? await bulkSetup(user) : null;
   return (
     <div className="space-y-5">
       <Header user={user} plant={plant} />
@@ -36,7 +39,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
           Shop locations
         </LinkRow>
       )}
-      <CustomersEditor list={list} brands={brands} q={q} showOff={showOff} letter={letter} brand={brand} canEdit={can(user, "customers")} plainPhones={user.isSupport} accounts={can(user, "account_view")} dropPhones={can(user, "drop_phones")} brandsLink={can(user, "brands_set")} />
+      <CustomersEditor list={list} brands={brands} q={q} showOff={showOff} letter={letter} brand={brand} canEdit={can(user, "customers")} plainPhones={user.isSupport} accounts={can(user, "account_view")} dropPhones={can(user, "drop_phones")} brandsLink={can(user, "brands_set")} bulk={bulk} />
       {can(user, "drop_shops") && (
         <LinkRow href="/customers/drop" note="Shops switched on for the Drop app, last logins">
           Drop shops

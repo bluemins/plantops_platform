@@ -995,3 +995,21 @@ Owner 2026-11-20 (mock-ups https://claude.ai/artifact/YcBpa2f8NdCh4GxTeHhCMt, ht
 - **Business Overview month:** `?period=month&month=YYYY-MM` (`readOverviewParams`, `overviewMonths`); `buildOverview`
   takes `by: "day"`. A future or bad month falls back to this month; this month ends today.
 - Tests: `test/write-off-batch.test.ts` (15); Sales 1,394 pass.
+
+## 2026-11-20 — Change many customers at once + brand tags from bills (v0.84.0)
+Owner 2026-11-20 (762 customers "No brand yet"; mock-up https://claude.ai/artifact/5qiMi1ZN47SAHKMiUNK8mz, "build as
+recommended").
+- **Select** on Sales → Customers (`src/app/customers/bulk.tsx`, `src/server/customer-bulk.ts`,
+  `POST /api/customers/bulk`, access `customers_bulk` = **owner only**, owner's decision, even for fields Order desk /
+  Marketing staff change one at a time). Tick customers (or "Select all N shown", which follows the brand / letter /
+  search filters), **Change…**, ONE change per save: Brands they buy (**Add**, which keeps their saved brands or else the
+  tags from orders / bills, or **Replace**), Place (chips of places in use, most used first), Payment terms (or Not
+  set), Drop app on / off (+ extra Drop brands; none ticked = each shop keeps its own; hidden without a Drop app).
+- Each customer goes through the one-customer function (`setBrands`, `updateCustomerDetails`, `setDrop`): same checks,
+  same Recent changes row, own transaction. A 4xx for one customer skips it with the reason; the answer is changed /
+  already like that / skipped. At most 500 per save (`BULK_MAX`; the list shows at most 200 anyway). Another plant's id
+  = skipped "Not found".
+- **Brand tags from bills** (`labelsOf` in `src/server/customer-brands.ts`): the list's tags and brand filter also use
+  the products on a customer's not-cancelled, non-free bill lines, Zoho bills through the matched Zoho contact
+  (`coalesce(b.customer_id, zc.customer_id)`). The Brands card's "from orders" line is unchanged.
+- No migration; platform and SSO token unchanged. Tests: `test/customer-bulk.test.ts` (7); Sales 1,401 pass.

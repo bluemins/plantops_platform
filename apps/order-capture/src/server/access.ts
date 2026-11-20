@@ -64,6 +64,7 @@ export type Action =
   // Brands a customer buys (owner, 2026-11-15): New order / Change order list only these brands for the customer
   | "brands_view" // see a customer's "Brands they buy"
   | "brands_set" // change them
+  | "customers_bulk" // Select on the customer list: brands / place / payment terms / Drop for many at once
   // Drop, the customer app (docs/CUSTOMER_APP_PHASE_PLAN.md Phase 1, owner 2026-11-08)
   | "drop_view" // a customer's Drop card: switch, brands, phones, last login
   | "drop_manage" // switch a shop on / off for Drop, brands shown, Make main phone
@@ -138,6 +139,7 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   location_clear: ["owner", "desk"],
   brands_view: ["owner", "desk", "accounts", "marketing", "support"],
   brands_set: ["owner", "desk"],
+  customers_bulk: ["owner"], // change many customers at once (owner only, 2026-11-20)
   drop_view: ["owner", "desk", "support"],
   drop_manage: ["owner"],
   drop_phones: ["owner", "desk"],
