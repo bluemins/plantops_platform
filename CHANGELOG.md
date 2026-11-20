@@ -4,6 +4,24 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.83.0 — 2026-11-20 — Write off dues, batch no. on delivery, Business Overview by month
+
+Owner, 2026-11-20 (mock-ups https://claude.ai/artifact/YcBpa2f8NdCh4GxTeHhCMt and
+https://claude.ai/artifact/HwDgeAgGF1k1KwkwprzFwr). **Migration:** Sales `0027_delivery_batch.sql` (already applied on
+the shared copy on 2026-11-20 with v0.82.0's run). Sales only; platform and SSO token unchanged. Goes live together
+with v0.82.0.
+- **Write off dues** (owner only; Accounts and support see them): "Write off dues…" on a customer's page, the unpaid
+  bills ticked, date and reason; each bill gets a `write_off` adjustment for what it still owes (no database change:
+  `bill_adjustments` had the kind since `0008`). No undo; a later payment stays as the customer's advance. Bills show
+  **Written off** (customer page, bill page, Sales → Bills with a new filter); the customer page gets a "Written off ₹…"
+  tag and box, a timeline line and "Written off B-…" statement rows; the owner's customer list a red tag; New order a
+  warning (never a block); Reports → Receivables → **Written off** (period, CSV, print). Receivables, "Customers owe
+  you" and the totals already left adjustments out.
+- **Batch no. on Mark delivered** replaces the Zoho invoice no. box (old orders keep theirs): optional, one per order,
+  saved in capitals (`PV144`, or `PV144, PV145` for a mixed load). Shown on the order, its History, the Delivered list,
+  the bill page and the orders CSV (new last column "Batch").
+- **Business Overview:** a Month choice beside "Last 12 months / This financial year": one month, day by day.
+
 ## v0.82.0 — 2026-11-20 — Bill copy on purchase bills
 
 Owner, 2026-11-20. **Migrations:** Sales `0026_purchase_bill_files.sql`. SSO token unchanged.

@@ -44,7 +44,10 @@ const SECTIONS: { id: Section; name: string; title: string; about: string; repor
     title: "Receivables",
     about:
       "What customers owe: PlantOps bills and payments, with the Zoho history up to 5 Nov 2026. Amounts with GST; opening balances count; cancelled bills and payments are left out.",
-    reports: REC_KINDS.map((k) => ({ href: `/reports/receivables/${k}`, name: REC_TITLE[k], about: REC_ABOUT[k] })),
+    reports: [
+      ...REC_KINDS.map((k) => ({ href: `/reports/receivables/${k}`, name: REC_TITLE[k], about: REC_ABOUT[k] })),
+      { href: "/reports/receivables/written-off", name: "Written off", about: "Dues written off as not coming back: who, which bills, why" },
+    ],
     filters:
       "period or “as of” a date (today, end of last month / quarter / financial year, custom) · age by due date or bill date · 15- or 30-day bands · salesperson · place · vehicle · group by.",
   },

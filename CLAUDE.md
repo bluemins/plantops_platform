@@ -2483,3 +2483,13 @@ not on cancelled bills. Owner, Accounts and support (logged) see them; Store kee
 `ORDER_BACKUP_FILES=on`), plan limit "Sales storage (MB)" (platform plan screen). Sales migration
 `0026_purchase_bill_files.sql` (approved: one table, FORCE RLS, SELECT + INSERT only). SSO token unchanged. Notes:
 `apps/order-capture/NOTES.md`. Tests: Sales `test/purchase-files.test.ts` (8).
+
+### 2026-11-20 — Sales: write off dues, batch no. on delivery, Business Overview by month (v0.83.0) — built, not deployed
+Owner 2026-11-20 (list agreed, "go and build it"; mock-ups https://claude.ai/artifact/YcBpa2f8NdCh4GxTeHhCMt,
+https://claude.ai/artifact/HwDgeAgGF1k1KwkwprzFwr). **Write off dues** (owner only, no undo): a customer's unpaid bills get
+a `write_off` adjustment (table and kind since `0008`, no schema change); bills show "Written off", the customer page / list
+a red tag, New order a warning (not a block), Reports → Receivables → **Written off**; a later payment stays as advance.
+**Batch no.** on Mark delivered replaces the Zoho invoice no. box (optional, one per order, capitals; order, History,
+Delivered list, bill page, CSV); Sales migration `0027_delivery_batch.sql` (approved; applied on the shared copy
+2026-11-20 by v0.82.0's migrate run). **Business Overview:** a Month choice, day by day. SSO token and platform unchanged.
+Ships together with v0.82.0 (owner). Notes: `apps/order-capture/NOTES.md`. Tests: Sales `test/write-off-batch.test.ts` (15).

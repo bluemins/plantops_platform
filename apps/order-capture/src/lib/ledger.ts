@@ -48,7 +48,11 @@ export type LedgerBill = {
 export type LedgerPayment = { id: string; number: string; payment_date: string; amount: bigint; cancelled: boolean };
 /** what a payment paid on a bill; a negative row undoes an earlier one */
 export type LedgerAllocation = { payment_id: string; bill_id: string; amount: bigint };
-export type LedgerAdjustment = { bill_id: string; amount: bigint; adjusted_on: string };
+/** kind: 'zoho_closed' | 'write_off' | 'discount' (bill_adjustments); missing = not a write-off */
+export type LedgerAdjustment = { bill_id: string; amount: bigint; adjusted_on: string; kind?: string };
+
+/** The bills that have a write-off (owner, 2026-11-20): settled without money, "never coming". */
+export const writtenOffIds = (adjustments: LedgerAdjustment[]) => new Set(adjustments.filter((a) => a.kind === "write_off").map((a) => a.bill_id));
 
 const sum = (xs: bigint[]) => xs.reduce((a, b) => a + b, 0n);
 
@@ -59,12 +63,12 @@ export function billDue(bill: LedgerBill, allocations: LedgerAllocation[], adjus
   return bill.total - paid - adjusted;
 }
 
-export type BillStatus = "cancelled" | "paid" | "overdue" | "part_paid" | "due";
+export type BillStatus = "cancelled" | "paid" | "written_off" | "overdue" | "part_paid" | "due";
 
-/** today: YYYY-MM-DD (India). Overdue = something due after the due date. */
-export function billStatus(bill: LedgerBill, due: bigint, today: string): BillStatus {
+/** today: YYYY-MM-DD (India). Overdue = something due after the due date. Settled with a write-off = "Written off". */
+export function billStatus(bill: LedgerBill, due: bigint, today: string, writtenOff = false): BillStatus {
   if (bill.cancelled) return "cancelled";
-  if (due <= 0n) return "paid";
+  if (due <= 0n) return writtenOff ? "written_off" : "paid";
   if (bill.due_date && bill.due_date < today) return "overdue";
   return due < bill.total ? "part_paid" : "due";
 }
@@ -72,6 +76,7 @@ export function billStatus(bill: LedgerBill, due: bigint, today: string): BillSt
 export const BILL_STATUS_LABEL: Record<BillStatus, string> = {
   cancelled: "Cancelled",
   paid: "Paid",
+  written_off: "Written off",
   overdue: "Overdue",
   part_paid: "Partly paid",
   due: "Due",
@@ -142,7 +147,7 @@ export function orderLedgerStatus(status: "pending" | "delivered" | "cancelled",
 
 export type StatementRow = {
   date: string;
-  kind: "bill" | "payment" | "adjustment";
+  kind: "bill" | "payment" | "adjustment" | "write_off";
   number: string;
   /** what the customer owes more (bills) */
   debit: bigint;
@@ -151,7 +156,7 @@ export type StatementRow = {
   balance: bigint;
 };
 
-const KIND_ORDER = { bill: 0, payment: 1, adjustment: 2 } as const;
+const KIND_ORDER = { bill: 0, payment: 1, adjustment: 2, write_off: 2 } as const;
 
 /**
  * The customer's statement from `from` to `to` (YYYY-MM-DD, both optional): bills, payments and adjustments in date
@@ -168,7 +173,7 @@ export function statement(
   const entries: Omit<StatementRow, "balance">[] = [
     ...bills.filter((b) => !b.cancelled).map((b) => ({ date: b.bill_date, kind: "bill" as const, number: b.number, debit: b.total, credit: 0n })),
     ...payments.filter((p) => !p.cancelled).map((p) => ({ date: p.payment_date, kind: "payment" as const, number: p.number, debit: 0n, credit: p.amount })),
-    ...adjustments.filter((a) => open.has(a.bill_id)).map((a) => ({ date: a.adjusted_on, kind: "adjustment" as const, number: numberOf.get(a.bill_id) ?? "", debit: 0n, credit: a.amount })),
+    ...adjustments.filter((a) => open.has(a.bill_id)).map((a) => ({ date: a.adjusted_on, kind: a.kind === "write_off" ? ("write_off" as const) : ("adjustment" as const), number: numberOf.get(a.bill_id) ?? "", debit: 0n, credit: a.amount })),
   ].sort((a, b) => a.date.localeCompare(b.date) || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.number.localeCompare(b.number, "en", { numeric: true }));
 
   let opening = 0n;

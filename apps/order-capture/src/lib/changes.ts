@@ -76,6 +76,8 @@ export function describeChange(action: string, details: Record<string, unknown>)
       return details.kind === "clear"
         ? `Shop location cleared for ${show(details.name)}: ${show(details.reason)}`
         : `Shop location saved for ${show(details.name)}${locationHow(details)}`;
+    case "customer.write_off":
+      return `Written off ₹${show(details.amount)} for ${show(details.customer)} (${Array.isArray(details.bills) ? details.bills.join(", ") : ""}): ${show(details.reason)}`;
     case "customer.reminders":
       return `Customer ${show(details.name)} (${phone(details.phone)}): ${details.reminders ? "agreed to WhatsApp reminders (on the phone)" : "WhatsApp reminders stopped"}`;
     case "customers.upload":

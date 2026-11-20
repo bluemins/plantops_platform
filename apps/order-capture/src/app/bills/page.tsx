@@ -12,7 +12,7 @@ import { BillBadge, GstTag, SectionTabs } from "../parts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
-const LABEL: Record<BillFilter, string> = { open: "Due", overdue: "Overdue", paid: "Paid", cancelled: "Cancelled", all: "All" };
+const LABEL: Record<BillFilter, string> = { open: "Due", overdue: "Overdue", paid: "Paid", written_off: "Written off", cancelled: "Cancelled", all: "All" };
 const field = "min-h-12 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-base focus:border-(--brand) focus:outline-none";
 const day = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 

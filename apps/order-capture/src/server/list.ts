@@ -62,6 +62,8 @@ export interface ListRow {
   status_changed_at: string;
   /** delivered orders whose bill is fully paid show "Closed" (sales ledger); only for people who see amounts */
   closed?: boolean;
+  /** delivered: the bottles' batch, e.g. "PV144" (migration 0027) */
+  batch_no?: string | null;
   /** pending only: "Today", "1 day", "3 days" and amber from 2 days */
   age: { days: number; amber: boolean; text: string } | null;
 }
@@ -170,6 +172,7 @@ export async function listOrders(user: OcUser, f: ListFilters = {}, now = Date.n
         created_at: o.createdAt.toISOString(),
         status_changed_at: o.statusChangedAt.toISOString(),
         age: o.status === "pending" ? ageOf(o.createdAt, now) : null,
+        batch_no: o.batchNo,
         ...(closedIds.has(o.id) ? { closed: true } : {}),
       };
     });
@@ -282,12 +285,13 @@ export async function exportCsv(user: OcUser) {
           o.total,
           bySku.get(l.skuId) ?? "",
           l.free ? "Yes" : "",
+          o.batchNo ?? "",
         ]);
       }
     }
     await audit(tx, user, "export.csv", null, { orders: os.length, lines: rows.length });
     return csv([
-      ["Reference", "Entered at", "Entered by", "Customer", "Phone", "Place", "Order note", "Status", "Status changed at", "Delivered by", "Delivered at", "Delivery note", "Zoho invoice no.", "Version", "Product", "Unit", "Quantity", "Rate", "Line total", "Order total", "Brand", "Free"],
+      ["Reference", "Entered at", "Entered by", "Customer", "Phone", "Place", "Order note", "Status", "Status changed at", "Delivered by", "Delivered at", "Delivery note", "Zoho invoice no.", "Version", "Product", "Unit", "Quantity", "Rate", "Line total", "Order total", "Brand", "Free", "Batch"],
       ...rows,
     ]);
   });

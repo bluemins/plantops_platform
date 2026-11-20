@@ -487,3 +487,82 @@ export function PrintButton() {
     </button>
   );
 }
+
+/**
+ * Write off a customer's dues (owner, 2026-11-20; mock-up https://claude.ai/artifact/YcBpa2f8NdCh4GxTeHhCMt): the
+ * unpaid bills, all ticked; date, reason; saved once, no undo. A later payment is kept as the customer's advance.
+ */
+export function WriteOff({ customerId, openBills, today }: { customerId: string; openBills: { id: string; number: string; bill_date: string; due: string; part: boolean }[]; today: string }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [ticked, setTicked] = useState<string[]>(openBills.map((b) => b.id));
+  const [on, setOn] = useState(today);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string>();
+  const [done, setDone] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const total = rupees(openBills.filter((b) => ticked.includes(b.id)).reduce((s, b) => s + paise(b.due), 0n));
+  const fmt = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+  async function save() {
+    setError(undefined);
+    if (!ticked.length) return setError("Tick at least one bill.");
+    if (reason.trim().length < 3) return setError("Write a reason (at least 3 letters), e.g. shop closed.");
+    setBusy(true);
+    const r = await api<{ amount: string; bills: string[] }>(`/api/customers/${customerId}/write-off`, { body: { bill_ids: ticked, written_off_on: on, reason: reason.trim() } });
+    setBusy(false);
+    if (!r.ok) return setError(r.error);
+    setDone(`Written off ${money(r.data.amount)} (${r.data.bills.join(", ")}).`);
+    setOpen(false);
+    router.refresh();
+  }
+
+  if (!open)
+    return (
+      <div className="space-y-2">
+        {done && <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{done}</p>}
+        {openBills.length > 0 && (
+          <button className="flex min-h-11 w-full items-center justify-center rounded-xl border border-red-300 bg-white text-sm font-semibold text-red-700" onClick={() => { setDone(undefined); setTicked(openBills.map((b) => b.id)); setOpen(true); }}>
+            Write off dues…
+          </button>
+        )}
+      </div>
+    );
+  return (
+    <div className="space-y-3 rounded-2xl border border-red-200 bg-white p-4">
+      <div>
+        <h2 className="text-lg font-semibold">Write off dues</h2>
+        <p className="text-sm text-slate-600">Money you don&apos;t expect to get back. It can&apos;t be undone.</p>
+      </div>
+      <fieldset className="space-y-1">
+        <legend className={label}>Bills to write off</legend>
+        {openBills.map((b) => (
+          <label key={b.id} className="flex min-h-10 items-center gap-2 text-sm">
+            <input type="checkbox" className="h-5 w-5" checked={ticked.includes(b.id)} onChange={(e) => setTicked(e.target.checked ? [...ticked, b.id] : ticked.filter((x) => x !== b.id))} />
+            <span className="min-w-0 flex-1">{b.number} · {fmt(b.bill_date)}{b.part ? " (part paid)" : ""}</span>
+            <span className="font-semibold tabular-nums">{money(b.due)}</span>
+          </label>
+        ))}
+      </fieldset>
+      <p className="flex justify-between border-t border-slate-200 pt-2 font-bold"><span>Write off</span><span className="tabular-nums">{money(total)}</span></p>
+      <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
+        <label className="block">
+          <span className={label}>Date</span>
+          <input className={field} type="date" max={today} value={on} onChange={(e) => setOn(e.target.value)} />
+        </label>
+        <label className="block">
+          <span className={label}>Reason</span>
+          <input className={field} value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} placeholder="e.g. shop closed, owner not answering" />
+        </label>
+      </div>
+      <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        {money(total)} will no longer be counted as due. If they pay later, receive it as usual: it is kept as their advance.
+      </p>
+      <ErrorText>{error}</ErrorText>
+      <div className="flex gap-2">
+        <Button className="flex-1 bg-red-700 hover:bg-red-800" disabled={busy || !ticked.length} onClick={save}>{busy ? "Saving..." : `Write off ${money(total)}`}</Button>
+        <Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
+      </div>
+    </div>
+  );
+}

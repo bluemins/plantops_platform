@@ -104,7 +104,7 @@ describe("Mark delivered, Cancel, Undo delivered", () => {
     const o = await sample(p);
     await deliver(p.desk, o.id, { note: "80 delivered, 20 next trip", invoice_no: "INV-000123" });
     let d = await getOrder(p.owner, o.id);
-    expect([d.status, d.delivered]).toEqual(["delivered", { by: "Atharv", at: expect.any(String), note: "80 delivered, 20 next trip", invoice_no: "INV-000123" }]);
+    expect([d.status, d.delivered]).toEqual(["delivered", { by: "Atharv", at: expect.any(String), note: "80 delivered, 20 next trip", invoice_no: "INV-000123", batch_no: null }]);
     await undo(p.owner, o.id, "marked by mistake");
     d = await getOrder(p.owner, o.id);
     expect([d.status, d.delivered]).toEqual(["pending", null]);

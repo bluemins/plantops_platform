@@ -100,8 +100,9 @@ const BILL_BADGE: Record<string, string> = {
   overdue: "bg-red-100 text-red-800",
   cancelled: "bg-slate-200 text-slate-700",
   closed: "bg-green-100 text-green-800",
+  written_off: "bg-red-100 text-red-800",
 };
-const BILL_LABEL: Record<string, string> = { paid: "Paid", due: "Due", part_paid: "Partly paid", overdue: "Overdue", cancelled: "Cancelled", closed: "Closed" };
+const BILL_LABEL: Record<string, string> = { paid: "Paid", due: "Due", part_paid: "Partly paid", overdue: "Overdue", cancelled: "Cancelled", closed: "Closed", written_off: "Written off" };
 
 /** A bill's status (Paid / Due / Partly paid / Overdue / Cancelled), or an order's "Closed". */
 /** "GST" tag on a list row. Sales: made with the GST tick, taxed in Zoho or a Zoho GST invoice no. typed; purchases: the "GST bill" tick (0025). */

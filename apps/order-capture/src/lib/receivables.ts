@@ -380,7 +380,7 @@ export function agingDetails(d: RecData, o: AgingOptions): RecTable {
 export const BILL_SHOWS = ["all", "open", "overdue", "paid"] as const;
 export type BillShow = (typeof BILL_SHOWS)[number];
 export const BILL_SHOW_LABEL: Record<BillShow, string> = { all: "All bills", open: "Not fully paid", overdue: "Overdue", paid: "Paid" };
-const STATUS_RANK: Record<BillStatus, number> = { overdue: 0, part_paid: 1, due: 2, paid: 3, cancelled: 4 };
+const STATUS_RANK: Record<BillStatus, number> = { overdue: 0, part_paid: 1, due: 2, paid: 3, written_off: 4, cancelled: 5 };
 
 export function billDetails(d: RecData, o: { from: string; to: string; today: string; status: BillShow; filter: RecFilter; group: RecGroup }): RecTable {
   const group = GROUPS_FOR.bills.includes(o.group) ? o.group : "none";

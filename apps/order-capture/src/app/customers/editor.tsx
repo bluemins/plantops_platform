@@ -12,7 +12,7 @@ import { brandColour } from "@/lib/brand";
 import { BrandTag, PhoneLink } from "../parts";
 
 /** balances: owner only (null for everyone else): rupees, > 0 = they owe, < 0 = advance; missing = no bills */
-type List = { customers: CustomerView[]; more: boolean; total: number; off: number; balances: Record<string, string> | null; letters: Letter[] };
+type List = { customers: CustomerView[]; more: boolean; total: number; off: number; balances: Record<string, string> | null; writtenOff?: Record<string, string> | null; letters: Letter[] };
 type Editing = { kind: "new" } | { kind: "edit"; id: string } | null;
 
 const reload = () => window.location.reload();
@@ -213,6 +213,7 @@ export function CustomersEditor({ list, brands, q, showOff, letter, brand, canEd
                       <p className="flex min-w-0 flex-wrap items-baseline gap-x-2">
                         <span className={c.active ? "text-slate-500" : ""}>{c.place}</span>
                         {list.balances && <Money balance={list.balances[c.id]} />}
+                        {list.writtenOff?.[c.id] && <span className="rounded-full bg-red-100 px-2 py-px text-xs font-semibold text-red-800">Written off {rs(Number(list.writtenOff[c.id]))}</span>}
                       </p>
                       <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-4">
                         {canEdit &&

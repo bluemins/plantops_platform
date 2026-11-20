@@ -121,6 +121,8 @@ export const orders = oc.table("orders", {
   deliveredAt: ts("delivered_at"),
   deliveryNote: text("delivery_note"),
   invoiceNo: text("invoice_no"),
+  /** the bottles' batch, e.g. "PV144" (migration 0027) */
+  batchNo: text("batch_no"),
 });
 
 export const orderLines = oc.table("order_lines", {
@@ -147,6 +149,7 @@ export const orderEvents = oc.table("order_events", {
   version: integer("version").notNull(),
   text: text("text"),
   invoiceNo: text("invoice_no"),
+  batchNo: text("batch_no"),
   createdBy: uuid("created_by").notNull(),
   createdByName: text("created_by_name").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),

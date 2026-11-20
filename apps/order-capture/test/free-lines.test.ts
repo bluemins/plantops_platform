@@ -120,7 +120,7 @@ describe("free boxes on an order", () => {
     const p = plant();
     await order(p, scheme);
     const csv = (await exportCsv(p.owner)).trim().split("\r\n");
-    expect(csv.slice(1).map((l) => l.split(",").at(-1))).toEqual(["", "", "Yes"]);
+    expect(csv.slice(1).map((l) => l.split(",").at(-2))).toEqual(["", "", "Yes"]);
     const [o] = (await listOrders(p.owner)).orders;
     const text = whatsappText([{ ref: o!.ref, customer: o!.customer, phone: o!.phone, place: o!.place, note: null, lines: o!.lines, total: o!.total }]);
     expect(text).toContain("- Bluemins (1 L × 12): 1 box FREE");

@@ -231,12 +231,14 @@ export function weekdayAverages(orderDates: string[], from: string, to: string) 
 export type Basis = "bill" | "payment";
 
 /** Business Overview: per month income and expense (by bill or by payment), cash flow and top expenses. */
-export function buildOverview(d: { sales: SaleFact[]; expenses: ExpenseFact[]; money: MoneyFact[] }, o: { from: string; to: string; basis: Basis }) {
-  const buckets = bucketsFor(o.from, o.to, "month");
-  const moneyIn = sumInto(buckets, "month", d.money.filter((m) => m.dir === "in"), (m) => m.amount);
-  const moneyOut = sumInto(buckets, "month", d.money.filter((m) => m.dir === "out"), (m) => m.amount);
-  const income = o.basis === "payment" ? moneyIn : sumInto(buckets, "month", d.sales, (s) => s.before);
-  const expense = o.basis === "payment" ? moneyOut : sumInto(buckets, "month", d.expenses, (e) => e.before);
+export function buildOverview(d: { sales: SaleFact[]; expenses: ExpenseFact[]; money: MoneyFact[] }, o: { from: string; to: string; basis: Basis; by?: "month" | "day" }) {
+  // one month picked = day by day (owner, 2026-11-20); otherwise a bar per month
+  const by = o.by ?? "month";
+  const buckets = bucketsFor(o.from, o.to, by);
+  const moneyIn = sumInto(buckets, by, d.money.filter((m) => m.dir === "in"), (m) => m.amount);
+  const moneyOut = sumInto(buckets, by, d.money.filter((m) => m.dir === "out"), (m) => m.amount);
+  const income = o.basis === "payment" ? moneyIn : sumInto(buckets, by, d.sales, (s) => s.before);
+  const expense = o.basis === "payment" ? moneyOut : sumInto(buckets, by, d.expenses, (e) => e.before);
   const run = running(moneyIn, moneyOut);
   return {
     buckets,

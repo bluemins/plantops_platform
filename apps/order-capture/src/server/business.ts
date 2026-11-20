@@ -218,11 +218,38 @@ export async function businessCharts(user: OcUser, p: ChartParams) {
 
 // ---------- Business Overview ----------
 
-export type OverviewParams = { period: "last_12" | "this_fy"; from: string; to: string; basis: Basis };
+/** month = one calendar month ("YYYY-MM"), shown day by day (owner, 2026-11-20) */
+export type OverviewParams = { period: "last_12" | "this_fy" | "month"; month: string; from: string; to: string; basis: Basis; by: "month" | "day" };
+
+/** The months the Month choice offers: this month back to the plant's first records (at most 24). */
+export function overviewMonths(today: string, recordsFrom: string | null) {
+  const out: string[] = [];
+  let [y, m] = today.split("-").map(Number) as [number, number];
+  const first = (recordsFrom ?? today).slice(0, 7);
+  while (out.length < 24) {
+    const key = `${y}-${String(m).padStart(2, "0")}`;
+    out.push(key);
+    if (key <= first) break;
+    m -= 1;
+    if (m === 0) {
+      m = 12;
+      y -= 1;
+    }
+  }
+  return out;
+}
 
 export function readOverviewParams(q: Record<string, string | undefined>, today = istToday()): OverviewParams {
+  const basis = q.basis === "payment" ? "payment" : "bill";
+  const thisMonth = today.slice(0, 7);
+  if (q.period === "month") {
+    const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(q.month ?? "") && q.month! <= thisMonth ? q.month! : thisMonth;
+    const [y, m] = month.split("-").map(Number) as [number, number];
+    const last = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+    return { period: "month", month, from: `${month}-01`, to: last < today ? last : today, basis, by: "day" };
+  }
   const period = q.period === "this_fy" ? "this_fy" : "last_12";
-  return { period, ...chartDates(period, today), basis: q.basis === "payment" ? "payment" : "bill" };
+  return { period, month: thisMonth, ...chartDates(period, today), basis, by: "month" };
 }
 
 /** Owner (support reads): the Business Overview page. */

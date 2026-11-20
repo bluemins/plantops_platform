@@ -89,6 +89,7 @@ export function OrderCards({ orders, tickable, plainPhones, palette }: { orders:
                 </div>
                 <p className="text-sm text-slate-600">
                   {o.place} · {o.ref} · by {o.entered_by}
+                  {o.batch_no ? <> · Batch <b className="font-semibold">{o.batch_no}</b></> : null}
                 </p>
                 <p className="relative z-10 w-fit text-sm">
                   <PhoneLink phone={o.phone} plain={plainPhones} prefix="+91 " />

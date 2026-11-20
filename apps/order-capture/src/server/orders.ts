@@ -29,6 +29,7 @@ import { badRequest, conflict, HttpError } from "./http";
 import { activeProducts, effectiveRates } from "./rates";
 import type { OcUser } from "./session";
 import { savedBrands } from "./customer-brands";
+import { writtenOffBy } from "./ledger";
 
 const { customers, orders, orderLines, orderEvents } = schema;
 
@@ -139,7 +140,7 @@ export async function lookupCustomer(user: OcUser, typedPhone: string) {
   if (!phone) throw badRequest("Enter a 10-digit mobile number");
   return withTenant(user.tenantId, async (tx) => {
     const c = await findByPhone(tx, user.tenantId, phone);
-    if (!c) return { phone, customer: null, last_order_at: null, last_rates: {} as Record<string, string>, brands: [] as string[], reward_asked: null, pending_order: null };
+    if (!c) return { phone, customer: null, last_order_at: null, last_rates: {} as Record<string, string>, brands: [] as string[], reward_asked: null, pending_order: null, written_off: null };
     const [last] = await tx
       .select({ at: orders.createdAt })
       .from(orders)
@@ -155,6 +156,8 @@ export async function lookupCustomer(user: OcUser, typedPhone: string) {
       brands: (await savedBrands(tx, user.tenantId, c.id)).brands,
       reward_asked: can(user, "drop_rewards") ? await askedFor(tx, user.tenantId, c.id) : null,
       pending_order: await pendingOrderOf(tx, user.tenantId, c.id),
+      /** dues written off for this customer (owner, 2026-11-20): a warning on New order, never a block */
+      written_off: (await writtenOffBy(tx, user.tenantId, [c.id]))[c.id] ?? null,
     };
   });
 }

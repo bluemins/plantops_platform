@@ -23,6 +23,7 @@ import {
   paymentUnused,
   rupees,
   statement,
+  writtenOffIds,
   useAdvances,
   type LedgerAdjustment,
   type LedgerAllocation,
@@ -92,7 +93,7 @@ export async function partyFacts(tx: OcTx, tenantId: string, customerId: string 
     bills: b.map((x): LedgerBill => ({ id: x.id, number: x.number, bill_date: x.billDate, due_date: x.dueDate, total: P(x.total), cancelled: !!x.cancelledAt, order_id: x.orderId })),
     payments: p.map((x): LedgerPayment => ({ id: x.id, number: x.number, payment_date: x.paymentDate, amount: P(x.amount), cancelled: !!x.cancelledAt })),
     allocations: allocs.map((a): LedgerAllocation => ({ payment_id: a.paymentId, bill_id: a.billId, amount: P(a.amount) })),
-    adjustments: adjs.map((a): LedgerAdjustment => ({ bill_id: a.billId, amount: P(a.amount), adjusted_on: a.adjustedOn })),
+    adjustments: adjs.map((a): LedgerAdjustment => ({ bill_id: a.billId, amount: P(a.amount), adjusted_on: a.adjustedOn, kind: a.kind })),
   };
   return { rows: { bills: b, payments: p, allocations: allocs, adjustments: adjs }, L };
 }
@@ -145,7 +146,10 @@ function timeline(
     } else if (a.action === "customer.location")
       text = d.kind === "clear" ? `Shop location cleared: ${String(d.reason ?? "")}` : `Shop location saved${locationHow(d)}`;
     else if (a.action === "customer.person") text = d.active === undefined ? `Contact person added: ${String(d.person ?? "")}` : `Contact person ${String(d.person ?? "")} switched ${d.active ? "on" : "off"}`;
-    else if (a.action === "zoho.match") text = `Zoho contact "${String(d.contact ?? "")}" linked`;
+    else if (a.action === "customer.write_off") {
+      const n = Array.isArray(d.bills) ? d.bills.length : 0;
+      text = `Written off ${rs(String(d.amount ?? "0"))} (${n} bill${n === 1 ? "" : "s"}): ${String(d.reason ?? "")}`;
+    } else if (a.action === "zoho.match") text = `Zoho contact "${String(d.contact ?? "")}" linked`;
     else text = `Zoho contact "${String(d.contact ?? "")}" unlinked`;
     out.push({ at: a.at.toISOString(), text, by, href: null });
   }
@@ -167,6 +171,7 @@ export async function account(user: OcUser, party: Party, range: { from?: string
         ? await tx.select().from(orders).where(and(eq(orders.tenantId, user.tenantId), inArray(orders.id, orderIds)))
         : [];
     const refOf = new Map(custOrders.map((o) => [o.id, formatRef(o.refNo)]));
+    const wo = writtenOffIds(L.adjustments);
     const billViews = L.bills
       .map((b) => {
         const due = billDue(b, L.allocations, L.adjustments);
@@ -180,7 +185,9 @@ export async function account(user: OcUser, party: Party, range: { from?: string
           due_date: b.due_date,
           total: rupees(b.total),
           due: rupees(due > 0n ? due : 0n),
-          status: billStatus(b, due, today),
+          status: billStatus(b, due, today, wo.has(b.id)),
+          /** the write-off on this bill (owner, 2026-11-20), "0.00" = none */
+          written_off: rupees(b.cancelled ? 0n : L.adjustments.filter((x) => x.bill_id === b.id && x.kind === "write_off").reduce((s, x) => s + x.amount, 0n)),
           order: b.order_id ? { id: b.order_id, ref: refOf.get(b.order_id) ?? "" } : null,
           gst_invoice_no: r.zohoGstInvoiceNo,
         };
@@ -222,6 +229,7 @@ export async function account(user: OcUser, party: Party, range: { from?: string
       })
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
     const t = ledgerTotals(L.bills, L.payments, L.allocations, L.adjustments);
+    const writtenOff = billViews.reduce((s, b) => s + paise(b.written_off), 0n);
     const st = statement(L.bills, L.payments, L.adjustments, { from: range.from && YMD.test(range.from) ? range.from : undefined, to: range.to && YMD.test(range.to) ? range.to : undefined });
     const payNumber = new Map(rows.payments.map((p) => [p.number, p]));
     const lastPayment = paymentViews.find((p) => !p.cancelled) ?? null;
@@ -236,7 +244,7 @@ export async function account(user: OcUser, party: Party, range: { from?: string
         and(
           eq(schema.auditLog.tenantId, user.tenantId),
           or(
-            c ? and(eq(schema.auditLog.target, c.id), inArray(schema.auditLog.action, ["customer.add", "customer.update", "customer.reminders", "customer.details", "customer.location", "customer.person"])) : sql`false`,
+            c ? and(eq(schema.auditLog.target, c.id), inArray(schema.auditLog.action, ["customer.add", "customer.update", "customer.reminders", "customer.details", "customer.location", "customer.person", "customer.write_off"])) : sql`false`,
             scope.contactIds.length ? and(inArray(schema.auditLog.target, scope.contactIds), inArray(schema.auditLog.action, ["zoho.match", "zoho.unmatch"])) : sql`false`,
           ),
         ),
@@ -267,10 +275,10 @@ export async function account(user: OcUser, party: Party, range: { from?: string
       billed_6m: rupees(billed6m),
       insights,
       timeline: timeline(rows, auditRows, refOf),
-      totals: { billed: rupees(t.billed), received: rupees(t.received), adjusted: rupees(t.adjusted), due: rupees(t.due), advance: rupees(t.advance), balance: rupees(t.balance) },
+      totals: { billed: rupees(t.billed), received: rupees(t.received), adjusted: rupees(t.adjusted), due: rupees(t.due), advance: rupees(t.advance), balance: rupees(t.balance), written_off: rupees(writtenOff) },
       last_payment: lastPayment,
       bills: billViews,
-      open_bills: billViews.filter((b) => b.status !== "paid" && b.status !== "cancelled"),
+      open_bills: billViews.filter((b) => b.status !== "paid" && b.status !== "cancelled" && b.status !== "written_off").sort((x, y) => x.bill_date.localeCompare(y.bill_date) || x.number.localeCompare(y.number, "en", { numeric: true })),
       payments: paymentViews,
       // Marketing staff never see orders (the order refs on bills stay, as plain text)
       orders: can(user, "read") ? orderViews : [],
@@ -385,7 +393,7 @@ async function buyingAndPaying(
 
 // ---------- the plant's Bills and Payments lists ----------
 
-export const BILL_FILTERS = ["open", "overdue", "paid", "cancelled", "all"] as const;
+export const BILL_FILTERS = ["open", "overdue", "paid", "written_off", "cancelled", "all"] as const;
 export type BillFilter = (typeof BILL_FILTERS)[number];
 
 export async function billsList(user: OcUser, f: { show?: BillFilter; q?: string; from?: string; to?: string } = {}, limit = 200) {
@@ -397,13 +405,13 @@ export async function billsList(user: OcUser, f: { show?: BillFilter; q?: string
     const digits = q.replace(/\D/g, "");
     const rows = await tx.execute<{
       id: string; number: string; source: string; bill_date: string; due_date: string | null; total: string; due: string; cancelled: boolean;
-      order_id: string | null; ref_no: number | null; name: string; customer_id: string | null; contact_id: string | null; phone: string | null; ob: boolean; gst: boolean;
+      order_id: string | null; ref_no: number | null; name: string; customer_id: string | null; contact_id: string | null; phone: string | null; ob: boolean; gst: boolean; wo: boolean;
     }>(sql`
       with paid as (select bill_id, sum(amount) s from order_capture.payment_allocations where tenant_id = ${user.tenantId} group by bill_id),
-           adj as (select bill_id, sum(amount) s from order_capture.bill_adjustments where tenant_id = ${user.tenantId} group by bill_id),
+           adj as (select bill_id, sum(amount) s, bool_or(kind = 'write_off') wo from order_capture.bill_adjustments where tenant_id = ${user.tenantId} group by bill_id),
            b as (
              select b.id, b.number, b.source, b.bill_date::text, b.due_date::text, b.total::text,
-                    (b.total - coalesce(p.s, 0) - coalesce(a.s, 0)) as due_n, b.cancelled_at is not null as cancelled,
+                    (b.total - coalesce(p.s, 0) - coalesce(a.s, 0)) as due_n, b.cancelled_at is not null as cancelled, coalesce(a.wo, false) as wo,
                     b.order_id, o.ref_no, coalesce(cu.name, zc.name, b.customer_name) as name, cu.id as customer_id,
                     case when cu.id is null then zc.id end as contact_id, coalesce(cu.phone, zc.mobile) as phone,
                     ${sql.raw(OPENING_SQL("b"))} as ob, (b.needs_gst or b.tax_total > 0 or b.zoho_gst_invoice_no is not null) as gst
@@ -418,7 +426,8 @@ export async function billsList(user: OcUser, f: { show?: BillFilter; q?: string
        where (${show} = 'all'
               or (${show} = 'open' and not cancelled and due_n > 0)
               or (${show} = 'overdue' and not cancelled and due_n > 0 and due_date::date < ${today}::date)
-              or (${show} = 'paid' and not cancelled and due_n <= 0)
+              or (${show} = 'paid' and not cancelled and due_n <= 0 and not wo)
+              or (${show} = 'written_off' and not cancelled and wo)
               or (${show} = 'cancelled' and cancelled))
          and (${q} = '' or number ilike ${"%" + q + "%"} or name ilike ${"%" + q + "%"} or (${digits} <> '' and length(${digits}) >= 4 and phone like ${"%" + digits + "%"}))
          and bill_date::date between ${f.from && YMD.test(f.from) ? f.from : "1900-01-01"}::date and ${f.to && YMD.test(f.to) ? f.to : "2999-12-31"}::date
@@ -444,7 +453,7 @@ export async function billsList(user: OcUser, f: { show?: BillFilter; q?: string
         bill_date: r.bill_date,
         total: r.total,
         due: r.due,
-        status: billStatus(fake, due, today),
+        status: billStatus(fake, due, today, r.wo),
         order_ref: r.ref_no ? formatRef(r.ref_no) : null,
         name: r.name,
         customer_id: r.customer_id,
@@ -514,10 +523,10 @@ export async function billDetail(user: OcUser, id: string) {
       opening_balance: isOpeningBill(b),
       bill_date: b.billDate,
       due_date: b.dueDate,
-      status: billStatus(L, due, istToday()),
+      status: billStatus(L, due, istToday(), adjs.some((x) => x.kind === "write_off")),
       customer_name: b.customerName,
       party: customer ? { kind: "customer" as const, id: customer.id, name: customer.name } : contact ? { kind: "contact" as const, id: contact.id, name: contact.name } : null,
-      order: order ? { id: order.id, ref: formatRef(order.refNo) } : null,
+      order: order ? { id: order.id, ref: formatRef(order.refNo), batch_no: order.batchNo } : null,
       sub_total: b.subTotal,
       discount: b.discount,
       adjustment: b.adjustment,
@@ -689,6 +698,87 @@ export async function cancelPayment(user: OcUser, id: string, input: z.infer<typ
   });
 }
 
+export const WriteOffInput = z.object({
+  /** the unpaid bills written off, each for all it still owes */
+  bill_ids: z.array(z.uuid()).min(1, "Tick at least one bill").max(500),
+  written_off_on: Day,
+  reason: z.string().trim().min(3, "Reason: at least 3 letters").max(300),
+});
+
+/**
+ * Owner (2026-11-20): write off what a customer still owes on the ticked bills ("never coming"). Each bill gets a
+ * 'write_off' adjustment for its whole due, so it shows "Written off" and leaves Balance due, Receivables and every
+ * total that already subtracts adjustments. Nothing is changed or deleted; there is no undo. A later payment from the
+ * customer is received as usual and stays as their advance.
+ */
+export async function writeOff(user: OcUser, customerId: string, input: z.infer<typeof WriteOffInput>) {
+  requireAccess(user, "write_off");
+  if (input.written_off_on > istToday()) throw badRequest("The date can't be in the future.");
+  return withTenant(user.tenantId, async (tx) => {
+    // the same lock as Receive payment, so a payment and a write-off on the same bill never cross
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('order_capture.payment'), hashtext(${user.tenantId}))`);
+    const scope = await partyScope(tx, user.tenantId, { kind: "customer", id: customerId });
+    const { L } = await partyFacts(tx, user.tenantId, scope.customer!.id, scope.contactIds);
+    const picked = [...new Set(input.bill_ids)].map((id) => {
+      const b = L.bills.find((x) => x.id === id);
+      const due = b ? billDue(b, L.allocations, L.adjustments) : 0n;
+      if (!b || due <= 0n) throw conflict("A ticked bill is already paid or isn't this customer's. Reload the page.");
+      if (b.bill_date > input.written_off_on) throw badRequest(`${b.number} is dated after the write-off date.`);
+      return { b, due };
+    });
+    await tx.insert(billAdjustments).values(
+      picked.map(({ b, due }) => ({
+        tenantId: user.tenantId,
+        billId: b.id,
+        kind: "write_off" as const,
+        amount: rupees(due),
+        reason: input.reason,
+        adjustedOn: input.written_off_on,
+        createdBy: user.userId,
+        createdByName: user.name,
+      })),
+    );
+    const amount = rupees(picked.reduce((s, x) => s + x.due, 0n));
+    const numbers = picked.map((x) => x.b.number);
+    await audit(tx, user, "customer.write_off", scope.customer!.id, { customer: scope.customer!.name, amount, bills: numbers, on: input.written_off_on, reason: input.reason });
+    return { amount, bills: numbers };
+  });
+}
+
+/** Write-offs per customer (owner's customer list and New order warning): total and the latest date. */
+export async function writtenOffBy(tx: OcTx, tenantId: string, customerIds: string[]): Promise<Record<string, { amount: string; on: string }>> {
+  if (!customerIds.length) return {};
+  const rows = await tx.execute<{ customer_id: string; amount: string; on: string }>(sql`
+    select coalesce(b.customer_id, zc.customer_id) as customer_id, sum(j.amount)::numeric(18, 2)::text as amount, max(j.adjusted_on)::text as on
+      from order_capture.bill_adjustments j
+      join order_capture.bills b on b.tenant_id = j.tenant_id and b.id = j.bill_id and b.cancelled_at is null
+      left join order_capture.zoho_contacts zc on zc.tenant_id = b.tenant_id and zc.id = b.zoho_contact_id
+     where j.tenant_id = ${tenantId} and j.kind = 'write_off'
+       and coalesce(b.customer_id, zc.customer_id) in (${sql.join(customerIds.map((id) => sql`${id}::uuid`), sql`, `)})
+     group by 1`);
+  return Object.fromEntries(rows.rows.map((r) => [r.customer_id, { amount: r.amount, on: r.on }]));
+}
+
+/** Reports → Receivables → Written off: every write-off save, newest first (owner; support reads). */
+export async function writeOffsReport(user: OcUser, range: { from: string; to: string }) {
+  requireAccess(user, "reports");
+  return withTenant(user.tenantId, async (tx) => {
+    const rows = await tx.execute<{ on: string; customer_id: string | null; contact_id: string | null; name: string; by: string; reason: string; bills: string; amount: string }>(sql`
+      select j.adjusted_on::text as on, cu.id as customer_id, case when cu.id is null then zc.id end as contact_id,
+             coalesce(cu.name, zc.name, b.customer_name) as name, j.created_by_name as by, j.reason,
+             string_agg(b.number, ', ' order by b.bill_date, b.number) as bills, sum(j.amount)::numeric(18, 2)::text as amount
+        from order_capture.bill_adjustments j
+        join order_capture.bills b on b.tenant_id = j.tenant_id and b.id = j.bill_id and b.cancelled_at is null
+        left join order_capture.zoho_contacts zc on zc.tenant_id = b.tenant_id and zc.id = b.zoho_contact_id
+        left join order_capture.customers cu on cu.tenant_id = b.tenant_id and cu.id = coalesce(b.customer_id, zc.customer_id)
+       where j.tenant_id = ${user.tenantId} and j.kind = 'write_off' and j.adjusted_on between ${range.from}::date and ${range.to}::date
+       group by j.created_at, j.adjusted_on, cu.id, zc.id, coalesce(cu.name, zc.name, b.customer_name), j.created_by_name, j.reason
+       order by j.adjusted_on desc, j.created_at desc`);
+    const total = rows.rows.reduce((s, r) => s + paise(r.amount), 0n);
+    return { rows: rows.rows, total: rupees(total) };
+  });
+}
+
 export const GstInput = z.object({ zoho_gst_invoice_no: z.string().trim().max(40) });
 
 /** Owner, Order desk: the Zoho GST invoice no. made for this bill (blank removes it). */
@@ -738,6 +828,6 @@ export async function statementCsvRows(user: OcUser, party: Party, range: { from
     [`Statement: ${a.party.name}`, range.from ?? "", range.to ?? ""],
     ["Date", "What", "Number", "Mode", "Bill", "Paid", "Balance"],
     ["", "Opening balance", "", "", "", "", a.statement.opening],
-    ...a.statement.rows.map((r) => [r.date, r.kind === "bill" ? "Bill" : r.kind === "payment" ? "Payment" : "Settled (adjustment)", r.number, r.mode ?? "", r.kind === "bill" ? r.debit : "", r.kind === "bill" ? "" : r.credit, r.balance]),
+    ...a.statement.rows.map((r) => [r.date, r.kind === "bill" ? "Bill" : r.kind === "payment" ? "Payment" : r.kind === "write_off" ? "Written off" : "Settled (adjustment)", r.number, r.mode ?? "", r.kind === "bill" ? r.debit : "", r.kind === "bill" ? "" : r.credit, r.balance]),
   ];
 }

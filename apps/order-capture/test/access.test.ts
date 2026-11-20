@@ -42,6 +42,7 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["bill_cancel", true, false, false, false, false],
   ["payment_receive", true, false, false, false, false],
   ["payment_cancel", true, false, false, false, false],
+  ["write_off", true, false, false, false, false],
   ["ledger_export", true, false, false, false, false],
   ["ledger_totals", true, false, false, false, true],
   ["reports", true, false, false, false, true],

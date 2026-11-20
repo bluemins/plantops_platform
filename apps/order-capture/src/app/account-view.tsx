@@ -11,7 +11,7 @@ export { pickTab } from "@/lib/customer-page";
 import type { Account } from "@/server/ledger";
 import type { OcUser } from "@/server/session";
 import { AddComment, EditCustomer, LocationBox, PersonsEditor } from "./customer-forms";
-import { CancelWithReason, PrintButton, ReceivePayment } from "./ledger-forms";
+import { CancelWithReason, PrintButton, ReceivePayment, WriteOff } from "./ledger-forms";
 import { BillBadge, PhoneLink, StatusBadge } from "./parts";
 import { BuyingPaying } from "./buying-paying";
 import { DropCard } from "./drop-card";
@@ -23,6 +23,7 @@ export const BILL_SHOW = [
   ["all", "All"],
   ["due", "Due"],
   ["paid", "Paid"],
+  ["written_off", "Written off"],
   ["cancelled", "Cancelled"],
 ] as const;
 export const PAY_SHOW = [
@@ -33,7 +34,7 @@ export const PAY_SHOW = [
 type BillShow = (typeof BILL_SHOW)[number][0];
 type PayShow = (typeof PAY_SHOW)[number][0];
 const billShows = (s: BillShow, status: string) =>
-  s === "all" || (s === "paid" ? status === "paid" : s === "cancelled" ? status === "cancelled" : status !== "paid" && status !== "cancelled");
+  s === "all" || (s === "due" ? status !== "paid" && status !== "cancelled" && status !== "written_off" : status === s);
 const payShows = (s: PayShow, cancelled: boolean) => s === "all" || (s === "cancelled" ? cancelled : !cancelled);
 
 const MODE: Record<string, string> = { cash: "Cash", upi: "UPI", bank: "Bank", cheque: "Cheque", other: "Other" };
@@ -114,7 +115,10 @@ export function AccountView({
   return (
     <div className="space-y-4">
       <div className="print:hidden">
-        <h1 className="text-2xl font-bold break-words">{a.party.name}</h1>
+        <h1 className="text-2xl font-bold break-words">
+          {a.party.name}
+          {a.totals.written_off !== "0.00" && <span className="ml-2 inline-block rounded-full bg-red-100 px-2.5 py-0.5 align-middle text-xs font-semibold text-red-800">Written off {money(a.totals.written_off)}</span>}
+        </h1>
         <p className="text-sm text-slate-600">
           {a.party.phone ? <PhoneLink phone={a.party.phone} plain={user.isSupport} /> : "no mobile"}
           {a.party.place ? ` · ${a.party.place}` : ""}
@@ -136,6 +140,12 @@ export function AccountView({
           <p className="text-xs text-slate-500">Advance</p>
           <p className="text-lg font-bold">{money(a.totals.advance)}</p>
         </Card>
+        {a.totals.written_off !== "0.00" && (
+          <Card className="p-3">
+            <p className="text-xs text-slate-500">Written off</p>
+            <p className="text-lg font-bold text-red-700">{money(a.totals.written_off)}</p>
+          </Card>
+        )}
         <Card className="p-3">
           <p className="text-xs text-slate-500">Last payment</p>
           <p className="text-sm font-semibold">{a.last_payment ? `${money(a.last_payment.amount)} · ${day(a.last_payment.payment_date)}` : "—"}</p>
@@ -149,6 +159,11 @@ export function AccountView({
       {isCustomer && can(user, "payment_receive") && (
         <div className="print:hidden">
           <ReceivePayment customerId={a.party.id} openBills={a.open_bills.map((b) => ({ id: b.id, number: b.number, bill_date: b.bill_date, due: b.due }))} today={today} />
+        </div>
+      )}
+      {isCustomer && can(user, "write_off") && a.open_bills.length > 0 && (
+        <div className="print:hidden">
+          <WriteOff key={a.open_bills.map((b) => b.id).join()} customerId={a.party.id} openBills={a.open_bills.map((b) => ({ id: b.id, number: b.number, bill_date: b.bill_date, due: b.due, part: b.due !== b.total }))} today={today} />
         </div>
       )}
 
@@ -498,7 +513,7 @@ export function AccountView({
                 {a.statement.rows.map((r, i) => (
                   <tr key={i} className="border-b border-slate-100">
                     <td className="py-1 pr-2 whitespace-nowrap">{day(r.date)}</td>
-                    <td className="py-1 pr-2">{r.kind === "bill" ? r.number : r.kind === "payment" ? `Payment ${r.number}${r.mode ? `, ${MODE[r.mode] ?? r.mode}` : ""}` : `Settled ${r.number}`}</td>
+                    <td className="py-1 pr-2">{r.kind === "bill" ? r.number : r.kind === "payment" ? `Payment ${r.number}${r.mode ? `, ${MODE[r.mode] ?? r.mode}` : ""}` : r.kind === "write_off" ? `Written off ${r.number}` : `Settled ${r.number}`}</td>
                     <td className="py-1 pr-2 text-right">{r.kind === "bill" ? money(r.debit) : ""}</td>
                     <td className="py-1 pr-2 text-right">{r.kind === "bill" ? "" : money(r.credit)}</td>
                     <td className="py-1 text-right font-medium">{money(r.balance.replace("-", ""))}{r.balance.startsWith("-") ? " adv." : ""}</td>

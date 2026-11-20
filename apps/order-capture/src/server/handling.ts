@@ -36,7 +36,15 @@ export const ChangeInput = z.object({ expected: Expected, lines: LinesInput });
 export const DeliverInput = z.object({
   expected: Expected,
   note: z.string().trim().max(300, "A delivery note has at most 300 characters").optional(),
+  /** old screens only: the Mark delivered panel asks for the batch since 2026-11-20 */
   invoice_no: z.string().trim().max(40, "An invoice number has at most 40 characters").optional(),
+  /** the batch printed on the bottles, e.g. "PV144" (owner, 2026-11-20); optional, one per order, saved in capitals */
+  batch_no: z
+    .string()
+    .trim()
+    .transform((x) => x.toUpperCase().replace(/\s+/g, " "))
+    .pipe(z.string().max(40, "A batch no. has at most 40 characters").regex(/^([A-Z0-9][A-Z0-9 ,/-]*)?$/, "Batch no.: letters and digits, e.g. PV144"))
+    .optional(),
   /** the "Send a WhatsApp thank-you" tick box (src/server/thanks.ts) */
   send_thanks: z.boolean().optional(),
 });
@@ -67,7 +75,7 @@ export interface OrderDetail {
   entered_by: string;
   created_at: string;
   status_changed_at: string;
-  delivered: { by: string; at: string; note: string | null; invoice_no: string | null } | null;
+  delivered: { by: string; at: string; note: string | null; invoice_no: string | null; batch_no: string | null } | null;
   versions: VersionView[];
   /** oldest first */
   events: EventView[];
@@ -112,9 +120,9 @@ export async function getOrder(user: OcUser, id: string): Promise<OrderDetail> {
       entered_by: o.enteredByName,
       created_at: o.createdAt.toISOString(),
       status_changed_at: o.statusChangedAt.toISOString(),
-      delivered: o.deliveredAt ? { by: o.deliveredByName!, at: o.deliveredAt.toISOString(), note: o.deliveryNote, invoice_no: o.invoiceNo } : null,
+      delivered: o.deliveredAt ? { by: o.deliveredByName!, at: o.deliveredAt.toISOString(), note: o.deliveryNote, invoice_no: o.invoiceNo, batch_no: o.batchNo } : null,
       versions,
-      events: events.map((e) => ({ kind: e.kind as EventKind, version: e.version, text: e.text, invoice_no: e.invoiceNo, by: e.createdByName, at: e.createdAt.toISOString() })),
+      events: events.map((e) => ({ kind: e.kind as EventKind, version: e.version, text: e.text, invoice_no: e.invoiceNo, batch_no: e.batchNo, by: e.createdByName, at: e.createdAt.toISOString() })),
       thanks: await thanksOf(tx, user.tenantId, id, o.version),
     };
   });
@@ -138,8 +146,8 @@ async function lockAsSeen(tx: OcTx, user: OcUser, id: string, expected: z.infer<
 }
 
 /** Writes a history event; returns its id (for the notification's dedupe key). */
-async function event(tx: OcTx, user: OcUser, orderId: string, kind: EventKind, version: number, text: string | null = null, invoiceNo: string | null = null) {
-  const [e] = await tx.insert(orderEvents).values({ tenantId: user.tenantId, orderId, kind, version, text, invoiceNo, createdBy: user.userId, createdByName: user.name }).returning({ id: orderEvents.id });
+async function event(tx: OcTx, user: OcUser, orderId: string, kind: EventKind, version: number, text: string | null = null, invoiceNo: string | null = null, batchNo: string | null = null) {
+  const [e] = await tx.insert(orderEvents).values({ tenantId: user.tenantId, orderId, kind, version, text, invoiceNo, batchNo, createdBy: user.userId, createdByName: user.name }).returning({ id: orderEvents.id });
   return e!.id;
 }
 
@@ -215,12 +223,13 @@ export async function deliverOrder(user: OcUser, id: string, input: z.infer<type
       throw badRequest(`The WhatsApp thank-you is only for ${sender.thanksBrands!.join(" / ")} orders. Untick it and try again.`);
     const note = input.note || null;
     const invoice = input.invoice_no || null;
+    const batch = input.batch_no || null;
     const now = new Date();
     await tx
       .update(orders)
-      .set({ status: "delivered", statusChangedAt: now, deliveredBy: user.userId, deliveredByName: user.name, deliveredAt: now, deliveryNote: note, invoiceNo: invoice })
+      .set({ status: "delivered", statusChangedAt: now, deliveredBy: user.userId, deliveredByName: user.name, deliveredAt: now, deliveryNote: note, invoiceNo: invoice, batchNo: batch })
       .where(and(eq(orders.tenantId, user.tenantId), eq(orders.id, id)));
-    const eventId = await event(tx, user, id, "delivered", o.version, note, invoice);
+    const eventId = await event(tx, user, id, "delivered", o.version, note, invoice, batch);
     const thanksQueued = input.send_thanks ? await queueThanks(tx, user, id, o.customerPhone) : false;
     return { status: "delivered" as const, event: eventOf(o, eventId, note), thanks_queued: thanksQueued };
   });
@@ -236,7 +245,7 @@ export async function cancelOrder(user: OcUser, id: string, input: z.infer<typeo
   });
 }
 
-/** Owner and Accounts (owner, 2026-11-13): back to Pending, never while the order has an open bill. The delivery's note / invoice no. stay in the "delivered" event. */
+/** Owner and Accounts (owner, 2026-11-13): back to Pending, never while the order has an open bill. The delivery's note / invoice no. / batch no. stay in the "delivered" event. */
 export async function undoDelivered(user: OcUser, id: string, input: z.infer<typeof ReasonInput>) {
   return act(user, "undo_delivered", async (tx) => {
     const o = await lockAsSeen(tx, user, id, input.expected, "delivered");
@@ -244,7 +253,7 @@ export async function undoDelivered(user: OcUser, id: string, input: z.infer<typ
     if (bill) throw conflict(`This order has bill ${bill}. Cancel the bill first, then undo the delivery.`);
     await tx
       .update(orders)
-      .set({ status: "pending", statusChangedAt: new Date(), deliveredBy: null, deliveredByName: null, deliveredAt: null, deliveryNote: null, invoiceNo: null })
+      .set({ status: "pending", statusChangedAt: new Date(), deliveredBy: null, deliveredByName: null, deliveredAt: null, deliveryNote: null, invoiceNo: null, batchNo: null })
       .where(and(eq(orders.tenantId, user.tenantId), eq(orders.id, id)));
     await event(tx, user, id, "undelivered", o.version, input.reason);
     return { status: "pending" as const };

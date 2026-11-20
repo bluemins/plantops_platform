@@ -23,6 +23,8 @@ type Lookup = {
   reward_asked: { id: string; label: string; points: number } | null;
   /** their pending order: no second order while one is pending (owner, 2026-11-13); change it instead */
   pending_order: { id: string; ref: string; created_at: string } | null;
+  /** dues written off for this customer: a warning only (owner, 2026-11-20) */
+  written_off?: { amount: string; on: string } | null;
 };
 type Match = { id: string; name: string; phone: string; place: string; active: boolean };
 const spaced = (p: string) => `${p.slice(0, 5)} ${p.slice(5)}`;
@@ -221,6 +223,11 @@ export function OrderForm({ products, ownerNotified }: { products: RateView[]; o
             </p>
           </div>
         </div>
+      )}
+      {found?.customer && found.written_off && (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <b>₹{Number(found.written_off.amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b> of this customer&apos;s bills was written off ({day(found.written_off.on)}). You can still take the order; ask for cash on delivery.
+        </p>
       )}
       {pending && (
         <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">

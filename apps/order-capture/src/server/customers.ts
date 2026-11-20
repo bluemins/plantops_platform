@@ -11,7 +11,7 @@ import { normalisePhone } from "@plantops/module-kit/phone";
 import { LETTERS, type Letter } from "@/lib/letters";
 import { clean, NAME_MAX, NAME_MIN, PHONE_TYPED_MAX, PLACE_MAX, PLACE_MIN } from "@/lib/upload";
 import { can, requireAccess } from "./access";
-import { listBalances } from "./ledger";
+import { listBalances, writtenOffBy } from "./ledger";
 import { audit } from "./audit";
 import { latestConsents, recordConsent } from "./consent";
 import { customerOfPhone, extraPhoneOwner } from "./drop/shops";
@@ -106,7 +106,9 @@ export async function listCustomers(user: OcUser, opts: { q?: string; showOff?: 
     const shown = rows.slice(0, limit);
     // what each customer owes: owner only (and support, read-only); never sent to anyone else
     const balances = can(user, "ledger_totals") ? await listBalances(tx, user.tenantId, shown.map((c) => c.id)) : null;
-    return { customers: await views(tx, user.tenantId, shown), more: rows.length > limit, total: counts?.total ?? 0, off: counts?.off ?? 0, balances, letters };
+    // what was written off (owner, 2026-11-20): the same people as the balances
+    const writtenOff = balances ? Object.fromEntries(Object.entries(await writtenOffBy(tx, user.tenantId, shown.map((c) => c.id))).map(([id, w]) => [id, w.amount])) : null;
+    return { customers: await views(tx, user.tenantId, shown), more: rows.length > limit, total: counts?.total ?? 0, off: counts?.off ?? 0, balances, writtenOff, letters };
   });
 }
 

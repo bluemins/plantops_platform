@@ -22,7 +22,7 @@ const input = "min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 
 export function OrderActions({ order, may, thanks }: { order: Order; may: May; thanks: Thanks }) {
   const [open, setOpen] = useState<Open>(null);
   const [note, setNote] = useState("");
-  const [invoice, setInvoice] = useState("");
+  const [batch, setBatch] = useState("");
   const offerThanks = thanks.available && !thanks.already;
   const [sendThanks, setSendThanks] = useState(true);
   const [reason, setReason] = useState("");
@@ -56,8 +56,16 @@ export function OrderActions({ order, may, thanks }: { order: Order; may: May; t
           <textarea className={`${area} mt-1`} rows={3} maxLength={300} placeholder="e.g. handed to the manager" value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
         <label className="block text-sm font-semibold">
-          Zoho invoice no. <span className="font-normal text-slate-500">(optional)</span>
-          <input className={`${input} mt-1`} maxLength={40} placeholder="e.g. INV-001234" value={invoice} onChange={(e) => setInvoice(e.target.value)} />
+          Batch no. <span className="font-normal text-slate-500">(optional, printed on the bottle)</span>
+          <input
+            className={`${input} mt-1 uppercase`}
+            maxLength={40}
+            autoCapitalize="characters"
+            autoComplete="off"
+            placeholder="e.g. PV144"
+            value={batch}
+            onChange={(e) => setBatch(e.target.value.toUpperCase())}
+          />
         </label>
         {offerThanks && (
           <label className="flex min-h-12 items-start gap-3 rounded-xl border border-green-200 bg-green-50 px-3 py-3 text-green-950">
@@ -73,7 +81,7 @@ export function OrderActions({ order, may, thanks }: { order: Order; may: May; t
         <Button
           className="w-full min-h-14 text-lg"
           disabled={busy}
-          onClick={() => send("deliver", { note: note.trim() || undefined, invoice_no: invoice.trim() || undefined, ...(offerThanks && sendThanks ? { send_thanks: true } : {}) })}
+          onClick={() => send("deliver", { note: note.trim() || undefined, batch_no: batch.trim() || undefined, ...(offerThanks && sendThanks ? { send_thanks: true } : {}) })}
         >
           {busy ? "Saving…" : "Delivered"}
         </Button>

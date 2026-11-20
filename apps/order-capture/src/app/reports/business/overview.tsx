@@ -1,6 +1,7 @@
 // Reports → Business Overview (docs/REPORTS_PHASE_PLAN.md section 9), like Zoho's Home dashboard: what customers owe and
 // what the plant owes vendors, cash flow, income and expense, top expenses. Owner (support reads).
-import { businessOverview, readOverviewParams } from "@/server/business";
+import { businessOverview, overviewMonths, readOverviewParams } from "@/server/business";
+import { istToday } from "@/server/ledger";
 import type { OcUser } from "@/server/session";
 import { Chart, ChartCard, fullRupees, HBars, salaryNote, SLOT, SplitBar, toRupees } from "./charts";
 
@@ -13,7 +14,10 @@ export async function BusinessOverviewPanel({ user, q }: { user: OcUser; q: Reco
   const p = readOverviewParams(q);
   const o = await businessOverview(user, p);
   const link = (over: Partial<{ period: string; basis: string }>) =>
-    `/reports?${new URLSearchParams({ section: "business", period: p.period, basis: p.basis, ...over }).toString()}`;
+    `/reports?${new URLSearchParams({ section: "business", period: p.period, ...(p.period === "month" ? { month: p.month } : {}), basis: p.basis, ...over }).toString()}`;
+  const months = overviewMonths(istToday(), o.recordsFrom);
+  const monthName = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" });
+  const each = p.by === "day" ? "day" : "month";
   const chip = (on: boolean) => `flex min-h-10 items-center rounded-xl border px-3 text-sm ${on ? "border-(--brand) bg-(--brand) font-semibold text-(--brand-contrast)" : "border-slate-300 bg-white"}`;
   const labels = o.buckets.map((b) => b.label);
   const axis = o.buckets.map((b) => b.axis);
@@ -24,7 +28,18 @@ export async function BusinessOverviewPanel({ user, q }: { user: OcUser; q: Reco
         <span className="text-sm text-slate-600">Period:</span>
         <a href={link({ period: "last_12" })} className={chip(p.period === "last_12")}>Last 12 months</a>
         <a href={link({ period: "this_fy" })} className={chip(p.period === "this_fy")}>This financial year</a>
+        <form method="get" action="/reports" className="flex items-center gap-1.5">
+          <input type="hidden" name="section" value="business" />
+          <input type="hidden" name="period" value="month" />
+          <input type="hidden" name="basis" value={p.basis} />
+          <label className="sr-only" htmlFor="ov-month">Month</label>
+          <select id="ov-month" name="month" defaultValue={p.period === "month" ? p.month : months[0]} className={`${chip(p.period === "month")} pr-2`}>
+            {months.map((m) => <option key={m} value={m} className="bg-white text-slate-900">{monthName(m)}</option>)}
+          </select>
+          <button className="min-h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold">Show month</button>
+        </form>
       </div>
+      {p.period === "month" && <p className="text-sm text-slate-600">{monthName(p.month)}, day by day.</p>}
       {o.recordsFrom && p.from < o.recordsFrom && (
         <p className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
           Your sales records start in <b>{new Date(`${o.recordsFrom}T00:00:00Z`).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" })}</b>{" "}
@@ -42,7 +57,7 @@ export async function BusinessOverviewPanel({ user, q }: { user: OcUser; q: Reco
         </ChartCard>
       </div>
 
-      <ChartCard title="Cash flow" sub="Money in − money out each month, added up from the start of the period (not a bank balance)">
+      <ChartCard title="Cash flow" sub={`Money in − money out each ${each}, added up from the start of the period (not a bank balance)`}>
         <div className="flex flex-wrap gap-4">
           <div className="min-w-0 flex-[999_1_26rem]">
             <Chart label="Cash flow: running total" labels={labels} axis={axis} series={[]} line={{ name: "Running total", color: SLOT[0], values: R(o.cash.running) }} />
@@ -70,7 +85,7 @@ export async function BusinessOverviewPanel({ user, q }: { user: OcUser; q: Reco
             <span>Income<br /><b className="text-lg">{cut(o.totals.income)}</b></span>
             <span>Expenses<br /><b className="text-lg">{cut(o.totals.expense)}</b></span>
           </div>
-          <Chart label="Income and expense by month" mode="group" height={160} labels={labels} axis={axis} series={[{ name: "Income", color: SLOT[2], values: R(o.income) }, { name: "Expenses", color: SLOT[1], values: R(o.expense) }]} />
+          <Chart label={`Income and expense by ${each}`} mode="group" height={160} labels={labels} axis={axis} series={[{ name: "Income", color: SLOT[2], values: R(o.income) }, { name: "Expenses", color: SLOT[1], values: R(o.expense) }]} />
         </ChartCard>
         <ChartCard title="Top expenses" sub="Before GST, biggest first" foot={<a href="/reports/business/charts#types" className="font-semibold text-(--brand)">All expense types ›</a>}>
           <HBars label="Top expenses" rows={o.types.map((r) => ({ label: r.label, value: toRupees(r.amount), color: r.group ? GROUP_COLOR[r.group] : "#94a3b8" }))} />

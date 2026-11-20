@@ -975,3 +975,23 @@ https://claude.ai/artifact/Ep8fsTZwj4rzcECa4yiKs5 approved ("OK").
   Nightly backup `POST /api/cron/backup` + `backup.yml` step "Sales files" (on with GitHub variable
   `ORDER_BACKUP_FILES=on` once `order-capture` has the five `BACKUP_*` variables).
 - SSO token unchanged. Tests: `test/purchase-files.test.ts` (8), RLS / append-only lists updated.
+
+## 2026-11-20 — Write off dues, batch no. on delivery, Business Overview by month (v0.83.0)
+Owner 2026-11-20 (mock-ups https://claude.ai/artifact/YcBpa2f8NdCh4GxTeHhCMt, https://claude.ai/artifact/HwDgeAgGF1k1KwkwprzFwr).
+- **Write off** (`writeOff` in `src/server/ledger.ts`, `POST /api/customers/[id]/write-off`, access `write_off` = owner
+  only): one `bill_adjustments` row (`kind 'write_off'`, existing since `0008`) per ticked bill for all it still owes,
+  under the payment lock; date ≤ today and ≥ each bill's date; audit `customer.write_off` on the customer (timeline +
+  Recent changes). `billStatus(…, writtenOff)` gives `written_off` when a settled bill has a write-off; statement rows
+  `kind 'write_off'`. Bills list filter `written_off` (Paid leaves them out). `writtenOffBy` feeds the owner's customer
+  list tag and the New order warning (`lookupCustomer().written_off`). Report `/reports/receivables/written-off` (+ CSV
+  route), `writeOffsReport`. **Decisions (owner):** owner only, warn not block, no undo (would need a migration).
+  **Made while building:** a later payment can't pay a written-off bill (its due is 0), so it stays as advance; the
+  Receivables Bill Details report still calls a written-off bill "Paid" (its settles don't carry the kind).
+- **Batch no.** (migration `0027_delivery_batch.sql`: `orders.batch_no` + UPDATE grant, `order_events.batch_no`, format
+  check `^[A-Z0-9][A-Z0-9 ,/-]*$` ≤ 40, only on delivered orders / delivery events). `DeliverInput.batch_no` (trimmed,
+  capitals); the Mark delivered panel no longer asks for the Zoho invoice no. (the input stays accepted for old screens).
+  Undo delivered clears the order's batch; the delivery event keeps it. Order page, History, Delivered list card, bill
+  page, CSV last column "Batch". `0027` was applied on the shared copy on 2026-11-20 by v0.82.0's migrate run.
+- **Business Overview month:** `?period=month&month=YYYY-MM` (`readOverviewParams`, `overviewMonths`); `buildOverview`
+  takes `by: "day"`. A future or bad month falls back to this month; this month ends today.
+- Tests: `test/write-off-batch.test.ts` (15); Sales 1,394 pass.

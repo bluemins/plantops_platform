@@ -93,6 +93,8 @@ export interface EventView {
   version: number;
   text: string | null;
   invoice_no: string | null;
+  /** the bottles' batch on a delivery (migration 0027); missing on older callers = none */
+  batch_no?: string | null;
   by: string;
   at: string;
 }
@@ -119,7 +121,7 @@ export function eventText(e: EventView, versions: VersionView[]): { title: strin
       return { title: `Changed by ${e.by}`, detail: (before && after && versionDiff(before.lines, after.lines, before.total, after.total)) || `version ${e.version}` };
     }
     case "delivered":
-      return { title: `Delivered by ${e.by}`, detail: [e.text, e.invoice_no ? `Zoho invoice ${e.invoice_no}` : null].filter(Boolean).join(" · ") };
+      return { title: `Delivered by ${e.by}`, detail: [e.batch_no ? `Batch ${e.batch_no}` : null, e.text, e.invoice_no ? `Zoho invoice ${e.invoice_no}` : null].filter(Boolean).join(" · ") };
     case "undelivered":
       return { title: `Delivery undone by ${e.by}`, detail: e.text ?? "" };
     case "cancelled":

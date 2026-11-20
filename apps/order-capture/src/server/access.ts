@@ -48,6 +48,7 @@ export type Action =
   | "bill_cancel" // cancel a bill, with a reason
   | "payment_receive" // receive a payment from a customer
   | "payment_cancel" // cancel a payment, with a reason
+  | "write_off" // write off a customer's unpaid bills (money not coming back), with a reason; no undo (owner, 2026-11-20)
   | "ledger_export" // bills / payments CSV
   | "ledger_totals" // the plant's totals: still due, overdue bills, received (owner 2026-11-06: owner only)
   | "reports" // Reports: sales by item / customer (owner 2026-11-07: owner only; support reads)
@@ -122,6 +123,8 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   bill_cancel: ["owner", "accounts"], // Accounts too (owner, 2026-11-13)
   payment_receive: ["owner", "accounts"],
   payment_cancel: ["owner", "accounts"], // Accounts too (owner, 2026-11-13)
+  write_off: ["owner"], // owner only (owner, 2026-11-20); Accounts and support see write-offs
+
   ledger_export: ["owner"],
   ledger_totals: ["owner", "support"],
   reports: ["owner", "support"],

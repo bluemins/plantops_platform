@@ -145,6 +145,7 @@ export default async function OrderPage({ params }: { params: Params }) {
             <p className="font-semibold">
               Delivered by {o.delivered.by} · {fmtDateTime(o.delivered.at)}
             </p>
+            {o.delivered.batch_no && <p>Batch <b>{o.delivered.batch_no}</b></p>}
             {o.delivered.note && <p>{o.delivered.note}</p>}
             {o.delivered.invoice_no && <p>Zoho invoice {o.delivered.invoice_no}</p>}
           </div>
