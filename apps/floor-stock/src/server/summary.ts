@@ -2,13 +2,16 @@
 // Up to 3 badges (approved 2026-10-04):
 //   "Today's count not done" (warn) / "Counted 6:40 pm" (ok) - for the counting day (until 5 am: last night, B-05)
 //   "N items low" (danger) - from the newest count, against today's limits
-//   "Made 120 box" (info) - today's production
+//   "2 consumables not updated correctly" (warn) - materials used by the newest count's production still at the count before's
+//     number (owner, 2026-11-22; src/lib/not-updated.ts)
+//   "Made 120 box" (info) - today's production (left out when the other three are all shown)
 // A Stock viewer's tile (view "viewer") shows only the first one.
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { ModuleSummary, SummaryView } from "@plantops/types";
 import { countDay, istTime } from "@/lib/days";
 import { qty } from "@/lib/compare";
-import { withTenant } from "./db";
+import { schema, withTenant } from "./db";
+import { notUpdatedFor } from "./not-updated";
 
 const MAX_TEXT = 40;
 
@@ -49,6 +52,10 @@ export function summaryFor(tenantId: string, view: SummaryView, now = new Date()
     const n = low[0]?.n ?? 0;
     if (n) badges.push({ text: `${n} item${n === 1 ? "" : "s"} low`, tone: "danger" });
 
+    const lines = await tx.select().from(schema.countLines).where(eq(schema.countLines.versionId, last.version_id));
+    const unchanged = (await notUpdatedFor(tx, tenantId, last.date, lines, null)).length;
+    if (unchanged) badges.push({ text: `${unchanged} consumable${unchanged === 1 ? "" : "s"} not updated correctly`, tone: "warn" });
+
     if (countedToday) {
       const { rows: made } = await tx.execute<{ unit: string; total: string }>(sql`
         select l.unit, sum(l.qty)::text as total
@@ -59,7 +66,7 @@ export function summaryFor(tenantId: string, view: SummaryView, now = new Date()
       const parts = made.filter((m) => Number(m.total) > 0).map((m) => `${qty(Number(m.total))} ${m.unit}`);
       let text = parts.length ? `Made ${parts.join(" + ")}` : "";
       if (text.length > MAX_TEXT) text = `Made ${parts[0]}`.slice(0, MAX_TEXT);
-      if (text) badges.push({ text, tone: "info" });
+      if (text && badges.length < 3) badges.push({ text, tone: "info" });
     }
     return { badges };
   });

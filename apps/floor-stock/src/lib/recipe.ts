@@ -14,7 +14,7 @@ export type MeasureKind = "pieces" | "weight" | "volume" | "length";
 
 const KIND: Record<Measure, MeasureKind> = { pcs: "pieces", g: "weight", kg: "weight", ml: "volume", L: "volume", m: "length" };
 /** Everything is worked out in pcs, g, ml or m. */
-const TO_BASE: Record<Measure, number> = { pcs: 1, g: 1, kg: 1000, ml: 1, L: 1000, m: 1 };
+export const TO_BASE: Record<Measure, number> = { pcs: 1, g: 1, kg: 1000, ml: 1, L: 1000, m: 1 };
 
 export const kindOf = (m: Measure) => KIND[m];
 export const sameKind = (a: Measure, b: Measure) => KIND[a] === KIND[b];

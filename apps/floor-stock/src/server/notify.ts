@@ -1,6 +1,7 @@
 // Floor Stock's app notifications to the plant's owners (docs/notifications.md, N1). The platform picks the people
 // (active owners) and leaves out whoever did it; these functions only write the text.
-//   * one notification per saved count: low stock > check the count > corrected > saved (most serious wins the title)
+//   * one notification per saved count: low stock > check the count > consumable not updated correctly > corrected >
+//     saved (most serious wins the title; the others stay in the body)
 //   * setup changed by a store keeper / plant staff: bell only, so building the item list doesn't flood the phone
 //   * "Today's stock count is not done yet" at the plant's chosen hour (default 8 pm India time; the evening job)
 // Stock viewers (v0.27.0) ticked for alerts get their own version of a count notification, listing only the items in
@@ -38,9 +39,11 @@ export function countNotification(user: StockUser, saved: SavedCount): Notificat
       : `Corrected by ${user.name} (v${saved.version}): ${saved.reason ?? ""}.`;
   const low = saved.low_items.length ? `Low: ${listed(saved.low_items, (i) => `${i.name} ${qty(i.qty)} (limit ${qty(i.min)})`)}.` : "";
   const check = saved.checks.length ? `Check: ${listed(saved.checks, (c) => `${c.name} (${qty(c.extra)} ${c.unit} more than possible)`)}.` : "";
+  const unchanged = saved.not_updated.length ? `Not updated: ${listed(saved.not_updated, (m) => m.name)} still show the last count's number.` : "";
 
   let kind = saved.version === 1 ? "floor_stock.count_saved" : "floor_stock.count_corrected";
   let title = saved.version === 1 ? "Stock count saved" : `Count corrected (v${saved.version})`;
+  if (saved.not_updated.length) title = `${title}: consumable not updated correctly (${saved.not_updated.length})`;
   if (saved.checks.length) {
     kind = "floor_stock.count_check";
     title = `Check the count: ${plural(saved.checks.length, "item")}`;
@@ -52,7 +55,7 @@ export function countNotification(user: StockUser, saved: SavedCount): Notificat
   return {
     kind,
     title,
-    body: clip([who, low, check].filter(Boolean).join(" ")),
+    body: clip([who, low, check, unchanged].filter(Boolean).join(" ")),
     link: `/day/${saved.date}`,
     level: "push",
     dedupe_key: `count:${saved.date}:v${saved.version}`,
@@ -70,14 +73,14 @@ export async function viewerCountNotifications(user: StockUser, saved: SavedCoun
     const viewers = await viewerSectionMap(tx, user.tenantId);
     viewers.delete(user.userId);
     if (!viewers.size) return [];
-    const ids = [...new Set([...saved.low_items.map((i) => i.item_id), ...saved.checks.map((c) => c.item_id)])];
+    const ids = [...new Set([...saved.low_items.map((i) => i.item_id), ...saved.checks.map((c) => c.item_id), ...saved.not_updated.map((m) => m.item_id)])];
     const rows = ids.length
       ? await tx.select({ id: schema.items.id, section: schema.items.sectionId }).from(schema.items).where(and(eq(schema.items.tenantId, user.tenantId), inArray(schema.items.id, ids)))
       : [];
     const sectionOf = new Map(rows.map((r) => [r.id, r.section]));
     return [...viewers].map(([viewerId, sections]) => {
       const mine = (id: string) => sections.has(sectionOf.get(id) ?? "");
-      const n = countNotification(user, { ...saved, low_items: saved.low_items.filter((i) => mine(i.item_id)), checks: saved.checks.filter((c) => mine(c.item_id)) });
+      const n = countNotification(user, { ...saved, low_items: saved.low_items.filter((i) => mine(i.item_id)), checks: saved.checks.filter((c) => mine(c.item_id)), not_updated: saved.not_updated.filter((m) => mine(m.item_id)) });
       return { ...n, dedupe_key: `${n.dedupe_key}:${viewerId}`, no_viewers: undefined, also_user_ids: [viewerId], only_listed: true, if_ticked: true };
     });
   });

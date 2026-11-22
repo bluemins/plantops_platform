@@ -243,3 +243,19 @@ Plan: `docs/VIEW_ROLES_PHASE_PLAN.md`. The platform role **Stock viewer** opens 
 `GET /api/plantops/day-report?date=` (lookup ticket, scope `day_report`, from Sales): the owner's day page numbers for
 that date (counted when / by whom, corrections, made, sold, per product, low, check the count, Can make), read with an
 owner view that never writes. Code `src/server/day-report.ts`; tests `test/day-report.test.ts`.
+
+## 2026-11-22 — "Consumable not updated correctly" (v0.85.0)
+Owner 2026-11-22: when production is entered, the raw materials / consumables its recipe uses must be updated too.
+Owner's choices: **warn only** (nothing filled in, the save is never refused), and the saved count says so **for
+everyone** who sees it. Mock-up: https://claude.ai/artifact/Skk5Sn1LBoBzUCmDbrwsJc.
+- **Rule** (`src/lib/not-updated.ts`, pure, used in the browser and on the server): a material used by a product made
+  today is flagged when its closing (and second number) equals the **last count before the day** (what `/count`
+  pre-filled). A "made from" material (empty bottle ← preform) only when it and every source are unchanged. Expected =
+  last closing − boxes × per box × recipe ÷ Contents ("about": damage and loose pieces left out; none without Contents
+  for non-piece recipes or without known bottles per box). Only plants with a recipe; nothing stored, no migration.
+- **Where:** `/count` (amber note under the material, "Updated ✓ (expected about …)" otherwise; on Submit a sheet
+  "Go back and fix" / "Save anyway"), day page (card + tag per row), home (card for the newest count), tile badge "N
+  consumables not updated correctly" (warn; "Made …" drops when 3 badges are already shown; not on the viewer tile),
+  the count notification (title "Stock count saved: consumable not updated correctly (2)" unless low / check wins;
+  body "Not updated: …"; Stock viewers only their sections' items), and the WhatsApp copy's last line.
+- Code: `src/server/not-updated.ts` (`materialSetup`, `notUpdatedFor`). Tests: `test/not-updated.test.ts`.

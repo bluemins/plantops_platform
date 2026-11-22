@@ -27,7 +27,8 @@ const lineText = (l: Line, unit: string, secondUnit: string | null) =>
 /** e.g. "Bluemins 1 L: 2 box (6 pcs) + 19 box (Hemex)". Several lines are joined with " + ". */
 const rowText = (name: string, lines: Line[], unit: string, secondUnit: string | null) => `${name}: ${lines.map((l) => lineText(l, unit, secondUnit)).join(" + ")}`;
 
-export function whatsappText(plant: string, date: string, sections: Section[]): string {
+/** `notUpdated`: materials flagged "Consumable not updated correctly" (src/lib/not-updated.ts), listed at the end. */
+export function whatsappText(plant: string, date: string, sections: Section[], notUpdated: string[] = []): string {
   const out = [`*${plant}*`, `*Stock ${fmtDate(date)}*`];
   const made = sections.flatMap((s) => (s.kind === "finished" ? s.rows.filter((r) => r.production.length) : []));
   if (made.length) {
@@ -40,5 +41,6 @@ export function whatsappText(plant: string, date: string, sections: Section[]): 
     out.push("", `*${s.name}*`);
     for (const r of rows) out.push(rowText(r.name, r.stock, r.unit, r.second_unit));
   }
+  if (notUpdated.length) out.push("", `*Consumable not updated correctly*: ${notUpdated.join(", ")}`);
   return out.join("\n");
 }

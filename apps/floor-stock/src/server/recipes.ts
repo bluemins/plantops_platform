@@ -232,7 +232,7 @@ export async function canMakeForVersion(tenantId: string, versionId: string, all
 }
 
 /** Bottles per box: the linked product's pack size; an item without a product: its case_size, else 1. */
-function perBox(item: typeof items.$inferSelect, recipe: RecipeView | undefined, products: TenantSku[]): number | null {
+export function perBox(item: typeof items.$inferSelect, recipe: RecipeView | undefined, products: TenantSku[]): number | null {
   if (item.skuId) {
     const p = products.find((s) => s.id === item.skuId);
     return p ? p.units_per_pack : null; // products couldn't be loaded: bottles only

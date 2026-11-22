@@ -15,6 +15,8 @@ import { kit } from "./kit";
 import { badRequest, conflict } from "./http";
 import type { LineKind, SectionKind } from "./schema";
 import { actorOf, requireCount, type StockUser } from "./session";
+import type { MaterialSetup } from "@/lib/not-updated";
+import { materialSetup, notUpdatedFor } from "./not-updated";
 
 const { auditLog, countLines, countVersions, counts, items, sections } = schema;
 
@@ -87,6 +89,8 @@ export interface CountForm {
   prefill_from: string | null;
   sections: FormSection[];
   lines: FormLine[];
+  /** recipes + the last count's closing, for the "Consumable not updated correctly" note (null = no recipe) */
+  materials: MaterialSetup | null;
 }
 
 const num = (v: string | null) => (v === null ? null : Number(v));
@@ -128,12 +132,14 @@ async function activeList(tx: StockTx, tenantId: string): Promise<FormSection[]>
  * otherwise closing stock comes from the last count before the date and production starts empty.
  */
 export async function countForm(user: StockUser, date: string): Promise<CountForm> {
+  const products = await kit.products(user.tenantId);
   return withTenant(user.tenantId, async (tx) => {
     const list = await activeList(tx, user.tenantId);
+    const materials = await materialSetup(tx, user.tenantId, date, products);
     const current = await latestVersion(tx, user.tenantId, date);
     if (current) {
       const lines = await tx.select().from(countLines).where(eq(countLines.versionId, current.version.id)).orderBy(asc(countLines.lineNo));
-      return { date, current: versionInfo(current.version), prefill_from: date, sections: list, lines: lines.map(lineOf) };
+      return { date, current: versionInfo(current.version), prefill_from: date, sections: list, lines: lines.map(lineOf), materials };
     }
     const [last] = await tx
       .select({ date: counts.countDate })
@@ -141,14 +147,14 @@ export async function countForm(user: StockUser, date: string): Promise<CountFor
       .where(and(eq(counts.tenantId, user.tenantId), lt(counts.countDate, date)))
       .orderBy(desc(counts.countDate))
       .limit(1);
-    if (!last) return { date, current: null, prefill_from: null, sections: list, lines: [] };
+    if (!last) return { date, current: null, prefill_from: null, sections: list, lines: [], materials };
     const prev = (await latestVersion(tx, user.tenantId, last.date))!;
     const lines = await tx
       .select()
       .from(countLines)
       .where(and(eq(countLines.versionId, prev.version.id), eq(countLines.kind, "stock")))
       .orderBy(asc(countLines.lineNo));
-    return { date, current: null, prefill_from: last.date, sections: list, lines: lines.map(lineOf) };
+    return { date, current: null, prefill_from: last.date, sections: list, lines: lines.map(lineOf), materials };
   });
 }
 
@@ -239,6 +245,8 @@ async function saveCount(tx: StockTx, user: StockUser, input: CountInput, owners
   await tx.insert(countLines).values(values.map((x) => ({ ...x, versionId: v!.id })));
   const queued = await queueLowStock(tx, user.tenantId, input.date, v!.id, owners);
   const checks = await negativeSold(tx, user.tenantId, input.date, values, kindOf, byId);
+  // names only (no expected numbers), so products aren't needed here
+  const unchanged = await notUpdatedFor(tx, user.tenantId, input.date, values, null);
   await tx.insert(auditLog).values({
     tenantId: user.tenantId,
     actor: actorOf(user),
@@ -256,6 +264,8 @@ async function saveCount(tx: StockTx, user: StockUser, input: CountInput, owners
     /** for the owner's notification: items newly below their limit, and finished goods to check */
     low_items: queued.items,
     checks,
+    /** materials used by today's production still at the last count's number ("Consumable not updated correctly") */
+    not_updated: unchanged.map((m) => ({ item_id: m.item_id, name: m.name })),
   };
 }
 export type SavedCount = Awaited<ReturnType<typeof saveCount>>;

@@ -20,6 +20,10 @@ export function LowChip({ minLevel }: { minLevel: number | null }) {
   return <span className="inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Low · limit {minLevel === null ? "—" : qty(minLevel)}</span>;
 }
 
+export function NotUpdatedChip() {
+  return <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Consumable not updated correctly</span>;
+}
+
 export function BackLink({ href = "/", children = "← Floor Stock" }: { href?: string; children?: ReactNode }) {
   return (
     <a href={href} className="text-sm font-semibold text-(--brand)">

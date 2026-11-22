@@ -2501,3 +2501,12 @@ then one change per save: Brands they buy (Add / Replace), Place, Payment terms,
 customer through the one-customer rules and its own Recent changes line; skipped ones listed with the reason. The list's
 brand tags and filter now also use **past bills** (Zoho bills through the matched contact). No migration; SSO token and
 platform unchanged. Notes: `apps/order-capture/NOTES.md`. Tests: Sales 1,401.
+
+### 2026-11-22 — Floor Stock: "Consumable not updated correctly" (v0.85.0) — built, not deployed
+Owner 2026-11-22 (staff must update raw material / consumables with production; "warn only"; "everyone sees it"; mock-up
+https://claude.ai/artifact/Skk5Sn1LBoBzUCmDbrwsJc with the owner's wording). A material whose recipe product was made
+that day but whose closing is still the last count's number is flagged: amber note + expected number on `/count`, a
+"Go back and fix / Save anyway" sheet on Submit (never refused), and after saving on the day page, home, tile badge, the
+count notification and the WhatsApp copy. Made-from items (empty bottle ← preform) only when both are unchanged. Rule
+`apps/floor-stock/src/lib/not-updated.ts`; no migration; platform and SSO token unchanged. Notes:
+`apps/floor-stock/NOTES.md`. Tests: Floor Stock 200 (+10).

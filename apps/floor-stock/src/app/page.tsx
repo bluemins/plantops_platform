@@ -1,6 +1,7 @@
 import { Card } from "@plantops/ui";
 import { fmtDate } from "@plantops/module-kit/format";
 import { qty } from "@/lib/compare";
+import { NOT_UPDATED_LABEL } from "@/lib/not-updated";
 import { istTime } from "@/lib/days";
 import { LinkButton } from "@/lib/ui";
 import { kit } from "@/server/kit";
@@ -48,6 +49,20 @@ export default async function HomePage() {
             !status.yesterdayCount && <DayCard label="Yesterday" date={status.yesterday} count={null} canEnter={canEnter} />
           )}
         </>
+      )}
+
+      {latest && latest.not_updated.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50">
+          <h2 className="mb-1 font-bold text-amber-900">
+            {NOT_UPDATED_LABEL} ({latest.not_updated.length}) · count of {fmtDate(latest.date)}
+          </h2>
+          <p className="text-amber-900">
+            {latest.not_updated.map((m) => m.name).join(", ")}: still the number of the count before, though production was entered.{" "}
+            <a href={`/day/${latest.date}`} className="font-semibold underline">
+              See the day
+            </a>
+          </p>
+        </Card>
       )}
 
       {latest && latest.low.length > 0 && (

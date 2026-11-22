@@ -5,6 +5,7 @@ import { qty } from "@/lib/compare";
 import { addDays } from "@/lib/days";
 import { LinkButton } from "@/lib/ui";
 import { whatsappText } from "@/lib/whatsapp";
+import { NOT_UPDATED_LABEL, notUpdatedText } from "@/lib/not-updated";
 import { allowedDates } from "@/server/counts";
 import { kit } from "@/server/kit";
 import { orNotFound } from "@/server/pages";
@@ -12,7 +13,7 @@ import { requirePageUser } from "@/server/session";
 import { dayView } from "@/server/views";
 import { CanMakeCard } from "../../can-make";
 import { Header } from "../../header";
-import { BackLink, ComparisonLine, lineText, LowChip } from "../../parts";
+import { BackLink, ComparisonLine, lineText, LowChip, NotUpdatedChip } from "../../parts";
 import { CopyButton } from "./copy-button";
 
 type Props = { params: Promise<{ date: string }>; searchParams: Promise<{ v?: string }> };
@@ -79,7 +80,7 @@ export default async function DayPage({ params, searchParams }: Props) {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <CopyButton text={whatsappText(plant?.name ?? "Floor Stock", date, view.sections)} />
+        <CopyButton text={whatsappText(plant?.name ?? "Floor Stock", date, view.sections, view.not_updated.map((m) => m.name))} />
         {canEnter && isLatest && (
           <LinkButton href={`/count?date=${date}&correct=1`} variant="secondary">
             Correct this count
@@ -97,6 +98,21 @@ export default async function DayPage({ params, searchParams }: Props) {
               </li>
             ))}
           </ul>
+        </Card>
+      )}
+
+      {view.not_updated.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50">
+          <h2 className="mb-1 font-bold text-amber-900">
+            {NOT_UPDATED_LABEL} ({view.not_updated.length})
+          </h2>
+          <p className="mb-2 text-sm text-amber-900">Production was entered, but these still show the number of the count before.</p>
+          <ul className="space-y-1 text-amber-900">
+            {view.not_updated.map((m) => (
+              <li key={m.item_id}>{notUpdatedText(m, qty)}</li>
+            ))}
+          </ul>
+          {canEnter && isLatest && <p className="mt-2 text-sm text-amber-900">Correct the count to fix it; the note goes when the number changes.</p>}
         </Card>
       )}
 
@@ -155,6 +171,7 @@ export default async function DayPage({ params, searchParams }: Props) {
                   )}
                   {view.previous_counted && <ComparisonLine c={r.comparison} unit={r.unit} previousDate={previousDate} />}
                   {r.low && <LowChip minLevel={r.min_level} />}
+                  {view.not_updated.some((m) => m.item_id === r.item_id) && <NotUpdatedChip />}
                 </p>
               </li>
             ))}

@@ -86,6 +86,7 @@ describe("one notification per saved count", () => {
       low_stock_emails: 5,
       low_items: ["A", "B", "C", "D", "E"].map((name) => ({ item_id: name, name, qty: 1, min: 10 })),
       checks: [{ item_id: "Box", name: "Box", unit: "box", extra: 2 }],
+      not_updated: [],
     };
     const n = countNotification(user, saved);
     expect(n.title).toBe("Low stock: 5 items");

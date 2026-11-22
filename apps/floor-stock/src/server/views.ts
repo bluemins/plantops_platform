@@ -11,6 +11,9 @@ import { countDates, latestVersion, versionInfo, type VersionInfo } from "./coun
 import { schema, withTenant, type StockTx } from "./db";
 import { notFound } from "./http";
 import { canMakeForVersion } from "./recipes";
+import { kit } from "./kit";
+import { notUpdatedFor } from "./not-updated";
+import type { UsedMaterial } from "@/lib/not-updated";
 import type { SectionKind } from "./schema";
 import { actorOf, requireOwner, requireView, type StockUser } from "./session";
 import { visibleSections } from "./viewers";
@@ -58,6 +61,8 @@ export interface DayView {
   low: DayRow[];
   /** how many boxes this stock is enough for (empty until the owner sets a recipe) */
   can_make: CanMakeGroup[];
+  /** materials used by this day's production still at the last count's number (only the sections shown) */
+  not_updated: UsedMaterial[];
 }
 
 const lineView = (l: Line): LineView => ({ qty: Number(l.qty), second_qty: l.secondQty === null ? null : Number(l.secondQty), remark: l.remark });
@@ -81,7 +86,10 @@ export async function dayView(user: StockUser, date: string, version?: number): 
   requireView(user);
   const found = await countDay(user, date, version);
   if (!found) return null;
-  return { ...found.view, can_make: await canMakeForVersion(user.tenantId, found.versionId, found.allowed) };
+  const shownIds = new Set(found.view.sections.flatMap((s) => s.rows.map((r) => r.item_id)));
+  const products = await kit.products(user.tenantId);
+  const unchanged = await withTenant(user.tenantId, async (tx) => notUpdatedFor(tx, user.tenantId, date, await linesOf(tx, found.versionId), products));
+  return { ...found.view, can_make: await canMakeForVersion(user.tenantId, found.versionId, found.allowed), not_updated: unchanged.filter((m) => shownIds.has(m.item_id)) };
 }
 
 async function countDay(user: StockUser, date: string, version?: number) {
@@ -138,7 +146,7 @@ async function countDay(user: StockUser, date: string, version?: number) {
       });
     }
     const filled = result.filter((s) => s.rows.length && (!allowed || allowed.has(s.id)));
-    const view: Omit<DayView, "can_make"> = {
+    const view: Omit<DayView, "can_make" | "not_updated"> = {
       date,
       previous_date: previousDate,
       previous_counted: !!prev,
