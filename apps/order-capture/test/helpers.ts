@@ -115,6 +115,8 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
   const adjustment = await one(`insert into order_capture.bill_adjustments (tenant_id, bill_id, kind, amount, reason, adjusted_on, import_id, created_by, created_by_name)
     values ('${tenantId}', '${zohoBill}', 'zoho_closed', 200, 'Closed in Zoho', '2026-11-05', '${imp}', '${who}', 'Sujata') returning id`);
   await asApp(tenantId, `insert into order_capture.bill_settings (tenant_id, updated_by, updated_by_name) values ('${tenantId}', '${who}', 'Sujata') on conflict do nothing`);
+  // Promise to pay (0028)
+  await asApp(tenantId, `insert into order_capture.payment_promises (tenant_id, customer_id, promised_on, created_by, created_by_name) values ('${tenantId}', '${customer}', '2026-11-30', '${who}', 'Sujata')`);
   // customer page Part 2 (0010): a comment, a contact person, a shop location
   const comment = await one(`insert into order_capture.customer_comments (tenant_id, customer_id, body, by_user, by_name) values ('${tenantId}', '${customer}', 'Pays on Saturdays', '${who}', 'Sujata') returning id`);
   const person = await one(`insert into order_capture.customer_persons (tenant_id, customer_id, name, phone, role, by_user, by_name) values ('${tenantId}', '${customer}', 'Ramesh', '7008011223', 'shop boy', '${who}', 'Sujata') returning id`);
@@ -196,7 +198,8 @@ export async function seedPlant(tenantId: string, refNo = 1, phone = "9876543210
 export const TABLES = [
   "app_access_changes", "app_devices", "app_login_codes", "app_phone_changes", "app_push_outbox", "app_sessions",
   "attendance_sends", "audit_log", "bill_adjustments", "bill_lines", "bill_settings", "bills", "call_attended", "call_events", "cash_closes", "cash_entries", "cash_vehicles", "collection_lines", "collection_posts", "customer_brand_changes", "customer_comments", "customer_consents", "customer_locations", "customer_messages", "customer_persons", "customers",
-  "expense_categories", "ignored_number_changes", "jar_customers", "jar_imports", "jar_month_lines", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations", "payments", "points_redemptions", "points_settings", "poll_answers", "polls", "product_rates",
+  "expense_categories", "ignored_number_changes", "jar_customers", "jar_imports", "jar_month_lines", "notification_outbox", "order_events", "order_lines", "orders", "payment_allocations",
+  "payment_promises", "payments", "points_redemptions", "points_settings", "poll_answers", "polls", "product_rates",
   "purchase_bill_files", "purchase_bill_lines", "purchase_bills", "purchase_imports", "purchase_items",
   "reminder_groups", "staff_cash_spends", "support_views", "van_credit_lines", "van_credit_posts", "van_report_lines", "van_reports", "vendor_payment_allocations", "vendor_payments", "vendors", "zoho_contacts", "zoho_imports",
 ];

@@ -4,6 +4,16 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.87.0 — 2026-11-23 — Promise to pay
+
+Owner, 2026-11-23. **Migration:** Sales `0028_payment_promises.sql` (approved: one new table, FORCE RLS, `order_app` SELECT +
+INSERT only). Sales only; platform and SSO token unchanged.
+- **Promise to pay** on Accounts desk → Customer dues (owner, Accounts; support reads): date (up to 90 days), optional amount
+  (not above the due), note. Never changes a bill, payment or due. A new date is a new row; the old one stays.
+- Worked out from payments, never stored: Promised, Due today, Kept, Paid late, Promise broken, Date changed.
+- Call order: broken, due today, the usual order, then customers promising a later date. Today's work shows promises due
+  today and broken; each card shows "Kept N of M" and the history.
+
 ## v0.86.0 — 2026-11-23 — Accounts desk
 
 Owner, 2026-11-23 (mock-up https://claude.ai/artifact/CGpGYjfaZdGYaUeCgwSHG6). **No migration.** Sales + platform (a new

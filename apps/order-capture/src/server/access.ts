@@ -53,6 +53,7 @@ export type Action =
   | "ledger_totals" // the plant's totals: still due, overdue bills, received (owner 2026-11-06: owner only)
   | "reports" // Reports: sales by item / customer (owner 2026-11-07: owner only; support reads)
   | "accounts_desk" // Accounts desk: order stages + customer dues, no plant ₹ totals or CSV (owner 2026-11-23; support reads)
+  | "payment_promise" // note when a customer said they will pay (owner 2026-11-23); never changes a bill or payment
   | "bill_link_view" // the Link bills to orders list (owner 2026-11-10; support reads)
   | "bill_link" // link an imported Zoho bill to a delivered order, or unlink it with a reason (owner only)
   // customer page Part 2 (docs/CUSTOMER_PAGE_PHASE_PLAN.md, owner 2026-11-07)
@@ -131,6 +132,7 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   ledger_totals: ["owner", "support"],
   reports: ["owner", "support"],
   accounts_desk: ["owner", "accounts", "support"],
+  payment_promise: ["owner", "accounts"],
   bill_link_view: ["owner", "support"],
   bill_link: ["owner"],
   customer_edit: ["owner"],

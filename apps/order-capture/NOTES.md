@@ -1020,3 +1020,8 @@ support reads). Rules in `src/lib/accounts-desk.ts`, over the same data as Order
 (`receivablesData`), so the numbers match the owner's reports. Overdue orders overlap Billed / Part paid. "Paid this month"
 = fully paid in the current calendar month. No plant ₹ total, no CSV. No migration. Tests: `test/accounts-desk.test.ts`.
 **Next:** Promise to pay (one new append-only table, approved by the owner 2026-11-23).
+
+## 2026-11-23 — Promise to pay (v0.87.0)
+Migration `0028_payment_promises.sql` (approved by the owner): append-only, customer or Zoho contact, FORCE RLS. Access row
+`payment_promise` (owner, Accounts). Rules in `src/lib/promises.ts`: no amount = any payment meets it; a new date on or before
+the old day = "Date changed", not counted; money after the day = "Paid late", not kept. Tests: `test/promises.test.ts`.

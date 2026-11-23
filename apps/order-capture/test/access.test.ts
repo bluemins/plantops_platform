@@ -47,6 +47,7 @@ const TABLE: [Action, boolean, boolean, boolean, boolean, boolean][] = [
   ["ledger_totals", true, false, false, false, true],
   ["reports", true, false, false, false, true],
   ["accounts_desk", true, false, false, false, true],
+  ["payment_promise", true, false, false, false, false],
   ["bill_link_view", true, false, false, false, true],
   ["bill_link", true, false, false, false, false],
   // customer page Part 2 (docs/CUSTOMER_PAGE_PHASE_PLAN.md): edit / comments owner only; shop location for the people
@@ -165,7 +166,7 @@ describe("the access table", () => {
 describe("Accounts", () => {
   const acc = ocUser(p.owner.tenantId, ["accounts"], "Kedar");
   const both = ocUser(p.owner.tenantId, ["order_desk", "accounts"], "Kedar");
-  const ACCOUNTS_MAY = ["accounts_desk", "read", "see_amounts", "view_customers", "ledger_view", "account_view", "bill_make", "payment_receive", "undo_delivered", "bill_cancel", "payment_cancel", "location_view", "location_save", "purchases_view", "purchase_enter", "purchases_received", "payables", "cash_view", "cash_enter", "cash_close", "collection_post", "brands_view"];
+  const ACCOUNTS_MAY = ["accounts_desk", "payment_promise", "read", "see_amounts", "view_customers", "ledger_view", "account_view", "bill_make", "payment_receive", "undo_delivered", "bill_cancel", "payment_cancel", "location_view", "location_save", "purchases_view", "purchase_enter", "purchases_received", "payables", "cash_view", "cash_enter", "cash_close", "collection_post", "brands_view"];
   it.each(TABLE)("%s: Accounts may only read orders and work on bills / payments", (action) => {
     expect(can(acc, action)).toBe(ACCOUNTS_MAY.includes(action));
   });

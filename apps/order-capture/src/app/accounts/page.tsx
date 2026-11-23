@@ -24,6 +24,8 @@ export default async function AccountsDeskPage() {
   const work = [
     { n: d.counts.delivered, label: "to bill", href: "/accounts/stage/delivered" },
     { n: d.customers_overdue, label: d.customers_overdue === 1 ? "customer overdue" : "customers overdue", href: "/accounts/dues?overdue=1" },
+    { n: d.promises_today, label: "promises due today", href: "/accounts/dues?promise=today" },
+    { n: d.promises_broken, label: "promises broken", href: "/accounts/dues?promise=broken" },
     { n: d.to_post, label: "collections to post", href: "/cash/post" },
     { n: d.gst_to_make, label: "GST invoices to make", href: "/bills/gst" },
   ];

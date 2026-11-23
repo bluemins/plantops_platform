@@ -2,12 +2,14 @@
 import { sql } from "drizzle-orm";
 import type { ModuleSummary } from "@plantops/types";
 import { deskCounts, deskDues, deskStageRows, type DeskStage } from "@/lib/accounts-desk";
+import { withPromises } from "@/lib/promises";
 import { flowRows, sortRows, type FlowFilter, type FlowOrder } from "@/lib/order-flow";
 import { requireAccess } from "./access";
 import { gstQueue } from "./bill-make";
 import { waitingToPost } from "./collections";
 import { withTenant } from "./db";
 import { istToday } from "./ledger";
+import { allPromises } from "./promises";
 import { flowData, receivablesData } from "./reports";
 import type { OcUser } from "./session";
 
@@ -15,11 +17,12 @@ const EVERY_ORDER: FlowFilter = { period: "all", from: "", to: "", customer: "",
 const rowsOf = (orders: FlowOrder[], today: string) => sortRows(flowRows(orders, today, { ...EVERY_ORDER, to: today }));
 
 async function dues(tenantId: string, today: string) {
-  const [data, phones] = await Promise.all([
+  const [data, promises, phones] = await Promise.all([
     receivablesData(tenantId),
+    allPromises(tenantId),
     withTenant(tenantId, (tx) => tx.execute<{ id: string; phone: string }>(sql`select id, phone from order_capture.customers where tenant_id = ${tenantId}`)),
   ]);
-  return deskDues(data, new Map(phones.rows.map((r) => [r.id, r.phone])), today);
+  return withPromises(deskDues(data, new Map(phones.rows.map((r) => [r.id, r.phone])), today), promises, data.payments, today);
 }
 
 export async function deskHome(user: OcUser, today = istToday()) {
@@ -28,6 +31,8 @@ export async function deskHome(user: OcUser, today = istToday()) {
   return {
     counts: deskCounts(rowsOf(orders, today), today),
     customers_overdue: owing.filter((r) => r.overdue > 0n).length,
+    promises_today: owing.filter((r) => r.promises.current?.state === "due_today").length,
+    promises_broken: owing.filter((r) => r.promises.current?.state === "broken").length,
     to_post: toPost,
     gst_to_make: gst.not_sent.length,
   };

@@ -2,14 +2,18 @@ import { redirect } from "next/navigation";
 import { phoneDisplay } from "@plantops/module-kit/phone";
 import { duesChoices, filterDues } from "@/lib/accounts-desk";
 import { money } from "@/lib/money";
+import { PROMISE_LABEL, type DeskDueWithPromise } from "@/lib/promises";
 import { dmy } from "@/lib/receivables";
 import { can } from "@/server/access";
 import { deskCustomerDues } from "@/server/accounts-desk";
+import { istToday } from "@/server/ledger";
+import { MAX_PROMISE_DAYS } from "@/server/promises";
 import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../../header";
 import { BackLink } from "../../parts";
 import { DeskTabs } from "../parts";
+import { PromiseForm } from "./promise-form";
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
@@ -25,7 +29,11 @@ export default async function CustomerDuesPage({ searchParams }: Props) {
   const f = { q: one(sp.q).slice(0, 100), place: one(sp.place).slice(0, 200), salesperson: one(sp.salesperson).slice(0, 100), overdue: one(sp.overdue) === "1" };
   const all = one(sp.all) === "1";
   const [plant, everyone] = await Promise.all([kit.branding(user.tenantId), deskCustomerDues(user)]);
-  const rows = filterDues(everyone, f);
+  const promise = one(sp.promise);
+  const filtered = filterDues(everyone, f) as DeskDueWithPromise[];
+  const rows = promise === "today" || promise === "broken" ? filtered.filter((r) => r.promises.current?.state === (promise === "today" ? "due_today" : "broken")) : filtered;
+  const today = istToday();
+  const lastDay = new Date(Date.parse(today) + MAX_PROMISE_DAYS * 86_400_000).toISOString().slice(0, 10);
   const shown = all ? rows : rows.slice(0, SHOW);
   const choices = duesChoices(everyone);
   const link = (x: { overdue?: boolean; all?: boolean }) => {
@@ -34,6 +42,7 @@ export default async function CustomerDuesPage({ searchParams }: Props) {
     if (f.place) u.set("place", f.place);
     if (f.salesperson) u.set("salesperson", f.salesperson);
     if (x.overdue ?? f.overdue) u.set("overdue", "1");
+    if (promise === "today" || promise === "broken") u.set("promise", promise);
     if (x.all) u.set("all", "1");
     const s = u.toString();
     return s ? `/accounts/dues?${s}` : "/accounts/dues";
@@ -50,6 +59,7 @@ export default async function CustomerDuesPage({ searchParams }: Props) {
       </p>
       <form method="get" className="space-y-2 rounded-xl border border-slate-200 bg-white p-3">
         {f.overdue && <input type="hidden" name="overdue" value="1" />}
+        {(promise === "today" || promise === "broken") && <input type="hidden" name="promise" value={promise} />}
         <label className="block text-xs text-slate-600">
           Search customer
           <input type="search" name="q" defaultValue={f.q} placeholder="Name, place or phone" className={field} />
@@ -94,6 +104,13 @@ export default async function CustomerDuesPage({ searchParams }: Props) {
               <span>Last paid: {c.last_paid ? dmy(c.last_paid) : "never"}</span>
             </div>
             {c.advance > 0n && <span className="inline-block rounded bg-green-100 px-2 py-0.5 text-xs font-bold text-green-900">Advance {money(c.advance)} held</span>}
+            {c.promises.current && (
+              <p className={`rounded-lg px-2 py-1.5 text-xs font-bold ${c.promises.current.state === "broken" ? "bg-red-100 text-red-900" : c.promises.current.state === "due_today" ? "bg-amber-100 text-amber-900" : "bg-sky-100 text-sky-900"}`}>
+                {PROMISE_LABEL[c.promises.current.state]}{c.promises.current.amount !== null ? ` ${money(c.promises.current.amount)}` : ""} on {dmy(c.promises.current.promised_on)}
+                {c.promises.current.received > 0n ? ` · ${money(c.promises.current.received)} received` : ""}
+              </p>
+            )}
+            {c.promises.counted > 0 && <p className="text-xs text-slate-600">Kept {c.promises.kept} of {c.promises.counted} promises</p>}
             <div className="grid grid-cols-4 gap-1">
               {tel ? <a href={tel} className={btn}>Call</a> : <span className={`${btn} text-slate-400`}>Call</span>}
               {wa ? <a href={wa} target="_blank" rel="noreferrer" className={btn}>WhatsApp</a> : <span className={`${btn} text-slate-400`}>WhatsApp</span>}
@@ -102,6 +119,19 @@ export default async function CustomerDuesPage({ searchParams }: Props) {
               ) : <span className={`${btn} text-slate-400`}>Receive payment</span>}
               <a href={`${c.href}?tab=statement`} className={btn}>Statement</a>
             </div>
+            {can(user, "payment_promise") && <PromiseForm customerKey={c.key} today={today} last={lastDay} again={!!c.promises.current} />}
+            {c.promises.history.length > 0 && (
+              <details className="text-xs text-slate-700">
+                <summary className="min-h-8 cursor-pointer font-semibold">Promise history ({c.promises.history.length})</summary>
+                <ul className="mt-1 space-y-1">
+                  {c.promises.history.map((p) => (
+                    <li key={p.id} className="border-t border-slate-100 pt-1">
+                      <strong>{PROMISE_LABEL[p.state]}</strong>: {dmy(p.promised_on)}{p.amount !== null ? `, ${money(p.amount)}` : ""} · by {p.by} on {dmy(p.created_on)}{p.note ? ` · ${p.note}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </article>
         );
       })}

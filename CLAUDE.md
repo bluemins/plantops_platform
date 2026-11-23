@@ -2518,3 +2518,10 @@ bill / Receive payment), and **Customer dues** (one card per customer, most over
 payment / Statement). Counts and per-customer amounts only: no plant-wide ₹ total, no CSV (owner). Summary view
 `accounts_desk`. No migration; SSO token unchanged. Notes: `apps/order-capture/NOTES.md`. Tests: Sales 1,423, platform 451.
 **Next:** Promise to pay (one new append-only table, approved by the owner 2026-11-23).
+
+### 2026-11-23 — Sales: Promise to pay (v0.87.0)
+Owner 2026-11-23. On Accounts desk → Customer dues, owners and Accounts note when a customer will pay (date ≤ 90 days,
+optional amount, note). State is worked out from payments (Promised, Due today, Kept, Paid late, Promise broken, Date
+changed); broken and due-today customers come first in the call list. Never changes a bill, payment or due. Sales migration
+`0028_payment_promises.sql` (approved: one append-only table, FORCE RLS, SELECT + INSERT). Platform and SSO token unchanged.
+Notes: `apps/order-capture/NOTES.md`. Tests: Sales 1,440.

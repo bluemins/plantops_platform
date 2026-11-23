@@ -78,6 +78,8 @@ export function describeChange(action: string, details: Record<string, unknown>)
         : `Shop location saved for ${show(details.name)}${locationHow(details)}`;
     case "customer.write_off":
       return `Written off ₹${show(details.amount)} for ${show(details.customer)} (${Array.isArray(details.bills) ? details.bills.join(", ") : ""}): ${show(details.reason)}`;
+    case "customer.promise":
+      return `Promise to pay noted for ${show(details.name)}: ${show(details.promised_on)}${details.amount ? `, ₹${show(details.amount)}` : ""}`;
     case "customer.reminders":
       return `Customer ${show(details.name)} (${phone(details.phone)}): ${details.reminders ? "agreed to WhatsApp reminders (on the phone)" : "WhatsApp reminders stopped"}`;
     case "customers.upload":
