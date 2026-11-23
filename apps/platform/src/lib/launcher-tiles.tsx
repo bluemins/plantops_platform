@@ -175,7 +175,14 @@ export function extraCards(roles: readonly string[], tiles: readonly Tile[]) {
     owner: owner && salesOpen,
     // Marketing staff who also hold an order role (their Sales tile shows the order work): a Customers card as well
     marketing: !owner && salesOpen && roles.includes("marketing_staff") && roles.some((r) => r === "order_desk" || r === "accounts" || r === "delivery_staff"),
+    // owners and Accounts: the Accounts desk card (owner, 2026-11-23)
+    accountsDesk: salesOpen && (owner || roles.includes("accounts")),
   };
+}
+
+/** Accounts desk (owner, 2026-11-23): order stages and customer dues for the Accounts staff, opened in Sales. */
+export function AccountsDeskCard({ summaryUrl, openHref }: { summaryUrl: string; openHref: string }) {
+  return <OwnerCard icon="💼" title="Accounts desk" text="Order stages and customer dues" summaryUrl={summaryUrl} openHref={openHref} />;
 }
 
 export function PlanCard({ plan }: { plan: PlanSummary }) {

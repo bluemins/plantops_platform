@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@plantops/ui";
 import { api } from "@/lib/api";
-import { ArrangeTiles, BoardCard, CustomersCard, extraCards, LauncherTiles, PlanCard, ReportsCard, type PlanSummary, type Tile } from "@/lib/launcher-tiles";
+import { AccountsDeskCard, ArrangeTiles, BoardCard, CustomersCard, extraCards, LauncherTiles, PlanCard, ReportsCard, type PlanSummary, type Tile } from "@/lib/launcher-tiles";
 import { NotificationBell, PushCard } from "@/lib/notifications-ui";
 import { turnOff } from "@/lib/push-client";
 
@@ -96,6 +96,10 @@ export default function HomePage() {
       {data.user.gets_alerts && <PushCard />}
 
       <BoardCard />
+
+      {cards.accountsDesk && (
+        <AccountsDeskCard summaryUrl="/api/launcher/accounts-desk" openHref={`/sso/start?module=order_capture&next=${encodeURIComponent("/accounts")}`} />
+      )}
 
       {cards.marketing && (
         <div className="grid gap-3 md:grid-cols-2">

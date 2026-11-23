@@ -72,6 +72,14 @@ export async function summaryForSuper(tenantId: string, moduleId: ModuleId) {
  * Capture ("reports" view). Owners only, and only when Order Capture is in the plant's plan. The same for
  * GET /api/launcher/customers - the owner's Customers card (docs/CUSTOMER_PAGE_PHASE_PLAN.md): "customers" view.
  */
+/** GET /api/launcher/accounts-desk - the Accounts desk card (owners + Accounts): counts from Sales, never plant money. */
+export async function accountsDeskSummaryForUser(user: CurrentUser) {
+  if (!user.roles.some((r) => r === "tenant_admin" || r === "accounts")) throw forbidden("The Accounts desk is for owners and Accounts");
+  const enabled = await withTenant(user.tenantId, (tx) => enabledModules(tx, user.tenantId));
+  if (!enabled.includes("order_capture")) throw forbidden("The Accounts desk needs Sales");
+  return fetchModuleSummary("order_capture", user.tenantId, "accounts_desk");
+}
+
 export async function reportsSummaryForUser(user: CurrentUser, view: "reports" | "customers" = "reports") {
   const what = view === "reports" ? "Reports" : "Customers";
   const owner = user.roles.includes("tenant_admin");

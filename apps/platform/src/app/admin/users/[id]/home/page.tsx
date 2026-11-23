@@ -68,6 +68,7 @@ export default function UserHomePreview() {
 
       <div className="grid gap-3 md:grid-cols-2">
         <StaticCard icon="📝" title="Plant board" text="Everyone can write · plan the next day" />
+        {cards.accountsDesk && <StaticCard icon="💼" title="Accounts desk" text="Order stages and customer dues" />}
         {cards.owner && <StaticCard icon="📊" title="Reports" text="Sales by item and customer" />}
         {(cards.owner || cards.marketing) && <StaticCard icon="👥" title="Customers" text="Details, bills, payments and statement for each customer" />}
       </div>

@@ -52,6 +52,11 @@ export default async function HomePage({ searchParams }: { searchParams: Search 
     <div className="space-y-4">
       <Header user={user} plant={plant} />
       <SectionTabs current="orders" waiting={waiting} bills={can(user, "ledger_view")} purchases={can(user, "purchases_view")} calls={can(user, "calls_view")} cash={can(user, "cash_view")} />
+      {can(user, "accounts_desk") && (
+        <a href="/accounts" className="flex min-h-12 items-center justify-between rounded-xl border border-(--brand) bg-white px-4 font-semibold text-(--brand)">
+          Accounts desk <span aria-hidden="true">→</span>
+        </a>
+      )}
       {can(user, "enter") && (
         <a href="/new" className="flex min-h-14 w-full items-center justify-center rounded-xl bg-(--brand) px-5 text-lg font-semibold text-(--brand-contrast) hover:bg-(--brand-hover)">
           + New order

@@ -2510,3 +2510,11 @@ that day but whose closing is still the last count's number is flagged: amber no
 count notification and the WhatsApp copy. Made-from items (empty bottle ← preform) only when both are unchanged. Rule
 `apps/floor-stock/src/lib/not-updated.ts`; no migration; platform and SSO token unchanged. Notes:
 `apps/floor-stock/NOTES.md`. Tests: Floor Stock 200 (+10).
+
+### 2026-11-23 — Sales: Accounts desk (v0.86.0)
+Owner 2026-11-23 (mock-up https://claude.ai/artifact/CGpGYjfaZdGYaUeCgwSHG6). A launcher card and `/accounts` in Sales for
+owners and **Accounts** (support reads): Today's work, how many orders are at each stage (a stage opens its orders with Make
+bill / Receive payment), and **Customer dues** (one card per customer, most overdue first, Call / WhatsApp / Receive
+payment / Statement). Counts and per-customer amounts only: no plant-wide ₹ total, no CSV (owner). Summary view
+`accounts_desk`. No migration; SSO token unchanged. Notes: `apps/order-capture/NOTES.md`. Tests: Sales 1,423, platform 451.
+**Next:** Promise to pay (one new append-only table, approved by the owner 2026-11-23).

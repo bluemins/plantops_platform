@@ -6,6 +6,7 @@
 //   Marketing staff ("marketing"): "766 customers" (info)  ·  "3 added this week" (ok)  ·  "120 without shop location"
 //   (info); never orders or the plant's money (its totals stay owner-only)
 import { sql } from "drizzle-orm";
+import { accountsDeskTile } from "./accounts-desk";
 import { purchasesTile } from "./purchase-reports";
 import type { ModuleSummary, SummaryView } from "@plantops/types";
 import { AMBER_AFTER_DAYS } from "@/lib/history";
@@ -97,6 +98,7 @@ async function customersSummary(tenantId: string): Promise<ModuleSummary> {
 export function summaryFor(tenantId: string, view: SummaryView, now = new Date()): Promise<ModuleSummary> {
   if (view === "reports") return reportsSummary(tenantId, now);
   if (view === "customers") return customersSummary(tenantId);
+  if (view === "accounts_desk") return accountsDeskTile(tenantId, istDay(now)); // counts only, never the plant's money
   if (view === "marketing") return marketingSummary(tenantId, now);
   if (view === "purchases") return purchasesTile(tenantId, now); // a Store keeper: purchases received, no money
   // "over 2 days" = the same rule as the amber cards: entered 2 whole days ago or more

@@ -4,6 +4,19 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.86.0 — 2026-11-23 — Accounts desk
+
+Owner, 2026-11-23 (mock-up https://claude.ai/artifact/CGpGYjfaZdGYaUeCgwSHG6). **No migration.** Sales + platform (a new
+summary view `accounts_desk` in `packages/types`); SSO token unchanged. Deploy Sales with or before the platform: until
+Sales has it, the new card says "Numbers unavailable".
+- **Accounts desk** (`/accounts`; owner, Accounts; support read-only): Today's work (to bill, customers overdue,
+  collections to post, GST invoices to make) and how many orders are at each stage; a stage opens its orders, oldest
+  first, with Make bill / Receive payment.
+- **Customer dues** (`/accounts/dues`): one card per customer who owes, most overdue first, with due, overdue, oldest
+  bill, last payment, advance held, search, place / salesperson / only-overdue filters, and Call, WhatsApp, Receive
+  payment, Statement. No plant-wide ₹ total and no CSV (owner).
+- Launcher card "Accounts desk" (counts only) for owners and Accounts, and a button on the Sales front page.
+
 ## v0.83.0 — 2026-11-20 — Write off dues, batch no. on delivery, Business Overview by month
 
 Owner, 2026-11-20 (mock-ups https://claude.ai/artifact/YcBpa2f8NdCh4GxTeHhCMt and

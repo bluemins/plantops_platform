@@ -1013,3 +1013,10 @@ recommended").
   the products on a customer's not-cancelled, non-free bill lines, Zoho bills through the matched Zoho contact
   (`coalesce(b.customer_id, zc.customer_id)`). The Brands card's "from orders" line is unchanged.
 - No migration; platform and SSO token unchanged. Tests: `test/customer-bulk.test.ts` (7); Sales 1,401 pass.
+
+## 2026-11-23 — Accounts desk (v0.86.0)
+Owner 2026-11-23. `/accounts`, `/accounts/stage/<stage>`, `/accounts/dues`; access row `accounts_desk` (owner, Accounts,
+support reads). Rules in `src/lib/accounts-desk.ts`, over the same data as Order to Payment (`flowData`) and Receivables
+(`receivablesData`), so the numbers match the owner's reports. Overdue orders overlap Billed / Part paid. "Paid this month"
+= fully paid in the current calendar month. No plant ₹ total, no CSV. No migration. Tests: `test/accounts-desk.test.ts`.
+**Next:** Promise to pay (one new append-only table, approved by the owner 2026-11-23).

@@ -255,7 +255,7 @@ export const SUMMARY_TOKEN_SECONDS = 60;
  */
 /** "reports" (v0.43.0) / "customers" (v0.44.0): the owner's Reports and Customers cards on the dashboard; only Order Capture
  * (Sales) is asked for them. "marketing" (v0.46.0): a Marketing staff tile in Sales (customer numbers, no plant money) */
-export const SummaryView = z.enum(["owner", "staff", "desk", "viewer", "reports", "customers", "marketing", "purchases"]);
+export const SummaryView = z.enum(["owner", "staff", "desk", "viewer", "reports", "customers", "marketing", "purchases", "accounts_desk"]);
 export type SummaryView = z.infer<typeof SummaryView>;
 export const SummaryRequestPayload = z.object({
   iss: z.literal(TOKEN_ISSUER),

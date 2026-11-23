@@ -298,7 +298,7 @@ export function readFlowParams(q: Record<string, string | undefined>, today = is
 }
 
 /** Every order with its live bill (PlantOps or imported from Zoho, alike), what settled it, and the brands on its lines. */
-async function flowData(tenantId: string): Promise<FlowOrder[]> {
+export async function flowData(tenantId: string): Promise<FlowOrder[]> {
   const names = new Map((await kit.products(tenantId)).map((p) => [p.id, p.name]));
   return withTenant(tenantId, async (tx) => {
     const orders = await tx.execute<{
