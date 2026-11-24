@@ -30,9 +30,8 @@ recommended). **Next: Phase 1 plan.** No code, database, permission or setting h
 - D12: "Ask your plant" is a question finder (2026-11-24).
 - The Accounts desk work is committed (v0.86.0, v0.87.0), so it no longer overlaps. Keep this feature in its own commits.
 
-**Phase 1 built 2026-11-24 (v0.88.0, not deployed).** P1-a/b/c as recommended. Next: deploy Sales, set
-`PLANT_ANSWERS_PLANTS` to plant 001's id on `order-capture`, the owner checks M2 against Receivables and copies one
-message. Then Phase 2 (money cards M1, M3–M5).
+**Phase 1 live 2026-11-24 (v0.88.0)**, switched on for plant 001. The owner checked M2 against Aging Summary: equal
+(₹58,550). Left: the owner copies one message into WhatsApp. Then Phase 2 (money cards M1, M3–M5), planned first.
 
 ## 1. The goal
 
@@ -441,5 +440,5 @@ The SSO token does not change.
 | Phase | Status |
 |---|---|
 | 0 | **Done 2026-11-24**: mock-ups approved, D7–D12 decided |
-| 1 | **Built 2026-11-24 (v0.88.0)**, P1-a/b/c as recommended; not deployed. Done when the owner checks M2 live |
+| 1 | **Live 2026-11-24 (v0.88.0)** for plant 001. M2 checked by the owner against Aging Summary (₹58,550, equal). Copy test still to do |
 | 2–15 | Not started |
