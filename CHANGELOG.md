@@ -4,6 +4,18 @@ One entry per release. Every hosted copy (`docs/deployments/`) runs one of these
 lists the new database migrations: run `./scripts/railway-migrate.sh <copy>` for each copy **before**
 deploying a release that has any (docs/DEPLOY.md, "Releasing an update").
 
+## v0.88.0 — 2026-11-24 — Plant answers, Phase 1
+
+Owner, 2026-11-24 (docs/MORNING_REPORT_PHASE_PLAN.md Phase 1, P1-a/b/c as recommended). **No migration.** Sales only;
+platform and SSO token unchanged. **New setting** on `order-capture`: `PLANT_ANSWERS_PLANTS` (plant ids; empty = off).
+- **Reports → Plant answers** (owner; support reads, logged, no Copy, no private questions): the 27 questions by area, the
+  unbuilt ones greyed with their phase.
+- **M2 "Which bills are over 30 days? Call these first"**: the Receivables rules (more than 30 days past due, still owing),
+  largest first, with Call / WhatsApp. Sentence, as-of time and a link to Receivables → Aging Details.
+- **Copy as WhatsApp message** (owner): names, places, bill numbers and days only; a last check refuses any amount or phone
+  number; a mobile inside a customer's name is masked (`xxxxxx3831`).
+- Every answer records how it was made (rules v1, wording v1), ready for AI later without a rewrite. No AI code.
+
 ## v0.87.0 — 2026-11-23 — Promise to pay
 
 Owner, 2026-11-23. **Migration:** Sales `0028_payment_promises.sql` (approved: one new table, FORCE RLS, `order_app` SELECT +

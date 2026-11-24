@@ -1025,3 +1025,12 @@ support reads). Rules in `src/lib/accounts-desk.ts`, over the same data as Order
 Migration `0028_payment_promises.sql` (approved by the owner): append-only, customer or Zoho contact, FORCE RLS. Access row
 `payment_promise` (owner, Accounts). Rules in `src/lib/promises.ts`: no amount = any payment meets it; a new date on or before
 the old day = "Date changed", not counted; money after the day = "Paid late", not kept. Tests: `test/promises.test.ts`.
+
+## 2026-11-24 — Plant answers Phase 1 (v0.88.0)
+Plan `docs/MORNING_REPORT_PHASE_PLAN.md`. No migration. Card list `src/lib/answers/cards.ts` (27 questions; fields with a
+privacy label only once a card is built); facts kept apart from wording (`facts.ts`, `word.ts`); Copy from `shareable` facts
+only, with a last guard against ₹ / phones (`copy.ts`); `rank.ts` is a type only until Phase 5. Server entry point
+`src/server/answers.ts` (`runCard`: switch `PLANT_ANSWERS_PLANTS`, access, built card, then facts). Access rows `answers`
+(owner, support), `answers_private`, `answers_copy` (owner). M2 = `openBillsAsOf` (now exported from
+`src/lib/receivables.ts`), age > 30 by due date. Pages `/reports/answers`, `/reports/answers/[id]`; the Reports page shows
+the section only when the plant is on. Tests: `test/answers-lib.test.ts`, `test/answers.test.ts`.

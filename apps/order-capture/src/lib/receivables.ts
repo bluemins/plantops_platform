@@ -284,10 +284,10 @@ export function customerBalances(d: RecData, o: { from: string; to: string; filt
 
 // ---------- 2. + 3. Aging ----------
 
-type OpenBill = RecBill & { due: bigint; age: number; band: number };
+export type OpenBill = RecBill & { due: bigint; age: number; band: number };
 
 /** Bills dated up to `asOf` that still owe something on that day, with their age. */
-function openBillsAsOf(d: RecData, asOf: string, basis: Basis, interval: Interval, filter: RecFilter): OpenBill[] {
+export function openBillsAsOf(d: RecData, asOf: string, basis: Basis, interval: Interval, filter: RecFilter): OpenBill[] {
   const settled = new Map<string, bigint>();
   for (const s of d.settles) if (s.on <= asOf) settled.set(s.bill_id, (settled.get(s.bill_id) ?? 0n) + s.amount);
   return d.bills

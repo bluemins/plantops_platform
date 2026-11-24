@@ -70,6 +70,13 @@ export const env = {
   get attendUrl() {
     return (process.env.ATTEND_URL ?? "").replace(/\/+$/, "");
   },
+  /**
+   * Plant answers (docs/MORNING_REPORT_PHASE_PLAN.md D9): the plant ids (tenant uuids, comma-separated) that have it.
+   * Empty = off everywhere. Another plant is switched on by adding its id here; no code change.
+   */
+  get plantAnswersPlants() {
+    return (process.env.PLANT_ANSWERS_PLANTS ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  },
   /** "off" = the bot may not create orders (403 ordering_off); its reads and alerts keep working */
   get botOrdersOff() {
     return (process.env.ORDER_BOT_ORDERS ?? "").trim().toLowerCase() === "off";

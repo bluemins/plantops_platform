@@ -2,13 +2,14 @@ import { redirect } from "next/navigation";
 import { REC_ABOUT, REC_KINDS, REC_TITLE } from "@/lib/receivables";
 import { PURCHASE_REPORT_ABOUT, PURCHASE_REPORT_KINDS, PURCHASE_REPORT_TITLE } from "@/server/purchase-reports";
 import { can } from "@/server/access";
+import { answersOn } from "@/server/answers";
 import { kit } from "@/server/kit";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../header";
 import { BusinessOverviewPanel } from "./business/overview";
 import { BackLink } from "../parts";
 
-type Section = "business" | "sales" | "receivables" | "purchases";
+type Section = "answers" | "business" | "sales" | "receivables" | "purchases";
 const SECTIONS: { id: Section; name: string; title: string; about: string; reports: { href: string; name: string; about: string }[]; filters: string }[] = [
   {
     id: "business",
@@ -63,6 +64,18 @@ const SECTIONS: { id: Section; name: string; title: string; about: string; repor
     filters: "period (month, quarter, financial year, custom) · print.",
   },
 ];
+/** Plant answers (docs/MORNING_REPORT_PHASE_PLAN.md): only for plants switched on (PLANT_ANSWERS_PLANTS) */
+const ANSWERS: (typeof SECTIONS)[number] = {
+  id: "answers",
+  name: "Plant answers",
+  title: "Plant answers",
+  about: "Questions PlantOps answers from what is already recorded, each with its date and source. Read-only.",
+  reports: [
+    { href: "/reports/answers", name: "All questions", about: "Money, orders, stock and more, by area" },
+    { href: "/reports/answers/M2", name: "Bills over 30 days", about: "Who to call first, oldest and largest" },
+  ],
+  filters: "none: each question picks its own customer, product or date. Copy as WhatsApp message leaves out amounts and phone numbers.",
+};
 const LATER = ["Payments received", "GST", "Stock", "Attendance & salary"];
 
 /** Reports (mock-up 2): sections on the left, the chosen section's reports on the right. Owner. */
@@ -70,7 +83,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const user = await requirePageUser("/reports");
   if (!can(user, "reports")) redirect("/");
   const sp = await searchParams;
-  const sec = SECTIONS.find((s) => s.id === sp.section) ?? SECTIONS[0]!;
+  const sections = answersOn(user.tenantId) && can(user, "answers") ? [...SECTIONS, ANSWERS] : SECTIONS;
+  const sec = sections.find((s) => s.id === sp.section) ?? sections[0]!;
   const plant = await kit.branding(user.tenantId);
   return (
     <div className="space-y-4">
@@ -80,7 +94,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <div className="flex flex-wrap gap-4">
         <nav aria-label="Report sections" className="flex w-full flex-col gap-1 rounded-2xl border border-slate-200 bg-white p-3 sm:w-60">
           <p className="px-2 py-1 text-xs font-bold tracking-wide text-slate-600">SECTIONS</p>
-          {SECTIONS.map((s) =>
+          {sections.map((s) =>
             s.id === sec.id ? (
               <span key={s.id} aria-current="page" className="flex justify-between rounded-lg bg-(--brand-soft) px-3 py-2 font-bold text-(--brand)">
                 {s.name} <span className="text-sm">{s.reports.length}</span>

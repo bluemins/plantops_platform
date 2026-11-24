@@ -52,6 +52,9 @@ export type Action =
   | "ledger_export" // bills / payments CSV
   | "ledger_totals" // the plant's totals: still due, overdue bills, received (owner 2026-11-06: owner only)
   | "reports" // Reports: sales by item / customer (owner 2026-11-07: owner only; support reads)
+  | "answers" // Reports → Plant answers (docs/MORNING_REPORT_PHASE_PLAN.md; owner only, support reads, D5 / D8)
+  | "answers_private" // its private cards: salary, attendance, applicants (owner only, never support; D8)
+  | "answers_copy" // Copy as WhatsApp message on an answer (owner only; support never copies, D8)
   | "accounts_desk" // Accounts desk: order stages + customer dues, no plant ₹ totals or CSV (owner 2026-11-23; support reads)
   | "payment_promise" // note when a customer said they will pay (owner 2026-11-23); never changes a bill or payment
   | "bill_link_view" // the Link bills to orders list (owner 2026-11-10; support reads)
@@ -131,6 +134,9 @@ export const ACCESS: Record<Action, readonly Who[]> = {
   ledger_export: ["owner"],
   ledger_totals: ["owner", "support"],
   reports: ["owner", "support"],
+  answers: ["owner", "support"],
+  answers_private: ["owner"],
+  answers_copy: ["owner"],
   accounts_desk: ["owner", "accounts", "support"],
   payment_promise: ["owner", "accounts"],
   bill_link_view: ["owner", "support"],

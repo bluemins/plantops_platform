@@ -2525,3 +2525,12 @@ optional amount, note). State is worked out from payments (Promised, Due today, 
 changed); broken and due-today customers come first in the call list. Never changes a bill, payment or due. Sales migration
 `0028_payment_promises.sql` (approved: one append-only table, FORCE RLS, SELECT + INSERT). Platform and SSO token unchanged.
 Notes: `apps/order-capture/NOTES.md`. Tests: Sales 1,440.
+
+### 2026-11-24 — Plant answers Phase 1: foundation + "Bills over 30 days" (v0.88.0) — built, not deployed
+Owner 2026-11-24 (Phase 0 done: D10 never copy staff answers, D11 8:30 am / 7 actions, D12 question finder; Phase 1 choices
+as recommended). Plan `docs/MORNING_REPORT_PHASE_PLAN.md`. Sales → Reports → **Plant answers** (owner; support reads,
+logged, no Copy, no private questions): the 27 questions, M2 working (Receivables rules, matches Aging Summary to the
+paisa), Copy as WhatsApp without amounts or phones. No AI. Switched on per plant by `PLANT_ANSWERS_PLANTS` on
+`order-capture` (plant 001 only for the trial). No migration; platform and SSO token unchanged. Tests: Sales 1,488 (+24).
+Checked on `pnpm dev` (plant 002, temporary bills, removed afterwards) at 390 / 1280 px, Accounts refused, support read-only.
+**Next:** deploy, set the setting for plant 001, the owner checks M2 against Receivables; then Phase 2 (money cards).
