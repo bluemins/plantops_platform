@@ -1,6 +1,6 @@
 # Plant Answers (Morning report + Ask your plant): complete phase plan
 
-Asked by the owner 2026-11-23. **Status: Phase 1 built (2026-11-24, v0.88.0).** We go **one phase at a time**. No code,
+Asked by the owner 2026-11-23. **Status: Phase 1 live (2026-11-24, v0.88.0), plant 001. Next: Phase 2 plan.** We go **one phase at a time**. No code,
 database, permission or setting changes until the owner says "start" for that phase.
 
 **Direction (owner, 2026-11-23): get the maximum without using AI.** Every phase below runs on PlantOps' own rules. No
@@ -12,26 +12,50 @@ screens or saved reports (section 3, "Ready for AI later"). No AI package, key o
 Replaces the "Daily action agent" idea in `docs/TODO.md` (2026-11-01). The model for the morning content is section 6 of
 `docs/ORDER_FLOW_LEAN_ANALYSIS.md`: each action comes with the reason behind it.
 
-## 0. Where we stopped (handover, 2026-11-23)
+## 0. Where we stopped (handover, 2026-11-24)
 
-**Read this first in the next session.** Status (2026-11-24): **Phase 0 done** (D10–D12 decided by the owner as
-recommended). **Next: Phase 1 plan.** No code, database, permission or setting has changed for this feature yet.
+**Read this first in the next session.** Status: **Phase 0 done, Phase 1 live (v0.88.0) for plant 001.** Next session
+starts **Phase 2 planning** (no code until the owner says "start").
 
-**Done:**
-- Complete plan covering all 27 questions, both ways of using it, and the limits.
-- Direction set by the owner: maximum **without AI**, built so AI can be added later without a rewrite (D3, D13).
+**Decided (all phases):**
+- Direction: maximum **without AI**, built so AI can be added later without a rewrite (D3, D13). No AI code until Phase 15.
+- D5 owner only. D7 copied message has no rupee amounts or phone numbers. D8 support reads (logged), no Copy, no private
+  cards. D9 per-plant switch, plant 001 only until the two-week trial ends. D10 attendance / salary / claims / applicant
+  cards never copied. D11 morning report 8:30 am IST, at most 7 actions. D12 "Ask your plant" is a question finder.
+- Phase 1 choices (owner 2026-11-24, as recommended): P1-a one working card (M2) in Phase 1; P1-b switch =
+  `PLANT_ANSWERS_PLANTS` setting on `order-capture`; P1-c the "rank" step is a type only until Phase 5.
 - Mock-ups approved (sample data): https://claude.ai/artifact/MtCX4J5Kp1wHTAtDKucd3W
-- D7: copied message has no rupee amounts or phone numbers.
-- D8: support reads and is logged, no Copy; private salary and attendance answers are owner only.
-- D9: per-plant switch, plant 001 only until the two-week trial ends.
 
-- D10: attendance, salary, claims and applicant cards are never copied (2026-11-24).
-- D11: morning report at 8:30 am IST, at most 7 actions (2026-11-24).
-- D12: "Ask your plant" is a question finder (2026-11-24).
-- The Accounts desk work is committed (v0.86.0, v0.87.0), so it no longer overlaps. Keep this feature in its own commits.
+**What is live (v0.88.0, `production` = `0d26868`, 2026-11-24):**
+- Sales → Reports → **Plant answers** (`/reports/answers`): the 27 questions by area, unbuilt ones greyed with their phase.
+- **M2 "Which bills are over 30 days? Call these first"** (`/reports/answers/M2`): sentence, totals, per customer bills /
+  days late / due / Call / WhatsApp, as-of time, link to Receivables → Aging Details, Copy as WhatsApp (owner).
+- Railway `order-capture`: `PLANT_ANSWERS_PLANTS=950ea907-0a74-48f6-aaaa-5308424049b4` (plant 001), set by the owner.
+- **Checked live by the owner (2026-11-24):** 42 bills, 29 customers, ₹58,550 = Aging Summary 31–45 (₹20,740) + Over 45
+  (₹37,810); the six customer rows compared match too.
 
-**Phase 1 live 2026-11-24 (v0.88.0)**, switched on for plant 001. The owner checked M2 against Aging Summary: equal
-(₹58,550). Left: the owner copies one message into WhatsApp. Then Phase 2 (money cards M1, M3–M5), planned first.
+**Where the code is** (Sales, `apps/order-capture`; details in its NOTES.md, "Plant answers Phase 1"):
+- `src/lib/answers/cards.ts` (the one card list + privacy labels), `facts.ts`, `word.ts` (sentences, `WORDING_VERSION`),
+  `copy.ts` (shareable facts only + last guard against ₹ / phones; masks a mobile inside a name), `rank.ts` (type only),
+  `m2.ts` (M2 facts from `openBillsAsOf` in `src/lib/receivables.ts`).
+- `src/server/answers.ts`: `runCard` (switch → access → built card → facts), `listCards`, `copyFor`, `RULES_VERSION`.
+- Access rows `answers` (owner, support), `answers_private`, `answers_copy` (owner) in `src/server/access.ts`.
+- Pages `src/app/reports/answers/page.tsx`, `[id]/page.tsx`; section on `src/app/reports/page.tsx` (only when switched on).
+- Tests `test/answers-lib.test.ts`, `test/answers.test.ts` (24).
+- **Adding a card:** add its `fields` + `source` in `cards.ts`, a sentence in `word.ts`, a facts function in
+  `FACTS` (`src/server/answers.ts`); the card-list test then requires labels and a sentence for it.
+
+**Open (small):**
+1. The owner's **Copy test** on M2: paste into WhatsApp, check names / places / bills / days only, no ₹ or phones.
+2. Not yet decided by the owner: masking a mobile inside a customer name in the copied text ("Retail Customer xxxxxx3831").
+   Recommended: keep.
+
+**Next session:**
+1. Ask the result of the Copy test (open item 1) and the masking OK (open item 2); then mark Phase 1 done in section 11.
+2. Write the **Phase 2 plan** (money cards M1, M3, M4, M5; section 7 "Phase 2") the same way as Phase 1's: what the owner
+   gets, choices with recommendations, pieces, tests, checks; reuse `customer-insights.ts`, `receivables.ts`, the cash book
+   and Business Overview; check each number against the existing report screen. No migration expected.
+3. Wait for the owner's "start".
 
 ## 1. The goal
 
