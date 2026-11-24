@@ -17,3 +17,6 @@ next-env.d.ts
 
 # Reference files (owner's own copies, kept out of git)
 refeDocs/
+
+# Ad video work files (large, not code)
+Ad/
