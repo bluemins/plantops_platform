@@ -1,7 +1,7 @@
 // Plant answers (docs/MORNING_REPORT_PHASE_PLAN.md Phase 1): the card list, M2's facts against Receivables, the
 // sentence and the Copy rules (no amounts, no phone numbers, private cards never). Pure, no database.
 import { describe, expect, it } from "vitest";
-import { CARDS, cardById, isBuilt, type CardDef } from "@/lib/answers/cards";
+import { allFields, CARDS, cardById, isBuilt, type CardDef } from "@/lib/answers/cards";
 import { copyText, CopyRefused, leakIn, maskPhones } from "@/lib/answers/copy";
 import { formatValue } from "@/lib/answers/facts";
 import { m2Facts } from "@/lib/answers/m2";
@@ -38,9 +38,9 @@ const phones = new Map([["c:a", "9000000001"], ["c:b", "9000000002"]]);
 const facts = m2Facts(data, phones, TODAY);
 
 describe("the card list", () => {
-  it("27 questions, unique ids, every one with an area, a title and the phase that builds it", () => {
-    expect(CARDS).toHaveLength(27);
-    expect(new Set(CARDS.map((c) => c.id)).size).toBe(27);
+  it("28 questions (M6 added by the owner 2026-11-28), unique ids, every one with an area, a title and the phase that builds it", () => {
+    expect(CARDS).toHaveLength(28);
+    expect(new Set(CARDS.map((c) => c.id)).size).toBe(28);
     for (const c of CARDS) expect(c.title.length > 0 && c.phase >= 1 && c.phase <= 11).toBe(true);
   });
   it("salary, attendance and applicant questions are private (D8, D10)", () => {
@@ -48,7 +48,7 @@ describe("the card list", () => {
   });
   it("every built card labels every fact; money is labelled money, phones personal; private cards carry a private fact", () => {
     for (const c of CARDS.filter(isBuilt)) {
-      for (const f of c.fields!) {
+      for (const f of allFields(c)) {
         expect(["shareable", "money", "personal", "private"]).toContain(f.privacy);
         if (f.kind === "money") expect(f.privacy).toBe("money");
         if (f.kind === "phone") expect(f.privacy).toBe("personal");
@@ -58,8 +58,14 @@ describe("the card list", () => {
       expect(c.source?.href.startsWith("/")).toBe(true);
     }
   });
-  it("Phase 1 builds M2 only", () => {
-    expect(CARDS.filter(isBuilt).map((c) => c.id)).toEqual(["M2"]);
+  it("Phases 1–3 build the money and order cards", () => {
+    expect(CARDS.filter(isBuilt).map((c) => c.id)).toEqual(["M1", "M2", "M3", "M4", "M5", "M6", "O1", "O2", "O3", "O4", "O5"]);
+  });
+  it("every fact of a built card, in every table, has a note saying what it is (owner 2026-11-28)", () => {
+    for (const c of CARDS.filter(isBuilt)) for (const f of allFields(c)) expect(f.note.length, `${c.id}.${f.key}`).toBeGreaterThan(10);
+  });
+  it("M4 and M6 are screen only: no Copy for anyone", () => {
+    expect(CARDS.filter((c) => c.noCopy).map((c) => c.id)).toEqual(["M4", "M6"]);
   });
 });
 

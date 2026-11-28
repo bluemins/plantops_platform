@@ -62,6 +62,17 @@ describe("lookup ticket", () => {
     expect((await ask({ to: "order_capture", scope: "day_report" }, basic("floor_stock", STOCK_SECRET))).status).toBe(403);
   });
 
+  it("Sales gets a stock_levels ticket for Floor Stock only (Plant answers O1, owner 2026-11-28)", async () => {
+    const r = await ask({ to: "floor_stock", scope: "stock_levels" }, SALES);
+    expect(r.status).toBe(200);
+    expect(r.body.url).toBe("https://stock.example.test");
+    expect(decodeJwt(r.body.ticket as string)).toMatchObject({ aud: "floor_stock", purpose: "lookup", tenant_id: A.tenantId, from: "order_capture", scope: "stock_levels" });
+    expect((await ask({ to: "attendance_salary", scope: "stock_levels" }, SALES)).status).toBe(403);
+    expect((await ask({ to: "floor_stock", scope: "stock_levels" })).status).toBe(403);
+    const noStock = await makePlant({ modules: ["order_capture"] });
+    expect((await ask({ to: "floor_stock", scope: "stock_levels" }, SALES, noStock.tenantId)).status).toBe(403);
+  });
+
   it("refused without module credentials or with a wrong secret", async () => {
     expect((await ask({ to: "order_capture", scope: "customers" }, {})).status).toBe(401);
     expect((await ask({ to: "order_capture", scope: "customers" }, basic("attendance_salary", "wrong"))).status).toBe(401);

@@ -2536,3 +2536,17 @@ Checked on `pnpm dev` (plant 002, temporary bills, removed afterwards) at 390 / 
 **Live 2026-11-24:** `PLANT_ANSWERS_PLANTS` = plant 001 on `order-capture` (set by the owner); the owner checked M2 live
 (42 bills, ₹58,550 = Aging Summary 31–45 + Over 45). Open: the owner's Copy test. **Next session:** Phase 2 plan (money
 cards M1, M3–M5); handover in the plan's section 0.
+
+### 2026-11-28 — Plant answers Phases 2 + 3: money and order cards (v0.89.0) — built, not deployed
+Owner 2026-11-28: Phase 2 "start" (M6 "cash in the box + sold today" added, P2-a…f as recommended, a note beside every
+number), Phase 3 "go ahead"; mock-up https://claude.ai/artifact/G2h1tbTPDDNX4jmmUHtPJi. Plan `docs/MORNING_REPORT_PHASE_PLAN.md`.
+- **Sales:** M1 who owes most / paying slower, M3 money in this week, M4 why cash is short (no Copy), M5 sales up or down,
+  M6 cash in the box + sold today (no Copy), O1 pending orders waiting too long + stock, O2 late to reorder, O3 stopped a
+  product, O4 orders by place, O5 a customer's usual order. Each uses its report's own rules and is tested against that
+  report on the same rows. Every number has a note saying what it is. No migration.
+- **New lookup scope `stock_levels`** (approved by the owner 2026-11-28): Sales → Floor Stock, the last count's
+  finished-goods closing stock per product, counts only (`LOOKUPS`, `StockLevels` in `packages/types`; Floor Stock
+  `GET /api/plantops/stock-levels`). SSO token unchanged.
+- **G4 fixed place list:** approved in principle; plan in the phase plan ("G4"), waiting for the owner's choices, then
+  mock-up and migration before code.
+- Tests: Sales 1,513, Floor Stock 202, platform 452. **Deploy order:** Floor Stock, platform, Sales.

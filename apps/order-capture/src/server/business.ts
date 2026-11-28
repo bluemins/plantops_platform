@@ -35,7 +35,7 @@ import type { OcUser } from "./session";
 const P = (s: string | null) => (s === null ? 0n : paise(s));
 const pick = <T extends string>(list: readonly T[], v: string | undefined, fallback: T): T => (list.includes(v as T) ? (v as T) : fallback);
 
-async function saleFacts(tx: OcTx, tenantId: string, from: string, to: string): Promise<SaleFact[]> {
+export async function saleFacts(tx: OcTx, tenantId: string, from: string, to: string): Promise<SaleFact[]> {
   const bills = await tx.execute<{ bill_date: string; customer_key: string | null; customer_name: string; href: string | null; brand: string | null; item_name: string; before: string; with_gst: string }>(sql`
     select b.bill_date::text,
            coalesce('c:' || cu.id::text, 'z:' || zc.id::text) as customer_key,
@@ -148,7 +148,7 @@ async function orderDates(tx: OcTx, tenantId: string, from: string, to: string) 
 }
 
 /** The first month with 10 or more sales bills: the plant's records really start there (Zoho history or PlantOps). */
-async function recordsFrom(tx: OcTx, tenantId: string): Promise<string | null> {
+export async function recordsFrom(tx: OcTx, tenantId: string): Promise<string | null> {
   const r = await tx.execute<{ m: string | null }>(sql`
     select min(m)::text as m from (
       select date_trunc('month', bill_date)::date as m from order_capture.bills

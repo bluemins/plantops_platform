@@ -259,3 +259,9 @@ everyone** who sees it. Mock-up: https://claude.ai/artifact/Skk5Sn1LBoBzUCmDbrws
   the count notification (title "Stock count saved: consumable not updated correctly (2)" unless low / check wins;
   body "Not updated: …"; Stock viewers only their sections' items), and the WhatsApp copy's last line.
 - Code: `src/server/not-updated.ts` (`materialSetup`, `notUpdatedFor`). Tests: `test/not-updated.test.ts`.
+
+## 2026-11-28 — Stock levels for Sales' Plant answers (v0.89.0)
+Owner 2026-11-28 (approved the lookup). `GET /api/plantops/stock-levels`, only with a platform lookup ticket for scope
+`stock_levels` from Sales: the newest count's latest version, closing stock of finished-goods items linked to a PlantOps
+product (`StockLevels` in `packages/types`), counts only. No schema change. Code `src/server/stock-levels.ts`; tests
+`test/stock-levels.test.ts`.

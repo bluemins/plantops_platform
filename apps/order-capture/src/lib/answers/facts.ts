@@ -12,6 +12,10 @@ export type Row = Record<string, Value>;
 export interface Facts {
   totals: Row;
   rows: Row[];
+  /** the card's other tables (CardDef.lists), by key */
+  lists?: Record<string, Row[]>;
+  /** a fuller note for a total on this answer ("Counted Thu 27 Nov, 9:10 pm by Anmol"); else the field's own note */
+  notes?: Record<string, string>;
 }
 
 /** how the answer was made: rules now; an AI-made answer would say so here, beside the rules one */
@@ -34,13 +38,19 @@ export interface CardResult {
 }
 
 export const fieldsOf = (card: CardDef, scope: FieldDef["scope"]) => (card.fields ?? []).filter((f) => f.scope === scope);
+/** The note shown beside a total: this answer's own, else the field's. */
+export const noteOf = (f: FieldDef, facts: Facts) => facts.notes?.[f.key] ?? f.note;
 
 /** One value as text. Money always carries ₹ and phones their digits, so the copy guard can recognise both. */
 export function formatValue(kind: FieldKind, v: Value | undefined): string {
   if (v === undefined || v === null || v === "") return "—";
   switch (kind) {
-    case "money":
-      return money(typeof v === "bigint" ? v : BigInt(v));
+    case "money": {
+      const p = typeof v === "bigint" ? v : BigInt(v);
+      return p < 0n ? `−${money(-p)}` : money(p);
+    }
+    case "percent":
+      return `${Number(v) > 0 ? "+" : Number(v) < 0 ? "−" : ""}${Math.abs(Number(v))} %`;
     case "days":
       return `${v} ${Number(v) === 1 ? "day" : "days"}`;
     case "date":

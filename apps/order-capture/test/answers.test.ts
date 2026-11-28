@@ -46,7 +46,7 @@ describe("switched on per plant (D9)", () => {
     expect((await refused(() => runCard(off.support, "M2", TODAY))).status).toBe(404);
   });
   it("the setting ignores spaces and letter case", () => {
-    expect(listCards(a.owner).length).toBe(27);
+    expect(listCards(a.owner).length).toBe(28);
   });
 });
 
@@ -82,7 +82,7 @@ describe("who may open it (D5, D8)", () => {
   });
   it("an unknown or unbuilt card is 404", async () => {
     expect((await refused(() => runCard(a.owner, "Z9", TODAY))).status).toBe(404);
-    expect((await refused(() => runCard(a.owner, "M1", TODAY))).status).toBe(404);
+    expect((await refused(() => runCard(a.owner, "S1", TODAY))).status).toBe(404);
     expect((await refused(() => runCard(a.owner, "T1", TODAY))).status).toBe(404);
   });
 });
@@ -94,7 +94,7 @@ describe("M2 on real bills", () => {
       ["Sahoo Stores", "B-0001", 70, 1200_00n, "9000000001"],
       ["Maa Tarini", "B-0002", 35, 800_00n, "9000000002"],
     ]);
-    expect(r).toMatchObject({ asOf: TODAY, missing: [], preparedBy: { by: "rules", rules: 1, wording: 1 } });
+    expect(r).toMatchObject({ asOf: TODAY, missing: [], preparedBy: { by: "rules", rules: 2, wording: 2 } });
     expect(r.sentence).toBe("2 bills from 2 customers are over 30 days late, ₹2,000 in all. Call Sahoo Stores first: ₹1,200, 70 days late.");
   });
   it("matches Receivables → Aging Summary (31–45 + Over 45) to the paisa", async () => {

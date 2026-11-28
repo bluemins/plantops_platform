@@ -13,7 +13,7 @@ import { agingSummary } from "@/lib/receivables";
 import { requireAccess } from "./access";
 import { addDays, daySheet, istToday } from "./cash";
 import { waitingToPost } from "./collections";
-import { withTenant } from "./db";
+import { withTenant, type OcTx } from "./db";
 import { kit } from "./kit";
 import { payablesReport } from "./purchase-reports";
 import { receivablesData } from "./reports";
@@ -38,6 +38,19 @@ export const OTHER_MODULES: { id: ModuleId; title: string }[] = [
   { id: "complaint_box", title: "Complaints" },
   { id: "job_applications", title: "Job applications" },
 ];
+
+/** Sold on each India day: bills (not cancelled, not opening balances) + van cash sales (sales − not paid), with GST. */
+export async function salesOnDays(tx: OcTx, tenantId: string, days: string[]) {
+  const r = await tx.execute<{ day: string; total: string }>(sql`
+      select d::text as day, (
+        coalesce((select sum(b.total) from order_capture.bills b where b.tenant_id = ${tenantId} and b.cancelled_at is null
+                    and not ${sql.raw(OPENING_SQL("b"))} and b.bill_date = d), 0)
+        + coalesce((select sum(v.sales - v.not_paid) from order_capture.van_reports v
+                      join order_capture.cash_entries ce on ce.tenant_id = v.tenant_id and ce.id = v.cash_entry_id and ce.cancelled_at is null
+                     where v.tenant_id = ${tenantId} and v.work_date = d and v.sales > v.not_paid), 0))::text as total
+        from unnest(${`{${days.join(",")}}`}::date[]) d`);
+  return r.rows;
+}
 
 /** One other module's part: "in", "off" (not switched on for the plant) or "unreachable" (no good answer in 5 s). */
 export async function fetchPart(tenantId: string, module: ModuleId, date: string): Promise<OtherPart> {
@@ -108,14 +121,7 @@ async function salesFacts(tenantId: string, date: string, now: Date): Promise<Om
              (select coalesce(sum(amount), 0)::text from order_capture.vendor_payments where tenant_id = ${tenantId} and cancelled_at is null and payment_date = ${date}::date) as paid`);
     // sales the same weekday a week before, for the headline's comparison (bills + van cash sales, with GST)
     const weekAgo = addDays(date, -7);
-    const salesOn = await tx.execute<{ day: string; total: string }>(sql`
-      select d::text as day, (
-        coalesce((select sum(b.total) from order_capture.bills b where b.tenant_id = ${tenantId} and b.cancelled_at is null
-                    and not ${sql.raw(OPENING_SQL("b"))} and b.bill_date = d), 0)
-        + coalesce((select sum(v.sales - v.not_paid) from order_capture.van_reports v
-                      join order_capture.cash_entries ce on ce.tenant_id = v.tenant_id and ce.id = v.cash_entry_id and ce.cancelled_at is null
-                     where v.tenant_id = ${tenantId} and v.work_date = d and v.sales > v.not_paid), 0))::text as total
-        from unnest(array[${date}::date, ${weekAgo}::date]) d`);
+    const salesOn = { rows: await salesOnDays(tx, tenantId, [date, weekAgo]) };
 
     const orders = new Map<string, { total: bigint; brands: Set<string> }>();
     const byBrand = new Map<string, { orders: Set<string>; lines: { quantity: number; unit: string }[] }>();

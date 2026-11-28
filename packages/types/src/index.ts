@@ -490,7 +490,7 @@ export type SupportTokenPayload = z.infer<typeof SupportTokenPayload>;
 // ---------- module-to-module lookups (docs/FIELD_DAY_PHASE_PLAN.md "the lookup ticket") ----------
 
 /** What one module may ask of another, server to server. */
-export const LookupScope = z.enum(["customers", "customer_location", "salary_totals", "day_report"]);
+export const LookupScope = z.enum(["customers", "customer_location", "salary_totals", "day_report", "stock_levels"]);
 export type LookupScope = z.infer<typeof LookupScope>;
 /**
  * The only module pairs that may ask each other anything: from → to → scopes. Attendance's field day log reads Sales'
@@ -503,7 +503,8 @@ export const LOOKUPS: Partial<Record<ModuleId, Partial<Record<ModuleId, readonly
   attendance_salary: { order_capture: ["customers", "customer_location"] },
   order_capture: {
     attendance_salary: ["salary_totals", "day_report"],
-    floor_stock: ["day_report"],
+    // stock_levels: Plant answers O1 (owner 2026-11-28): the last count's finished-goods closing stock per product
+    floor_stock: ["day_report", "stock_levels"],
     complaint_box: ["day_report"],
     job_applications: ["day_report"],
   },
@@ -523,6 +524,17 @@ export const DayReportPart = z.object({
   attention: z.array(z.string().max(200)).max(8),
 });
 export type DayReportPart = z.infer<typeof DayReportPart>;
+/**
+ * Floor Stock's last count for Sales' Plant answers (GET /api/plantops/stock-levels with a `stock_levels` lookup ticket):
+ * the closing stock of each finished product linked to a PlantOps product, as counted. Counts only, no money, no names
+ * of people. `counted_on` null = no count yet. Nothing is stored.
+ */
+export const StockLevels = z.object({
+  counted_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  counted_at: z.string().nullable(),
+  items: z.array(z.object({ sku_id: z.uuid(), name: z.string().max(120), unit: z.string().max(40), closing: z.number() })).max(500),
+});
+export type StockLevels = z.infer<typeof StockLevels>;
 export function lookupAllowed(from: ModuleId, to: ModuleId, scope: LookupScope): boolean {
   return LOOKUPS[from]?.[to]?.includes(scope) ?? false;
 }

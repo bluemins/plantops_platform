@@ -1034,3 +1034,22 @@ only, with a last guard against ₹ / phones (`copy.ts`); `rank.ts` is a type on
 (owner, support), `answers_private`, `answers_copy` (owner). M2 = `openBillsAsOf` (now exported from
 `src/lib/receivables.ts`), age > 30 by due date. Pages `/reports/answers`, `/reports/answers/[id]`; the Reports page shows
 the section only when the plant is on. Tests: `test/answers-lib.test.ts`, `test/answers.test.ts`.
+
+## 2026-11-28 — Plant answers Phases 2 + 3 (v0.89.0)
+Owner 2026-11-28: Phase 2 "start", Phase 3 "go ahead", M6 added, P2-a…f as recommended, a note beside every number; the
+Floor Stock lookup approved. Mock-up https://claude.ai/artifact/G2h1tbTPDDNX4jmmUHtPJi. No migration; SSO token unchanged.
+- **Card format:** every `FieldDef` has a `note` (what the number is; tests require one); an answer may give a fuller one
+  per total (`Facts.notes`, `noteOf`). Extra tables per card (`CardDef.lists`, `Facts.lists`; `copy: false` keeps one out
+  of the message), `rowsTitle` / `rowsNote`, kind `percent`, `noCopy` (M4, M6: no Copy for anyone). 28 cards (M6 new).
+- **M1** `customerBalances` (owe, as of today) + the customer page's paying rule (`customerInsights` trend) per customer;
+  **M3** payments + van cash sales, Monday to today vs the same days last week, waiting collections apart (P2-a, P2-b);
+  **M4** the last close vs the close before, entries between them biggest first, marks (cancelled after the close, van
+  short, ₹2,000+, staff cash, for an earlier day); **M5** `saleFacts` before GST, this month so far vs the same days last
+  month, 1st–3rd = last month vs the one before (P2-f), last year only with full records; **M6** the day sheet's cash
+  (counted / expected) + the Day report's sold rule (`salesOnDays`, moved out of `src/server/day-report.ts`).
+- **O1** pending orders ≥ 48 h + Floor Stock's last count (`fetchStock`, scope `stock_levels`); **O2 / O3 / O5**
+  `plantBuying` = every customer's Buying & paying as the customer page reads it; **O4** orders by place (case and
+  spaces folded, look-alikes from `lookAlikePlaces`). Pickers on the card page (O3 product, O4 period, O5 search).
+- Code: `src/lib/answers/money-cards.ts`, `order-cards.ts`, `src/server/answers-data.ts`; `saleFacts` / `recordsFrom`
+  exported from `src/server/business.ts`. Tests: `test/answers-cards.test.ts` (each card against its report on the same
+  rows), `test/answers-rules.test.ts`.
