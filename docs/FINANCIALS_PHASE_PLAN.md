@@ -4,7 +4,8 @@ Asked by the owner 2026-11-20: "Balance sheet (cash, receivables, inventory, fix
 P&L (sales, cost of goods sold, operating expenses, taxes, net income). If any data is missing, plan something for the
 owner to enter it, so we get a proper view."
 
-Status: **plan, waiting for the owner's decisions (section 2).** Nothing built. Mock-ups come after the decisions, before
+Status: **D2–D8 decided by the owner 2026-11-28 (D3 changed to owner only); D1 open until the CA's computation sheets
+are read (section 2).** Nothing built. Mock-ups come after the decisions, before
 any code (rule: mock-up before UI).
 
 **Break-even planner (section 8, owner 2026-11-28): top priority after the Morning report plan.** It needs D1–D8, F1 and
@@ -51,6 +52,39 @@ lets the owner compare the two.
 | D6 | Depreciation | **Income-tax WDV rates** by asset group (plant & machinery 15 %, vehicles 15 %, building 10 %, furniture 10 %, computers 40 %), owner can change per asset | Same as the CA uses, so the figures come close to the CA's. |
 | D7 | Opening capital | **Worked out** = opening assets − opening liabilities (the CA's figure should match) | A proprietor rarely knows "capital" separately. |
 | D8 | Month close | A **Month close checklist** page that lists what is missing for a month (bank balance, EMIs, electricity, last-day stock count, salary paid) | The owner can see whether the P&L for a month is complete before trusting it. |
+
+**Owner's answers (2026-11-28):**
+
+| # | Decided |
+|---|---|
+| D1 | **Open.** The owner has the CA's **income-tax computation sheets for the last two years** (no separate balance sheet mentioned) and asks whether they are enough. See "D1: working from the computation sheet" below. |
+| D2 | As recommended: **inside Sales** (Reports → Business Overview + a Books tab). |
+| D3 | **Owner only, changed from the recommendation**: only the owner enters the figures and only the owner sees the P&L, Balance Sheet, assets and loans. Accounts gets nothing new. PlantOps support reads (logged), as on every report. |
+| D4 | As recommended: **monthly closing balance** typed from the statement (+ optional file). |
+| D5 | As recommended: **prices from purchase bills** (last rate, purchase item ↔ Floor Stock item link); finished goods from the "Can make" recipe. |
+| D6 | As recommended: **income-tax WDV rates**, the CA's method. |
+| D7 | As recommended: **capital worked out** (assets − liabilities), shown beside the CA's figure. |
+| D8 | As recommended: **Month close checklist**. |
+
+**D1: working from the computation sheet.** A computation sheet shows the year's profit, the income-tax depreciation
+schedule (each block's written-down value) and the tax. That covers part of the opening figures:
+
+| Opening figure on 1 Apr 2026 | From the computation sheet? | Otherwise from |
+|---|---|---|
+| Fixed assets (WDV per block) | ✅ the depreciation schedule's closing WDV for FY 2025-26 | — |
+| Last two years' profit (to compare with PlantOps' P&L) | ✅ | — |
+| Customers owe / vendors owed on 31 Mar 2026 | ❌ | Already in PlantOps (Zoho invoices, payments, purchases imported) |
+| Bank balances on 31 Mar 2026 | ❌ | The bank statement's 31 Mar balance (owner types it, F3) |
+| Loans outstanding on 31 Mar 2026 | ❌ | Loan statement / EMI schedule (F5) |
+| Stock on 31 Mar 2026 | Maybe (if the sheet states closing stock) | Else the owner's estimate, marked as an estimate (no Floor Stock count then) |
+| Cash in hand on 31 Mar 2026 | Maybe | Else the owner's figure |
+| Capital | Worked out (D7) | — |
+
+Recommended: **start the books on 1 Apr 2026** using the FY 2025-26 computation sheet plus the statements above. The
+earlier year's sheet is kept only for comparison. **To confirm, the owner puts the two sheets (PDF or photos) in
+`refeDocs/ca/`** (the `refeDocs/` folder is git-ignored, so they are never committed); Claude reads them and lists
+exactly which figures they give. If the sheets turn out to have no closing stock or depreciation schedule, the CA can be
+asked for those two numbers only.
 
 ---
 
@@ -227,7 +261,7 @@ Plant answers later gets a card from it ("Am I on the way to break even this mon
 | Order | Blocker | Why the planner needs it | Where |
 |---|---|---|---|
 | 0 | **Morning report plan finished** | Owner's order (2026-11-28) | `docs/MORNING_REPORT_PHASE_PLAN.md` |
-| 1 | **Financials decisions D1–D8** (section 2) | F1 / F2 can't start without them | This plan |
+| 1 | **Financials decisions D1–D8** (section 2): D2–D8 decided 2026-11-28; **D1 waits for the CA's computation sheets** (F1 and F2 can start without D1; only F6's opening balances need it) | F1 / F2 can't start without them | This plan |
 | 2 | **F1**: purchase item kind, expense type → P&L group, **Other expenses** (electricity, rent, phone, EMI as a repeat monthly expense until F5) | Electricity, rent and EMI are not in PlantOps today; materials must be told apart from equipment | Section 3, F1 |
 | 3 | **F2, the price part only**: purchase item ↔ Floor Stock item link, stock prices, recipe cost per box (D5); the `stock_quantities` lookup (production per month) | Cost of one box; boxes made for electricity per box | Section 3, F2 (stock value on the Balance Sheet can follow later) |
 | 4 | **Salary by staff type** from Attendance: monthly / fixed vs per-day totals for a paid month | Fixed vs per-box salary (BE-D6). Today's `salary_totals` scope gives one total; needs the split (Attendance answer change, **ask**) | Attendance `GET /api/plantops/salary-totals` |
