@@ -17,7 +17,8 @@ Replaces the "Daily action agent" idea in `docs/TODO.md` (2026-11-01). The model
 **Read this first in the next session.** Status: **Phase 0 done, Phase 1 live (v0.88.0) for plant 001. Phases 2 + 3
 built 2026-11-28 (v0.89.0, not deployed):** M1, M3, M4, M5, M6 and O1–O5, a note beside every number, the Floor Stock
 `stock_levels` lookup (approved by the owner the same day). **G4 (fixed place list)** approved in principle: plan in
-section 7 ("G4"), waiting for the owner's choices G4-a…d, mock-up and migration before code.
+section 7 ("G4"), G4-a…d decided as recommended (owner 2026-11-28); mock-up and migration shown before code.
+**Next session (owner 2026-11-28): Phases 4 and 5 together** (stock cards S1–S4 + the 8:30 morning report).
 
 **Decided (all phases):**
 - Direction: maximum **without AI**, built so AI can be added later without a rewrite (D3, D13). No AI code until Phase 15.
@@ -61,7 +62,10 @@ section 7 ("G4"), waiting for the owner's choices G4-a…d, mock-up and migratio
 2. **Deploy v0.89.0** when the owner says so: Floor Stock first (its new endpoint), then the platform (the new lookup
    scope in `packages/types`), then Sales. No migration, no new setting. Then the owner checks each card against its
    report on the live copy (Phase 2 "Done when", plus O1 against Pending and Floor Stock's last count).
-3. G4: the owner's choices G4-a…d, then the mock-up and the migration shown before any code.
+3. **Phases 4 + 5 together** (owner 2026-11-28): one plan for both, in plan mode; Phase 5 needs the approvals listed
+   in section 10 (migration for morning reports and marks, the 8:30 job, the notification kind).
+4. G4 (decided as recommended): the Places screen mock-up, then the migration shown, after or beside Phases 4 + 5 as the
+   owner prefers.
 
 **After Phases 4 and 5 (owner, 2026-11-28): the Break-even planner starts**, built during the two-week trial (Phase 6),
 in a new session. Handover: `docs/FINANCIALS_PHASE_PLAN.md` section 0 (Financials D1–D8 all decided; BE-D1…BE-D6 open;
@@ -462,7 +466,7 @@ to vendors (P1, Phase 8).
   before; spellings that differ only by case or spaces are one place; Order flow check's look-alike rule (one letter
   apart) lists the rest. **G4 (fixed place list) approved in principle 2026-11-28; its plan below, not built yet.**
 
-### G4: a fixed place list (approved in principle by the owner 2026-11-28; plan, waiting for the owner's choices)
+### G4: a fixed place list (owner 2026-11-28: approved, G4-a…d as recommended; mock-up and migration next)
 **Why:** O4 and route planning count "Khurda", "Khordha" and "Khurdha" as three places.
 
 **Recommended shape (smallest change that fixes it for good):**
@@ -476,7 +480,7 @@ to vendors (P1, Phase 8).
    place?" before saving. Customers keep their place as text (no link column), so the bot, CSV, Drop, field day and
    every report keep working unchanged.
 
-**Choices for the owner:**
+**Choices (decided by the owner 2026-11-28: all as recommended):**
 
 | # | Choice | Recommended | Why |
 |---|---|---|---|
