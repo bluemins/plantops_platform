@@ -423,6 +423,8 @@ export const NOTIFICATION_KINDS: Record<
   "order_capture.drop_push_failed": { module: "order_capture", label: "Drop: pushes to shops' phones are failing", bellOnly: true },
   // owners only (sent with only_listed to the plant's owners): the evening Day report (owner, 2026-11-16)
   "order_capture.day_report": { module: "order_capture", label: "Day report (evening)", roles: ["tenant_admin"] },
+  // owners only (only_listed to the plant's owners): the 8:30 am morning report, Plant answers Phase 5 (owner, 2026-11-28)
+  "order_capture.morning_report": { module: "order_capture", label: "Morning report (8:30 am)", roles: ["tenant_admin"] },
   "attendance_salary.corrected": { module: "attendance_salary", label: "Your attendance was changed", aboutYou: true },
   "attendance_salary.outside": { module: "attendance_salary", label: "Mark refused: outside the plant", bellOnly: true },
   "attendance_salary.no_exit": { module: "attendance_salary", label: "People who didn't mark OUT (morning)", bellOnly: true },
@@ -490,7 +492,7 @@ export type SupportTokenPayload = z.infer<typeof SupportTokenPayload>;
 // ---------- module-to-module lookups (docs/FIELD_DAY_PHASE_PLAN.md "the lookup ticket") ----------
 
 /** What one module may ask of another, server to server. */
-export const LookupScope = z.enum(["customers", "customer_location", "salary_totals", "day_report", "stock_levels"]);
+export const LookupScope = z.enum(["customers", "customer_location", "salary_totals", "day_report", "stock_levels", "stock_answers"]);
 export type LookupScope = z.infer<typeof LookupScope>;
 /**
  * The only module pairs that may ask each other anything: from → to → scopes. Attendance's field day log reads Sales'
@@ -504,7 +506,9 @@ export const LOOKUPS: Partial<Record<ModuleId, Partial<Record<ModuleId, readonly
   order_capture: {
     attendance_salary: ["salary_totals", "day_report"],
     // stock_levels: Plant answers O1 (owner 2026-11-28): the last count's finished-goods closing stock per product
-    floor_stock: ["day_report", "stock_levels"],
+    // stock_answers: Plant answers S1–S4 + the morning report (owner 2026-11-28, P4-a): count status, materials not
+    // updated, Can make and days of stock. Counts only: no money, no phones
+    floor_stock: ["day_report", "stock_levels", "stock_answers"],
     complaint_box: ["day_report"],
     job_applications: ["day_report"],
   },
@@ -535,6 +539,59 @@ export const StockLevels = z.object({
   items: z.array(z.object({ sku_id: z.uuid(), name: z.string().max(120), unit: z.string().max(40), closing: z.number() })).max(500),
 });
 export type StockLevels = z.infer<typeof StockLevels>;
+/**
+ * Floor Stock's stock facts for Sales' Plant answers S1–S4 and the morning report (GET /api/plantops/stock-answers with
+ * a `stock_answers` lookup ticket, owner 2026-11-28). Counts only: no money, no phone numbers; `by` is the name of whoever
+ * counted. `days` = yesterday's and today's count day (today first counts from 5 am IST). Days of stock are "about", at the
+ * rate of the last 28 days. Nothing is stored.
+ */
+const YMD = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+export const StockAnswers = z.object({
+  count_day: YMD,
+  days: z
+    .array(
+      z.object({
+        date: YMD,
+        done: z.boolean(),
+        counted_at: z.string().nullable(),
+        by: z.string().max(100).nullable(),
+        corrections: z.number().int().min(0),
+        not_updated: z.array(z.object({ name: z.string().max(120), unit: z.string().max(40), closing: z.number(), expected: z.number().nullable(), also: z.array(z.string().max(120)).max(10) })).max(200),
+      }),
+    )
+    .max(2),
+  last_counted_on: YMD.nullable(),
+  history: z.object({ counted_days: z.number().int().min(0), from: YMD.nullable(), to: YMD.nullable(), enough: z.boolean() }),
+  products: z
+    .array(
+      z.object({
+        sku_id: z.uuid().nullable(),
+        item_id: z.uuid(),
+        name: z.string().max(120),
+        unit: z.string().max(40),
+        closing: z.number().nullable(),
+        can_make: z.object({ state: z.enum(["ok", "no_recipe", "problem"]), boxes: z.number().nullable(), bottles: z.number().nullable(), limiting: z.array(z.string().max(120)).max(20), problems: z.array(z.string().max(200)).max(20) }),
+        sold_per_day: z.number().nullable(),
+        days_of_stock: z.number().nullable(),
+        why: z.enum(["ok", "not_sold", "not_enough_history", "not_counted"]),
+      }),
+    )
+    .max(300),
+  materials: z
+    .array(
+      z.object({
+        item_id: z.uuid(),
+        name: z.string().max(120),
+        unit: z.string().max(40),
+        closing: z.number().nullable(),
+        per_day: z.number().nullable(),
+        days_left: z.number().nullable(),
+        why: z.enum(["ok", "no_recipe", "not_used", "not_enough_history", "not_counted", "measure"]),
+      }),
+    )
+    .max(500),
+});
+export type StockAnswers = z.infer<typeof StockAnswers>;
 export function lookupAllowed(from: ModuleId, to: ModuleId, scope: LookupScope): boolean {
   return LOOKUPS[from]?.[to]?.includes(scope) ?? false;
 }

@@ -8,12 +8,14 @@ import type { CardResult, Facts } from "@/lib/answers/facts";
 import { m2Facts } from "@/lib/answers/m2";
 import { m1Facts, m3Facts, m4Facts, m5Facts, m5Periods, m6Facts, mondayOf } from "@/lib/answers/money-cards";
 import { o1Facts, o2Facts, o3Choices, o3Facts, o4Dates, o4Facts, o4Period, O4_PERIOD_LABEL, O4_PERIODS, o5Facts } from "@/lib/answers/order-cards";
+import { s1Facts, s2Facts, s3Facts, s4Facts, stockMissing } from "@/lib/answers/stock-cards";
 import { WORDING_VERSION, word } from "@/lib/answers/word";
 import { can, requireAccess } from "./access";
 import {
   cashCheckRows,
   cashNow,
   fetchStock,
+  fetchStockAnswers,
   findCustomers,
   moneyInRows,
   ordersByPlace,
@@ -32,7 +34,7 @@ import { receivablesData } from "./reports";
 import type { OcUser } from "./session";
 
 /** the facts rules; bumped when a card's calculation changes, so saved reports say which rules made them */
-export const RULES_VERSION = 2;
+export const RULES_VERSION = 3;
 
 /** D9: switched on per plant (PLANT_ANSWERS_PLANTS), off by default */
 export const answersOn = (tenantId: string) => env.plantAnswersPlants.includes(tenantId.toLowerCase());
@@ -126,6 +128,22 @@ const FACTS: Record<string, (user: OcUser, today: string, input: CardInput) => P
     const c = list[0];
     if (!c) return { facts: { totals: {}, rows: [] }, missing: ["No orders or bills for this customer yet."], choices: { customers, picked: key } };
     return { facts: o5Facts(c, lastRates.get(key) ?? new Map()), missing: [], choices: { customers, picked: key } };
+  },
+  S1: async (user) => {
+    const [orders, st] = await Promise.all([pendingOrders(user.tenantId), fetchStockAnswers(user.tenantId)]);
+    return { facts: s1Facts(orders, st), missing: stockMissing(st) };
+  },
+  S2: async (user) => {
+    const st = await fetchStockAnswers(user.tenantId);
+    return { facts: s2Facts(st), missing: stockMissing(st, true) };
+  },
+  S3: async (user) => {
+    const st = await fetchStockAnswers(user.tenantId);
+    return { facts: s3Facts(st), missing: st.state === "in" ? [] : stockMissing(st) };
+  },
+  S4: async (user) => {
+    const st = await fetchStockAnswers(user.tenantId);
+    return { facts: s4Facts(st), missing: stockMissing(st, true) };
   },
 };
 

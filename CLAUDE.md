@@ -2550,3 +2550,15 @@ number), Phase 3 "go ahead"; mock-up https://claude.ai/artifact/G2h1tbTPDDNX4jmm
 - **G4 fixed place list:** approved in principle; plan in the phase plan ("G4"), waiting for the owner's choices, then
   mock-up and migration before code.
 - Tests: Sales 1,513, Floor Stock 202, platform 452. **Deploy order:** Floor Stock, platform, Sales.
+
+### 2026-11-28 — Plant answers Phases 4 + 5: stock cards + 8:30 morning report (v0.90.0) — built, not deployed
+Owner 2026-11-28: plan approved (P4-a…e, P5-a…d as recommended), mock-up OK (https://claude.ai/artifact/TLZ4DyBSEDRjPQsczoLMNw),
+migration approved. **S1–S4** in Sales (what to make, materials running out "at this rate", last night's count +
+materials not updated, over 60 days of stock without ₹) from Floor Stock's own rules through a new lookup scope
+`stock_answers` (`StockAnswers` in `packages/types`; Floor Stock `GET /api/plantops/stock-answers`, days of stock in
+`src/lib/runway.ts`). **Morning report:** priority rules pick at most 7 actions (`rankRules`); Sales migration
+`0029_morning_reports.sql` (`morning_reports` once per plant per day + `morning_report_marks` Useful / Not useful; FORCE
+RLS, SELECT + INSERT only); `POST /api/cron/morning-report` (cron-job.org row 15, 08:30 IST, safe twice); kind
+`order_capture.morning_report` (owners, push); page `/reports/answers/morning`. Copy has no ₹, phones or staff names.
+SSO token unchanged. Tests: Sales 1,531, Floor Stock 208, platform 453; typecheck and builds pass. Not yet checked on
+`pnpm dev` in a browser. **Deploy:** Sales migration `0029`, then Floor Stock → platform → Sales, then cron row 15.

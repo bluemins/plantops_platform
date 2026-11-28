@@ -9,7 +9,7 @@ import type { StockUser } from "./session";
 import { dayView, type DayRow } from "./views";
 
 /** The owner's view of the plant, for reading only (never used to write). */
-const reader = (tenantId: string): StockUser => ({
+export const reader = (tenantId: string): StockUser => ({
   tenantId,
   userId: "00000000-0000-0000-0000-000000000000",
   name: "Day report",

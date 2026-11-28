@@ -4,12 +4,13 @@
 // changed, sent or stored.
 import { sql } from "drizzle-orm";
 import { fetchLookupTicket } from "@plantops/auth";
-import { StockLevels } from "@plantops/types";
+import { StockAnswers, StockLevels } from "@plantops/types";
 import { customerInsights, type InsightLine, type InsightPurchase } from "@/lib/customer-insights";
 import { paise, OPENING_SQL } from "@/lib/ledger";
 import type { M3Payment, M4Close, M4Entry, M6Cash, PayBill } from "@/lib/answers/money-cards";
 import { orderRef } from "@/lib/order-flow";
 import type { CustomerBuying, O1Order, O4Order, StockAnswer } from "@/lib/answers/order-cards";
+import type { StockFacts } from "@/lib/answers/stock-cards";
 import { addDays, closesOf, daySheet } from "./cash";
 import { collectionsList } from "./collections";
 import { salesOnDays } from "./day-report";
@@ -178,6 +179,19 @@ export async function fetchStock(tenantId: string): Promise<StockAnswer> {
     const res = await fetch(new URL("/api/plantops/stock-levels", t.url), { headers: { authorization: `Bearer ${t.ticket}` }, signal: AbortSignal.timeout(5_000) });
     if (!res.ok) return { state: "unreachable" };
     return { state: "in", levels: StockLevels.parse(await res.json()) };
+  } catch {
+    return { state: "unreachable" };
+  }
+}
+
+/** Floor Stock's stock facts for S1–S4 and the morning report (scope stock_answers, owner 2026-11-28). Never stored. */
+export async function fetchStockAnswers(tenantId: string): Promise<StockFacts> {
+  try {
+    const t = await fetchLookupTicket(kit.creds(), tenantId, "floor_stock", "stock_answers");
+    if (!t) return { state: "off" };
+    const res = await fetch(new URL("/api/plantops/stock-answers", t.url), { headers: { authorization: `Bearer ${t.ticket}` }, signal: AbortSignal.timeout(8_000) });
+    if (!res.ok) return { state: "unreachable" };
+    return { state: "in", s: StockAnswers.parse(await res.json()) };
   } catch {
     return { state: "unreachable" };
   }

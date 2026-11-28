@@ -25,6 +25,10 @@ export default async function PlantAnswersPage() {
           came from. Nothing is changed or sent.
         </p>
       </div>
+      <a href="/reports/answers/morning" className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-(--brand) px-4 font-semibold text-(--brand-contrast)">
+        <span>Morning report: what to do today</span>
+        <span aria-hidden="true">›</span>
+      </a>
       {AREAS.map((area) => {
         const list = cards.filter((c) => c.area === area);
         if (!list.length) return null;

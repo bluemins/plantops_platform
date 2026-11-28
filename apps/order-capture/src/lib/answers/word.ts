@@ -3,11 +3,12 @@
 import { dmy } from "../receivables";
 import { formatValue, type Facts, type Value } from "./facts";
 
-export const WORDING_VERSION = 2;
+export const WORDING_VERSION = 3;
 
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-IN")} ${n === 1 ? one : many}`;
 const rs = (v: Value | undefined) => formatValue("money", v ?? 0n);
 const N = (v: Value | undefined) => Number(v ?? 0);
+const qty = (n: number) => n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 const pct = (v: Value | undefined) => (v === null || v === undefined ? null : Number(v));
 const upDown = (p: number | null) => (p === null ? null : p > 0 ? `up ${p} %` : p < 0 ? `down ${-p} %` : "the same");
 
@@ -110,6 +111,46 @@ const SENTENCES: Record<string, (f: Facts) => string> = {
     if (!f.rows.length) return `${t.customer} has too few orders yet to tell a usual order.`;
     const items = f.rows.slice(0, 3).map((r) => `${r.product} × ${r.usual}`).join(", ");
     return `${t.customer} usually orders ${items}${t.usual_gap ? `, about every ${formatValue("days", t.usual_gap)}` : ""}.${t.next_date ? ` Next order expected ${dmy(String(t.next_date))} (${t.next_state}).` : ""}`;
+  },
+  S1: (f) => {
+    if (f.totals.stock_on === null) return "Stock is not checked, so what to make can't be worked out.";
+    if (!N(f.totals.pending)) return "No pending orders, so nothing is needed for them today.";
+    const make = f.rows.filter((r) => N(r.make) > 0);
+    if (!make.length) return "Stock covers every pending order. Nothing needs to be made for them.";
+    const list = make.map((r) => `${r.product} ${qty(N(r.make))} ${r.unit ?? "box"}`).join(", ");
+    const short = make.filter((r) => r.short_material);
+    return (
+      `Make ${plural(make.length, "product", "products")} today: ${list}.` +
+      (short.length ? ` Not enough material for ${short.map((r) => `${r.product} (${r.short_material} runs out first)`).join(", ")}.` : "")
+    );
+  },
+  S2: (f) => {
+    if (f.totals.stock_on === null) return "Stock is not checked, so run-out days can't be worked out.";
+    const first = f.rows[0];
+    if (!first) return "No material has a rate yet (recipes and enough counts are needed).";
+    const soon = N(f.totals.soon);
+    return (
+      `At this rate, ${first.material} runs out first: in about ${formatValue("days", first.days_left)}.` +
+      (soon > 1 ? ` ${plural(soon, "material runs", "materials run")} out within 7 days.` : soon === 1 ? "" : " Nothing runs out within 7 days.")
+    );
+  },
+  S3: (f) => {
+    const t = f.totals;
+    if (t.day === null) return "Stock is not checked, so the count can't be looked at.";
+    const day = dmy(String(t.day));
+    if (t.done !== "Done") return `The count for ${day} was not done. Today's count: ${String(t.today).toLowerCase()}.`;
+    const n = N(t.not_updated);
+    return (
+      `The count for ${day} was done${t.by ? ` by ${t.by}` : ""}${t.at ? ` at ${t.at}` : ""}. ` +
+      (n ? `${plural(n, "material was", "materials were")} not updated: ${f.rows.map((r) => r.material).join(", ")}. Ask for a correction.` : "Every material used was updated.")
+    );
+  },
+  S4: (f) => {
+    if (f.totals.stock_on === null) return "Stock is not checked, so days of stock can't be worked out.";
+    const n = N(f.totals.over);
+    if (!n) return "No item has more than 60 days of stock at this rate.";
+    const first = f.rows[0]!;
+    return `${plural(n, "item has", "items have")} more than 60 days of stock at this rate. Most: ${first.item}, about ${formatValue("days", first.days)}.`;
   },
 };
 

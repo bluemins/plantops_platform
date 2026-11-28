@@ -52,6 +52,8 @@ export interface FakePlatform {
   dayParts: Map<string, unknown>;
   /** Plant answers O1 (scope stock_levels): Floor Stock's answer per plant; a plant not listed = Floor Stock off (403) */
   stockLevels: Map<string, unknown>;
+  /** Plant answers S1–S4 + morning report (scope stock_answers): Floor Stock's answer per plant; not listed = off (403) */
+  stockAnswers: Map<string, unknown>;
   /** every lookup ticket asked for */
   tickets: { tenantId: string; to: string; scope: string }[];
   sign(claims: Record<string, unknown>, aud?: ModuleId, ttl?: string): Promise<string>;
@@ -78,6 +80,7 @@ export async function startFakePlatform(): Promise<FakePlatform> {
     planDown: new Set<string>(),
     dayParts: new Map<string, unknown>(),
     stockLevels: new Map<string, unknown>(),
+    stockAnswers: new Map<string, unknown>(),
     tickets: [] as { tenantId: string; to: string; scope: string }[],
   };
   const send = (res: import("node:http").ServerResponse, code: number, body: unknown) => {
@@ -102,11 +105,17 @@ export async function startFakePlatform(): Promise<FakePlatform> {
       // only the Day report's tickets; anything else (salary_totals) gets 404 as before, so it reads as "unreachable"
       if (body.scope === "stock_levels")
         return fake.stockLevels.has(lookup[1]!) ? send(res, 200, { ticket: `fake-stock-${lookup[1]}`, url: `http://127.0.0.1:${(server.address() as { port: number }).port}` }) : send(res, 403, { error: "off" });
+      if (body.scope === "stock_answers")
+        return fake.stockAnswers.has(lookup[1]!) ? send(res, 200, { ticket: `fake-answers-${lookup[1]}`, url: `http://127.0.0.1:${(server.address() as { port: number }).port}` }) : send(res, 403, { error: "off" });
       if (body.scope !== "day_report") return send(res, 404, {});
       return fake.dayParts.has(body.to) ? send(res, 200, { ticket: `fake-${body.to}`, url: `http://127.0.0.1:${(server.address() as { port: number }).port}` }) : send(res, 403, { error: "off" });
     }
     if (url === "/api/plantops/stock-levels") {
       const answer = fake.stockLevels.get((req.headers.authorization ?? "").replace("Bearer fake-stock-", ""));
+      return typeof answer === "number" ? send(res, answer, {}) : send(res, 200, answer);
+    }
+    if (url === "/api/plantops/stock-answers") {
+      const answer = fake.stockAnswers.get((req.headers.authorization ?? "").replace("Bearer fake-answers-", ""));
       return typeof answer === "number" ? send(res, answer, {}) : send(res, 200, answer);
     }
     if (url.startsWith("/api/plantops/day-report?")) {

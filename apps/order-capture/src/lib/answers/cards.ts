@@ -53,7 +53,8 @@ export interface CardDef {
   rowsNote?: string;
   lists?: ListDef[];
   /** the PlantOps page the numbers come from */
-  source?: { label: string; href: string };
+  /** `module` set = a page of another module (opened through PlantOps' login hand-off, /sso/start) */
+  source?: { label: string; href: string; module?: "floor_stock" };
 }
 
 export const AREA_LABEL: Record<Area, string> = {
@@ -382,10 +383,73 @@ export const CARDS: readonly CardDef[] = [
     ],
     source: { label: "the customer's Buying & paying", href: "/customers" },
   }),
-  card("S1", "stock", 4, "What should we make today?"),
-  card("S2", "stock", 4, "When will caps, labels or preforms run out?"),
-  card("S3", "stock", 4, "Was today's count done? Did someone forget consumables?"),
-  card("S4", "stock", 4, "Which items hold too much stock on the shelf?"),
+  card("S1", "stock", 4, "What should we make today?", {
+    fields: [
+      T("make", "Products to make", "count", "shareable", "Products whose pending orders need more than the last count's closing stock."),
+      T("pending", "Pending orders", "count", "shareable", "Every order not yet delivered or cancelled."),
+      T("stock_on", "Stock as of", "date", "shareable", "The day of the last Floor Stock count. Anything made or sent out since is not in it."),
+      R("product", "Product", "text", "shareable", "A product on the pending orders."),
+      R("needed", "Pending", "count", "shareable", "Boxes (or the order's unit) all pending orders need, free boxes included."),
+      R("in_stock", "In stock", "count", "shareable", "Closing stock at the last count, in the same unit."),
+      R("make", "Make", "count", "shareable", "Pending − in stock, when more is needed."),
+      R("can_make", "Can make", "count", "shareable", "How many the materials in the last count are enough for: Floor Stock's own Can make rule."),
+      R("limit", "Material", "text", "shareable", "Whether the materials are enough, and which runs out first when they aren't."),
+    ],
+    rowsTitle: "Pending against stock",
+    rowsNote: "Most to make first.",
+    source: { label: "Floor Stock → home (Can make)", href: "/", module: "floor_stock" },
+  }),
+  card("S2", "stock", 4, "When will caps, labels or preforms run out?", {
+    fields: [
+      T("soon", `Run out within ${7} days`, "count", "shareable", "Materials that last 7 days or fewer at this rate."),
+      T("stock_on", "Stock as of", "date", "shareable", "The day of the last Floor Stock count."),
+      T("since", "Rate since", "date", "shareable", "The first count of the last 28 days: the rate is worked out from then to the last count."),
+      R("material", "Material", "text", "shareable", "A raw material or consumable used by a recipe."),
+      R("on_hand", "On hand", "text", "shareable", "The last count's closing, in the counted unit."),
+      R("per_day", "Used a day", "text", "shareable", "Boxes made in the last 28 days × bottles per box × the recipe, ÷ the days. A delivery day doesn't change it."),
+      R("days_left", "About days left", "days", "shareable", "On hand (less damage, + what its \"made from\" materials can still make) ÷ used a day, rounded down. A guess at this rate, not a fact."),
+    ],
+    rowsTitle: "Runs out first",
+    rowsNote: "Fewest days left first.",
+    lists: [
+      {
+        key: "not_worked",
+        title: "Not worked out",
+        note: "Materials with no rate, and why.",
+        fields: [R("material", "Material", "text", "shareable", "The material."), R("why", "Why", "text", "shareable", "Why no rate could be worked out.")],
+      },
+    ],
+    source: { label: "Floor Stock → Sections & items (recipes)", href: "/setup", module: "floor_stock" },
+  }),
+  card("S3", "stock", 4, "Was last night's count done? Did someone forget consumables?", {
+    fields: [
+      T("day", "Count day", "date", "shareable", "The count day before today (a count saved before 5 am IST belongs to the night before)."),
+      T("done", "Count", "text", "shareable", "Done or not done."),
+      T("by", "Counted by", "text", "personal", "Who saved the count first. Screen only."),
+      T("at", "Counted at", "text", "shareable", "When the first version was saved."),
+      T("corrections", "Corrections", "count", "shareable", "How many times the count was corrected after saving."),
+      T("not_updated", "Materials not updated", "count", "shareable", "Floor Stock's \"Consumable not updated correctly\": a product using them was made that day, but their closing is still the count before's number."),
+      T("today", "Today's count", "text", "shareable", "Today's count (normally done in the evening)."),
+      R("material", "Material", "text", "shareable", "A material not updated."),
+      R("counted", "Counted", "text", "shareable", "What the count says (the same as the count before)."),
+      R("expected", "Expected", "text", "shareable", "About what it should be after that day's production (damage and loose pieces left out)."),
+    ],
+    rowsTitle: "Not updated",
+    source: { label: "Floor Stock → History", href: "/history", module: "floor_stock" },
+  }),
+  card("S4", "stock", 4, "Which items hold too much stock on the shelf?", {
+    fields: [
+      T("over", `Over ${60} days of stock`, "count", "shareable", "Materials and products whose stock lasts more than 60 days at the rate of the last 28 days. No ₹ value yet (needs stock linked to purchase prices)."),
+      T("stock_on", "Stock as of", "date", "shareable", "The day of the last Floor Stock count."),
+      R("item", "Item", "text", "shareable", "The material or product."),
+      R("kind", "Kind", "text", "shareable", "Material (used by recipes) or product (sold)."),
+      R("on_hand", "On hand", "text", "shareable", "The last count's closing."),
+      R("days", "About days of stock", "days", "shareable", "Materials: on hand ÷ use a day (production × recipe). Products: closing ÷ average sold a day. Rounded down."),
+    ],
+    rowsTitle: "Most days of stock (top 10)",
+    rowsNote: "Most days first.",
+    source: { label: "Floor Stock → History", href: "/history", module: "floor_stock" },
+  }),
   card("P1", "purchases", 8, "What do I owe vendors, and what's due this week?"),
   card("P2", "purchases", 8, "Preform cost per month: is the price going up?", { inputs: ["period"] }),
   card("T1", "staff", 9, "Who hasn't marked IN? Who is often late?", { private: true }),

@@ -4,6 +4,7 @@ import { fieldsOf, formatValue, noteOf, type Row } from "@/lib/answers/facts";
 import { can } from "@/server/access";
 import { answersOn, copyFor, runCard, type CardAnswer } from "@/server/answers";
 import { kit } from "@/server/kit";
+import { env } from "@/server/env";
 import { requirePageUser } from "@/server/session";
 import { Header } from "../../../header";
 import { BackLink, PhoneLink } from "../../../parts";
@@ -213,7 +214,17 @@ export default async function AnswerPage({ params, searchParams }: Props) {
 
       <p className="text-sm text-slate-600">
         As of {at(r.at)} · from{" "}
-        {r.card.source ? <a href={r.card.source.href} className="font-semibold text-(--brand)">{r.card.source.label}</a> : "Sales"}
+        {r.card.source ? (
+          r.card.source.module && user.isSupport ? (
+            r.card.source.label
+          ) : (
+            <a href={r.card.source.module ? `${env.platformUrl}/sso/start?module=${r.card.source.module}&next=${encodeURIComponent(r.card.source.href)}` : r.card.source.href} className="font-semibold text-(--brand)">
+              {r.card.source.label}
+            </a>
+          )
+        ) : (
+          "Sales"
+        )}
         {" · "}worked out by PlantOps rules (v{r.preparedBy.rules}.{r.preparedBy.wording})
       </p>
 

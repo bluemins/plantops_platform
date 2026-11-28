@@ -1053,3 +1053,27 @@ Floor Stock lookup approved. Mock-up https://claude.ai/artifact/G2h1tbTPDDNX4jmm
 - Code: `src/lib/answers/money-cards.ts`, `order-cards.ts`, `src/server/answers-data.ts`; `saleFacts` / `recordsFrom`
   exported from `src/server/business.ts`. Tests: `test/answers-cards.test.ts` (each card against its report on the same
   rows), `test/answers-rules.test.ts`.
+
+## 2026-11-28 — Plant answers Phases 4 + 5: stock cards + the 8:30 morning report (v0.90.0)
+Owner 2026-11-28: plan approved (P4-a…e, P5-a…d as recommended), mock-up OK (https://claude.ai/artifact/TLZ4DyBSEDRjPQsczoLMNw),
+migration `0029` approved. SSO token unchanged.
+- **S1–S4** (`src/lib/answers/stock-cards.ts`) from Floor Stock's facts through a new lookup scope `stock_answers`
+  (`fetchStockAnswers` in `src/server/answers-data.ts`; `StockAnswers` in `packages/types`): **S1** pending demand −
+  last closing per product, "make N", capped by Floor Stock's Can make (names the material that runs out first); **S2**
+  materials by days left (production × recipe over 28 days, "about", rounded down); **S3** last night's count (who,
+  when, materials not updated) + today's; **S4** items over 60 days of stock, top 10, no ₹. "Counted by" is `personal`
+  (screen only). Source links go through `/sso/start?module=floor_stock` (`CardDef.source.module`). `RULES_VERSION` 3,
+  `WORDING_VERSION` 3.
+- **Ranking** (`src/lib/answers/rank.ts` `rankRules`): section 3's levels S3 (1) → S1 (2) → S2 ≤ 3 days (1) → O1 with
+  stock there (2) → M2 (2) → O2 (1), at most 7, an empty level fills down. Each action: `text` (screen, may hold ₹) and
+  `share` (no ₹, no phones, no staff names; checked by `leakIn`, else "See … in PlantOps").
+- **Migration `0029_morning_reports.sql`:** `morning_reports` (one per plant per day: actions, the card facts, what
+  couldn't be checked, summary, prepared_by) and `morning_report_marks` (Useful / Not useful, append-only, latest per
+  person and action counts); FORCE RLS, `order_app` SELECT + INSERT only.
+- **Job** `POST /api/cron/morning-report` (`src/server/morning-report-job.ts`; cron-job.org row 15, 08:30 IST): plants in
+  `PLANT_ANSWERS_PLANTS`; saves once (`on conflict do nothing`), then `order_capture.morning_report` (push) to the owners
+  only, dedupe `morning_report:<date>`. A card that fails or a module that doesn't answer is listed in `missing`.
+- **Page** `/reports/answers/morning?d=` (owner; support reads, logged, no Copy / buttons): actions with level tags and
+  links, Useful / Not useful (`POST /api/answers/morning/mark`, owner only), Copy as WhatsApp, the last 14 mornings.
+  Button on Plant answers.
+- Tests: `test/answers-stock.test.ts` (8), `test/morning-report.test.ts` (10); guard tests count the two tables. Sales 1,531.

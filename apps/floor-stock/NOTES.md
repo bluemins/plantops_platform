@@ -265,3 +265,13 @@ Owner 2026-11-28 (approved the lookup). `GET /api/plantops/stock-levels`, only w
 `stock_levels` from Sales: the newest count's latest version, closing stock of finished-goods items linked to a PlantOps
 product (`StockLevels` in `packages/types`), counts only. No schema change. Code `src/server/stock-levels.ts`; tests
 `test/stock-levels.test.ts`.
+
+## 2026-11-28 — Stock answers for Sales' Plant answers S1–S4 + morning report (v0.90.0)
+Owner 2026-11-28 (P4-a…e). `GET /api/plantops/stock-answers`, only with a lookup ticket for scope `stock_answers` from
+Sales (`StockAnswers` in `packages/types`): yesterday's and today's count (who, when, corrections, "Consumable not updated
+correctly" from `dayView`), the last count's closing + Can make per finished product (`canMakeFor`), and **days of stock**
+(`src/lib/runway.ts`, pure): materials = on hand (Contents, less damage, + what "made from" materials can still make) ÷
+(boxes made × bottles per box × recipe over the window's days); finished goods = closing ÷ average Sold (days whose day
+before was counted). Window = the last 28 days to the newest count; fewer than 7 counts = "not enough history". Counts
+only, nothing stored, no schema change. Code `src/server/stock-answers.ts` (`reader` now exported from
+`src/server/day-report.ts`). Tests `test/runway.test.ts`, `test/stock-answers.test.ts`. Floor Stock 208.

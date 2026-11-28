@@ -58,8 +58,8 @@ describe("the card list", () => {
       expect(c.source?.href.startsWith("/")).toBe(true);
     }
   });
-  it("Phases 1–3 build the money and order cards", () => {
-    expect(CARDS.filter(isBuilt).map((c) => c.id)).toEqual(["M1", "M2", "M3", "M4", "M5", "M6", "O1", "O2", "O3", "O4", "O5"]);
+  it("Phases 1–4 build the money, order and stock cards", () => {
+    expect(CARDS.filter(isBuilt).map((c) => c.id)).toEqual(["M1", "M2", "M3", "M4", "M5", "M6", "O1", "O2", "O3", "O4", "O5", "S1", "S2", "S3", "S4"]);
   });
   it("every fact of a built card, in every table, has a note saying what it is (owner 2026-11-28)", () => {
     for (const c of CARDS.filter(isBuilt)) for (const f of allFields(c)) expect(f.note.length, `${c.id}.${f.key}`).toBeGreaterThan(10);

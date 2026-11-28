@@ -376,6 +376,7 @@ for each row below:
 | 12 | Order Capture reminders (WhatsApp reorder reminders; sends nothing unless `ORDER_REMINDERS=on`) | `https://orders.bluemins.life/api/cron/reminders` | every day | 10 | 30 |
 | 13 | Drop push (sends the Drop app's waiting phone notifications) | `https://orders.bluemins.life/api/cron/drop-push` | every day | every hour | every 5 minutes |
 | 14 | Sales Day report (owners' 9 pm notification; plants with a cash book; v0.79.0) | `https://orders.bluemins.life/api/cron/day-report` | every day | 21 | 0 |
+| 15 | Sales morning report (owners' 8:30 am notification; plants in `PLANT_ANSWERS_PLANTS`; safe to run twice; v0.90.0) | `https://orders.bluemins.life/api/cron/morning-report` | every day | 8 | 30 |
 
 Minute 1, not 0, so a call can never land a second before the hour (the jobs check "has the plant's hour come" in
 India time). After saving, open each job → **Test run**: the answer must be **200** with a JSON summary. **401** = wrong
