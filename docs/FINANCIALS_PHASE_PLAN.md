@@ -57,7 +57,7 @@ lets the owner compare the two.
 
 | # | Decided |
 |---|---|
-| D1 | **Open.** The owner has the CA's **income-tax computation sheets for the last two years** (no separate balance sheet mentioned) and asks whether they are enough. See "D1: working from the computation sheet" below. |
+| D1 | **Open, waiting for the owner's OK on the revised recommendation.** The CA's computation sheets were read 2026-11-28: presumptive filing (44AD), no books, so they give no opening balances. Recommended: start 1 Apr 2026 with openings from the owner's asset list, statements and estimates. See "D1: working from the computation sheet" below. |
 | D2 | As recommended: **inside Sales** (Reports → Business Overview + a Books tab). |
 | D3 | **Owner only, changed from the recommendation**: only the owner enters the figures and only the owner sees the P&L, Balance Sheet, assets and loans. Accounts gets nothing new. PlantOps support reads (logged), as on every report. |
 | D4 | As recommended: **monthly closing balance** typed from the statement (+ optional file). |
@@ -80,11 +80,32 @@ schedule (each block's written-down value) and the tax. That covers part of the 
 | Cash in hand on 31 Mar 2026 | Maybe | Else the owner's figure |
 | Capital | Worked out (D7) | — |
 
-Recommended: **start the books on 1 Apr 2026** using the FY 2025-26 computation sheet plus the statements above. The
-earlier year's sheet is kept only for comparison. **To confirm, the owner puts the two sheets (PDF or photos) in
-`refeDocs/ca/`** (the `refeDocs/` folder is git-ignored, so they are never committed); Claude reads them and lists
-exactly which figures they give. If the sheets turn out to have no closing stock or depreciation schedule, the CA can be
-asked for those two numbers only.
+**Read 2026-11-28** (the owner shared the AY 2025-26 and AY 2026-27 statements of income; copies go in `refeDocs/ca/`,
+git-ignored; no personal details or amounts are copied into this repo):
+- **FY 2025-26 (AY 2026-27):** the plant's income is filed as **presumptive income u/s 44AD** (a fixed share of
+  turnover). Presumptive filing needs **no books of account**, so the sheet has **no balance sheet, no depreciation
+  schedule, no stock, no loans, no debtors / creditors**. It gives only the year's turnover and deemed income.
+- **FY 2024-25 (AY 2025-26):** before the plant; nothing usable for the plant's opening figures.
+
+**So the computation sheets give no opening balances.** Revised recommendation for D1 (waiting for the owner's OK):
+
+| Opening figure on 1 Apr 2026 | From |
+|---|---|
+| Fixed assets | **Asset list typed by the owner** (F4): each machine / vehicle / building with purchase date and cost (from its bill); PlantOps works out the value on 1 Apr 2026 at the D6 rates |
+| Customers owe / vendors owed | Already in PlantOps (Zoho imports) |
+| Bank on 31 Mar 2026 | The bank statement's balance (F3) |
+| Loans on 31 Mar 2026 | Loan statements (F5) |
+| Stock on 31 Mar 2026 | **The owner's estimate**, marked as an estimate (no Floor Stock count then) |
+| Cash in hand on 31 Mar 2026 | The owner's figure |
+| Capital | Worked out (D7) |
+
+Effects on other parts of this plan:
+- **D6:** the CA does not work out depreciation under 44AD, so "close to the CA's figures" no longer applies; income-tax
+  WDV rates stay as a sensible management estimate.
+- **Section 7 (compare with the CA):** the CA's profit is a deemed share of turnover, not a real profit, so only the
+  **turnover** can be compared (PlantOps sales for the year against the return's turnover).
+- These reports stay management reports; whether presumptive filing still suits the business as turnover grows is a
+  question for the CA, not for PlantOps.
 
 ---
 
