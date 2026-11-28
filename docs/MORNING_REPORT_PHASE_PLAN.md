@@ -516,6 +516,23 @@ Suggested order, each step separately approved and switched on per plant:
 usage and cost log, and a spending limit. Decisions needed then: which AI service, what data may be sent, its privacy
 terms, each plant's agreement, and a monthly budget. The cards, screens and saved reports are not rewritten.
 
+**Owner's wish (2026-11-28): a free AI, owner only, that reads the plant's data and suggests next actions.** Not decided
+yet (D3 still says no AI); written here so Phase 15 starts from it. Recommendations:
+
+| # | Question | Recommended | Why |
+|---|---|---|---|
+| AI-1 | Which AI service | **Claude Haiku 5.5** (paid, very cheap), not a free tier | Free tiers (e.g. Gemini's free API) may use the requests to improve their products, and customer dues / sales would go there; free open-model hosts have low limits and change without notice; running a model ourselves needs memory on Railway (cost rule). Haiku 5.5 is about $0.10 per million input tokens, so one morning report (~20,000 tokens) costs well under ₹1, about ₹5–20 a month for one owner. Sonnet 5.5 if the advice isn't good enough (about 20× Haiku, still small). |
+| AI-2 | Who uses it | **Owner only**, per plant switch (like `PLANT_ANSWERS_PLANTS`); support never triggers it | Same as the cards' D5 / D8. |
+| AI-3 | What is sent | **Only the card facts** (never the database): customer names, places and amounts yes; **phone numbers never; attendance, salary, claims and applicant facts never** (D10) | Amounts are needed for useful advice; the rest isn't. |
+| AI-4 | Spending limit | **$2 a month per plant**, then rules only until next month, with a note | A wrong loop can never become a bill. |
+| AI-5 | When | **After Phase 5** (morning ranking), so the AI has a full set of cards to read | Before that there is too little for it to work from. |
+
+The rules always stay: every number shown comes from them; if the AI is off, over budget, fails, or quotes a number
+that doesn't match the facts, the rules version is shown.
+
+**Also for the Break-even planner** (`docs/FINANCIALS_PHASE_PLAN.md` section 8): the same AI could word "next month's
+plan" from the planner's numbers (step 4 here), under the same limits.
+
 ## 8. Cost
 
 | Item | Cost |
