@@ -52,10 +52,8 @@ starts **Phase 2 planning** (no code until the owner says "start").
 
 **Next session:**
 1. Ask the result of the Copy test (open item 1) and the masking OK (open item 2); then mark Phase 1 done in section 11.
-2. Write the **Phase 2 plan** (money cards M1, M3, M4, M5; section 7 "Phase 2") the same way as Phase 1's: what the owner
-   gets, choices with recommendations, pieces, tests, checks; reuse `customer-insights.ts`, `receivables.ts`, the cash book
-   and Business Overview; check each number against the existing report screen. No migration expected.
-3. Wait for the owner's "start".
+2. **Phase 2 plan written 2026-11-28** (section 7, "Phase 2"): get the owner's answers to P2-a…f, make the mock-up, then
+   wait for "start".
 
 ## 1. The goal
 
@@ -348,9 +346,81 @@ message into WhatsApp.
 **Not in Phase 1:** the other 26 cards (Phases 2–11), the morning report, notifications and job (Phase 5), the search box
 (Phase 12), Odia (Phase 13), anything AI (Phase 15).
 
-### Phase 2: Money cards (M1–M5)
-Reuse `receivables.ts`, `customer-insights.ts`, the cash book and Business Overview. Check each card against the existing
-report screens, to the paisa.
+### Phase 2: Money cards (M1, M3, M4, M5) (detailed plan, 2026-11-28; waiting for the owner's "start")
+
+**What the owner gets:** four more questions open in Sales → Reports → Plant answers, each built like M2: one sentence on
+top, the facts below (table on PC, cards on a phone), "As of … · from <report>" with a link to the screen it comes from,
+missing data said in words, and **Copy as WhatsApp message** without rupees or phones. After this phase the whole Money
+area works.
+
+**No database, grant, credential, platform or SSO token change.** Only Sales (`apps/order-capture`). Each card reads the
+same rules its report screen already uses; nothing is calculated a second way.
+
+**The four cards:**
+
+| Card | Answers | Comes from (same rules) | Checked against |
+|---|---|---|---|
+| **M1** Who owes the most, and who is paying slower than usual? | Top 10 customers by money due today, each with days of the oldest unpaid bill, usual days to pay, and a "paying slower" tag; plus a second list: customers whose last 3 bills are paid slower than usual (even if not in the top 10) | Due: `customerBalances` / `openBillsAsOf` in `src/lib/receivables.ts`. Slower: the `trend` rule of `customerInsights` in `src/lib/customer-insights.ts` (last 3 bills ≥ 7 days and ≥ 1.5 × slower than the rest of the year) | Receivables → Customer Balances (as of today), and "paying slower lately" on each customer's Overview |
+| **M3** How much came in this week, cash and online? | Customer payments this week split Cash / Online (UPI, bank, cheque, other), van cash sales, the total; the same days last week; the five biggest payments; and a separate line "collected but not posted yet" from Cash → To post | Customer payments (`payments`, not cancelled, by payment date), van cash sales as in `moneyFacts` (`src/server/business.ts`); waiting collection lines as on Cash → To post | Business Overview "money in" for the same days (customer payments + van) and Sales → Payments filtered to the week |
+| **M4** Why is cash in hand short today? | The latest close with a difference (in the last 7 days): counted, expected, short / extra, the reason typed. Then **where to look**: entries since the close before it, biggest first, with marks for entries cancelled after the close, entries back-dated (cash day earlier than the day typed), staff cash given, van reports short, expenses ≥ ₹2,000 | `closesOf` (`src/server/cash.ts`), `expectedOn` / `bookDays` (`src/lib/cash.ts`), `live_difference` from the day sheet | Cash → day sheet of that day (expected, counted, difference) and the month cash book |
+| **M5** Is this month's sales up or down, and from which customers or brands? | This month so far against the same days last month (and last year, when the plant has records then), up / down %; the brands that moved most; the 5 customers who grew most and the 5 who dropped most; van cash sales as their own line (no brand) | `saleFacts` (`src/server/business.ts`, bills + van cash sales, cancelled and opening bills left out), brand rule of `buildCharts` | Reports → Business charts (sales by brand, top customers) for the same dates, and Sales by Customer |
+
+**Choices for the owner (recommendation first):**
+
+| # | Choice | Recommended | Why |
+|---|---|---|---|
+| P2-a | "This week" in M3 | **Monday to today (India time), against the same days last week** | It is how people say "this week"; a 7-day window would change every morning and mix two weeks |
+| P2-b | Collections still waiting in Cash → To post | **Shown as their own line, not added to the total** | The cash book rule (2026-11-11): nothing changes billing until posted. Once posted they become payments and are counted then, so nothing is counted twice |
+| P2-c | M1's "paying slower" | **The customer page's rule exactly** | The card and the customer's Overview will then always agree; a new rule would give two answers |
+| P2-d | M4 when nothing is short | **Says so plainly**: "Cash matched at the last close (27 Nov)", or "Not closed since 25 Nov", with a link to close | No made-up cause; rule 5 (missing data said, never zero) |
+| P2-e | M5 amounts | **Before GST**, the Business charts default | Sales by Item / Business charts then match the card; with GST would differ from both |
+| P2-f | M5 when the month has just begun (1st–3rd) | **Compare last full month with the month before**, and say so | Two days against two days gives big, meaningless percentages |
+
+**What can be copied (D7):** M1 names, places, days late, "paying slower" (no amounts). M3 **only counts** ("18 payments
+this week, 11 cash, 7 online"), no amounts, no customer names (who paid is not for a group). M4 **no Copy**: it is about
+staff handling cash, so it stays on the owner's screen (like D10). M5 up / down as **percent only** plus brand and
+customer names, no rupees. The copy guard (₹, Rs, +91, 10 digits) stays as the last check.
+
+**Pieces (all in `apps/order-capture`):**
+1. **Card list** `src/lib/answers/cards.ts`: `fields` + `source` for M1, M3, M4, M5, each field with its privacy label;
+   M4 gets a new card flag `noCopy` (screen only, owner and support) so the copy rule stays in the card list.
+2. **Facts**, pure, one file each: `src/lib/answers/m1.ts`, `m3.ts`, `m4.ts`, `m5.ts`, taking the same data the report
+   uses (as `m2.ts` does) plus `today`.
+3. **Loaders** in `FACTS` (`src/server/answers.ts`): M1 `receivablesData` + bill lines / settles for the insights; M3 a
+   read of `payments`, van reports and waiting collection lines for two weeks; M4 `closesOf` + entries of the last 14
+   days; M5 `saleFacts` for the month, last month and last year. Reuse the existing loaders; where a loader is private to
+   its file, export it rather than copy it.
+4. **Sentences** `src/lib/answers/word.ts` (`WORDING_VERSION` 2), e.g. M3 "₹1,24,500 came in this week (Mon–Fri): ₹82,000
+   cash, ₹42,500 online. Last week's same days: ₹1,10,200. ₹3,400 collected is still waiting in To post."
+5. **Copy** `src/lib/answers/copy.ts`: honour `noCopy`; M3 / M5 copy counts and percents only (fields labelled
+   `shareable`).
+6. **Screens**: the existing `/reports/answers/[id]` page draws the new fields; M3 gets a small two-week comparison,
+   M4 a "where to look" list with links to each entry's day sheet, M5 up / down lists. Mock-up first (rule: mock-up
+   before UI), with plant 001-like sample data.
+7. `RULES_VERSION` 2.
+
+**Tests** (`test/answers-lib.test.ts`, `test/answers.test.ts`):
+- every new field labelled; M4 has no Copy for anyone; no copied text has ₹, "+91" or 10 digits
+- **numbers match the reports on the same test data**, to the paisa: M1 dues = Customer Balances; M1 "slower" = the
+  customer page's trend; M3 total = Business Overview money in for those days; M4 difference = the day sheet's; M5
+  totals = Business charts' sales for the same dates and brand split
+- M3: a cancelled payment is not counted; a waiting collection is shown apart and not in the total; a posted one is
+  counted once; week from Monday
+- M4: matched / not closed / not started cash book each give the plain sentence; a back-dated entry and an entry
+  cancelled after the close are marked
+- M5: van sales on their own line; 1st–3rd uses the last full month; no last year when the plant has no records then
+- roles, switch and tenant isolation as in Phase 1 for each card (support reads, no Copy; Accounts refused)
+
+**Checks before release:** typecheck, all Sales tests, `next build` for Sales. On `pnpm dev` (plant 002, switched on
+only for the check, temporary data removed afterwards): each card at 390 and 1280 px, each against its report screen,
+Copy on a phone width, support read-only.
+
+**Release:** Sales v0.89.0, no migration, no new setting. **Done when:** the owner opens all four on the live copy and
+each matches its report: M1 against Customer Balances, M3 against Business Overview for the week, M4 against the cash
+day sheet, M5 against Business charts.
+
+**Not in Phase 2:** ranking actions (Phase 5), anything from Floor Stock (Phase 3 asks for that lookup first), money owed
+to vendors (P1, Phase 8).
 
 ### Phase 3: Order and customer cards (O1–O5)
 Reuse `order-flow.ts`, `flow-check.ts`, `customer-insights.ts`. **Needs approval:** new read-only lookup scope for stock
@@ -465,4 +535,5 @@ The SSO token does not change.
 |---|---|
 | 0 | **Done 2026-11-24**: mock-ups approved, D7–D12 decided |
 | 1 | **Live 2026-11-24 (v0.88.0)** for plant 001. M2 checked by the owner against Aging Summary (₹58,550, equal). Copy test still to do |
-| 2–15 | Not started |
+| 2 | **Planned 2026-11-28** (section 7, Phase 2): waiting for the owner's choices P2-a…f and "start" |
+| 3–15 | Not started |
