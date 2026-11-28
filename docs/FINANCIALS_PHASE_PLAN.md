@@ -7,6 +7,9 @@ owner to enter it, so we get a proper view."
 Status: **plan, waiting for the owner's decisions (section 2).** Nothing built. Mock-ups come after the decisions, before
 any code (rule: mock-up before UI).
 
+**Break-even planner (section 8, owner 2026-11-28): top priority after the Morning report plan.** It needs D1–D8, F1 and
+the price part of F2 first (section 8.4), so those move up with it.
+
 These are **management reports for the owner**, not audited accounts. The CA's books stay the official ones; section 7
 lets the owner compare the two.
 
@@ -160,3 +163,88 @@ SELECT + INSERT only (corrections = new rows / cancel with a reason, like the ca
 
 ## 7. Compare with the CA
 - Each year (and any month): CSV of the P&L and Balance Sheet in the CA's usual order, so the CA can tick them off.
+
+---
+
+## 8. Break-even planner (owner, 2026-11-28)
+
+Asked by the owner 2026-11-28: "Raw material, manpower and the electricity bill are the main cost, then the operational
+cost. If I add the unit costing, I want something to tell me how to plan next month's activity so as to break even."
+
+**Priority (owner, 2026-11-28): top priority once the Morning report plan (`docs/MORNING_REPORT_PHASE_PLAN.md`) is
+finished.** Its blockers (section 8.4) are built first, in that order, so start them as soon as the Morning report is done.
+
+Status: **planned, mock-up made (sample numbers), waiting for the owner's OK and decisions BE-D1…BE-D7.** Nothing built.
+Mock-up: https://claude.ai/artifact/PWfxdTfXEBRgoNHLhsxRvn
+
+### 8.1 What it answers
+"How many boxes must I sell next month to cover every cost, how far am I from that, and what can I change?"
+
+Break-even is arithmetic, so **rules work it out exactly; no AI is needed**. AI (Morning report Phase 15, if the owner
+switches it on) could later write a short plan in words from the same numbers, never replacing them.
+
+- **Fixed costs a month** (paid whatever is made): monthly / fixed staff salary, electricity fixed charge, rent, loan EMI,
+  phone, office, repairs.
+- **Cost of one box** (goes up with every box): materials from the "Can make" recipe × the latest purchase rate (incl.
+  Floor Stock's damage allowance), electricity per box, delivery per box (van diesel ÷ boxes delivered), per-day staff per
+  box.
+- **What each box leaves** = price − cost of one box, per product.
+- **Break-even boxes** = fixed costs ÷ what an average box leaves at last month's product mix; per working day too.
+
+### 8.2 The page (Sales → Reports → Business Overview → Break-even planner; owner only, support reads, logged)
+Top to bottom, as in the mock-up:
+1. **Headline:** boxes needed next month (and a day), last month sold, gap, extra a day; last month's result (₹ short or
+   over).
+2. **Before you trust this:** what is missing (electricity bill not entered, materials without a price, last stock count
+   date, which salary month was used), each linking to where it is entered. Same idea as F7's Month close.
+3. **Fixed costs a month:** each line with its source tag (Attendance, Other expenses, Loans, Cash book, Purchases).
+4. **What each box leaves:** per product price, cost, leaves, last month sold; "How ₹58 is worked out" opens the cost lines
+   (materials with the purchase bill they came from, electricity, delivery, per-day staff).
+5. **Ways to close the gap** (worked out, in ₹ for the month): sell a better-leaving product instead of a weaker one;
+   ₹2 more on a product; call the shops that are late to reorder (from "Buying & paying"); material prices that went up
+   (with the purchase bill). A line says how much of the gap they close together.
+6. **Try a plan:** sliders for price change, extra boxes a day, material prices %, fixed costs; break-even and next month's
+   result recalculated in the browser. Nothing saved (BE-D7).
+7. **Cash is not profit:** customers owe over 30 days, salary due on the 1st, vendors due this month, cash in hand, bank
+   balance (F3). Collecting dues doesn't change break-even but decides whether salary is paid on time.
+
+Plant answers later gets a card from it ("Am I on the way to break even this month?") using the same facts.
+
+### 8.3 Decisions for the owner (my recommendation first)
+
+| # | Question | Recommended | Why |
+|---|---|---|---|
+| BE-D1 | Which costs are fixed and which go up per box? | **Set once per expense group, with a starting guess:** salary of monthly / fixed staff, rent, EMI, phone, office = fixed; materials, diesel, per-day staff = per box; electricity = both (BE-D2). Owner can change a group. | Most plants split them the same way; the owner only corrects the odd one. |
+| BE-D2 | Electricity per box | **Month's bill − the fixed (demand) charge typed once, ÷ boxes made that month** (Floor Stock's production) | Uses the bill and counts that exist; no meter readings to type. |
+| BE-D3 | Break-even with the full EMI or only its interest? | **Full EMI ("cash break-even")**, with a small line for profit break-even (interest + depreciation, from F4 / F5 when built) | The owner's question is "can I pay everything next month"; the principal is real money going out. |
+| BE-D4 | Which month's mix and prices | **Last full month's product mix and selling prices** (bill values ÷ boxes), **latest purchase rate** for materials | Simple and close to next month; the sliders cover changes. |
+| BE-D5 | Working days | **26 a month by default**, owner changes it on the page settings | Used only for "a day" figures. |
+| BE-D6 | Per-day staff | **Counted per box** (their pay last month ÷ boxes made); monthly and fixed staff are fixed | Per-day staff come when there's work, so they move with production. |
+| BE-D7 | Save plans? | **No, the sliders are a calculator only** in the first release. Saving "December plan: 8,100 boxes" and comparing it at month end comes later if wanted | Keeps the first release free of a new table for plans. |
+
+### 8.4 Dependency blockers (build order)
+
+| Order | Blocker | Why the planner needs it | Where |
+|---|---|---|---|
+| 0 | **Morning report plan finished** | Owner's order (2026-11-28) | `docs/MORNING_REPORT_PHASE_PLAN.md` |
+| 1 | **Financials decisions D1–D8** (section 2) | F1 / F2 can't start without them | This plan |
+| 2 | **F1**: purchase item kind, expense type → P&L group, **Other expenses** (electricity, rent, phone, EMI as a repeat monthly expense until F5) | Electricity, rent and EMI are not in PlantOps today; materials must be told apart from equipment | Section 3, F1 |
+| 3 | **F2, the price part only**: purchase item ↔ Floor Stock item link, stock prices, recipe cost per box (D5); the `stock_quantities` lookup (production per month) | Cost of one box; boxes made for electricity per box | Section 3, F2 (stock value on the Balance Sheet can follow later) |
+| 4 | **Salary by staff type** from Attendance: monthly / fixed vs per-day totals for a paid month | Fixed vs per-box salary (BE-D6). Today's `salary_totals` scope gives one total; needs the split (Attendance answer change, **ask**) | Attendance `GET /api/plantops/salary-totals` |
+| 5 | **BE1: the planner page** (8.2) + the fixed / per-box setting (BE-D1, BE-D2) | — | Sales |
+| later | F5 loans (EMI split into interest / principal for the profit line), F3 bank balance on the cash card, Plant answers card, AI wording (Morning report Phase 15) | Nice to have; the page says "not typed" until then | — |
+
+Not blockers: selling prices and boxes sold (Sales bills), recipes ("Can make"), van diesel (cash book), dues and late
+shops (Receivables, Buying & paying) all exist.
+
+### 8.5 Approvals needed (asked before building)
+- Sales migration for the planner settings: expense group → fixed / per box, electricity fixed charge, working days (one
+  small table, FORCE RLS, SELECT + INSERT, history by date). Shown first.
+- Attendance's salary-totals answer gains the per staff type split (no Attendance schema change expected).
+- No platform schema, no SSO token change, no new service.
+
+### 8.6 Tests
+- The arithmetic with the mock-up's sample (fixed ₹2,60,000, four products, 6,900 boxes → 8,002 boxes, −₹35,800).
+- Missing data is listed, never treated as ₹0 (no electricity bill, material without a price, no salary month).
+- Levers add up to what the page says; sliders match the server's numbers at zero.
+- Owner only; Accounts, Order desk and others refused; support read-only and logged; tenant isolation.

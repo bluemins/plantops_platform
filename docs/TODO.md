@@ -11,6 +11,10 @@ Filled on 2026-10-24 from CLAUDE.md, every `apps/*/NOTES.md`, the plan docs ("No
 
 ## Next (in this order)
 
+**Owner, 2026-11-28:** after the Morning report plan (`docs/MORNING_REPORT_PHASE_PLAN.md`) is finished, the
+**Break-even planner** is top priority: `docs/FINANCIALS_PHASE_PLAN.md` section 8 (needs Financials D1–D8, F1 and the
+price part of F2 first; order in 8.4). Mock-up https://claude.ai/artifact/PWfxdTfXEBRgoNHLhsxRvn.
+
 | # | Work | Where | Status | Notes |
 |---|---|---|---|---|
 | 1 | **Chatbot: more engaging, fix customer interaction** (wording, menus, Odia / English, where customers get stuck, misunderstood replies) | Bot (`~/projects/order_handoff`) | planned — **live before 2026-11-09** (first reminders lead into this flow); plan `docs/WHATSAPP_CHAT_PLAN.md`; owner's 7 decisions given 2026-10-25; **Phase 1 (English) live 2026-10-25, bot 3.5.3**: owner's phone test open; Phase 2 Odia next (handover: build plan section 0); Phase 2 = Odia text + 7 `_od` templates | Moved to #1 by the owner 2026-10-24. No Order Capture change. Rules-first, no AI; don't disturb the reminder pilot (to 2026-12-19). **Found in the Sheet logs (13 Sep–24 Oct, read 2026-10-24; to confirm in the code):** (a) a real customer (…155459, 20 Sep) lost mid-order: typed "500ml", then "500 ml / 1 l" in one message, then "1", "10" — never converted; (b) another (…018508, 9 Oct) typed "Rate", "Hindi", "Majalgaon", "??" and got nowhere: no price answer, no Hindi, outside the area; (c) 5 customers pressed the delivery thank-you buttons ("Okay" / "Great"), one logged as "unrecognised"; (d) "Repeat" right after an order and "Not great" outside the feedback flow: "unrecognised"; (e) mixed Odia / English within one order; (f) many "Hi"-only sessions that stop at the intro. Plus the Step 3 leftovers ("ok" instead of YES, 201 boxes, non-customer number) |

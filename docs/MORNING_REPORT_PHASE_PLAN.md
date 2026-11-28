@@ -55,6 +55,10 @@ starts **Phase 2 planning** (no code until the owner says "start").
 2. **Phase 2 plan written 2026-11-28** (section 7, "Phase 2"), M6 added and P2-a…f decided as recommended by the owner
    the same day, plus a note beside every number. Next: the mock-up of the five cards (with the notes), then "start".
 
+**After this plan is finished (owner, 2026-11-28): the Break-even planner is the top priority**,
+`docs/FINANCIALS_PHASE_PLAN.md` section 8 (blockers and build order in 8.4; mock-up
+https://claude.ai/artifact/PWfxdTfXEBRgoNHLhsxRvn).
+
 ## 1. The goal
 
 The owner can get answers from what PlantOps already records, in two ways:
