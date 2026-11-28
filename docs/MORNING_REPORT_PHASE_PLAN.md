@@ -14,14 +14,29 @@ Replaces the "Daily action agent" idea in `docs/TODO.md` (2026-11-01). The model
 
 ## 0. Where we stopped (handover, 2026-11-28)
 
-**Read this first in the next session.** Status: **Phases 0 and 1 done (v0.88.0, plant 001). Phases 2 + 3
-live 2026-11-28 (v0.89.0):** M1, M3, M4, M5, M6 and O1–O5, a note beside every number, the Floor Stock
-`stock_levels` lookup (approved by the owner the same day). **G4 (fixed place list)** approved in principle: plan in
-section 7 ("G4"), G4-a…d decided as recommended (owner 2026-11-28); mock-up and migration shown before code.
-**Phases 4 + 5 built 2026-11-28 (v0.90.0, not deployed):** plan approved in plan mode, mock-up OK
-(https://claude.ai/artifact/TLZ4DyBSEDRjPQsczoLMNw), migration `0029_morning_reports.sql` approved by the owner. Choices
-P4-a…e / P5-a…d as recommended (Sales NOTES.md "Plant answers Phases 4 + 5"). **Live 2026-11-28** (migration `0029`, cron-job.org row 15 at 08:30, test run OK). **Next:** the owner's 3-day checks,
-then the Break-even planner (new session).
+**Read this first in the next session.** Status (2026-11-28): **Phases 0–5 done and live for plant 001.**
+- v0.88.0 Phase 1 (M2); v0.89.0 Phases 2 + 3 (M1, M3–M6, O1–O5); **v0.90.0 Phases 4 + 5** (S1–S4 + the 8:30 morning
+  report; migration `0029_morning_reports.sql`; cron-job.org row 15, test run 200 and the notification received by the
+  owner 2026-11-28). Code and details: Sales and Floor Stock NOTES.md ("Plant answers Phases 4 + 5").
+- **Paused by the owner (2026-11-28):** "I will start this later." The owner works on the **Break-even planner in a
+  different session** (handover `docs/FINANCIALS_PHASE_PLAN.md` section 0). Nothing here is built until the owner
+  says so.
+
+**Running meanwhile (owner, no code):**
+1. **Phase 6, the two-week trial** (from 29 Nov 2026): the report arrives each morning at 8:30; the owner taps Useful /
+   Not useful on each action (the data for Phase 7). Targets in Phase 6 below.
+2. The owner's checks: S1–S4 against Floor Stock's own screens for 3 days; the Phase 2 + 3 cards against their reports
+   (M1 Customer Balances, M3 / M5 Business charts, M4 / M6 the cash day sheet, O1 Pending + Floor Stock's last count).
+3. First live report (28 Nov test run): 7 actions; first = "Screw cap | Dark Blue | 26-22 | Flat" not updated in the
+   27 Nov count. The owner was told how to check it on Floor Stock's 27 Nov day page and correct, or tap Not useful.
+
+**When the owner restarts this plan (in this order, each needs the owner's "start"):**
+1. Read the trial's taps (`morning_report_marks`) and the owner's notes; **Phase 7, tune the rules** (drop unused
+   action types, change limits / order, add what the owner wished for).
+2. **G4 fixed place list** (decided G4-a…d as recommended): Places screen mock-up first, then the migration shown.
+   Can come before Phase 7 if the owner prefers.
+3. Then Phases 8–15 one at a time (section 7). No AI before Phase 15.
+4. After the trial: switch other plants on (`PLANT_ANSWERS_PLANTS`, D9) only when the owner says.
 
 **Decided (all phases):**
 - Direction: maximum **without AI**, built so AI can be added later without a rewrite (D3, D13). No AI code until Phase 15.
@@ -42,7 +57,7 @@ then the Break-even planner (new session).
 
 **Where the code is** (Sales, `apps/order-capture`; details in its NOTES.md, "Plant answers Phase 1"):
 - `src/lib/answers/cards.ts` (the one card list + privacy labels), `facts.ts`, `word.ts` (sentences, `WORDING_VERSION`),
-  `copy.ts` (shareable facts only + last guard against ₹ / phones; masks a mobile inside a name), `rank.ts` (type only),
+  `copy.ts` (shareable facts only + last guard against ₹ / phones; masks a mobile inside a name), `rank.ts` (the morning report's priority rules, `rankRules`), `stock-cards.ts` (S1–S4),
   `m2.ts` (M2 facts from `openBillsAsOf` in `src/lib/receivables.ts`).
 - `src/server/answers.ts`: `runCard` (switch → access → built card → facts), `listCards`, `copyFor`, `RULES_VERSION`.
 - Access rows `answers` (owner, support), `answers_private`, `answers_copy` (owner) in `src/server/access.ts`.
@@ -57,19 +72,6 @@ masking a mobile inside a customer name in the copied text ("Retail Customer xxx
 **Phases 2 + 3 (built 2026-11-28, v0.89.0):** code in `src/lib/answers/money-cards.ts`, `order-cards.ts`,
 `src/server/answers-data.ts`; Floor Stock `src/server/stock-levels.ts`; details in both NOTES.md. Mock-up (owner OK + "start"
 2026-11-28): https://claude.ai/artifact/G2h1tbTPDDNX4jmmUHtPJi. Tests: Sales 1,513, Floor Stock 202, platform 452.
-
-**Next session:**
-1. ~~Copy test + masking~~ done 2026-11-28; Phase 1 closed.
-2. ~~Deploy v0.89.0~~ live 2026-11-28. The owner checks each card against its report on the live copy (Phase 2 "Done
-   when", plus O1 against Pending and Floor Stock's last count).
-3. **Phases 4 + 5 together** (owner 2026-11-28): one plan for both, in plan mode; Phase 5 needs the approvals listed
-   in section 10 (migration for morning reports and marks, the 8:30 job, the notification kind).
-4. G4 (decided as recommended): the Places screen mock-up, then the migration shown, after or beside Phases 4 + 5 as the
-   owner prefers.
-
-**After Phases 4 and 5 (owner, 2026-11-28): the Break-even planner starts**, built during the two-week trial (Phase 6),
-in a new session. Handover: `docs/FINANCIALS_PHASE_PLAN.md` section 0 (Financials D1–D8 all decided; BE-D1…BE-D6 open;
-mock-up https://claude.ai/artifact/PWfxdTfXEBRgoNHLhsxRvn).
 
 ## 1. The goal
 
