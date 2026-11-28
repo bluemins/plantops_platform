@@ -52,8 +52,8 @@ starts **Phase 2 planning** (no code until the owner says "start").
 
 **Next session:**
 1. Ask the result of the Copy test (open item 1) and the masking OK (open item 2); then mark Phase 1 done in section 11.
-2. **Phase 2 plan written 2026-11-28** (section 7, "Phase 2"): get the owner's answers to P2-a…f, make the mock-up, then
-   wait for "start".
+2. **Phase 2 plan written 2026-11-28** (section 7, "Phase 2"), M6 added and P2-a…f decided as recommended by the owner
+   the same day, plus a note beside every number. Next: the mock-up of the five cards (with the notes), then "start".
 
 ## 1. The goal
 
@@ -179,6 +179,7 @@ no-AI version carries no unused AI code.
 | M3 | How much came in this week, cash and online? | Ready | | 2 |
 | M4 | Why is cash in hand ₹600 short today? | Partly | Lists what changed since the last close. It shows where to look, not the proven cause | 2 |
 | M5 | Is this month's sales up or down, and from which customers or brands? | Ready | Van cash sales show as a separate line, because they have no product or brand | 2 |
+| M6 | How much cash is in the box now, and how much did we sell today? | Ready | Added by the owner 2026-11-28. Cash is "expected" until the day is closed. Never copied | 2 |
 
 ### Orders and customers
 
@@ -346,9 +347,9 @@ message into WhatsApp.
 **Not in Phase 1:** the other 26 cards (Phases 2–11), the morning report, notifications and job (Phase 5), the search box
 (Phase 12), Odia (Phase 13), anything AI (Phase 15).
 
-### Phase 2: Money cards (M1, M3, M4, M5) (detailed plan, 2026-11-28; waiting for the owner's "start")
+### Phase 2: Money cards (M1, M3, M4, M5, M6) (detailed plan, 2026-11-28; choices decided, waiting for the mock-up OK and "start")
 
-**What the owner gets:** four more questions open in Sales → Reports → Plant answers, each built like M2: one sentence on
+**What the owner gets:** five more questions open in Sales → Reports → Plant answers, each built like M2: one sentence on
 top, the facts below (table on PC, cards on a phone), "As of … · from <report>" with a link to the screen it comes from,
 missing data said in words, and **Copy as WhatsApp message** without rupees or phones. After this phase the whole Money
 area works.
@@ -364,8 +365,9 @@ same rules its report screen already uses; nothing is calculated a second way.
 | **M3** How much came in this week, cash and online? | Customer payments this week split Cash / Online (UPI, bank, cheque, other), van cash sales, the total; the same days last week; the five biggest payments; and a separate line "collected but not posted yet" from Cash → To post | Customer payments (`payments`, not cancelled, by payment date), van cash sales as in `moneyFacts` (`src/server/business.ts`); waiting collection lines as on Cash → To post | Business Overview "money in" for the same days (customer payments + van) and Sales → Payments filtered to the week |
 | **M4** Why is cash in hand short today? | The latest close with a difference (in the last 7 days): counted, expected, short / extra, the reason typed. Then **where to look**: entries since the close before it, biggest first, with marks for entries cancelled after the close, entries back-dated (cash day earlier than the day typed), staff cash given, van reports short, expenses ≥ ₹2,000 | `closesOf` (`src/server/cash.ts`), `expectedOn` / `bookDays` (`src/lib/cash.ts`), `live_difference` from the day sheet | Cash → day sheet of that day (expected, counted, difference) and the month cash book |
 | **M5** Is this month's sales up or down, and from which customers or brands? | This month so far against the same days last month (and last year, when the plant has records then), up / down %; the brands that moved most; the 5 customers who grew most and the 5 who dropped most; van cash sales as their own line (no brand) | `saleFacts` (`src/server/business.ts`, bills + van cash sales, cancelled and opening bills left out), brand rule of `buildCharts` | Reports → Business charts (sales by brand, top customers) for the same dates, and Sales by Customer |
+| **M6** How much cash is in the box now, and how much did we sell today? (owner 2026-11-28) | **Cash in the box:** counted at today's close if the day is closed, else expected now (last count + cash in − cash out since), with when and by whom it was last counted. **Sold today so far:** bills + van cash sales with GST, how many bills and van reports, against the same weekday last week. Any hour of the day, not only at 9 pm | Cash: `daySheet` rules (`expectedOn`, `closesOf`). Sales: the Day report's `sales` / `salesWeekAgo` (`src/server/day-report.ts`) | Cash → today's day sheet (Expected / Counted), and Reports → Day report for today |
 
-**Choices for the owner (recommendation first):**
+**Choices (decided by the owner 2026-11-28: all as recommended):**
 
 | # | Choice | Recommended | Why |
 |---|---|---|---|
@@ -376,19 +378,30 @@ same rules its report screen already uses; nothing is calculated a second way.
 | P2-e | M5 amounts | **Before GST**, the Business charts default | Sales by Item / Business charts then match the card; with GST would differ from both |
 | P2-f | M5 when the month has just begun (1st–3rd) | **Compare last full month with the month before**, and say so | Two days against two days gives big, meaningless percentages |
 
+**Every number has a note beside it (owner, 2026-11-28):** a short grey line under or beside each figure saying what
+it is and what it counts, so no number has to be guessed. Examples:
+- M6 "₹18,450 · **Expected cash**: last count ₹16,200 (Thu 27 Nov, 9:10 pm, Anmol) + ₹4,750 in − ₹2,500 out since. Not
+  counted yet today."
+- M6 "₹42,300 · **Sold today so far**: 9 bills + 1 van report, with GST. Orders not yet billed are not in it."
+- M3 "₹82,000 · **Cash received**: customer payments marked Cash, Mon 24 – Fri 28 Nov. Van cash is the next line."
+- M1 "38 days · **Usually pays in**: their average days from bill to payment, last 12 months."
+The notes live with the field in the card list (`note` on each field), so screens, the later morning report, the finder
+and any later AI all explain a number the same way; the tests require a note on every field.
+
 **What can be copied (D7):** M1 names, places, days late, "paying slower" (no amounts). M3 **only counts** ("18 payments
-this week, 11 cash, 7 online"), no amounts, no customer names (who paid is not for a group). M4 **no Copy**: it is about
+this week, 11 cash, 7 online"), no amounts, no customer names (who paid is not for a group). M6 **no Copy** (cash in hand is not for a group). M4 **no Copy**: it is about
 staff handling cash, so it stays on the owner's screen (like D10). M5 up / down as **percent only** plus brand and
 customer names, no rupees. The copy guard (₹, Rs, +91, 10 digits) stays as the last check.
 
 **Pieces (all in `apps/order-capture`):**
-1. **Card list** `src/lib/answers/cards.ts`: `fields` + `source` for M1, M3, M4, M5, each field with its privacy label;
-   M4 gets a new card flag `noCopy` (screen only, owner and support) so the copy rule stays in the card list.
-2. **Facts**, pure, one file each: `src/lib/answers/m1.ts`, `m3.ts`, `m4.ts`, `m5.ts`, taking the same data the report
+1. **Card list** `src/lib/answers/cards.ts`: M6 added; `fields` + `source` for M1, M3, M4, M5, M6, each field with its
+   privacy label and its **note** (new `note` on `FieldDef`, also filled in for M2); M4 and M6 get a new card flag `noCopy` (screen only, owner and support) so the copy rule stays in the card list.
+2. **Facts**, pure, one file each: `src/lib/answers/m1.ts`, `m3.ts`, `m4.ts`, `m5.ts`, `m6.ts`, taking the same data the report
    uses (as `m2.ts` does) plus `today`.
 3. **Loaders** in `FACTS` (`src/server/answers.ts`): M1 `receivablesData` + bill lines / settles for the insights; M3 a
    read of `payments`, van reports and waiting collection lines for two weeks; M4 `closesOf` + entries of the last 14
-   days; M5 `saleFacts` for the month, last month and last year. Reuse the existing loaders; where a loader is private to
+   days; M5 `saleFacts` for the month, last month and last year; M6 the day sheet's cash math for today + the Day report's sales
+   query (exported, not copied). Reuse the existing loaders; where a loader is private to
    its file, export it rather than copy it.
 4. **Sentences** `src/lib/answers/word.ts` (`WORDING_VERSION` 2), e.g. M3 "₹1,24,500 came in this week (Mon–Fri): ₹82,000
    cash, ₹42,500 online. Last week's same days: ₹1,10,200. ₹3,400 collected is still waiting in To post."
@@ -400,14 +413,16 @@ customer names, no rupees. The copy guard (₹, Rs, +91, 10 digits) stays as the
 7. `RULES_VERSION` 2.
 
 **Tests** (`test/answers-lib.test.ts`, `test/answers.test.ts`):
-- every new field labelled; M4 has no Copy for anyone; no copied text has ₹, "+91" or 10 digits
+- every field labelled and has a note; M4 and M6 have no Copy for anyone; no copied text has ₹, "+91" or 10 digits
 - **numbers match the reports on the same test data**, to the paisa: M1 dues = Customer Balances; M1 "slower" = the
-  customer page's trend; M3 total = Business Overview money in for those days; M4 difference = the day sheet's; M5
+  customer page's trend; M6 cash = the day sheet's expected / counted and sales = the Day report's; M3 total = Business Overview money in for those days; M4 difference = the day sheet's; M5
   totals = Business charts' sales for the same dates and brand split
 - M3: a cancelled payment is not counted; a waiting collection is shown apart and not in the total; a posted one is
   counted once; week from Monday
 - M4: matched / not closed / not started cash book each give the plain sentence; a back-dated entry and an entry
   cancelled after the close are marked
+- M6: closed day = counted; open day = expected with the last count's date; no cash book = "Cash book not started";
+  a cancelled bill is not in today's sales
 - M5: van sales on their own line; 1st–3rd uses the last full month; no last year when the plant has no records then
 - roles, switch and tenant isolation as in Phase 1 for each card (support reads, no Copy; Accounts refused)
 
@@ -415,9 +430,9 @@ customer names, no rupees. The copy guard (₹, Rs, +91, 10 digits) stays as the
 only for the check, temporary data removed afterwards): each card at 390 and 1280 px, each against its report screen,
 Copy on a phone width, support read-only.
 
-**Release:** Sales v0.89.0, no migration, no new setting. **Done when:** the owner opens all four on the live copy and
+**Release:** Sales v0.89.0, no migration, no new setting. **Done when:** the owner opens all five on the live copy and
 each matches its report: M1 against Customer Balances, M3 against Business Overview for the week, M4 against the cash
-day sheet, M5 against Business charts.
+day sheet, M5 against Business charts, M6 against today's day sheet and Day report.
 
 **Not in Phase 2:** ranking actions (Phase 5), anything from Floor Stock (Phase 3 asks for that lookup first), money owed
 to vendors (P1, Phase 8).
@@ -535,5 +550,5 @@ The SSO token does not change.
 |---|---|
 | 0 | **Done 2026-11-24**: mock-ups approved, D7–D12 decided |
 | 1 | **Live 2026-11-24 (v0.88.0)** for plant 001. M2 checked by the owner against Aging Summary (₹58,550, equal). Copy test still to do |
-| 2 | **Planned 2026-11-28** (section 7, Phase 2): waiting for the owner's choices P2-a…f and "start" |
+| 2 | **Planned 2026-11-28** (M1, M3–M6; choices decided): waiting for the mock-up OK and "start" |
 | 3–15 | Not started |
