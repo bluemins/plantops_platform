@@ -8,8 +8,41 @@ Status: **D1–D8 decided by the owner 2026-11-28 (section 2; D3 changed to owne
 Nothing built. Break-even decisions BE-D1…BE-D6 still open (section 8.3). Mock-ups come before any code (rule: mock-up
 before UI).
 
-**Break-even planner (section 8, owner 2026-11-28): top priority after the Morning report plan.** It needs D1–D8, F1 and
-the price part of F2 first (section 8.4), so those move up with it.
+**Break-even planner (section 8, owner 2026-11-28): starts once Morning report Phases 4 and 5 are done**
+(`docs/MORNING_REPORT_PHASE_PLAN.md`), built during the morning report's two-week trial (Phase 6, no code). It needs F1
+and the price part of F2 first (section 8.4), so those move up with it.
+
+## 0. Where we stopped (handover, 2026-11-28)
+
+**Read this first in the session that starts this work.** Nothing is built; everything below is planned and decided
+except BE-D1…BE-D6.
+
+**When to start (owner, 2026-11-28):** after the owner completes **Morning report Phases 4 (stock cards) and 5 (morning
+report at 8:30)**. Phases 6 onwards of the Morning report (the two-week trial, then tuning) run alongside; the owner starts
+a new session for it.
+
+**Decided:**
+- D1 books start **1 Apr 2026**. The CA's computation sheets (`refeDocs/ca/`, git-ignored, never commit them) are
+  presumptive 44AD with no books, so openings come from the owner's asset list, statements and estimates (section 2).
+- D2 inside Sales (Reports → Business Overview + Books tab). **D3 owner only** enters and sees (not Accounts; support
+  reads, logged). D4 monthly bank balance. D5 prices from purchase bills + "Can make" recipe. D6 income-tax WDV rates
+  (an estimate, the CA doesn't depreciate under 44AD). D7 capital worked out. D8 Month close checklist.
+- Break-even: BE-D7 = save one plan per month (the owner's **notes box** + slider values), section 8.2 item 6b.
+- Mock-up (sample numbers, notes box included): https://claude.ai/artifact/PWfxdTfXEBRgoNHLhsxRvn (not yet OK'd by the
+  owner).
+
+**Open:** BE-D1…BE-D6 (section 8.3, each with a recommendation); the owner's OK on the mock-up.
+
+**First steps of that session:**
+1. Ask BE-D1…BE-D6 and the mock-up OK (one question at a time, recommendation first).
+2. Plan **F1** in detail (purchase item kind, expense group → P&L group, Other expenses incl. electricity, rent, EMI as a
+   repeat monthly expense), mock-up first, show migration `0028`-style SQL before any code (check the next free Sales
+   migration number; others may have been used since).
+3. Then F2's price part, the Attendance salary split, then BE1 (order in 8.4).
+
+**Morning report Phase 4 overlap:** Phase 4 adds Floor Stock facts through a lookup (Phase 3 already added
+`stock-levels` in Floor Stock). Reuse that lookup for "boxes made per month" (electricity per box, BE-D2) instead of
+building a second one.
 
 These are **management reports for the owner**, not audited accounts. The CA's books stay the official ones; section 7
 lets the owner compare the two.
@@ -226,10 +259,11 @@ SELECT + INSERT only (corrections = new rows / cancel with a reason, like the ca
 Asked by the owner 2026-11-28: "Raw material, manpower and the electricity bill are the main cost, then the operational
 cost. If I add the unit costing, I want something to tell me how to plan next month's activity so as to break even."
 
-**Priority (owner, 2026-11-28): top priority once the Morning report plan (`docs/MORNING_REPORT_PHASE_PLAN.md`) is
-finished.** Its blockers (section 8.4) are built first, in that order, so start them as soon as the Morning report is done.
+**Priority (owner, 2026-11-28): starts once Morning report Phases 4 and 5 are done** (`docs/MORNING_REPORT_PHASE_PLAN.md`),
+during the morning report's two-week trial. Its blockers (section 8.4) are built first, in that order.
 
-Status: **planned, mock-up made (sample numbers), waiting for the owner's OK and decisions BE-D1…BE-D7.** Nothing built.
+Status: **planned, mock-up made (sample numbers, with the owner's notes box), waiting for the owner's OK and decisions
+BE-D1…BE-D6 (BE-D7 decided).** Nothing built.
 Mock-up: https://claude.ai/artifact/PWfxdTfXEBRgoNHLhsxRvn
 
 ### 8.1 What it answers
@@ -287,7 +321,7 @@ Plant answers later gets a card from it ("Am I on the way to break even this mon
 
 | Order | Blocker | Why the planner needs it | Where |
 |---|---|---|---|
-| 0 | **Morning report plan finished** | Owner's order (2026-11-28) | `docs/MORNING_REPORT_PHASE_PLAN.md` |
+| 0 | **Morning report Phases 4 and 5 done** | Owner's order (2026-11-28) | `docs/MORNING_REPORT_PHASE_PLAN.md` |
 | 1 | **Financials decisions D1–D8** (section 2): **all decided 2026-11-28** (D1 decided 2026-11-28: 1 Apr 2026) | F1 / F2 can't start without them | This plan |
 | 2 | **F1**: purchase item kind, expense type → P&L group, **Other expenses** (electricity, rent, phone, EMI as a repeat monthly expense until F5) | Electricity, rent and EMI are not in PlantOps today; materials must be told apart from equipment | Section 3, F1 |
 | 3 | **F2, the price part only**: purchase item ↔ Floor Stock item link, stock prices, recipe cost per box (D5); the `stock_quantities` lookup (production per month) | Cost of one box; boxes made for electricity per box | Section 3, F2 (stock value on the Balance Sheet can follow later) |

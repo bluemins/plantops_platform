@@ -11,9 +11,10 @@ Filled on 2026-10-24 from CLAUDE.md, every `apps/*/NOTES.md`, the plan docs ("No
 
 ## Next (in this order)
 
-**Owner, 2026-11-28:** after the Morning report plan (`docs/MORNING_REPORT_PHASE_PLAN.md`) is finished, the
-**Break-even planner** is top priority: `docs/FINANCIALS_PHASE_PLAN.md` section 8 (needs Financials D1–D8, F1 and the
-price part of F2 first; order in 8.4). Mock-up https://claude.ai/artifact/PWfxdTfXEBRgoNHLhsxRvn.
+**Owner, 2026-11-28:** after Morning report Phases 4 and 5 (`docs/MORNING_REPORT_PHASE_PLAN.md`), the **Break-even
+planner** starts, in a new session, during the morning report's two-week trial. Handover: `docs/FINANCIALS_PHASE_PLAN.md`
+section 0 (Financials D1–D8 decided, books from 1 Apr 2026; needs F1 and the price part of F2 first, order in 8.4; BE-D1…6
+open). Mock-up https://claude.ai/artifact/PWfxdTfXEBRgoNHLhsxRvn.
 
 | # | Work | Where | Status | Notes |
 |---|---|---|---|---|

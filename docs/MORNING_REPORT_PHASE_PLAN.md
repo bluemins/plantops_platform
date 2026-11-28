@@ -12,10 +12,12 @@ screens or saved reports (section 3, "Ready for AI later"). No AI package, key o
 Replaces the "Daily action agent" idea in `docs/TODO.md` (2026-11-01). The model for the morning content is section 6 of
 `docs/ORDER_FLOW_LEAN_ANALYSIS.md`: each action comes with the reason behind it.
 
-## 0. Where we stopped (handover, 2026-11-24)
+## 0. Where we stopped (handover, 2026-11-28)
 
-**Read this first in the next session.** Status: **Phase 0 done, Phase 1 live (v0.88.0) for plant 001.** Next session
-starts **Phase 2 planning** (no code until the owner says "start").
+**Read this first in the next session.** Status: **Phase 0 done, Phase 1 live (v0.88.0) for plant 001. Phases 2 + 3
+built 2026-11-28 (v0.89.0, not deployed):** M1, M3, M4, M5, M6 and O1–O5, a note beside every number, the Floor Stock
+`stock_levels` lookup (approved by the owner the same day). **G4 (fixed place list)** approved in principle: plan in
+section 7 ("G4"), waiting for the owner's choices G4-a…d, mock-up and migration before code.
 
 **Decided (all phases):**
 - Direction: maximum **without AI**, built so AI can be added later without a rewrite (D3, D13). No AI code until Phase 15.
@@ -50,16 +52,20 @@ starts **Phase 2 planning** (no code until the owner says "start").
 2. Not yet decided by the owner: masking a mobile inside a customer name in the copied text ("Retail Customer xxxxxx3831").
    Recommended: keep.
 
+**Phases 2 + 3 (built 2026-11-28, v0.89.0):** code in `src/lib/answers/money-cards.ts`, `order-cards.ts`,
+`src/server/answers-data.ts`; Floor Stock `src/server/stock-levels.ts`; details in both NOTES.md. Mock-up (owner OK + "start"
+2026-11-28): https://claude.ai/artifact/G2h1tbTPDDNX4jmmUHtPJi. Tests: Sales 1,513, Floor Stock 202, platform 452.
+
 **Next session:**
 1. Ask the result of the Copy test (open item 1) and the masking OK (open item 2); then mark Phase 1 done in section 11.
-2. **Phase 2 plan written 2026-11-28** (section 7, "Phase 2"), M6 added and P2-a…f decided as recommended by the owner
-   the same day, plus a note beside every number. Mock-up of the five cards + Phase 3's O1–O5 made the same day (sample data, a note under every number):
-   https://claude.ai/artifact/G2h1tbTPDDNX4jmmUHtPJi. Next: the owner's OK on it, then "start" for Phase 2; Phase 3's
-   detailed plan after that (its Floor Stock link for O1 needs approval).
+2. **Deploy v0.89.0** when the owner says so: Floor Stock first (its new endpoint), then the platform (the new lookup
+   scope in `packages/types`), then Sales. No migration, no new setting. Then the owner checks each card against its
+   report on the live copy (Phase 2 "Done when", plus O1 against Pending and Floor Stock's last count).
+3. G4: the owner's choices G4-a…d, then the mock-up and the migration shown before any code.
 
-**After this plan is finished (owner, 2026-11-28): the Break-even planner is the top priority**,
-`docs/FINANCIALS_PHASE_PLAN.md` section 8 (blockers and build order in 8.4; mock-up
-https://claude.ai/artifact/PWfxdTfXEBRgoNHLhsxRvn).
+**After Phases 4 and 5 (owner, 2026-11-28): the Break-even planner starts**, built during the two-week trial (Phase 6),
+in a new session. Handover: `docs/FINANCIALS_PHASE_PLAN.md` section 0 (Financials D1–D8 all decided; BE-D1…BE-D6 open;
+mock-up https://claude.ai/artifact/PWfxdTfXEBRgoNHLhsxRvn).
 
 ## 1. The goal
 
@@ -353,7 +359,7 @@ message into WhatsApp.
 **Not in Phase 1:** the other 26 cards (Phases 2–11), the morning report, notifications and job (Phase 5), the search box
 (Phase 12), Odia (Phase 13), anything AI (Phase 15).
 
-### Phase 2: Money cards (M1, M3, M4, M5, M6) (detailed plan, 2026-11-28; choices decided, waiting for the mock-up OK and "start")
+### Phase 2: Money cards (M1, M3, M4, M5, M6) (plan 2026-11-28; built the same day, v0.89.0)
 
 **What the owner gets:** five more questions open in Sales → Reports → Plant answers, each built like M2: one sentence on
 top, the facts below (table on PC, cards on a phone), "As of … · from <report>" with a link to the screen it comes from,
@@ -443,9 +449,43 @@ day sheet, M5 against Business charts, M6 against today's day sheet and Day repo
 **Not in Phase 2:** ranking actions (Phase 5), anything from Floor Stock (Phase 3 asks for that lookup first), money owed
 to vendors (P1, Phase 8).
 
-### Phase 3: Order and customer cards (O1–O5)
-Reuse `order-flow.ts`, `flow-check.ts`, `customer-insights.ts`. **Needs approval:** new read-only lookup scope for stock
-facts, Sales → Floor Stock (`day_report` returns display text and is not suited to this).
+### Phase 3: Order and customer cards (O1–O5) (built with Phase 2, 2026-11-28; owner "go ahead for phase 3 also")
+- **Approved by the owner 2026-11-28:** the read-only lookup scope **`stock_levels`**, Sales → Floor Stock (`LOOKUPS` in
+  `packages/types`). Floor Stock answers `GET /api/plantops/stock-levels` (`src/server/stock-levels.ts`): the newest
+  count's closing stock of finished products linked to a PlantOps product, counts only (`StockLevels`). No schema change.
+- **O1** pending orders 48 h or older (the Pending tab's amber rule) + the stock all pending orders need against that
+  count; Floor Stock off or not answering = "Stock not checked", said in words.
+- **O2 / O3 / O5** from each customer's "Buying & paying" (`customerInsights`, the customer page's rules), read for the
+  whole plant (`plantBuying` in `src/server/answers-data.ts`). O3 picks a product (most stopped first); O5 searches a
+  customer by name, place or the last digits of the mobile.
+- **O4** orders by place for a period (this month, last month, this quarter, this FY) against the same number of days
+  before; spellings that differ only by case or spaces are one place; Order flow check's look-alike rule (one letter
+  apart) lists the rest. **G4 (fixed place list) approved in principle 2026-11-28; its plan below, not built yet.**
+
+### G4: a fixed place list (approved in principle by the owner 2026-11-28; plan, waiting for the owner's choices)
+**Why:** O4 and route planning count "Khurda", "Khordha" and "Khurdha" as three places.
+
+**Recommended shape (smallest change that fixes it for good):**
+1. **Places screen** in Sales (Customers → Places, owner only, support reads): every place typed on customers with its
+   customer count, look-alikes side by side. **Merge** "Khordha" into "Khurda": every customer with that spelling gets
+   the chosen name (the same change "Select → Place" already makes, one Recent changes line per customer, audited).
+   No schema change for this part.
+2. **One new table `places`** (Sales migration, FORCE RLS, SELECT + INSERT, UPDATE only on `active`): the plant's own
+   list of place names. The customer forms (Add customer, Edit, New order's new customer, Calls' new caller, the bulk
+   Place change) then **suggest** from the list as you type, and a name not on the list asks "Add Khurdha as a new
+   place?" before saving. Customers keep their place as text (no link column), so the bot, CSV, Drop, field day and
+   every report keep working unchanged.
+
+**Choices for the owner:**
+
+| # | Choice | Recommended | Why |
+|---|---|---|---|
+| G4-a | Build the Places screen (merge) first, the list second | **Yes, two steps** | The merge cleans today's data at once with no migration; the list stops new spellings |
+| G4-b | A new spelling not on the list | **Asked once, then added** | Refusing it would block an order at the door; asking catches most typos |
+| G4-c | Who adds places to the list | **Owner, Order desk, Accounts, Marketing staff** (everyone who types a customer's place) | Otherwise staff get stuck on a new village |
+| G4-d | Odia / Hindi names | **Later**, with Phase 13 | One spelling per place first |
+
+Mock-up of the Places screen and the place box before any code (rule: mock-up before UI); the migration shown first.
 
 ### Phase 4: Stock and production cards (S1–S4)
 Reuse `recipe.ts` and `not-updated.ts` in Floor Stock. Compare results with the owner's knowledge of the plant for 3 days.
@@ -573,5 +613,6 @@ The SSO token does not change.
 |---|---|
 | 0 | **Done 2026-11-24**: mock-ups approved, D7–D12 decided |
 | 1 | **Live 2026-11-24 (v0.88.0)** for plant 001. M2 checked by the owner against Aging Summary (₹58,550, equal). Copy test still to do |
-| 2 | **Planned 2026-11-28** (M1, M3–M6; choices decided): waiting for the mock-up OK and "start" |
-| 3–15 | Not started |
+| 2 | **Built 2026-11-28 (v0.89.0)**: M1, M3, M4, M5, M6; not deployed |
+| 3 | **Built 2026-11-28 (v0.89.0)**: O1–O5 + Floor Stock `stock_levels` lookup; not deployed. G4 planned, not built |
+| 4–15 | Not started |
