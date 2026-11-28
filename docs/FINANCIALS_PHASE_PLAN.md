@@ -4,7 +4,7 @@ Asked by the owner 2026-11-20: "Balance sheet (cash, receivables, inventory, fix
 P&L (sales, cost of goods sold, operating expenses, taxes, net income). If any data is missing, plan something for the
 owner to enter it, so we get a proper view."
 
-Status: **D2–D8 decided by the owner 2026-11-28 (D3 changed to owner only); D1 open until the CA's computation sheets
+Status: **D1–D8 decided by the owner 2026-11-28 (D3 changed to owner only; books start 1 Apr 2026).
 are read (section 2).** Nothing built. Mock-ups come after the decisions, before
 any code (rule: mock-up before UI).
 
@@ -57,7 +57,7 @@ lets the owner compare the two.
 
 | # | Decided |
 |---|---|
-| D1 | **Open, waiting for the owner's OK on the revised recommendation.** The CA's computation sheets were read 2026-11-28: presumptive filing (44AD), no books, so they give no opening balances. Recommended: start 1 Apr 2026 with openings from the owner's asset list, statements and estimates. See "D1: working from the computation sheet" below. |
+| D1 | **Decided 2026-11-28: books start 1 Apr 2026.** The CA's computation sheets (in `refeDocs/ca/`, git-ignored) are presumptive 44AD with no books, so openings come from the owner's asset list, statements and estimates (table below). |
 | D2 | As recommended: **inside Sales** (Reports → Business Overview + a Books tab). |
 | D3 | **Owner only, changed from the recommendation**: only the owner enters the figures and only the owner sees the P&L, Balance Sheet, assets and loans. Accounts gets nothing new. PlantOps support reads (logged), as on every report. |
 | D4 | As recommended: **monthly closing balance** typed from the statement (+ optional file). |
@@ -288,7 +288,7 @@ Plant answers later gets a card from it ("Am I on the way to break even this mon
 | Order | Blocker | Why the planner needs it | Where |
 |---|---|---|---|
 | 0 | **Morning report plan finished** | Owner's order (2026-11-28) | `docs/MORNING_REPORT_PHASE_PLAN.md` |
-| 1 | **Financials decisions D1–D8** (section 2): D2–D8 decided 2026-11-28; **D1 waits for the CA's computation sheets** (F1 and F2 can start without D1; only F6's opening balances need it) | F1 / F2 can't start without them | This plan |
+| 1 | **Financials decisions D1–D8** (section 2): **all decided 2026-11-28** (D1 decided 2026-11-28: 1 Apr 2026) | F1 / F2 can't start without them | This plan |
 | 2 | **F1**: purchase item kind, expense type → P&L group, **Other expenses** (electricity, rent, phone, EMI as a repeat monthly expense until F5) | Electricity, rent and EMI are not in PlantOps today; materials must be told apart from equipment | Section 3, F1 |
 | 3 | **F2, the price part only**: purchase item ↔ Floor Stock item link, stock prices, recipe cost per box (D5); the `stock_quantities` lookup (production per month) | Cost of one box; boxes made for electricity per box | Section 3, F2 (stock value on the Balance Sheet can follow later) |
 | 4 | **Salary by staff type** from Attendance: monthly / fixed vs per-day totals for a paid month | Fixed vs per-box salary (BE-D6). Today's `salary_totals` scope gives one total; needs the split (Attendance answer change, **ask**) | Attendance `GET /api/plantops/salary-totals` |
