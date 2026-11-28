@@ -14,8 +14,8 @@ Replaces the "Daily action agent" idea in `docs/TODO.md` (2026-11-01). The model
 
 ## 0. Where we stopped (handover, 2026-11-28)
 
-**Read this first in the next session.** Status: **Phase 0 done, Phase 1 live (v0.88.0) for plant 001. Phases 2 + 3
-built 2026-11-28 (v0.89.0, not deployed):** M1, M3, M4, M5, M6 and O1–O5, a note beside every number, the Floor Stock
+**Read this first in the next session.** Status: **Phases 0 and 1 done (v0.88.0, plant 001). Phases 2 + 3
+live 2026-11-28 (v0.89.0):** M1, M3, M4, M5, M6 and O1–O5, a note beside every number, the Floor Stock
 `stock_levels` lookup (approved by the owner the same day). **G4 (fixed place list)** approved in principle: plan in
 section 7 ("G4"), G4-a…d decided as recommended (owner 2026-11-28); mock-up and migration shown before code.
 **Next session (owner 2026-11-28): Phases 4 and 5 together** (stock cards S1–S4 + the 8:30 morning report).
@@ -48,20 +48,17 @@ section 7 ("G4"), G4-a…d decided as recommended (owner 2026-11-28); mock-up an
 - **Adding a card:** add its `fields` + `source` in `cards.ts`, a sentence in `word.ts`, a facts function in
   `FACTS` (`src/server/answers.ts`); the card-list test then requires labels and a sentence for it.
 
-**Open (small):**
-1. The owner's **Copy test** on M2: paste into WhatsApp, check names / places / bills / days only, no ₹ or phones.
-2. Not yet decided by the owner: masking a mobile inside a customer name in the copied text ("Retail Customer xxxxxx3831").
-   Recommended: keep.
+**Phase 1 closed (owner 2026-11-28):** Copy test on M2 passed (names / places / bills / days only, no ₹ or phones);
+masking a mobile inside a customer name in the copied text ("Retail Customer xxxxxx3831") kept.
 
 **Phases 2 + 3 (built 2026-11-28, v0.89.0):** code in `src/lib/answers/money-cards.ts`, `order-cards.ts`,
 `src/server/answers-data.ts`; Floor Stock `src/server/stock-levels.ts`; details in both NOTES.md. Mock-up (owner OK + "start"
 2026-11-28): https://claude.ai/artifact/G2h1tbTPDDNX4jmmUHtPJi. Tests: Sales 1,513, Floor Stock 202, platform 452.
 
 **Next session:**
-1. Ask the result of the Copy test (open item 1) and the masking OK (open item 2); then mark Phase 1 done in section 11.
-2. **Deploy v0.89.0** when the owner says so: Floor Stock first (its new endpoint), then the platform (the new lookup
-   scope in `packages/types`), then Sales. No migration, no new setting. Then the owner checks each card against its
-   report on the live copy (Phase 2 "Done when", plus O1 against Pending and Floor Stock's last count).
+1. ~~Copy test + masking~~ done 2026-11-28; Phase 1 closed.
+2. ~~Deploy v0.89.0~~ live 2026-11-28. The owner checks each card against its report on the live copy (Phase 2 "Done
+   when", plus O1 against Pending and Floor Stock's last count).
 3. **Phases 4 + 5 together** (owner 2026-11-28): one plan for both, in plan mode; Phase 5 needs the approvals listed
    in section 10 (migration for morning reports and marks, the 8:30 job, the notification kind).
 4. G4 (decided as recommended): the Places screen mock-up, then the migration shown, after or beside Phases 4 + 5 as the
@@ -616,7 +613,7 @@ The SSO token does not change.
 | Phase | Status |
 |---|---|
 | 0 | **Done 2026-11-24**: mock-ups approved, D7–D12 decided |
-| 1 | **Live 2026-11-24 (v0.88.0)** for plant 001. M2 checked by the owner against Aging Summary (₹58,550, equal). Copy test still to do |
-| 2 | **Built 2026-11-28 (v0.89.0)**: M1, M3, M4, M5, M6; not deployed |
-| 3 | **Built 2026-11-28 (v0.89.0)**: O1–O5 + Floor Stock `stock_levels` lookup; not deployed. G4 planned, not built |
+| 1 | **Done 2026-11-28** (live v0.88.0, plant 001). M2 checked against Aging Summary (₹58,550, equal); Copy test passed and mobile masking in names kept (owner 2026-11-28) |
+| 2 | **Live 2026-11-28 (v0.89.0)**: M1, M3, M4, M5, M6. Owner's live check against each report still to do |
+| 3 | **Live 2026-11-28 (v0.89.0)**: O1–O5 + Floor Stock `stock_levels` lookup. Owner's live check still to do. G4 decided, not built |
 | 4–15 | Not started |
