@@ -239,6 +239,12 @@ Top to bottom, as in the mock-up:
    (with the purchase bill). A line says how much of the gap they close together.
 6. **Try a plan:** sliders for price change, extra boxes a day, material prices %, fixed costs; break-even and next month's
    result recalculated in the browser. Nothing saved (BE-D7).
+6b. **Your notes for <month>** (owner, 2026-11-28): a text box (≤ 1,000 characters) for what the numbers can't know:
+   festivals, a van in repair, an agreed price, a big order coming. **Save <month> plan** stores the note together with the
+   slider values. The note is shown at the top of the page all month and in a month-end line ("You planned 9,040 boxes;
+   you sold 8,310"); earlier months' notes and results are listed. The rules don't read the sentences (the page says to
+   set the matching slider); if AI is switched on later (Morning report Phase 15), it reads the note with the numbers.
+   Owner only; support reads (logged); never copied.
 7. **Cash is not profit:** customers owe over 30 days, salary due on the 1st, vendors due this month, cash in hand, bank
    balance (F3). Collecting dues doesn't change break-even but decides whether salary is paid on time.
 
@@ -254,7 +260,7 @@ Plant answers later gets a card from it ("Am I on the way to break even this mon
 | BE-D4 | Which month's mix and prices | **Last full month's product mix and selling prices** (bill values ÷ boxes), **latest purchase rate** for materials | Simple and close to next month; the sliders cover changes. |
 | BE-D5 | Working days | **26 a month by default**, owner changes it on the page settings | Used only for "a day" figures. |
 | BE-D6 | Per-day staff | **Counted per box** (their pay last month ÷ boxes made); monthly and fixed staff are fixed | Per-day staff come when there's work, so they move with production. |
-| BE-D7 | Save plans? | **No, the sliders are a calculator only** in the first release. Saving "December plan: 8,100 boxes" and comparing it at month end comes later if wanted | Keeps the first release free of a new table for plans. |
+| BE-D7 | Save plans? | **Yes, decided by the owner's notes box (2026-11-28):** one saved plan per month = the owner's note + the slider values, a new version on each save (old ones kept); month end compares planned with sold | The note is only useful if it is kept with the plan it explains. |
 
 ### 8.4 Dependency blockers (build order)
 
@@ -273,7 +279,8 @@ shops (Receivables, Buying & paying) all exist.
 
 ### 8.5 Approvals needed (asked before building)
 - Sales migration for the planner settings: expense group → fixed / per box, electricity fixed charge, working days (one
-  small table, FORCE RLS, SELECT + INSERT, history by date). Shown first.
+  small table, FORCE RLS, SELECT + INSERT, history by date), and **`breakeven_plans`** (plant, month, owner's note ≤ 1,000
+  characters, slider values, saved by / at; a new row per save, FORCE RLS, SELECT + INSERT only). Shown first.
 - Attendance's salary-totals answer gains the per staff type split (no Attendance schema change expected).
 - No platform schema, no SSO token change, no new service.
 
