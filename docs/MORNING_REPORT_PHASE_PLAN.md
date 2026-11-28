@@ -53,7 +53,9 @@ starts **Phase 2 planning** (no code until the owner says "start").
 **Next session:**
 1. Ask the result of the Copy test (open item 1) and the masking OK (open item 2); then mark Phase 1 done in section 11.
 2. **Phase 2 plan written 2026-11-28** (section 7, "Phase 2"), M6 added and P2-a…f decided as recommended by the owner
-   the same day, plus a note beside every number. Next: the mock-up of the five cards (with the notes), then "start".
+   the same day, plus a note beside every number. Mock-up of the five cards + Phase 3's O1–O5 made the same day (sample data, a note under every number):
+   https://claude.ai/artifact/G2h1tbTPDDNX4jmmUHtPJi. Next: the owner's OK on it, then "start" for Phase 2; Phase 3's
+   detailed plan after that (its Floor Stock link for O1 needs approval).
 
 **After this plan is finished (owner, 2026-11-28): the Break-even planner is the top priority**,
 `docs/FINANCIALS_PHASE_PLAN.md` section 8 (blockers and build order in 8.4; mock-up
