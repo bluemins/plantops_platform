@@ -4,9 +4,9 @@ Asked by the owner 2026-11-20: "Balance sheet (cash, receivables, inventory, fix
 P&L (sales, cost of goods sold, operating expenses, taxes, net income). If any data is missing, plan something for the
 owner to enter it, so we get a proper view."
 
-Status: **D1–D8 decided by the owner 2026-11-28 (D3 changed to owner only; books start 1 Apr 2026).
-are read (section 2).** Nothing built. Mock-ups come after the decisions, before
-any code (rule: mock-up before UI).
+Status: **D1–D8 decided by the owner 2026-11-28 (section 2; D3 changed to owner only; books start 1 Apr 2026).**
+Nothing built. Break-even decisions BE-D1…BE-D6 still open (section 8.3). Mock-ups come before any code (rule: mock-up
+before UI).
 
 **Break-even planner (section 8, owner 2026-11-28): top priority after the Morning report plan.** It needs D1–D8, F1 and
 the price part of F2 first (section 8.4), so those move up with it.
