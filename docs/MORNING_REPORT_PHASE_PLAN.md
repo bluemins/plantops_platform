@@ -20,8 +20,8 @@ live 2026-11-28 (v0.89.0):** M1, M3, M4, M5, M6 and O1–O5, a note beside every
 section 7 ("G4"), G4-a…d decided as recommended (owner 2026-11-28); mock-up and migration shown before code.
 **Phases 4 + 5 built 2026-11-28 (v0.90.0, not deployed):** plan approved in plan mode, mock-up OK
 (https://claude.ai/artifact/TLZ4DyBSEDRjPQsczoLMNw), migration `0029_morning_reports.sql` approved by the owner. Choices
-P4-a…e / P5-a…d as recommended (Sales NOTES.md "Plant answers Phases 4 + 5"). **Next:** deploy when the owner says
-(migration `0029` first; Floor Stock → platform → Sales; cron-job.org row 15 at 08:30), then the owner's 3-day checks.
+P4-a…e / P5-a…d as recommended (Sales NOTES.md "Plant answers Phases 4 + 5"). **Live 2026-11-28** (migration `0029`, cron-job.org row 15 at 08:30, test run OK). **Next:** the owner's 3-day checks,
+then the Break-even planner (new session).
 
 **Decided (all phases):**
 - Direction: maximum **without AI**, built so AI can be added later without a rewrite (D3, D13). No AI code until Phase 15.
@@ -619,6 +619,6 @@ The SSO token does not change.
 | 1 | **Done 2026-11-28** (live v0.88.0, plant 001). M2 checked against Aging Summary (₹58,550, equal); Copy test passed and mobile masking in names kept (owner 2026-11-28) |
 | 2 | **Live 2026-11-28 (v0.89.0)**: M1, M3, M4, M5, M6. Owner's live check against each report still to do |
 | 3 | **Live 2026-11-28 (v0.89.0)**: O1–O5 + Floor Stock `stock_levels` lookup. Owner's live check still to do. G4 decided, not built |
-| 4 | **Built 2026-11-28 (v0.90.0, not deployed)**: S1–S4 + Floor Stock `stock_answers` lookup. Owner checks vs Floor Stock for 3 days after deploy |
-| 5 | **Built 2026-11-28 (v0.90.0, not deployed)**: morning report, migration `0029`, job + cron row 15, kind `order_capture.morning_report`. Done when it arrives 3 mornings in a row |
+| 4 | **Live 2026-11-28 (v0.90.0)**: S1–S4 + Floor Stock `stock_answers` lookup. Owner checks vs Floor Stock for 3 days after deploy |
+| 5 | **Live 2026-11-28 (v0.90.0)**: morning report, migration `0029`, kind `order_capture.morning_report`; cron-job.org row 15 added, test run 200 + notification received. Done when it arrives 3 mornings in a row |
 | 6–15 | Not started |
